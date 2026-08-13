@@ -102,7 +102,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orca Journey')] class extends
     <!-- Packages Section -->
     <section id="bundling" class="min-h-screen flex flex-col items-center justify-center py-24 bg-slate-50">
         <div class="container px-4 mx-auto max-w-7xl">
-            <div class="mb-12 text-center">
+            <div class="mb-12 text-center section-heading">
                 <p class="mb-2 font-semibold tracking-wider uppercase text-orange-300">
                     Paket Wisata</p>
                 <h3 class="text-3xl font-bold font-heading text-blue-950 md:text-4xl">Pilihan Paket Bundling</h3>
@@ -147,7 +147,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orca Journey')] class extends
                             <p class="font-semibold text-slate-900">Destinasi Wisata:</p>
                             @foreach ($package->destination_list ?? [] as $destination)
                                 <div class="flex items-start gap-2">
-                                    <svg class="w-5 h-5 flex-shrink-0 mt-0.5 {{ $package->is_best_choice ? 'text-orange-300' : 'text-cyan-500' }}"
+                                    <svg class="w-5 h-5 flex-shrink-0 mt-0.5 {{ $package->is_best_choice ? 'text-orange-300' : 'text-sky-500' }}"
                                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -158,7 +158,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orca Journey')] class extends
 
                         </div>
                         <button
-                            class="w-full py-3 mt-8 font-bold text-white transition rounded-xl bg-blue-950 hover:bg-sky-500">Pesan
+                            class="w-full py-3 mt-8 font-bold text-white transition rounded-full bg-blue-950 hover:bg-sky-500">Pesan
                             Sekarang</button>
                     </div>
                 @endforeach
@@ -168,16 +168,15 @@ new #[Layout('components.layouts.guest')] #[Title('Orca Journey')] class extends
 
     <!-- Top Destinations -->
     <section class="relative w-full h-screen overflow-hidden bg-black dest-wrapper">
-        <div class="mb-12 absolute z-99 top-32 left-10">
+        <div class="mb-12 absolute z-99 top-32 left-10 section-heading">
             <p class="mb-2 font-semibold tracking-wide uppercase text-orange-300">Destinasi Populer
             </p>
-            <h3 class="text-3xl font-bold text-gray-200 md:text-4xl">Tempat Wisata Favorit</h3>
+            <h3 class="text-3xl font-bold text-slate-200 md:text-4xl">Tempat Wisata Favorit</h3>
         </div>
 
         @foreach ($destinations as $index => $dest)
             <div class="absolute inset-0 w-full h-full dest-item" style="z-index: {{ $index === 0 ? 1 : 0 }};">
-                <div class="absolute inset-0 w-full h-full dest-inner"
-                    style="{{ $index === 0 ? '' : 'visibility: hidden; opacity: 0;' }}">
+                <div class="absolute inset-0 w-full h-full dest-inner" style="visibility: hidden; opacity: 0;">
                     <div class="absolute inset-0 bg-center bg-cover image-bg"
                         style="background-image: url('{{ $dest['bg'] }}'); filter: brightness(0.5);"></div>
                     <div class="relative flex flex-col items-center justify-between w-full h-full p-8 md:flex-row">
@@ -204,11 +203,11 @@ new #[Layout('components.layouts.guest')] #[Title('Orca Journey')] class extends
 
     <section class="py-24 bg-white car-section">
         <div class="container px-4 mx-auto max-w-7xl">
-            <h2 class="mb-16 text-4xl font-bold text-center text-blue-950">Armada Tersedia</h2>
+            <h2 class="mb-16 text-3xl md:text-4xl font-bold text-center text-blue-950 section-heading">Armada Tersedia</h2>
             <div class="grid grid-cols-1 gap-8 md:grid-cols-3">
                 @foreach ($cars as $car)
-                    <div class="overflow-hidden border border-gray-100 shadow-lg car-card rounded-2xl group">
-                        <div class="relative h-48 overflow-hidden bg-gray-200">
+                    <div class="overflow-hidden border border-slate-100 shadow-lg car-card rounded-2xl group">
+                        <div class="relative h-48 overflow-hidden bg-slate-200">
                             <img src="{{ $car->image ? $car->image : 'https://imgx.gridoto.com/crop/154x203:3090x2215/700x465/filters:watermark(file/2017/gridoto/img/watermark.png,5,5,60)/photo/2024/12/04/whatsapp-image-2024-12-04-at-22-20241204102536.jpeg' }}"
                                 class="object-cover w-full h-full transition duration-500 group-hover:scale-110"
                                 alt="{{ $car->brand }}">
@@ -219,29 +218,23 @@ new #[Layout('components.layouts.guest')] #[Title('Orca Journey')] class extends
                             </p>
 
                             <div
-                                class="flex items-center justify-between py-3 mb-4 mt-4 text-sm text-gray-600 border-t border-b border-gray-100">
-                                <span class="flex items-center"><svg class="w-4 h-4 mr-1 text-amber-500"
-                                        fill="currentColor" viewBox="0 0 20 20">
-                                        <path
-                                            d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z">
-                                        </path>
-                                    </svg> {{ $car->capacity }}</span>
-                                <span class="flex items-center"><svg class="w-4 h-4 mr-1 text-amber-500" fill="none"
-                                        stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
-                                        </path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                    </svg> {{ $car->transmission }}</span>
+                                class="flex items-center justify-between py-3 mb-4 mt-4 text-sm text-slate-600 border-t border-b border-slate-100">
+                                <span class="flex items-center gap-1">
+                                    <x-heroicon-o-users class="w-4 h-4 text-amber-500" />
+                                    {{ $car->capacity }}
+                                </span>
+                                <span class="flex items-center gap-1">
+                                    <x-heroicon-o-cog-6-tooth class="w-4 h-4 text-amber-500" />
+                                    {{ $car->transmission }}
+                                </span>
                             </div>
 
                             <div class="flex items-center justify-between">
-                                <p class="text-xl font-bold text-blue-950">
+                                <p class="text-xl font-black text-blue-950">
                                     Rp {{ number_format($car->price_per_day, 0, ',', '.') }}
                                 </p>
                                 <button
-                                    class="px-4 py-2 font-semibold text-white transition rounded-lg bg-blue-950 hover:bg-amber-400">Sewa</button>
+                                    class="px-4 py-2 font-bold text-white transition rounded-full bg-blue-950 hover:bg-sky-500">Sewa</button>
                             </div>
                         </div>
                     </div>
@@ -253,9 +246,9 @@ new #[Layout('components.layouts.guest')] #[Title('Orca Journey')] class extends
     {{-- galery sections --}}
 
     <section class="py-24 overflow-hidden bg-slate-50 gallery-section">
-        <div class="container px-4 mx-auto mb-12 text-center max-w-7xl">
-            <h2 class="mb-4 text-4xl font-bold text-blue-950">Momen Pelanggan</h2>
-            <p class="italic tracking-widest text-gray-500">Kisah perjalanan bersama kami</p>
+        <div class="container px-4 mx-auto mb-12 text-center max-w-7xl section-heading">
+            <h2 class="mb-4 text-3xl md:text-4xl font-bold text-blue-950">Momen Pelanggan</h2>
+            <p class="italic tracking-widest text-slate-500">Kisah perjalanan bersama kami</p>
         </div>
 
         <div class="relative flex w-full mb-6 overflow-hidden">
@@ -286,13 +279,13 @@ new #[Layout('components.layouts.guest')] #[Title('Orca Journey')] class extends
     </section>
 
     <!-- {{-- Reviews Section --}} -->
-    <section id="reviews" class="px-4 py-16 sm:px-6 lg:px-8 scroll-mt-40 relative">
+    <section id="reviews" class="px-4 py-24 sm:px-6 lg:px-8 scroll-mt-40 relative">
         <div class="absolute z-10 inset-0 overflow-hidden">
             <img loading="lazy" src="{{ asset('/images/pantai-atas.jpg') }}" class="w-full h-full object-cover"
                 alt="">
         </div>
         <div
-            class="absolute z-20 inset-0 bg-linear-to-br from-black/70 to-cyan-500/50 flex items-center justify-center">
+            class="absolute z-20 inset-0 bg-linear-to-br from-black/70 to-sky-500/50 flex items-center justify-center">
             <img loading="lazy" data-aos="zoom-in" data-aos-delay="100" src="{{ asset('/orcha-logo.png') }}"
                 class="h-[300px] w-[300px]" alt="">
         </div>
@@ -300,14 +293,14 @@ new #[Layout('components.layouts.guest')] #[Title('Orca Journey')] class extends
             <div class="grid items-start gap-12 md:grid-cols-2">
                 <div data-aos="zoom-in" data-aos-delay="200" class="sticky top-24">
                     <p class="mb-4 font-semibold tracking-wide uppercase text-orange-300">Testimoni</p>
-                    <h3 class="text-4xl font-bold leading-tight text-white md:text-5xl">
+                    <h3 class="text-3xl font-bold leading-tight text-white md:text-4xl">
                         Apa kata pelanggan kami sebelumnya?
                     </h3>
                 </div>
 
                 <div data-aos="fade-left" data-aos-delay="200" class="space-y-6">
                     @foreach ($testimonials as $idx => $testimoni)
-                        <div class="p-6 bg-white/30 backdrop-blur-lg shadow-lg rounded-3xl">
+                        <div class="p-6 bg-white/30 backdrop-blur-lg shadow-lg rounded-3xl testimonial-card">
                             <div class="flex items-center gap-4 mb-4">
                                 @if ($testimoni->avatar)
                                     <img loading="lazy" src="{{ $testimoni->avatar }}"
@@ -333,20 +326,20 @@ new #[Layout('components.layouts.guest')] #[Title('Orca Journey')] class extends
     </section>
 
     <!-- {{-- Partners Section --}} -->
-    <section class="px-4 py-20 bg-white sm:px-6 lg:px-8 scroll-mt-10">
-        <div class="py-10 mx-auto max-w-7xl">
+    <section class="px-4 py-24 bg-white sm:px-6 lg:px-8 scroll-mt-10">
+        <div class="mx-auto max-w-7xl">
             <div data-aos="zoom-in" data-aos-delay="200" class="mb-12 text-center">
                 <p class="mb-2 font-semibold tracking-wide uppercase text-orange-300">Partner Terpercaya</p>
-                <h3 class="text-3xl font-bold text-gray-900 md:text-4xl">Armada & Mitra Perjalanan</h3>
+                <h3 class="text-3xl font-bold text-blue-950 md:text-4xl">Armada & Mitra Perjalanan</h3>
             </div>
 
-            <div class="flex flex-wrap items-center gap-4 justify-center" data-aos="zoom-in" data-aos-delay="300">
+            <div class="flex flex-wrap items-center gap-4 justify-center partners-grid">
                 @foreach ($partners as $partner)
                     <div
-                        class="flex items-center justify-center py-6 px-10 transition bg-gray-50 rounded-3xl hover:shadow-lg">
+                        class="flex items-center justify-center py-6 px-10 transition bg-slate-50 rounded-3xl hover:shadow-lg partner-card">
                         <div class="text-center">
                             <div
-                                class="flex items-center justify-center w-16 h-16 mx-auto mb-2 text-2xl font-bold text-white rounded-full bg-cyan-500 overflow-hidden">
+                                class="flex items-center justify-center w-16 h-16 mx-auto mb-2 text-2xl font-bold text-white rounded-full bg-sky-500 overflow-hidden">
                                 @if ($partner->foto)
                                     <img loading="lazy" src="{{ $partner->foto }}" alt=""
                                         class="w-full h-full object-cover">
@@ -354,7 +347,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orca Journey')] class extends
                                     <p>{{ $partner->initials() }}</p>
                                 @endif
                             </div>
-                            <p class="text-sm font-semibold text-gray-700">{{ $partner->partner_name }}</p>
+                            <p class="text-sm font-semibold text-slate-700">{{ $partner->partner_name }}</p>
                         </div>
                     </div>
                 @endforeach
