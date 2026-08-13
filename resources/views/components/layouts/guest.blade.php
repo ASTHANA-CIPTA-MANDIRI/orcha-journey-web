@@ -21,9 +21,25 @@
     @vite(['resources/css/new-homepage.css', 'resources/js/new-homepage.js'])
 </head>
 
-<body class="main-text overflow-x-hidden antialiased text-gray-900" x-data="{ mobileMenuOpen: false }">
+<body class="main-text overflow-x-hidden antialiased text-slate-900" x-data="{ mobileMenuOpen: false }">
+    {{-- preloader --}}
+    <div id="preloader" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-blue-950">
+        <div class="preloader-content flex flex-col items-center gap-6">
+            <img src="{{ asset('/orcha-logo-only.png') }}" alt="Orcha Journey" class="w-16 h-16 animate-pulse">
+            <div class="flex items-baseline gap-1 font-heading tabular-nums">
+                <span id="preloader-percentage" class="text-5xl font-black text-white">0</span>
+                <span class="text-2xl font-black text-sky-500">%</span>
+            </div>
+            <div class="w-56 h-1.5 overflow-hidden rounded-full bg-white/10 sm:w-72">
+                <div id="preloader-bar" class="h-full rounded-full bg-linear-to-r from-sky-500 to-amber-400"
+                    style="width: 0%"></div>
+            </div>
+            <p class="text-xs font-semibold tracking-[0.3em] uppercase text-slate-400">Memuat Pengalaman Anda</p>
+        </div>
+    </div>
+
     <nav x-data="{ mobileMenuOpen: false, scrolled: false }" @scroll.window="scrolled = (window.pageYOffset > 20)"
-        :class="scrolled ? 'bg-white/90 backdrop-blur-md shadow-sm border-gray-200/50' : 'bg-transparent border-transparent'"
+        :class="scrolled ? 'bg-white/90 backdrop-blur-md shadow-sm border-slate-200/50' : 'bg-transparent border-transparent'"
         class="fixed top-0 z-[999] inset-x-0 transition-all duration-300 border-b">
 
         <div class="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
@@ -83,7 +99,7 @@
             x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0"
             x-transition:leave-end="opacity-0 -translate-y-4"
-            class="absolute inset-x-0 bg-white border-b border-gray-100 shadow-xl lg:hidden top-full">
+            class="absolute inset-x-0 bg-white border-b border-slate-100 shadow-xl lg:hidden top-full">
 
             <div class="flex flex-col px-6 py-6 space-y-4">
                 <a href="/" class="text-base font-bold text-sky-500">Beranda</a>
@@ -91,10 +107,10 @@
                 <a href="/sewa-armada" class="text-base font-bold text-slate-600 hover:text-sky-500">Sewa Armada</a>
                 <a href="/tentang-kami" class="text-base font-bold text-slate-600 hover:text-sky-500">Tentang Kami</a>
 
-                <hr class="border-gray-100 my-2">
+                <hr class="border-slate-100 my-2">
 
                 <a href="https://wa.me/62800000000" target="_blank"
-                    class="block py-3 mt-2 text-center text-base font-bold text-blue-950 transition-colors bg-amber-400 rounded-xl hover:bg-amber-300">
+                    class="block py-3 mt-2 text-center text-base font-bold text-blue-950 transition-colors bg-amber-400 rounded-full hover:bg-amber-300">
                     Hubungi Kami via WhatsApp
                 </a>
             </div>
@@ -118,38 +134,38 @@
         <div class="relative mx-auto max-w-7xl">
             <div class="grid gap-8 mb-20 md:grid-cols-3">
                 <div>
-                    <h3 class="mb-4 text-2xl font-bold text-cyan-400">Orcha Journey</h3>
-                    <p class="text-gray-400">
+                    <h3 class="mb-4 text-2xl font-bold text-sky-400">Orcha Journey</h3>
+                    <p class="text-slate-400">
                         Travel agent terpercaya di Yogyakarta yang memberikan harga terbaik dengan pelayanan terbaik.
                     </p>
                 </div>
 
                 <div>
                     <h4 class="mb-4 font-bold">Layanan</h4>
-                    <ul class="space-y-2 text-gray-400">
-                        <li><a href="#packages" class="transition hover:text-cyan-400">Paket Wisata</a></li>
-                        <li><a href="#packages" class="transition hover:text-cyan-400">Custom Tour</a></li>
-                        <li><a href="#packages" class="transition hover:text-cyan-400">Tour Guide</a></li>
+                    <ul class="space-y-2 text-slate-400">
+                        <li><a href="#packages" class="transition hover:text-sky-400">Paket Wisata</a></li>
+                        <li><a href="#packages" class="transition hover:text-sky-400">Custom Tour</a></li>
+                        <li><a href="#packages" class="transition hover:text-sky-400">Tour Guide</a></li>
                     </ul>
                 </div>
 
                 <div>
                     <h4 class="mb-4 font-bold">Kontak</h4>
-                    <ul class="space-y-3 text-gray-400">
+                    <ul class="space-y-3 text-slate-400">
                         <li class="flex items-start gap-2">
-                            <x-heroicon-s-map-pin class="flex-shrink-0 w-5 h-5 mt-1 text-cyan-400" />
+                            <x-heroicon-s-map-pin class="flex-shrink-0 w-5 h-5 mt-1 text-sky-400" />
                             <span>perumahan GWI, Jl. Durian No. 115, Banguntapan, Bantul, Yogyakarta</span>
                         </li>
                         <li class="flex items-center gap-2">
-                            <x-heroicon-s-phone class="w-5 h-5 text-cyan-400" />
+                            <x-heroicon-s-phone class="w-5 h-5 text-sky-400" />
                             <span>+62 895-0988-2219</span>
                         </li>
                         <li class="flex items-center gap-2">
-                            <x-heroicon-s-envelope class="w-5 h-5 text-cyan-400" />
+                            <x-heroicon-s-envelope class="w-5 h-5 text-sky-400" />
                             <span>info@orchajourney.com</span>
                         </li>
                         <li class="flex items-center gap-2">
-                            <x-bi-instagram class="w-5 h-5 text-cyan-400" />
+                            <x-bi-instagram class="w-5 h-5 text-sky-400" />
                             <span><a href="https://www.instagram.com/orcha_journey/" rel="noopener noreferrer"
                                     target="_blank">orcha_journey</a></span>
                         </li>
@@ -157,7 +173,7 @@
                 </div>
             </div>
 
-            <div class="relative pt-8 text-center text-gray-400">
+            <div class="relative pt-8 text-center text-slate-400">
                 <p>&copy; 2025 Orcha Journey. All rights reserved.</p>
             </div>
         </div>

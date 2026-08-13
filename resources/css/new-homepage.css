@@ -26,6 +26,15 @@ h6,
     font-family: var(--font-heading);
 }
 /* ==========================================================
+   PRELOADER
+   Animasi keluar (fade + wipe) dan entrance hero ditangani oleh
+   GSAP di new-homepage.js agar transisinya tetap presisi.
+========================================================== */
+#preloader {
+    will-change: transform;
+}
+
+/* ==========================================================
    CUSTOM CSS UNTUK ANIMASI ORCHA JOURNEY
 ========================================================== */
 .split-word {
