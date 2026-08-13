@@ -9,8 +9,7 @@ use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use Mary\Traits\Toast;
 
-new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class extends Component
-{
+new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class extends Component {
     use Toast, WithFileUploads;
 
     public $showModal = false;
@@ -24,30 +23,24 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
     #[Rule('required|string|max:191')]
     public string $destinationName = '';
 
-    #[Rule('nullable|image|max:2048')]
-    public $destinationPhoto;
-
     #[Rule('required')]
     public $totalVisitor = 0;
 
-    public $existingPhoto = null;
+    #[Rule('nullable|image|max:5000')]
+    public $mainPhoto;
+
+    public $existingMainPhoto = null;
+
+    #[Rule(['othersPhoto.*' => 'image|max:2048'])]
+    public $othersPhoto = [];
+
+    public $existingOthersPhoto = [];
 
     public function openModal(): void
     {
         $this->resetForm();
         $this->showModal = true;
         $this->isEdit = false;
-    }
-
-    public function edit(DestinationPopuler $destination): void
-    {
-        $this->resetForm();
-        $this->isEdit = true;
-        $this->destinationName = $destination->destination_name;
-        $this->totalVisitor = $destination->total_visitor;
-        $this->existingPhoto = $destination->foto;
-        $this->destinationId = $destination->id;
-        $this->showModal = true;
     }
 
     public function openDeleteModal(DestinationPopuler $destination): void
@@ -65,27 +58,45 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
         $this->showDeleteModal = false;
     }
 
+    public function edit(DestinationPopuler $destination): void
+    {
+        $this->resetForm();
+        $this->isEdit = true;
+        $this->destinationName = $destination->destination_name;
+        $this->totalVisitor = $destination->total_visitor;
+        $this->existingMainPhoto = $destination->main_photo;
+        $this->existingOthersPhoto = $destination->others_photo;
+        $this->destinationId = $destination->id;
+        $this->showModal = true;
+    }
+
     public function resetForm()
     {
         $this->destinationName = '';
-        $this->destinationPhoto = null;
         $this->totalVisitor = 0;
-        $this->existingPhoto = null;
+        $this->mainPhoto = null;
+        $this->existingMainPhoto = null;
+        $this->othersPhoto = [];
+        $this->existingOthersPhoto = [];
         $this->destinationId = null;
     }
 
     public function delete(DestinationPopuler $destination): void
     {
         try {
-            if ($destination->foto) {
-                $path = str_replace('/storage/', '', $destination->foto);
+            if ($destination->main_photo) {
+                $path = str_replace('/storage/', '', $destination->main_photo);
                 Storage::disk('public')->delete($path);
+            }
+            if ($destination->others_photo) {
+                foreach ($destination->others_photo as $photo) {
+                    Storage::disk('public')->delete(str_replace('/storage/', '', $photo));
+                }
             }
             $destination->delete();
             $this->warning("$destination->destination_name berhasil dihapus", position: 'toast-bottom');
             $this->closeModal();
         } catch (Exception $e) {
-            dump($e->getMessage());
             $this->error('gagal menghapus data destinasi populer');
         }
     }
@@ -94,36 +105,42 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
     {
         $this->validate();
         try {
-            if ($this->isEdit) {
-                $destinationData = DestinationPopuler::findOrFail($this->destinationId);
-                if ($this->destinationPhoto) {
-                    if ($destinationData->foto) {
-                        $oldPath = str_replace('/storage/', '', $destinationData->foto);
-                        Storage::disk('public')->delete($oldPath);
-                    }
-                    $url = $this->destinationPhoto->store('destinasi_populer', 'public');
-                    $this->destinationPhoto = "/storage/$url";
+            $dataToSave = [
+                'destination_name' => $this->destinationName,
+                'total_visitor' => $this->totalVisitor,
+            ];
+
+            $destinationData = $this->isEdit ? DestinationPopuler::findOrFail($this->destinationId) : new DestinationPopuler();
+
+            if ($this->mainPhoto) {
+                if ($this->isEdit && $destinationData->main_photo) {
+                    Storage::disk('public')->delete(str_replace('/storage/', '', $destinationData->main_photo));
                 }
-                $destinationData->update([
-                    'destination_name' => $this->destinationName,
-                    'total_visitor' => $this->totalVisitor,
-                    'foto' => $this->destinationPhoto,
-                ]);
-                $this->success('berhasil edit data destinasi');
-                $this->closeModal();
-            } else {
-                if ($this->destinationPhoto) {
-                    $url = $this->destinationPhoto->store('destinasi_populer', 'public');
-                    $this->destinationPhoto = "/storage/$url";
-                }
-                DestinationPopuler::create([
-                    'destination_name' => $this->destinationName,
-                    'total_visitor' => $this->totalVisitor,
-                    'foto' => $this->destinationPhoto,
-                ]);
-                $this->success('berhasil tambah destinasi');
-                $this->closeModal();
+                $dataToSave['main_photo'] = '/storage/' . $this->mainPhoto->store('destinasi_populer/utama', 'public');
             }
+
+            if (!empty($this->othersPhoto)) {
+                if ($this->isEdit && $destinationData->others_photo) {
+                    foreach ($destinationData->others_photo as $oldPhoto) {
+                        Storage::disk('public')->delete(str_replace('/storage/', '', $oldPhoto));
+                    }
+                }
+                $paths = [];
+                foreach ($this->othersPhoto as $photo) {
+                    $paths[] = '/storage/' . $photo->store('destinasi_populer/tambahan', 'public');
+                }
+                $dataToSave['others_photo'] = $paths;
+            }
+
+            if ($this->isEdit) {
+                $destinationData->update($dataToSave);
+                $this->success('Berhasil tambah destinasi');
+            } else {
+                DestinationPopuler::create($dataToSave);
+                $this->success('Berhasil tambah destinasi');
+            }
+
+            $this->closeModal();
         } catch (Exception $e) {
             dump($e->getMessage());
             $this->error('gagal menambah destinasi');
@@ -132,11 +149,7 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
 
     public function headers(): array
     {
-        return [
-            ['key' => 'destination_name', 'label' => 'Nama Tempat', 'class' => 'w-1'],
-            ['key' => 'total_visitor', 'label' => 'Total Pengunjung', 'class' => 'w-1'],
-            ['key' => 'foto', 'label' => 'Foto', 'class' => 'w-1'],
-        ];
+        return [['key' => 'destination_name', 'label' => 'Nama Tempat', 'class' => 'w-1'], ['key' => 'total_visitor', 'label' => 'Total Pengunjung', 'class' => 'w-1'], ['key' => 'foto', 'label' => 'Foto', 'class' => 'w-1']];
     }
 
     public function with(): array
@@ -158,18 +171,18 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
     <x-mary-card shadow>
         <x-mary-table :headers="$headers" :rows="$destinations">
             @scope('cell_foto', $destination)
-            @if($destination->foto)
-            <x-mary-avatar image="{{ $destination->foto }}" />
-            @else
-            <x-heroicon-o-user-circle class="text-slate-700 h-7 w-7" />
-            @endif
+                @if ($destination->foto)
+                    <x-mary-avatar image="{{ $destination->foto }}" />
+                @else
+                    <x-heroicon-o-user-circle class="text-slate-700 h-7 w-7" />
+                @endif
             @endscope
 
             @scope('actions', $destination)
-            <x-mary-button icon="o-pencil-square" wire:click="edit({{ $destination['id'] }})" spinner="edit({{$destination['id']}})"
-                class="btn-ghost btn-sm text-slate-700" />
-            <x-mary-button icon="o-trash" wire:click="openDeleteModal({{ $destination['id'] }})" spinner="openDeleteModal({{$destination->id}})"
-                class="btn-ghost btn-sm text-error" />
+                <x-mary-button icon="o-pencil-square" wire:click="edit({{ $destination['id'] }})"
+                    spinner="edit({{ $destination['id'] }})" class="btn-ghost btn-sm text-slate-700" />
+                <x-mary-button icon="o-trash" wire:click="openDeleteModal({{ $destination['id'] }})"
+                    spinner="openDeleteModal({{ $destination->id }})" class="btn-ghost btn-sm text-error" />
             @endscope
 
             <x-slot:empty>
@@ -185,19 +198,29 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
         <x-mary-form no-separator wire:submit="save">
             <x-mary-input label="Name" wire:model="destinationName" placeholder="nama tempat destinasi" />
             <x-mary-input label="Total Pengunjung" wire:model="totalVisitor" placeholder="0" />
-            <x-mary-file label="Logo Partner" wire:model="destinationPhoto" accept="image/png, image/jpg, image/jpeg">
-            </x-mary-file>
-            @if ($destinationPhoto instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile)
-            {{-- Preview file yang baru diupload --}}
-            <img class="h-36 rounded-lg shadow-sm" src="{{ $destinationPhoto->temporaryUrl() }}" alt="">
-            @elseif ($destinationPhoto)
-            {{-- Preview file lama dari database --}}
-            <img class="h-36 rounded-lg shadow-sm" src="{{ asset($destinationPhoto) }}" alt="">
-            @elseif ($existingPhoto)
-            <img class="h-36 rounded-lg shadow-sm" src="{{ $existingPhoto }}" alt="">
-            @else
-            <x-heroicon-o-user-circle class="text-slate-700 h-24 w-24" />
+            <x-mary-file label="Foto Utama (Background)" wire:model="mainPhoto"
+                accept="image/png, image/jpg, image/jpeg" />
+            @if ($mainPhoto)
+                <img class="h-36 rounded-lg shadow-sm" src="{{ $mainPhoto->temporaryUrl() }}" alt="Preview Baru">
+            @elseif($existingMainPhoto)
+                <img class="h-36 rounded-lg shadow-sm" src="{{ asset($existingMainPhoto) }}" alt="Foto Lama">
             @endif
+
+
+            <x-mary-file label="Foto Tambahan (Maksimal 3)" wire:model="othersPhoto" multiple
+                accept="image/png, image/jpg, image/jpeg" />
+
+            <div class="flex gap-2 mt-2">
+                @if ($othersPhoto)
+                    @foreach ($othersPhoto as $photo)
+                        <img class="h-20 rounded-lg shadow-sm" src="{{ $photo->temporaryUrl() }}" alt="Preview Baru">
+                    @endforeach
+                @elseif($existingOthersPhoto)
+                    @foreach ($existingOthersPhoto as $oldPhoto)
+                        <img class="h-20 rounded-lg shadow-sm" src="{{ asset($oldPhoto) }}" alt="Foto Lama">
+                    @endforeach
+                @endif
+            </div>
 
             <x-slot:actions>
                 <x-mary-button label="Batal" @click="$wire.closeModal()" spinner="closeModal" />
@@ -213,8 +236,8 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
 
         <x-slot:actions>
             <x-mary-button label="Batal" @click="$wire.closeModal()" spinner="closeModal" />
-            <x-mary-button label="Ya Hapus" wire:click="delete({{$destinationId}})" class="btn-primary"
-                spinner="delete({{$destinationId}})" />
+            <x-mary-button label="Ya Hapus" wire:click="delete({{ $destinationId }})" class="btn-primary"
+                spinner="delete({{ $destinationId }})" />
         </x-slot:actions>
     </x-mary-modal>
 </div>

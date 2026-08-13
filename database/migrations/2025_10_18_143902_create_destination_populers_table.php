@@ -15,7 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('destination_name');
             $table->bigInteger('total_visitor')->default(0);
-            $table->string('foto')->nullable();
+            $table->string('main_photo')->nullable();
+            $table->json('others_photo')->nullable();
             $table->timestamps();
         });
     }
