@@ -38,33 +38,23 @@ new #[Layout('components.layouts.empty')] class extends Component {
     }
 }; ?>
 
-<div class="container mx-auto">
-    <div class="flex flex-col gap-6 max-w-lg mx-auto my-auto pt-32">
-        <div class="h-40 w-40 overflow-hidden self-center">
-            <img src="{{asset('/orcha-logo.png')}}" class="object-cover h-full w-full" alt="">
-        </div>
-        <x-mary-form method="POST" wire:submit="register" class="flex flex-col gap-6">
-            <!-- Name -->
-            <x-mary-input wire:model="name" placeholder="nama lengkap" label="Nama Lenkap" />
-
-            <!-- Email Address -->
-            <x-mary-input wire:model="email" label="Email" placeholder="email@example.com" />
-
-            <!-- Password -->
-            <x-mary-password wire:model="password" label="Password" placeholder="********" right />
-
-            <!-- Confirm Password -->
-            <x-mary-password wire:model="password_confirmation" label="Confirm Password" placeholder="********" right />
-
-            <div class="flex items-center justify-end">
-                <x-mary-button class="btn-primary w-full" type="submit">
-                    {{ __('Create account') }}
-                </x-mary-button>
-            </div>
-        </x-mary-form>
-
-        <div class="space-x-1 rtl:space-x-reverse text-center text-sm text-zinc-600 dark:text-zinc-400">
-            <span>{{ __('Already have an account?') }}</span>
-            <x-mary-button link="login" class="btn-ghost">{{ __('Log in') }}</x-mary-button>
-        </div>
+<div class="flex flex-col gap-6">
+    <div>
+        <h1 class="text-xl font-bold admin-title">Buat Akun Admin</h1>
+        <p class="mt-1 text-sm text-base-content/60">Akun ini dipakai untuk mengelola isi website.</p>
     </div>
+
+    <x-mary-form method="POST" wire:submit="register" class="flex flex-col gap-5">
+        <x-mary-input wire:model="name" label="Nama Lengkap" placeholder="Nama lengkap" icon="o-user" />
+        <x-mary-input wire:model="email" label="Email" placeholder="admin@orchajourney.com" icon="o-envelope" />
+        <x-mary-password wire:model="password" label="Kata Sandi" placeholder="••••••••" right />
+        <x-mary-password wire:model="password_confirmation" label="Ulangi Kata Sandi" placeholder="••••••••" right />
+
+        <x-mary-button class="w-full btn-primary" type="submit" spinner="register" label="Daftar" />
+    </x-mary-form>
+
+    <p class="text-sm text-center text-base-content/60">
+        Sudah punya akun?
+        <a href="{{ route('login') }}" class="font-semibold text-primary hover:underline">Masuk</a>
+    </p>
+</div>

@@ -60,10 +60,10 @@ new
         }
     }; ?>
 
-<div class="mt-10">
+<div>
     <x-mary-header title="Edit Testimoni Pelanggan" no-separator progress-indicator>
         <x-slot:actions>
-            <x-mary-button label="Kembali" link="/admin/testimoni" responsive icon="o-arrow-left" class="btn-sm btn-soft btn-primary"></x-button>
+            <x-mary-button label="Kembali" link="/admin/testimoni" responsive icon="o-arrow-left" class="btn-sm btn-soft btn-primary" />
         </x-slot:actions>
     </x-mary-header>
     <div class="grid gap-5 lg:grid-cols-2">

@@ -13,6 +13,9 @@ class DestinationPopuler extends Model
 
     protected $fillable = [
         'destination_name',
+        'wilayah',
+        'provinsi',
+        'deskripsi',
         'total_visitor',
         'main_photo',
         'others_photo',
@@ -21,4 +24,17 @@ class DestinationPopuler extends Model
     protected $casts = [
         'others_photo' => 'array',
     ];
+
+    /**
+     * Label wilayah yang tampil di kartu destinasi & admin.
+     */
+    public function getWilayahLabelAttribute(): string
+    {
+        return config('orcha.wilayah')[$this->wilayah] ?? 'Indonesia';
+    }
+
+    public function scopeDiWilayah($query, ?string $wilayah)
+    {
+        return $query->when($wilayah, fn ($q) => $q->where('wilayah', $wilayah));
+    }
 }

@@ -1,3 +1,7 @@
+/* ==========================================================
+   ORCHA JOURNEY — Stylesheet admin & halaman auth
+   Dipakai layouts/admin, layouts/empty, dan partials/head.
+========================================================== */
 @import "tailwindcss";
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -6,19 +10,57 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif,
+    --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
-}
+    --font-heading: "Poppins", ui-sans-serif, system-ui, sans-serif;
 
-/**
-    The lines above are intact.
-    The lines below were added by maryUI installer.
-*/
+    /* Warna brand, sama persis dengan landing page */
+    --color-orcha-navy: #001220;
+    --color-orcha-abyss: #005084;
+    --color-orcha-ocean: #006da8;
+    --color-orcha-wave: #0086c3;
+    --color-orcha-sky: #1ab0e2;
+    --color-orcha-foam: #e8f7fd;
+    --color-orcha-sun: #ffc74e;
+}
 
 /** daisyUI */
 @plugin "daisyui" {
     themes: light --default;
+}
+
+/**
+ * Tema daisyUI disetel ke warna logo Orcha: biru laut sebagai primary,
+ * navy badan orca sebagai secondary, kuning matahari sebagai accent.
+ */
+@plugin "daisyui/theme" {
+    name: "light";
+    default: true;
+    color-scheme: light;
+
+    --color-primary: #0086c3;
+    --color-primary-content: #ffffff;
+    --color-secondary: #001220;
+    --color-secondary-content: #ffffff;
+    --color-accent: #ffc74e;
+    --color-accent-content: #001220;
+    --color-neutral: #04223a;
+    --color-neutral-content: #ffffff;
+
+    --color-base-100: #ffffff;
+    --color-base-200: #f3f9fd;
+    --color-base-300: #e8f7fd;
+    --color-base-content: #14212c;
+
+    --color-info: #1ab0e2;
+    --color-success: #12a150;
+    --color-warning: #f2a33b;
+    --color-error: #e0304a;
+
+    --radius-selector: 0.75rem;
+    --radius-field: 0.65rem;
+    --radius-box: 1rem;
 }
 
 /* maryUI */
@@ -44,259 +86,41 @@ html {
     scroll-behavior: smooth;
 }
 
-.main-text {
-    font-family: "Raleway", sans-serif;
-}
-
-.highlight {
-    font-family: "Dancing Script", cursive;
-}
-
-/*  Styling new homepage */
-:root {
-    --width-df: min(1200px, 90vw);
-    --diameter: 500px;
-}
 body {
-    background-color: darkslategray;
-    font-size: 15px;
-    margin: 0;
+    font-family: var(--font-sans);
 }
-svg {
-    color: #fff;
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-heading {
+    font-family: var(--font-heading);
 }
-* {
-    padding: 0;
-    margin: 0;
-    box-sizing: border-box;
-}
-.slider {
-    color: #eee;
+
+/* ==========================================================
+   Admin — header halaman & kartu bergaya brand
+========================================================== */
+.admin-shell {
     width: 100%;
-    height: 100vh;
-    overflow: hidden;
-    /* margin-top: -70px; */
-    position: relative;
+    max-width: 1760px;
+    margin-inline: auto;
 }
 
-.slider .list .item {
-    position: absolute;
-    inset: 0 0 0 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.admin-title {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--color-orcha-navy);
 }
 
-.slider .list .item .content {
-    position: absolute;
-    top: 20%;
-    width: max-content;
-    display: grid;
-    grid-template-columns: repeat(2, 400px);
-    gap: 80px;
-    font-size: 1.2em;
-    font-family: "Raleway", sans-serif;
-    text-shadow: 0 0 80px #000;
-    text-transform: uppercase;
-}
-
-.slider .list .item .content h2 {
-    font-size: 8em;
-    font-family: "Raleway", sans-serif;
-    line-height: 0.9em;
-    grid-row-start: 1;
-    grid-row-end: 3;
-}
-
-.slider .list .content p:last-child {
-    display: flex;
-    align-items: end;
-    padding-bottom: 25px;
-}
-
-.slider .list .image {
-    flex-shrink: 0;
-    width: var(--diameter);
-    height: var(--diameter);
-    background-image: var(--url);
-    background-position: center;
-    background-size: var(--diameter) var(--diameter);
-    border-radius: 50%;
-    position: relative;
-}
-
-.slider .list .item .image::before,
-.slider .list .item .image::after {
-    position: absolute;
-    width: 70%;
-    height: 70%;
-    content: "";
-    border-radius: 50%;
-    background-image: linear-gradient(to right, #0004, #0004), var(--url);
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-position: center;
-    background-size: var(--diameter) var(--diameter);
-}
-
-.slider .list .item .image::after {
-    height: 30%;
-    width: 30%;
-    background-image: var(--url);
-}
-
-/* item come before item active*/
-.slider .list .content h2 {
-    transform: translateY(-100%);
-    transition: transform 1s;
-}
-
-.slider .list .item .image {
-    transform: rotate(-60deg);
-    filter: blur(30px);
-    transition: 1s;
-}
-
-.slider .list .item .image::before {
-    transform: translate(-50%, -50%) rotate(-120deg);
-    transition: transform 1s;
-}
-
-.slider .list .item .image::after {
-    transform: translate(-50%, -50%) rotate(-170deg);
-    transition: transform 1s;
-}
-
-.slider .list .item {
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 1s;
-}
-
-/* item active */
-.slider .list .item.active {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.slider .list .item.active .content h2 {
-    transform: translateY(0);
-}
-
-.slider .list .item.active .image {
-    transform: rotate(0);
-    filter: blur(0);
-}
-
-.slider .list .item.active .image::before,
-.slider .list .item.active .image::after {
-    transform: translate(-50%, -50%) rotate(0);
-}
-
-/* item after item active */
-.slider .list .item.active ~ .item {
-    opacity: 0;
-}
-
-.slider .list .item.active ~ .item .content h2 {
-    transform: translateY(100%);
-}
-.slider .list .item.active ~ .item .image {
-    transform: rotate(60dg);
-    filter: blur(30px);
-}
-.slider .list .item.active ~ .item .image::before {
-    transform: translate(-50%, -50%) rotate(120deg);
-}
-.slider .list .item.active ~ .item .image::after {
-    transform: translate(-50%, -50%) rotate(170deg);
-}
-
-/* arrows */
-.arrows {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: 3px;
-    width: var(--width-df);
-    display: flex;
-    justify-content: space-between;
-}
-.arrows button {
-    all: unset;
-    cursor: pointer;
-    background-color: rgba(0, 0, 0, 0.5);
-    padding: 2px 4px;
-    border-radius: 4px;
-}
-.slider .list::after {
-    position: absolute;
-    content: "";
-    bottom: -100px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(1200px, 100vw);
-    background-image: url("/public/images/manstanding.png");
-    height: 100%;
-    background-size: cover;
-    background-position: center;
-    pointer-events: none;
-    animation: showModel 1s ease-in-out 1 forwards;
-}
-
-@keyframes showModel {
-    from {
-        transform: translateX(-50%) scale(1.5) translateY(88px);
-    }
-}
-.arrows button.d-none {
-    opacity: 0;
-    pointer-events: none;
-}
-
-@media all and (max-width: 1024px) {
-    .slider .list .item .content {
-        grid-template-columns: repeat(2, 300px);
-        gap: 100px;
-    }
-}
-
-@media all and (max-width: 767px) {
-    .slider .list .item .content {
-        grid-template-columns: 80vw;
-        gap: 20px;
-    }
-    .slider .list .item .content h2 {
-        font-size: 4em;
-    }
-    .slider .list .item .content p {
-        font-size: small;
-        text-align: right;
-        padding-left: 30%;
-        transform: translateY(-30%);
-    }
-}
-
-/* animation svg text */
-svg path {
-    fill: transparent;
-    stroke: #fff;
-    stroke-width: 0.1;
-    stroke-dasharray: 50;
-    stroke-dashoffset: 50;
-    animation: textAnimation 4s ease-in-out 1 forwards;
-}
-
-@keyframes textAnimation {
-    0% {
-        stroke-dashoffset: 50;
-    }
-    80% {
-        fill: transparent;
-    }
-    100% {
-        fill: #fff;
-        stroke-dashoffset: 0;
-    }
+.admin-brandbar {
+    background: linear-gradient(
+        120deg,
+        var(--color-orcha-navy),
+        var(--color-orcha-abyss)
+    );
+    color: #fff;
 }

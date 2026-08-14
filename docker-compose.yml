@@ -37,7 +37,7 @@ services:
         restart: unless-stopped
         environment:
             MYSQL_ROOT_PASSWORD: root
-            MYSQL_DATABASE: orchajourney_db
+            MYSQL_DATABASE: orcha
             MYSQL_USER: orchajourney_user_db
             MYSQL_PASSWORD: password
         ports:

@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Partner;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class PartnerSeeder extends Seeder
@@ -15,16 +14,16 @@ class PartnerSeeder extends Seeder
     {
         $partners = [
             [
-                'partner_name' => "Rumah Makan Bu Sholeh",
+                'partner_name' => 'Rumah Makan Bu Sholeh',
             ],
             [
-                'partner_name' => "Jaya Travel Mandiri",
+                'partner_name' => 'Jaya Travel Mandiri',
             ],
             [
-                'partner_name' => "Bakso Urat Pak Shomad",
+                'partner_name' => 'Bakso Urat Pak Shomad',
             ],
             [
-                'partner_name' => "Cahaya Travel",
+                'partner_name' => 'Cahaya Travel',
             ],
         ];
 

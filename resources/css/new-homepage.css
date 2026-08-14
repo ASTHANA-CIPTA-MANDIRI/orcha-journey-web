@@ -1,21 +1,57 @@
-/* Ini adalah cara Tailwind v4 di-import. 
-   Tidak perlu lagi @tailwind base, components, utilities */
+/* ==========================================================
+   ORCHA JOURNEY — Landing Page Stylesheet
+   Tailwind v4 (tidak perlu @tailwind base/components/utilities)
+========================================================== */
 @import "tailwindcss";
 
-@theme {
-    /* Mendefinisikan font-heading untuk judul */
-    --font-heading: "Poppins", sans-serif;
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../vendor/livewire/livewire/src/Features/SupportPagination/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
 
-    /* Mendefinisikan font-sans (default Tailwind) diganti menjadi Inter */
+/* ==========================================================
+   1. DESIGN TOKEN — diambil langsung dari warna logo Orcha
+   navy #001220 (badan orca) · ocean #006DA8 · wave #0086C3
+   sky #1AB0E2 (lingkaran laut) · sun #FFC74E (matahari)
+========================================================== */
+@theme {
+    --font-heading: "Poppins", sans-serif;
     --font-sans: "Inter", sans-serif;
+    /* Aksen kaligrafi, mengikuti gaya tulisan pada poster Orcha */
+    --font-aksen: "Great Vibes", "Segoe Script", cursive;
+
+    --color-orcha-navy: #001220;
+    --color-orcha-night: #04223a;
+    --color-orcha-abyss: #005084;
+    --color-orcha-ocean: #006da8;
+    --color-orcha-wave: #0086c3;
+    --color-orcha-sky: #1ab0e2;
+    --color-orcha-mist: #7fd4f3;
+    --color-orcha-foam: #e8f7fd;
+    --color-orcha-sun: #ffc74e;
+    --color-orcha-sunset: #f2a33b;
+    --color-orcha-sand: #fff8ec;
+
+    --shadow-orcha: 0 18px 45px -20px rgb(0 18 32 / 0.45);
+    --shadow-orcha-lg: 0 32px 70px -28px rgb(0 18 32 / 0.55);
 }
 
-/* Set default font untuk seluruh halaman */
 body {
     font-family: var(--font-sans);
+    background-color: #fff;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
 }
 
-/* Buat utility class khusus untuk heading agar mudah dipanggil */
+/* Angka sejajar supaya harga dan jam mudah dibandingkan */
+.tabular,
+.font-mono,
+time {
+    font-variant-numeric: tabular-nums;
+}
+
 h1,
 h2,
 h3,
@@ -25,75 +61,883 @@ h6,
 .font-heading {
     font-family: var(--font-heading);
 }
+
+/* Hormati preferensi pengguna yang mematikan animasi */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
 /* ==========================================================
-   PRELOADER
-   Animasi keluar (fade + wipe) dan entrance hero ditangani oleh
-   GSAP di new-homepage.js agar transisinya tetap presisi.
+   2. LAYOUT — kontainer lebar penuh layar
+   Bukan max-w-7xl yang menyisakan gutter besar di monitor lebar:
+   padding ikut lebar layar, isi tetap terbaca sampai 1920px.
+========================================================== */
+.container-orcha {
+    width: 100%;
+    max-width: 1760px;
+    margin-inline: auto;
+    padding-inline: clamp(1rem, 5vw, 4.5rem);
+}
+
+.container-orcha-narrow {
+    width: 100%;
+    max-width: 1180px;
+    margin-inline: auto;
+    padding-inline: clamp(1rem, 5vw, 4.5rem);
+}
+
+/* Jarak antar section yang skalanya ikut viewport */
+.section-orcha {
+    padding-block: clamp(4rem, 9vw, 8.5rem);
+}
+
+/* Tinggi layar penuh yang aman di browser mobile (address bar) */
+.h-screen-safe {
+    min-height: 100svh;
+}
+
+/* ==========================================================
+   3. TIPOGRAFI
+========================================================== */
+.eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--color-orcha-wave);
+}
+
+.eyebrow-light {
+    color: var(--color-orcha-sun);
+}
+
+.title-orcha {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    color: var(--color-orcha-navy);
+    font-size: clamp(1.9rem, 4vw, 3.25rem);
+    text-wrap: balance;
+}
+
+/* Tulisan kaligrafi emas — dipakai sebagai aksen di atas judul,
+   meniru gaya "Open Trip" dan "Special Edition" pada poster. */
+.aksen-orcha {
+    font-family: var(--font-aksen);
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: 0.01em;
+    color: var(--color-orcha-sun);
+    font-size: clamp(1.75rem, 3.4vw, 2.9rem);
+}
+
+.aksen-orcha-gelap {
+    color: var(--color-orcha-ocean);
+}
+
+/* Paragraf pengantar di bawah judul */
+.pengantar-orcha {
+    font-size: clamp(1rem, 1.15vw, 1.125rem);
+    line-height: 1.75;
+    text-wrap: pretty;
+}
+
+.title-orcha-light {
+    color: #fff;
+}
+
+.text-gradient-orcha {
+    background: linear-gradient(
+        120deg,
+        var(--color-orcha-sky),
+        var(--color-orcha-ocean) 55%,
+        var(--color-orcha-navy)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* ==========================================================
+   4. TOMBOL
+========================================================== */
+.btn-orcha {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    border-radius: 9999px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 0.9rem 1.75rem;
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease,
+        background-color 0.25s ease,
+        color 0.25s ease;
+    cursor: pointer;
+}
+
+.btn-orcha:hover {
+    transform: translateY(-2px);
+}
+
+.btn-orcha-primary {
+    background: linear-gradient(
+        120deg,
+        var(--color-orcha-sky),
+        var(--color-orcha-ocean)
+    );
+    color: #fff;
+    box-shadow: var(--shadow-orcha);
+}
+
+.btn-orcha-primary:hover {
+    box-shadow: var(--shadow-orcha-lg);
+}
+
+.btn-orcha-sun {
+    background: linear-gradient(
+        120deg,
+        var(--color-orcha-sun),
+        var(--color-orcha-sunset)
+    );
+    color: var(--color-orcha-navy);
+    box-shadow: var(--shadow-orcha);
+}
+
+.btn-orcha-ghost {
+    background: rgb(255 255 255 / 0.12);
+    color: #fff;
+    border: 1px solid rgb(255 255 255 / 0.35);
+    backdrop-filter: blur(8px);
+}
+
+.btn-orcha-ghost:hover {
+    background: rgb(255 255 255 / 0.22);
+}
+
+.btn-orcha-outline {
+    background: #fff;
+    color: var(--color-orcha-ocean);
+    border: 1px solid var(--color-orcha-foam);
+    box-shadow: var(--shadow-orcha);
+}
+
+.btn-orcha-outline:hover {
+    border-color: var(--color-orcha-sky);
+    color: var(--color-orcha-navy);
+}
+
+/* ==========================================================
+   5. KARTU
+========================================================== */
+.card-orcha {
+    position: relative;
+    background: #fff;
+    border: 1px solid var(--color-orcha-foam);
+    border-radius: 1.5rem;
+    box-shadow: var(--shadow-orcha);
+    transition:
+        transform 0.35s ease,
+        box-shadow 0.35s ease,
+        border-color 0.35s ease;
+}
+
+.card-orcha:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-orcha-lg);
+    border-color: var(--color-orcha-mist);
+}
+
+.card-glass {
+    background: rgb(255 255 255 / 0.1);
+    border: 1px solid rgb(255 255 255 / 0.22);
+    backdrop-filter: blur(14px);
+    border-radius: 1.5rem;
+}
+
+/* Tab filter (kategori paket & jenis armada) */
+.tab-orcha {
+    border-radius: 9999px;
+    padding: 0.6rem 1.35rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--color-orcha-abyss);
+    background: var(--color-orcha-foam);
+    border: 1px solid transparent;
+    transition:
+        background-color 0.25s ease,
+        color 0.25s ease,
+        box-shadow 0.25s ease;
+    cursor: pointer;
+}
+
+.tab-orcha:hover {
+    border-color: var(--color-orcha-mist);
+}
+
+.tab-orcha-active {
+    background: linear-gradient(
+        120deg,
+        var(--color-orcha-sky),
+        var(--color-orcha-ocean)
+    );
+    color: #fff;
+    box-shadow: var(--shadow-orcha);
+}
+
+/* Baris tab yang bisa digeser di layar kecil tanpa scrollbar */
+.tab-scroller {
+    display: flex;
+    gap: 0.6rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 0.25rem;
+}
+
+.tab-scroller::-webkit-scrollbar {
+    display: none;
+}
+
+/* ==========================================================
+   6. HERO
+========================================================== */
+.hero-orcha {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background-color: var(--color-orcha-navy);
+}
+
+/* Pembungkus foto/video hero. Paralaks digerakkan GSAP di pembungkus ini,
+   sedangkan zoom pelan berjalan di elemen media di dalamnya supaya kedua
+   animasi tidak saling menimpa transform. */
+.hero-orcha .hero-media {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    overflow: hidden;
+    will-change: transform;
+}
+
+.hero-orcha .hero-media > img,
+.hero-orcha .hero-media > video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.hero-orcha .hero-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+        linear-gradient(
+            180deg,
+            rgb(0 18 32 / 0.82) 0%,
+            rgb(0 18 32 / 0.55) 40%,
+            rgb(0 80 132 / 0.75) 100%
+        ),
+        radial-gradient(
+            80% 60% at 75% 25%,
+            rgb(255 199 78 / 0.22),
+            transparent 70%
+        );
+}
+
+/* Gelombang dekoratif pemisah section (tema laut) */
+.wave-divider {
+    position: absolute;
+    inset-inline: 0;
+    bottom: -1px;
+    z-index: 1;
+    width: 100%;
+    height: clamp(48px, 7vw, 110px);
+    color: #fff;
+    pointer-events: none;
+}
+
+.wave-divider-top {
+    top: -1px;
+    bottom: auto;
+    transform: rotate(180deg);
+}
+
+/* Tautan navbar saat masih melayang di atas foto hero */
+.nav-link-hero {
+    text-shadow: 0 1px 4px rgb(0 18 32 / 0.55);
+}
+
+.scroll-cue span {
+    display: block;
+    width: 2px;
+    height: 40px;
+    background: linear-gradient(
+        to bottom,
+        rgb(255 255 255 / 0.85),
+        transparent
+    );
+    animation: scroll-cue 2s ease-in-out infinite;
+}
+
+@keyframes scroll-cue {
+    0%,
+    100% {
+        transform: scaleY(0.35);
+        transform-origin: top;
+        opacity: 0.4;
+    }
+    50% {
+        transform: scaleY(1);
+        transform-origin: top;
+        opacity: 1;
+    }
+}
+
+/* ==========================================================
+   7. PRELOADER
 ========================================================== */
 #preloader {
     will-change: transform;
 }
 
-/* ==========================================================
-   CUSTOM CSS UNTUK ANIMASI ORCHA JOURNEY
-========================================================== */
-.split-word {
-    white-space: nowrap;
+/* JS gagal dimuat -> preloader tidak boleh menutupi halaman selamanya */
+.no-js #preloader {
+    display: none;
 }
 
-/* 1. Text Outline (Referensi Hero Section) */
-.text-outline {
-    color: transparent;
-    -webkit-text-stroke: 2px #1f2937; /* Sesuai dengan warna gray-800 */
+/* ==========================================================
+   8. GALERI & PARTNER — marquee murni CSS (jalan walau JS gagal)
+========================================================== */
+.marquee {
+    display: flex;
+    width: max-content;
+    gap: 1rem;
+    animation: marquee-left 42s linear infinite;
 }
+
+.marquee-reverse {
+    animation-name: marquee-right;
+}
+
+.marquee-slow {
+    animation-duration: 60s;
+}
+
+.marquee-wrap:hover .marquee {
+    animation-play-state: paused;
+}
+
+@keyframes marquee-left {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        transform: translate3d(-50%, 0, 0);
+    }
+}
+
+@keyframes marquee-right {
+    from {
+        transform: translate3d(-50%, 0, 0);
+    }
+    to {
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+/* ==========================================================
+   9. SLIDER DESTINASI — scroll-snap, responsif tanpa scroll hijack
+========================================================== */
+.snap-row {
+    display: flex;
+    gap: clamp(0.75rem, 1.5vw, 1.5rem);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: clamp(1rem, 5vw, 4.5rem);
+    padding-inline: clamp(1rem, 5vw, 4.5rem);
+    padding-bottom: 1.25rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-orcha-mist) transparent;
+}
+
+.snap-row > * {
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+}
+
+.snap-row::-webkit-scrollbar {
+    height: 6px;
+}
+
+.snap-row::-webkit-scrollbar-thumb {
+    background: var(--color-orcha-mist);
+    border-radius: 9999px;
+}
+
+/* ==========================================================
+   10. ANIMASI MASUK (GSAP menambah .is-visible; tetap terbaca tanpa JS)
+========================================================== */
+.reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    transition:
+        opacity 0.7s ease,
+        transform 0.7s ease;
+}
+
+.reveal.is-visible,
+.no-js .reveal {
+    opacity: 1;
+    transform: none;
+}
+
 .text-outline-white {
     color: transparent;
     -webkit-text-stroke: 2px #ffffff;
 }
 
-/* 2. Animasi Gambar Clip-Path (Referensi Destinasi) */
-/* State awal gambar (Tersembunyi di bawah) */
-.image-wrap {
-    clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
-    visibility: hidden;
+/* ==========================================================
+   10a. PILIHAN DI DIALOG SEWA & FORMULIR
+========================================================== */
+.pilihan-sewa {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.7rem 0.75rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-orcha-foam);
+    background: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-orcha-abyss);
+    cursor: pointer;
     transition:
-        clip-path 1s ease-out,
-        visibility 1s ease-out;
-    transition-delay: 0.2s;
+        border-color 0.2s ease,
+        background-color 0.2s ease,
+        color 0.2s ease;
 }
 
-.image-wrap img {
-    transform: scale(1.3);
-    transition: transform 2s ease-out;
+.pilihan-sewa:hover {
+    border-color: var(--color-orcha-mist);
 }
 
-/* State saat class .animating ditambahkan oleh JavaScript (GSAP/Observer) */
-.animating .image-wrap {
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
-    visibility: visible;
+.pilihan-sewa-aktif {
+    border-color: transparent;
+    background: linear-gradient(
+        120deg,
+        var(--color-orcha-sky),
+        var(--color-orcha-ocean)
+    );
+    color: #fff;
 }
 
-.animating .image-wrap img {
-    transform: scale(1);
-    transition: transform 4s ease-out;
+/* Kotak centang bergaya kartu — dipakai daftar kondisi kesehatan */
+.pilihan-centang {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.8rem 1rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-orcha-foam);
+    background: #fff;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: #475569;
+    cursor: pointer;
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
 }
 
-/* 3. Animasi Teks Fade Up (Referensi Destinasi) */
-/* State awal teks (Turun dan transparan) */
-.fadeup-text {
+.pilihan-centang:hover {
+    border-color: var(--color-orcha-mist);
+    background: rgb(232 247 253 / 0.45);
+}
+
+.pilihan-centang .kotak {
+    display: grid;
+    place-items: center;
+    width: 1.3rem;
+    height: 1.3rem;
+    flex-shrink: 0;
+    border-radius: 0.5rem;
+    border: 2px solid #cbd5e1;
+    background: #fff;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.pilihan-centang .kotak svg {
+    width: 0.8rem;
+    height: 0.8rem;
     opacity: 0;
-    transform: translateY(40px);
+    transform: scale(0.5);
+    color: var(--color-orcha-ocean);
     transition:
-        opacity 0.4s ease-out,
-        transform 0.4s ease-out;
+        opacity 0.18s ease,
+        transform 0.18s ease;
 }
 
-/* State saat class .fading-up ditambahkan oleh JavaScript */
-.fading-up {
+.pilihan-centang:has(input:checked) {
+    border-color: transparent;
+    background: linear-gradient(
+        120deg,
+        var(--color-orcha-sky),
+        var(--color-orcha-ocean)
+    );
+    color: #fff;
+    box-shadow: var(--shadow-orcha);
+    transform: translateY(-1px);
+}
+
+.pilihan-centang:has(input:checked) .kotak {
+    background: #fff;
+    border-color: #fff;
+}
+
+.pilihan-centang:has(input:checked) .kotak svg {
     opacity: 1;
-    transform: translateY(0px);
+    transform: scale(1);
+}
+
+.pilihan-centang:has(input:focus-visible) {
+    outline: 2px solid var(--color-orcha-sky);
+    outline-offset: 2px;
+}
+
+/* Kotak centang biasa (persetujuan) ikut warna brand */
+input[type="checkbox"],
+input[type="radio"] {
+    accent-color: var(--color-orcha-ocean);
+}
+
+/* Medan isian formulir publik */
+.isian-orcha {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    font-size: 0.9rem;
+    background: #fff;
+    border: 1px solid var(--color-orcha-foam);
+    border-radius: 1rem;
+    color: #223240;
     transition:
-        opacity 1s ease-out,
-        transform 1s ease-out;
-    transition-delay: 0.7s;
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.isian-orcha:focus {
+    outline: none;
+    border-color: var(--color-orcha-sky);
+    box-shadow: 0 0 0 3px rgb(26 176 226 / 0.25);
+}
+
+.isian-orcha::placeholder {
+    color: #94a3b8;
+}
+
+.label-orcha {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-orcha-navy);
+}
+
+.galat-orcha {
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #d92d20;
+}
+
+.isian-orcha.isian-galat {
+    border-color: #f0a6a0;
+}
+
+/* ==========================================================
+   10b. PAGINASI
+========================================================== */
+.page-orcha {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-width: 2.5rem;
+    height: 2.5rem;
+    padding-inline: 0.75rem;
+    border-radius: 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--color-orcha-abyss);
+    background: #fff;
+    border: 1px solid var(--color-orcha-foam);
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+    cursor: pointer;
+}
+
+.page-orcha:hover:not(.page-orcha-mati):not(.page-orcha-aktif):not(.page-orcha-jeda) {
+    border-color: var(--color-orcha-sky);
+    color: var(--color-orcha-navy);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-orcha);
+}
+
+.page-orcha-aktif {
+    background: linear-gradient(
+        120deg,
+        var(--color-orcha-sky),
+        var(--color-orcha-ocean)
+    );
+    border-color: transparent;
+    color: #fff;
+    box-shadow: var(--shadow-orcha);
+    cursor: default;
+}
+
+.page-orcha-nav {
+    padding-inline: 1rem;
+}
+
+.page-orcha-mati {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.page-orcha-jeda {
+    border-color: transparent;
+    background: transparent;
+    color: var(--color-orcha-mist);
+    cursor: default;
+    min-width: 1.5rem;
+    padding-inline: 0.25rem;
+}
+
+/* ==========================================================
+   11. HALAMAN INFORMASI (syarat, kebijakan, FAQ)
+========================================================== */
+.prose-orcha {
+    color: #46525e;
+    line-height: 1.75;
+}
+
+.prose-orcha h2 {
+    font-family: var(--font-heading);
+    font-size: clamp(1.25rem, 2.2vw, 1.6rem);
+    font-weight: 800;
+    color: var(--color-orcha-navy);
+    margin-top: 2.5rem;
+    margin-bottom: 0.85rem;
+    scroll-margin-top: 6rem;
+}
+
+.prose-orcha h2:first-child {
+    margin-top: 0;
+}
+
+.prose-orcha h3 {
+    font-family: var(--font-heading);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-orcha-abyss);
+    margin-top: 1.6rem;
+    margin-bottom: 0.5rem;
+}
+
+.prose-orcha p {
+    margin-bottom: 1rem;
+}
+
+.prose-orcha ul,
+.prose-orcha ol {
+    margin: 0 0 1.25rem;
+    padding-left: 1.25rem;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.prose-orcha ul > li {
+    list-style: none;
+    position: relative;
+    padding-left: 1rem;
+}
+
+.prose-orcha ul > li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.65em;
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--color-orcha-sky);
+}
+
+.prose-orcha ol > li {
+    list-style: decimal;
+    padding-left: 0.35rem;
+}
+
+.prose-orcha ol > li::marker {
+    color: var(--color-orcha-ocean);
+    font-weight: 700;
+}
+
+.prose-orcha strong {
+    color: var(--color-orcha-navy);
+    font-weight: 700;
+}
+
+.prose-orcha a {
+    color: var(--color-orcha-ocean);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/* Daftar isi yang menempel di sisi kiri pada layar lebar */
+.toc-orcha {
+    position: sticky;
+    top: 6rem;
+}
+
+.toc-orcha a {
+    display: block;
+    padding: 0.55rem 0.9rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-orcha-abyss);
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.toc-orcha a:hover {
+    background: var(--color-orcha-foam);
+    color: var(--color-orcha-navy);
+}
+
+/* Tabel ketentuan (mis. tangga pengembalian dana) */
+.table-orcha {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.9rem;
+    overflow: hidden;
+    border-radius: 1rem;
+    border: 1px solid var(--color-orcha-foam);
+}
+
+.table-orcha thead th {
+    background: var(--color-orcha-foam);
+    color: var(--color-orcha-navy);
+    font-weight: 700;
+    text-align: left;
+    padding: 0.85rem 1rem;
+    white-space: nowrap;
+}
+
+.table-orcha tbody td {
+    padding: 0.85rem 1rem;
+    border-top: 1px solid var(--color-orcha-foam);
+    vertical-align: top;
+}
+
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+/* ==========================================================
+   12. HERO — lapisan ombak beranimasi
+   Dipakai kalau belum ada berkas video; tetap terasa "laut hidup"
+   tanpa menambah beban unduhan.
+========================================================== */
+.ocean {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 0;
+    height: clamp(90px, 16vw, 220px);
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.ocean svg {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 200%;
+    height: 100%;
+}
+
+/* Tiap lapis dinaikkan sedikit dan berbeda kecepatan supaya puncak ombaknya
+   tidak saling menimpa dan gerakannya terbaca. */
+.ocean .wave-1 {
+    bottom: 26%;
+    height: 74%;
+    opacity: 0.45;
+    animation: wave-drift 17s linear infinite;
+}
+
+.ocean .wave-2 {
+    bottom: 12%;
+    height: 82%;
+    opacity: 0.55;
+    animation: wave-drift 25s linear infinite reverse;
+}
+
+.ocean .wave-3 {
+    bottom: 0;
+    opacity: 1;
+    animation: wave-drift 33s linear infinite;
+}
+
+@keyframes wave-drift {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        transform: translate3d(-50%, 0, 0);
+    }
+}
+
+/* Zoom sangat pelan pada foto/video hero supaya tidak terasa diam */
+.hero-breathe {
+    animation: hero-breathe 24s ease-in-out infinite alternate;
+}
+
+@keyframes hero-breathe {
+    from {
+        transform: scale(1.06);
+    }
+    to {
+        transform: scale(1.16);
+    }
 }

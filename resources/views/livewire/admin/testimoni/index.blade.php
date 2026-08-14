@@ -78,13 +78,13 @@ new
         }
     }; ?>
 
-<div class="mt-10">
+<div>
     <x-mary-header title="Testimoni Pelanggan" no-separator progress-indicator>
         <x-slot:middle class="!justify-end">
             <x-mary-input placeholder="cari nama customer..." wire:model.live.debounce="search" clearable icon="o-magnifying-glass" />
         </x-slot:middle>
         <x-slot:actions>
-            <x-mary-button label="Tambah Testimoni" link="/admin/testimoni/create" responsive icon="o-plus" class="btn-primary"></x-button>
+            <x-mary-button label="Tambah Testimoni" link="/admin/testimoni/create" responsive icon="o-plus" class="btn-primary" />
         </x-slot:actions>
     </x-mary-header>
 

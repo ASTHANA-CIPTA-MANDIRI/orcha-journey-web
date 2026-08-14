@@ -9,10 +9,12 @@ use Illuminate\Support\Str;
 class Partner extends Model
 {
     use HasFactory;
-    protected $table = "tbl_partner";
+
+    protected $table = 'tbl_partner';
+
     protected $fillable = [
-        "partner_name",
-        "foto"
+        'partner_name',
+        'foto',
     ];
 
     public function initials(): string
@@ -22,7 +24,7 @@ class Partner extends Model
             ->explode(' ')
             ->filter()
             ->take(2)
-            ->map(fn($word) => Str::upper(Str::substr($word, 0, 1)))
+            ->map(fn ($word) => Str::upper(Str::substr($word, 0, 1)))
             ->implode('');
     }
 }

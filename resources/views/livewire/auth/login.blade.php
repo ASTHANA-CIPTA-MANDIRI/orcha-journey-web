@@ -100,41 +100,35 @@ new #[Layout('components.layouts.empty')] class extends Component {
     }
 }; ?>
 
-<div class="container mx-auto">
-    <div class="flex flex-col gap-6 max-w-lg mx-auto my-auto pt-40">
-        <div class="h-40 w-40 overflow-hidden self-center">
-            <img src="{{asset('/orcha-logo.png')}}" class="object-cover h-full w-full" alt="">
-        </div>
-        <x-mary-form method="POST" wire:submit="login" class="flex flex-col gap-6">
-            <!-- Email Address -->
-            <x-mary-input wire:model="email" label="email" placeholder="email@example.com"></x-mary-input>
-
-            <!-- Password -->
-            <div class="relative">
-                <x-mary-password wire:model="password" label="Password" type="password" placeholder="********" right></x-mary-password>
-
-                @if (Route::has('password.request'))
-                <x-mary-button class="btn-ghost" link="password.request">
-                    {{ __('Forgot your password?') }}
-                </x-mary-button>
-                @endif
-            </div>
-
-            <!-- Remember Me -->
-            <x-mary-checkbox wire:model="remember" label="Remember me"></x-mary-checkbox>
-
-            <div class="flex items-center justify-end">
-                <x-mary-button class="btn-primary w-full" type="submit">
-                    {{ __('Log in') }}
-                </x-mary-button>
-            </div>
-        </x-mary-form>
-
-        @if (Route::has('register'))
-        <div class="space-x-1 text-sm text-center rtl:space-x-reverse text-zinc-600 dark:text-zinc-400">
-            <span>{{ __('Don\'t have an account?') }}</span>
-            <x-mary-button link="register" class="btn-ghost">{{ __('Sign up') }}</x-mary-button>
-        </div>
-        @endif
+<div class="flex flex-col gap-6">
+    <div>
+        <h1 class="text-xl font-bold admin-title">Masuk Panel Admin</h1>
+        <p class="mt-1 text-sm text-base-content/60">Kelola paket wisata, armada, dan isi website Orcha Journey.</p>
     </div>
+
+    <x-mary-form method="POST" wire:submit="login" class="flex flex-col gap-5">
+        <x-mary-input wire:model="email" label="Email" placeholder="admin@orchajourney.com" icon="o-envelope" />
+
+        <div>
+            <x-mary-password wire:model="password" label="Kata Sandi" type="password" placeholder="••••••••" right />
+
+            @if (Route::has('password.request'))
+                <a href="{{ route('password.request') }}"
+                    class="inline-block mt-2 text-xs font-semibold text-primary hover:underline">
+                    Lupa kata sandi?
+                </a>
+            @endif
+        </div>
+
+        <x-mary-checkbox wire:model="remember" label="Ingat saya" />
+
+        <x-mary-button class="w-full btn-primary" type="submit" spinner="login" label="Masuk" />
+    </x-mary-form>
+
+    @if (Route::has('register'))
+        <p class="text-sm text-center text-base-content/60">
+            Belum punya akun?
+            <a href="{{ route('register') }}" class="font-semibold text-primary hover:underline">Daftar</a>
+        </p>
+    @endif
 </div>

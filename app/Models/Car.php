@@ -4,17 +4,24 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Car extends Model
 {
     use HasFactory;
 
     protected $fillable = [
+        'uuid',
         'name',
         'brand',
+        'type',
         'nopol',
         'price_per_day',
+        'harga_per_jam',
+        'harga_12_jam',
+        'harga_sopir',
         'transmission',
+        'transmisi_tersedia',
         'capacity',
         'image',
         'is_available',
@@ -22,5 +29,95 @@ class Car extends Model
 
     protected $casts = [
         'is_available' => 'boolean',
+        'transmisi_tersedia' => 'array',
+        'price_per_day' => 'integer',
+        'harga_per_jam' => 'integer',
+        'harga_12_jam' => 'integer',
+        'harga_sopir' => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $mobil) {
+            if (blank($mobil->uuid)) {
+                $mobil->uuid = (string) Str::uuid();
+            }
+
+            if (blank($mobil->transmisi_tersedia)) {
+                $mobil->transmisi_tersedia = [$mobil->transmission];
+            }
+        });
+    }
+
+    /**
+     * Label jenis kendaraan yang tampil di landing page & admin (Mobil/HiAce/Bus).
+     */
+    public function getTypeLabelAttribute(): string
+    {
+        return config('orcha.jenis_kendaraan')[$this->type] ?? 'Mobil';
+    }
+
+    /**
+     * Transmisi yang benar-benar tersedia untuk unit ini. Dipakai kartu daftar
+     * dan formulir pemesanan supaya pelanggan tidak salah menduga.
+     */
+    public function getTransmisiTersediaListAttribute(): array
+    {
+        $daftar = $this->transmisi_tersedia;
+
+        return ! empty($daftar) ? array_values($daftar) : array_filter([$this->transmission]);
+    }
+
+    public function getTransmisiLabelAttribute(): string
+    {
+        return implode(' & ', $this->transmisi_tersedia_list) ?: '—';
+    }
+
+    public function getPunyaDuaTransmisiAttribute(): bool
+    {
+        return count($this->transmisi_tersedia_list) > 1;
+    }
+
+    /**
+     * Tarif per satuan waktu. Nilai null berarti satuan itu tidak dijual.
+     */
+    public function tarif(string $satuan): ?int
+    {
+        return match ($satuan) {
+            'jam' => $this->harga_per_jam,
+            '12jam' => $this->harga_12_jam,
+            default => $this->price_per_day,
+        };
+    }
+
+    /**
+     * Perkiraan biaya sewa. Angka final tetap dikonfirmasi tim, karena BBM,
+     * tol, dan biaya lokasi dihitung terpisah.
+     */
+    public function estimasiBiaya(string $satuan, int $durasi, bool $denganSopir = false): ?int
+    {
+        $tarif = $this->tarif($satuan);
+
+        if ($tarif === null || $durasi < 1) {
+            return null;
+        }
+
+        $total = $tarif * $durasi;
+
+        if ($denganSopir && $this->harga_sopir) {
+            // Sopir dihitung harian; sewa per jam tetap terhitung satu hari kerja
+            $hari = match ($satuan) {
+                'hari' => $durasi,
+                default => 1,
+            };
+            $total += $this->harga_sopir * $hari;
+        }
+
+        return (int) $total;
+    }
+
+    public function scopeOfType($query, ?string $type)
+    {
+        return $query->when($type, fn ($q) => $q->where('type', $type));
+    }
 }

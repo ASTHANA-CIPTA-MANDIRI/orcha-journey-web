@@ -146,7 +146,7 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | Partner')] class exte
     }
 }; ?>
 
-<div class="mt-10">
+<div>
     <x-mary-header title="Partner Usaha" no-separator progress-indicator>
         <x-slot:middle class="!justify-end">
             <x-mary-input placeholder="cari nama partner..." wire:model.live.debounce="search" clearable
@@ -154,7 +154,7 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | Partner')] class exte
         </x-slot:middle>
         <x-slot:actions>
             <x-mary-button spinner="openModal" label="Tambah Partner" wire:click="openModal" responsive icon="o-plus"
-                class="btn-primary"></x-button>
+                class="btn-primary" />
         </x-slot:actions>
     </x-mary-header>
     <x-mary-card shadow>
