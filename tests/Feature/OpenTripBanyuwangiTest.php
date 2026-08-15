@@ -63,7 +63,10 @@ test('formulir pendaftaran memakai tanggal dan titik jemput dari paket', functio
         ->set('nama', 'Peserta Uji')
         ->set('whatsapp', '081234567890')
         ->set('jumlahPeserta', 2)
-        ->set('peserta', ['Peserta Uji', 'Peserta Kedua'])
+        ->set('peserta', [
+            ['nama' => 'Peserta Uji', 'titik_jemput' => 'Jogja'],
+            ['nama' => 'Peserta Kedua', 'titik_jemput' => 'Surakarta'],
+        ])
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors();
@@ -71,7 +74,8 @@ test('formulir pendaftaran memakai tanggal dan titik jemput dari paket', functio
     $pendaftaran = PendaftaranOpenTrip::firstOrFail();
 
     expect($pendaftaran->tanggal_berangkat->toDateString())->toBe('2026-10-19')
-        ->and($pendaftaran->titik_jemput)->toBe('Jogja, Klaten, Surakarta');
+        // Yang tersimpan titik yang dipakai rombongan ini, bukan seluruh tawaran
+        ->and($pendaftaran->titik_jemput)->toBe('Jogja, Surakarta');
 });
 
 test('semua halaman menyebut pelunasan H-5', function () {

@@ -746,8 +746,27 @@ test('pendaftaran membawa daftar peserta dan kelengkapan kesehatannya', function
 
     $this->getJson("/api/v1/pendaftaran/{$pendaftaran->id}", kirim())
         ->assertOk()
-        ->assertJsonPath('data.daftar_peserta', ['Budi Santoso', 'Sari Dewi'])
+        ->assertJsonPath('data.peserta.0.nama', 'Budi Santoso')
+        ->assertJsonPath('data.peserta.1.nama', 'Sari Dewi')
         ->assertJsonPath('data.kesehatan_terisi', 0)
         ->assertJsonPath('data.kesehatan_lengkap', false)
         ->assertJsonPath('data.peserta_belum_isi', ['Budi Santoso', 'Sari Dewi']);
+});
+
+test('titik jemput tiap peserta ikut terbaca lewat api', function () {
+    $pendaftaran = buatPendaftaran([
+        'jumlah_peserta' => 3,
+        'daftar_peserta' => [
+            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Surakarta'],
+            ['nama' => 'Sari Dewi', 'titik_jemput' => 'Jogja'],
+            ['nama' => 'Rina Wijaya', 'titik_jemput' => 'Surakarta'],
+        ],
+    ]);
+
+    $this->getJson("/api/v1/pendaftaran/{$pendaftaran->id}", kirim())
+        ->assertOk()
+        ->assertJsonPath('data.peserta.0.titik_jemput', 'Surakarta')
+        // Dikelompokkan supaya sopir tahu siapa menunggu di mana
+        ->assertJsonPath('data.jemput_per_titik.Surakarta', ['Budi Santoso', 'Rina Wijaya'])
+        ->assertJsonPath('data.jemput_per_titik.Jogja', ['Sari Dewi']);
 });

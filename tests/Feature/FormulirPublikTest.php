@@ -63,14 +63,21 @@ test('pendaftaran open trip menghasilkan kode dan tersimpan', function () {
         ->set('whatsapp', '081298765432')
         ->set('paketId', $paket->uuid)
         ->set('jumlahPeserta', 3)
-        ->set('peserta', ['Siti Aminah', 'Budi Santoso', 'Rina Wijaya'])
+        ->set('peserta', [
+            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja'],
+            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Klaten'],
+            ['nama' => 'Rina Wijaya', 'titik_jemput' => 'Surakarta'],
+        ])
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors();
 
     $pendaftaran = PendaftaranOpenTrip::first();
 
-    expect($pendaftaran->daftar_peserta)->toBe(['Siti Aminah', 'Budi Santoso', 'Rina Wijaya']);
+    expect(collect($pendaftaran->peserta)->pluck('nama')->all())
+        ->toBe(['Siti Aminah', 'Budi Santoso', 'Rina Wijaya'])
+        // Titik jemput yang benar-benar dipakai, bukan seluruh yang ditawarkan
+        ->and($pendaftaran->titik_jemput)->toBe('Jogja, Klaten, Surakarta');
 
     expect($pendaftaran->nama)->toBe('Siti Aminah')
         ->and($pendaftaran->nama_paket)->toBe('Open Trip Karimunjawa')
@@ -245,19 +252,20 @@ test('menghapus pendaftaran ikut menghapus data kesehatannya', function () {
 
 /* ------------------- NAMA PESERTA & KELENGKAPAN ------------------- */
 
-test('jumlah kotak nama mengikuti jumlah peserta', function () {
+test('jumlah kotak peserta mengikuti jumlah peserta', function () {
     $komponen = Volt::test('public.open-trip.pendaftaran')
         ->set('nama', 'Siti Aminah')
         ->set('jumlahPeserta', 3);
 
     // Peserta pertama terisi sendiri dari nama pemesan
     expect($komponen->get('peserta'))->toHaveCount(3)
-        ->and($komponen->get('peserta')[0])->toBe('Siti Aminah');
+        ->and($komponen->get('peserta')[0]['nama'])->toBe('Siti Aminah');
 
-    // Dikurangi lagi, yang sudah diketik tidak hilang
-    $komponen->set('peserta.1', 'Budi Santoso')->set('jumlahPeserta', 2);
+    // Dikurangi lagi, yang sudah diisi tidak hilang
+    $komponen->set('peserta.1.nama', 'Budi Santoso')->set('jumlahPeserta', 2);
 
-    expect($komponen->get('peserta'))->toBe(['Siti Aminah', 'Budi Santoso']);
+    expect(collect($komponen->get('peserta'))->pluck('nama')->all())
+        ->toBe(['Siti Aminah', 'Budi Santoso']);
 });
 
 test('nama peserta wajib diisi semuanya', function () {
@@ -271,10 +279,13 @@ test('nama peserta wajib diisi semuanya', function () {
         ->set('whatsapp', '081298765432')
         ->set('paketId', $paket->uuid)
         ->set('jumlahPeserta', 2)
-        ->set('peserta', ['Siti Aminah', ''])
+        ->set('peserta', [
+            ['nama' => 'Siti Aminah', 'titik_jemput' => ''],
+            ['nama' => '', 'titik_jemput' => ''],
+        ])
         ->set('setuju', true)
         ->call('daftar')
-        ->assertHasErrors(['peserta.1']);
+        ->assertHasErrors(['peserta.1.nama']);
 
     expect(PendaftaranOpenTrip::count())->toBe(0);
 });
@@ -282,7 +293,7 @@ test('nama peserta wajib diisi semuanya', function () {
 test('kelengkapan riwayat kesehatan terbaca dari jumlah peserta', function () {
     $pendaftaran = PendaftaranOpenTrip::create([
         'nama' => 'Siti Aminah', 'whatsapp' => '0812', 'jumlah_peserta' => 3,
-        'daftar_peserta' => ['Siti Aminah', 'Budi Santoso', 'Rina Wijaya'],
+        'daftar_peserta' => ['Siti Aminah', 'Budi Santoso', 'Rina Wijaya'],   // bentuk lama
     ]);
 
     expect($pendaftaran->kesehatan_terisi)->toBe(0)
@@ -303,4 +314,103 @@ test('kelengkapan riwayat kesehatan terbaca dari jumlah peserta', function () {
     expect($pendaftaran->kesehatan_terisi)->toBe(1)
         ->and($pendaftaran->kesehatan_lengkap)->toBeFalse()
         ->and($pendaftaran->peserta_belum_isi)->toBe(['Siti Aminah', 'Rina Wijaya']);
+});
+
+/* --------------------------- TITIK JEMPUT --------------------------- */
+
+test('paket dengan beberapa titik jemput mewajibkan tiap peserta memilih', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip', 'price' => 1430000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+        'titik_jemput' => 'Jogja, Klaten, Surakarta',
+    ]);
+
+    expect($paket->titik_jemput_list)->toBe(['Jogja', 'Klaten', 'Surakarta'])
+        ->and($paket->punya_pilihan_jemput)->toBeTrue();
+
+    Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $paket->uuid)
+        ->set('nama', 'Siti Aminah')
+        ->set('whatsapp', '081298765432')
+        ->set('jumlahPeserta', 2)
+        ->set('peserta', [
+            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja'],
+            ['nama' => 'Budi Santoso', 'titik_jemput' => ''],
+        ])
+        ->set('setuju', true)
+        ->call('daftar')
+        ->assertHasErrors(['peserta.1.titik_jemput']);
+
+    expect(PendaftaranOpenTrip::count())->toBe(0);
+});
+
+test('titik jemput di luar tawaran paket ditolak', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip', 'price' => 1430000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+        'titik_jemput' => 'Jogja, Klaten, Surakarta',
+    ]);
+
+    Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $paket->uuid)
+        ->set('nama', 'Siti Aminah')
+        ->set('whatsapp', '081298765432')
+        ->set('jumlahPeserta', 1)
+        // Prambanan tidak ditawarkan paket ini
+        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Prambanan']])
+        ->set('setuju', true)
+        ->call('daftar')
+        ->assertHasErrors(['peserta.0.titik_jemput']);
+});
+
+test('paket dengan satu titik jemput mengisinya sendiri', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Jogja Hemat', 'category' => 'open_trip', 'price' => 350000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+        'titik_jemput' => 'Jogja',
+    ]);
+
+    $komponen = Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $paket->uuid)
+        ->set('nama', 'Siti Aminah')
+        ->set('whatsapp', '081298765432')
+        ->set('jumlahPeserta', 2);
+
+    // Peserta tidak ditanya, langsung terisi
+    expect(collect($komponen->get('peserta'))->pluck('titik_jemput')->all())
+        ->toBe(['Jogja', 'Jogja']);
+
+    $komponen->set('peserta.1.nama', 'Budi Santoso')
+        ->set('setuju', true)
+        ->call('daftar')
+        ->assertHasNoErrors();
+});
+
+test('rombongan terkelompok per titik jemput untuk dibaca sopir', function () {
+    $pendaftaran = PendaftaranOpenTrip::create([
+        'nama' => 'Siti Aminah', 'whatsapp' => '0812', 'jumlah_peserta' => 3,
+        'daftar_peserta' => [
+            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Surakarta'],
+            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Jogja'],
+            ['nama' => 'Rina Wijaya', 'titik_jemput' => 'Surakarta'],
+        ],
+    ]);
+
+    expect($pendaftaran->jemput_per_titik)->toBe([
+        'Surakarta' => ['Siti Aminah', 'Rina Wijaya'],
+        'Jogja' => ['Budi Santoso'],
+    ]);
+});
+
+test('data lama yang hanya berisi nama tetap terbaca', function () {
+    $pendaftaran = PendaftaranOpenTrip::create([
+        'nama' => 'Siti Aminah', 'whatsapp' => '0812', 'jumlah_peserta' => 2,
+        'daftar_peserta' => ['Siti Aminah', 'Budi Santoso'],
+        'titik_jemput' => 'Jogja',
+    ]);
+
+    expect($pendaftaran->peserta)->toBe([
+        ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja'],
+        ['nama' => 'Budi Santoso', 'titik_jemput' => 'Jogja'],
+    ]);
 });

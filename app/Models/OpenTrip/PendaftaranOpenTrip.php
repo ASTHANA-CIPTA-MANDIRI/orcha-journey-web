@@ -60,6 +60,46 @@ class PendaftaranOpenTrip extends Model
         return $this->hasMany(RiwayatKesehatan::class, 'kode_pendaftaran', 'kode');
     }
 
+    /**
+     * Daftar peserta dalam bentuk seragam: nama + titik jemputnya.
+     *
+     * Data lama menyimpan nama saja sebagai deretan teks. Diterjemahkan di
+     * sini supaya seluruh aplikasi cukup mengenal satu bentuk, tanpa perlu
+     * mengubah baris yang sudah telanjur tersimpan.
+     */
+    public function getPesertaAttribute(): array
+    {
+        return collect($this->daftar_peserta ?? [])
+            ->map(function ($baris) {
+                if (is_array($baris)) {
+                    return [
+                        'nama' => trim($baris['nama'] ?? ''),
+                        'titik_jemput' => trim($baris['titik_jemput'] ?? '') ?: $this->titik_jemput,
+                    ];
+                }
+
+                return ['nama' => trim((string) $baris), 'titik_jemput' => $this->titik_jemput];
+            })
+            ->filter(fn ($baris) => $baris['nama'] !== '')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Titik jemput yang benar-benar dipakai rombongan ini, beserta siapa saja
+     * yang menunggu di sana — inilah yang dibaca sopir pada hari keberangkatan.
+     *
+     * @return array<string, array<int, string>>
+     */
+    public function getJemputPerTitikAttribute(): array
+    {
+        return collect($this->peserta)
+            ->filter(fn ($p) => filled($p['titik_jemput']))
+            ->groupBy('titik_jemput')
+            ->map(fn ($orang) => $orang->pluck('nama')->all())
+            ->all();
+    }
+
     public function konfirmasiPembayaran()
     {
         return $this->hasMany(KonfirmasiPembayaran::class, 'kode', 'kode');
@@ -89,7 +129,8 @@ class PendaftaranOpenTrip extends Model
             ->map(fn ($nama) => mb_strtolower(trim($nama)))
             ->all();
 
-        return collect($this->daftar_peserta ?? [])
+        return collect($this->peserta)
+            ->pluck('nama')
             ->filter(fn ($nama) => ! in_array(mb_strtolower(trim($nama)), $sudah, true))
             ->values()
             ->all();

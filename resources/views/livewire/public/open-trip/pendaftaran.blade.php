@@ -22,7 +22,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
      * Nama tiap peserta. Peserta pertama adalah pemesan itu sendiri, jadi
      * namanya ikut terisi otomatis — pemesan tidak perlu mengetik dua kali.
      */
-    public array $peserta = [''];
+    public array $peserta = [['nama' => '', 'titik_jemput' => '']];
 
     public string $catatan = '';
 
@@ -57,7 +57,10 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             'paketId' => 'required|exists:tbl_travel_package,uuid',
             'jumlahPeserta' => 'required|integer|min:1|max:60',
             'peserta' => 'required|array|min:1',
-            'peserta.*' => 'required|string|min:3|max:120',
+            'peserta.*.nama' => 'required|string|min:3|max:120',
+            // Titik jemput hanya ditanya bila paketnya memang menawarkan
+            // lebih dari satu; nilainya wajib salah satu dari yang ditawarkan.
+            'peserta.*.titik_jemput' => $this->aturanTitikJemput(),
             'catatan' => 'nullable|string|max:1000',
             'setuju' => 'accepted',
         ];
@@ -68,12 +71,13 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
         return [
             'paketId' => 'paket open trip',
             'jumlahPeserta' => 'jumlah peserta',
-            'peserta.*' => 'nama peserta',
+            'peserta.*.nama' => 'nama peserta',
+            'peserta.*.titik_jemput' => 'titik jemput peserta',
             'setuju' => 'persetujuan syarat & ketentuan',
         ];
     }
 
-    /** Kotak nama mengikuti jumlah peserta, tanpa menghapus yang sudah diketik. */
+    /** Kotak peserta mengikuti jumlahnya, tanpa menghapus yang sudah diisi. */
     public function updatedJumlahPeserta(): void
     {
         $this->rapikanPeserta();
@@ -82,20 +86,61 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
     public function updatedNama(): void
     {
         // Peserta pertama = pemesan
-        $this->peserta[0] = $this->nama;
+        $this->peserta[0]['nama'] = $this->nama;
+    }
+
+    /** Ganti paket berarti pilihan titik jemputnya berbeda — mulai dari kosong. */
+    public function updatedPaketId(): void
+    {
+        foreach ($this->peserta as $urutan => $satu) {
+            $this->peserta[$urutan]['titik_jemput'] = '';
+        }
+
+        $this->rapikanPeserta();
+    }
+
+    private function aturanTitikJemput(): string
+    {
+        $paket = $this->paketDipilih();
+
+        if (! $paket || ! $paket->punya_pilihan_jemput) {
+            return 'nullable|string|max:191';
+        }
+
+        return 'required|string|in:'.implode(',', $paket->titik_jemput_list);
+    }
+
+    private function paketDipilih(): ?TravelPackage
+    {
+        return $this->paketId
+            ? TravelPackage::where('uuid', $this->paketId)->first()
+            : null;
     }
 
     private function rapikanPeserta(): void
     {
         $jumlah = max(1, min(60, (int) $this->jumlahPeserta));
-        $peserta = array_values($this->peserta);
+        $paket = $this->paketDipilih();
 
-        while (count($peserta) < $jumlah) {
-            $peserta[] = '';
+        // Paket dengan satu titik jemput tidak perlu ditanya — langsung diisikan.
+        $bawaan = $paket && ! $paket->punya_pilihan_jemput
+            ? ($paket->titik_jemput_list[0] ?? '')
+            : '';
+
+        $peserta = [];
+
+        foreach (range(0, $jumlah - 1) as $urutan) {
+            $lama = $this->peserta[$urutan] ?? [];
+
+            $peserta[] = [
+                'nama' => is_array($lama) ? ($lama['nama'] ?? '') : (string) $lama,
+                'titik_jemput' => (is_array($lama) ? ($lama['titik_jemput'] ?? '') : '') ?: $bawaan,
+            ];
         }
 
-        $this->peserta = array_slice($peserta, 0, $jumlah);
-        $this->peserta[0] = $this->peserta[0] ?: $this->nama;
+        $peserta[0]['nama'] = $peserta[0]['nama'] ?: $this->nama;
+
+        $this->peserta = $peserta;
     }
 
     public function daftar(): void
@@ -126,9 +171,15 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             'whatsapp' => $this->whatsapp,
             'email' => $this->email ?: null,
             'jumlah_peserta' => $this->jumlahPeserta,
-            'daftar_peserta' => array_map('trim', $this->peserta),
+            'daftar_peserta' => collect($this->peserta)->map(fn ($satu) => [
+                'nama' => trim($satu['nama']),
+                'titik_jemput' => trim($satu['titik_jemput'] ?? ''),
+            ])->all(),
             'tanggal_berangkat' => $paket->tanggal_berangkat,
-            'titik_jemput' => $paket->titik_jemput,
+            // Yang disimpan titik yang benar-benar dipakai rombongan ini,
+            // bukan seluruh titik yang ditawarkan paket.
+            'titik_jemput' => collect($this->peserta)->pluck('titik_jemput')
+                ->filter()->unique()->implode(', ') ?: $paket->titik_jemput,
             'catatan' => $this->catatan ?: null,
         ]);
 
@@ -159,6 +210,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
 
         return [
             'paketOpenTrip' => $daftarPaket,
+            'titikJemputPilihan' => $this->paketDipilih()?->titik_jemput_list ?? [],
             'paketTerpilih' => $this->paketId ? $daftarPaket->firstWhere('uuid', $this->paketId) : null,
         ];
     }
@@ -383,29 +435,61 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                  mengisi formulir itu — terlalu terlambat untuk menyiapkan
                                  kursi, kamar, dan konsumsi. --}}
                             <div>
-                                <label class="label-orcha">Nama peserta <x-wajib /></label>
+                                <label class="label-orcha">
+                                    Peserta &amp; titik jemput <x-wajib />
+                                </label>
                                 <p class="mb-3 text-sm text-slate-500">
                                     Tulis nama tiap orang sesuai kartu identitas. Peserta pertama adalah
                                     Anda sebagai pemesan.
                                 </p>
 
-                                <div class="space-y-2">
+                                <div class="space-y-3">
                                     @foreach ($peserta as $urutan => $satu)
-                                        <div class="flex items-center gap-3" wire:key="peserta-{{ $urutan }}">
+                                        <div class="flex items-start gap-3" wire:key="peserta-{{ $urutan }}">
                                             <span
-                                                class="flex items-center justify-center w-8 h-8 text-sm font-bold rounded-full shrink-0 bg-orcha-foam text-orcha-navy">
+                                                class="flex items-center justify-center w-8 h-8 mt-2 text-sm font-bold rounded-full shrink-0 bg-orcha-foam text-orcha-navy">
                                                 {{ $urutan + 1 }}
                                             </span>
-                                            <input type="text" maxlength="120" required
-                                                wire:model="peserta.{{ $urutan }}"
-                                                placeholder="{{ $urutan === 0 ? 'Nama Anda (pemesan)' : 'Nama peserta ke-' . ($urutan + 1) }}"
-                                                class="isian-orcha @error('peserta.' . $urutan) isian-galat @enderror">
+
+                                            <div class="flex-1 grid gap-2 {{ count($titikJemputPilihan) > 1 ? 'sm:grid-cols-2' : '' }}">
+                                                <div>
+                                                    <input type="text" maxlength="120" required
+                                                        wire:model="peserta.{{ $urutan }}.nama"
+                                                        placeholder="{{ $urutan === 0 ? 'Nama Anda (pemesan)' : 'Nama peserta ke-' . ($urutan + 1) }}"
+                                                        class="isian-orcha @error('peserta.' . $urutan . '.nama') isian-galat @enderror">
+                                                    @error('peserta.' . $urutan . '.nama')
+                                                        <p class="galat-orcha">{{ $message }}</p>
+                                                    @enderror
+                                                </div>
+
+                                                {{-- Titik jemput ditanya PER PESERTA: satu rombongan sering
+                                                     berangkat dari kota berbeda, dan sopir perlu tahu siapa
+                                                     menunggu di mana. --}}
+                                                @if (count($titikJemputPilihan) > 1)
+                                                    <div>
+                                                        <select required wire:model="peserta.{{ $urutan }}.titik_jemput"
+                                                            class="isian-orcha @error('peserta.' . $urutan . '.titik_jemput') isian-galat @enderror">
+                                                            <option value="">— Pilih titik jemput —</option>
+                                                            @foreach ($titikJemputPilihan as $titik)
+                                                                <option value="{{ $titik }}">{{ $titik }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        @error('peserta.' . $urutan . '.titik_jemput')
+                                                            <p class="galat-orcha">{{ $message }}</p>
+                                                        @enderror
+                                                    </div>
+                                                @endif
+                                            </div>
                                         </div>
-                                        @error('peserta.' . $urutan)
-                                            <p class="galat-orcha ms-11">{{ $message }}</p>
-                                        @enderror
                                     @endforeach
                                 </div>
+
+                                @if (count($titikJemputPilihan) > 1)
+                                    <p class="mt-3 text-sm text-slate-500">
+                                        Tiap peserta boleh dijemput di titik yang berbeda. Butuh titik di luar
+                                        daftar? Tulis di catatan tambahan — kami kabari apakah bisa dilayani.
+                                    </p>
+                                @endif
                             </div>
 
                             <div>

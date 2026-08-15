@@ -130,6 +130,29 @@ class TravelPackage extends Model
      * paket lewat menghilang dengan sendirinya — tanpa cron, tanpa ada yang
      * perlu menekan tombol.
      */
+    /**
+     * Titik jemput yang ditawarkan paket ini, sebagai daftar.
+     *
+     * Tersimpan sebagai satu baris teks ("Jogja, Klaten, Surakarta") karena
+     * itulah yang enak diketik admin. Yang dipakai formulir adalah daftarnya,
+     * supaya peserta memilih — bukan mengetik ulang dan berisiko salah tulis.
+     */
+    public function getTitikJemputListAttribute(): array
+    {
+        return collect(preg_split('/[,;\n\/]+/', (string) $this->titik_jemput))
+            ->map(fn ($titik) => trim($titik))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** Benar bila peserta perlu memilih; satu titik saja tidak perlu ditanya. */
+    public function getPunyaPilihanJemputAttribute(): bool
+    {
+        return count($this->titik_jemput_list) > 1;
+    }
+
     public function scopeTayang($query)
     {
         $sekarang = now();

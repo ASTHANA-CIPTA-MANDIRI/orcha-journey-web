@@ -19,7 +19,9 @@ class PendaftaranResource extends JsonResource
             'whatsapp' => $this->whatsapp,
             'email' => $this->email,
             'jumlah_peserta' => $this->jumlah_peserta,
-            'daftar_peserta' => $this->daftar_peserta ?? [],
+            // Bentuk seragam: tiap peserta punya nama dan titik jemputnya
+            'peserta' => $this->peserta,
+            'jemput_per_titik' => $this->jemput_per_titik,
             'kesehatan_terisi' => $this->kesehatan_terisi,
             'kesehatan_lengkap' => $this->kesehatan_lengkap,
             'peserta_belum_isi' => $this->peserta_belum_isi,
