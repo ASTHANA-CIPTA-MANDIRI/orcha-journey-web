@@ -122,6 +122,22 @@ return [
         'lainnya' => 'Lainnya',
     ],
 
+    /*
+    | Jenis pembayaran yang bisa dikonfirmasi pelanggan lewat formulir.
+    */
+    'jenis_pembayaran' => [
+        'dp' => 'Uang Muka (DP)',
+        'pelunasan' => 'Pelunasan',
+        'sewa' => 'Sewa Kendaraan',
+        'lainnya' => 'Lainnya',
+    ],
+
+    'status_pembayaran' => [
+        'menunggu' => 'Menunggu Dicek',
+        'diterima' => 'Diterima',
+        'ditolak' => 'Ditolak',
+    ],
+
     'status_pembatalan' => [
         'diajukan' => 'Diajukan',
         'diproses' => 'Sedang Diproses',

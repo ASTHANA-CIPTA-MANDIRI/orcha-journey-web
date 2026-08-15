@@ -19,6 +19,10 @@ class PendaftaranResource extends JsonResource
             'whatsapp' => $this->whatsapp,
             'email' => $this->email,
             'jumlah_peserta' => $this->jumlah_peserta,
+            'daftar_peserta' => $this->daftar_peserta ?? [],
+            'kesehatan_terisi' => $this->kesehatan_terisi,
+            'kesehatan_lengkap' => $this->kesehatan_lengkap,
+            'peserta_belum_isi' => $this->peserta_belum_isi,
             'paket' => [
                 'id' => $this->travel_package_id,
                 'nama' => $this->nama_paket,

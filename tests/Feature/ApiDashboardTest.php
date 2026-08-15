@@ -4,6 +4,7 @@ use App\Models\Etalase\DestinationPopuler;
 use App\Models\Etalase\Partner;
 use App\Models\Etalase\Testimoni;
 use App\Models\Kontak\PesanKontak;
+use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\Pembatalan;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\OpenTrip\RiwayatKesehatan;
@@ -675,4 +676,78 @@ test('gambar raksasa dikecilkan supaya halaman tetap ringan', function () {
 
     expect($lebar)->toBe(1920)
         ->and($tinggi)->toBe(960);
+});
+
+/* --------------------- KONFIRMASI PEMBAYARAN --------------------- */
+
+test('bukti pembayaran terbaca lewat api dan bisa diverifikasi', function () {
+    $pendaftaran = buatPendaftaran();
+
+    $bayar = KonfirmasiPembayaran::create([
+        'kode' => $pendaftaran->kode,
+        'jenis' => 'dp',
+        'nominal' => 500000,
+        'tanggal_transfer' => now()->toDateString(),
+        'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Budi Santoso',
+        'bukti' => '/storage/bukti-bayar/x.webp',
+    ]);
+
+    $this->getJson('/api/v1/pembayaran', kirim())
+        ->assertOk()
+        ->assertJsonPath('data.0.kode', $pendaftaran->kode)
+        ->assertJsonPath('data.0.nominal_formatted', 'Rp 500.000')
+        ->assertJsonPath('data.0.status_label', 'Menunggu Dicek')
+        // Pesanannya ikut terbawa supaya admin tidak perlu mencari sendiri
+        ->assertJsonPath('data.0.pesanan.nama', 'Budi Santoso')
+        ->assertJsonPath('data.0.pesanan.keterangan', 'Open Trip Banyuwangi');
+
+    $this->patchJson("/api/v1/pembayaran/{$bayar->id}/status", [
+        'status' => 'diterima',
+        'catatan_admin' => 'Cocok dengan mutasi rekening.',
+    ], kirim())
+        ->assertOk()
+        ->assertJsonPath('data.status_label', 'Diterima');
+
+    expect($bayar->fresh()->catatan_admin)->toBe('Cocok dengan mutasi rekening.');
+});
+
+test('status pembayaran di luar daftar ditolak', function () {
+    $bayar = KonfirmasiPembayaran::create([
+        'kode' => 'OT-0000-XXXX', 'jenis' => 'dp', 'nominal' => 1000,
+        'tanggal_transfer' => now()->toDateString(), 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'X',
+    ]);
+
+    $this->patchJson("/api/v1/pembayaran/{$bayar->id}/status", ['status' => 'ngawur'], kirim())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('status');
+
+    expect($bayar->fresh()->status)->toBe('menunggu');
+});
+
+test('dashboard menghitung bukti bayar yang menunggu', function () {
+    KonfirmasiPembayaran::create([
+        'kode' => 'OT-0000-XXXX', 'jenis' => 'dp', 'nominal' => 1000,
+        'tanggal_transfer' => now()->toDateString(), 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'X',
+    ]);
+
+    $this->getJson('/api/v1/dashboard', kirim())
+        ->assertOk()
+        ->assertJsonPath('data.perlu_ditindak.pembayaran_menunggu', 1);
+});
+
+test('pendaftaran membawa daftar peserta dan kelengkapan kesehatannya', function () {
+    $pendaftaran = buatPendaftaran([
+        'jumlah_peserta' => 2,
+        'daftar_peserta' => ['Budi Santoso', 'Sari Dewi'],
+    ]);
+
+    $this->getJson("/api/v1/pendaftaran/{$pendaftaran->id}", kirim())
+        ->assertOk()
+        ->assertJsonPath('data.daftar_peserta', ['Budi Santoso', 'Sari Dewi'])
+        ->assertJsonPath('data.kesehatan_terisi', 0)
+        ->assertJsonPath('data.kesehatan_lengkap', false)
+        ->assertJsonPath('data.peserta_belum_isi', ['Budi Santoso', 'Sari Dewi']);
 });

@@ -231,6 +231,12 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                     <x-bi-whatsapp class="w-5 h-5" />
                                     Konfirmasi via WhatsApp
                                 </a>
+
+                                <a href="{{ route('konfirmasi-pembayaran', ['kode' => $kodeTerkirim]) }}"
+                                    class="btn-orcha btn-orcha-outline">
+                                    <x-heroicon-o-banknotes class="w-5 h-5" />
+                                    Konfirmasi Pembayaran
+                                </a>
                                 <button type="button" wire:click="pesanLagi" class="btn-orcha btn-orcha-outline">
                                     Pesan Unit Lain
                                 </button>

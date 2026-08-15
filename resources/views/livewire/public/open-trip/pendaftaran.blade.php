@@ -18,6 +18,12 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
 
     public int $jumlahPeserta = 1;
 
+    /**
+     * Nama tiap peserta. Peserta pertama adalah pemesan itu sendiri, jadi
+     * namanya ikut terisi otomatis — pemesan tidak perlu mengetik dua kali.
+     */
+    public array $peserta = [''];
+
     public string $catatan = '';
 
     public bool $setuju = false;
@@ -50,6 +56,8 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             'email' => 'nullable|email|max:150',
             'paketId' => 'required|exists:tbl_travel_package,uuid',
             'jumlahPeserta' => 'required|integer|min:1|max:60',
+            'peserta' => 'required|array|min:1',
+            'peserta.*' => 'required|string|min:3|max:120',
             'catatan' => 'nullable|string|max:1000',
             'setuju' => 'accepted',
         ];
@@ -60,8 +68,34 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
         return [
             'paketId' => 'paket open trip',
             'jumlahPeserta' => 'jumlah peserta',
+            'peserta.*' => 'nama peserta',
             'setuju' => 'persetujuan syarat & ketentuan',
         ];
+    }
+
+    /** Kotak nama mengikuti jumlah peserta, tanpa menghapus yang sudah diketik. */
+    public function updatedJumlahPeserta(): void
+    {
+        $this->rapikanPeserta();
+    }
+
+    public function updatedNama(): void
+    {
+        // Peserta pertama = pemesan
+        $this->peserta[0] = $this->nama;
+    }
+
+    private function rapikanPeserta(): void
+    {
+        $jumlah = max(1, min(60, (int) $this->jumlahPeserta));
+        $peserta = array_values($this->peserta);
+
+        while (count($peserta) < $jumlah) {
+            $peserta[] = '';
+        }
+
+        $this->peserta = array_slice($peserta, 0, $jumlah);
+        $this->peserta[0] = $this->peserta[0] ?: $this->nama;
     }
 
     public function daftar(): void
@@ -70,6 +104,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             return;
         }
 
+        $this->rapikanPeserta();
         $this->validate();
 
         $kunci = 'daftar-open-trip:' . request()->ip();
@@ -91,18 +126,19 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             'whatsapp' => $this->whatsapp,
             'email' => $this->email ?: null,
             'jumlah_peserta' => $this->jumlahPeserta,
+            'daftar_peserta' => array_map('trim', $this->peserta),
             'tanggal_berangkat' => $paket->tanggal_berangkat,
             'titik_jemput' => $paket->titik_jemput,
             'catatan' => $this->catatan ?: null,
         ]);
 
         $this->kodeTerdaftar = $pendaftaran->kode;
-        $this->reset(['nama', 'whatsapp', 'email', 'catatan', 'setuju']);
+        $this->reset(['nama', 'whatsapp', 'email', 'catatan', 'setuju', 'peserta']);
     }
 
     public function daftarLagi(): void
     {
-        $this->reset(['kodeTerdaftar', 'jumlahPeserta']);
+        $this->reset(['kodeTerdaftar', 'jumlahPeserta', 'peserta']);
     }
 
     /**
@@ -178,6 +214,11 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                     class="btn-orcha btn-orcha-primary">
                                     <x-heroicon-o-heart class="w-5 h-5" />
                                     Isi Riwayat Kesehatan
+                                </a>
+                                <a href="{{ route('konfirmasi-pembayaran', ['kode' => $kodeTerdaftar]) }}"
+                                    class="btn-orcha btn-orcha-outline">
+                                    <x-heroicon-o-banknotes class="w-5 h-5" />
+                                    Konfirmasi Pembayaran
                                 </a>
                                 <a href="{{ $wa("Halo Orcha Journey, saya sudah mendaftar open trip dengan kode $kodeTerdaftar.") }}"
                                     target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-outline">
@@ -327,11 +368,43 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                 <div>
                                     <label for="d-jumlah" class="label-orcha">Jumlah peserta <x-wajib /></label>
                                     <input id="d-jumlah" type="number" min="1" max="60" required
-                                        wire:model="jumlahPeserta"
+                                        wire:model.live="jumlahPeserta"
                                         class="isian-orcha @error('jumlahPeserta') isian-galat @enderror">
                                     @error('jumlahPeserta')
                                         <p class="galat-orcha">{{ $message }}</p>
                                     @enderror
+                                </div>
+                            </div>
+
+                            {{-- Nama tiap peserta ditulis sejak awal.
+
+                                 Riwayat kesehatan diisi per orang, dan tanpa daftar ini
+                                 identitas peserta lain baru diketahui setelah mereka
+                                 mengisi formulir itu — terlalu terlambat untuk menyiapkan
+                                 kursi, kamar, dan konsumsi. --}}
+                            <div>
+                                <label class="label-orcha">Nama peserta <x-wajib /></label>
+                                <p class="mb-3 text-sm text-slate-500">
+                                    Tulis nama tiap orang sesuai kartu identitas. Peserta pertama adalah
+                                    Anda sebagai pemesan.
+                                </p>
+
+                                <div class="space-y-2">
+                                    @foreach ($peserta as $urutan => $satu)
+                                        <div class="flex items-center gap-3" wire:key="peserta-{{ $urutan }}">
+                                            <span
+                                                class="flex items-center justify-center w-8 h-8 text-sm font-bold rounded-full shrink-0 bg-orcha-foam text-orcha-navy">
+                                                {{ $urutan + 1 }}
+                                            </span>
+                                            <input type="text" maxlength="120" required
+                                                wire:model="peserta.{{ $urutan }}"
+                                                placeholder="{{ $urutan === 0 ? 'Nama Anda (pemesan)' : 'Nama peserta ke-' . ($urutan + 1) }}"
+                                                class="isian-orcha @error('peserta.' . $urutan) isian-galat @enderror">
+                                        </div>
+                                        @error('peserta.' . $urutan)
+                                            <p class="galat-orcha ms-11">{{ $message }}</p>
+                                        @enderror
+                                    @endforeach
                                 </div>
                             </div>
 

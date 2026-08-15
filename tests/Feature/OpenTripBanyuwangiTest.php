@@ -63,6 +63,7 @@ test('formulir pendaftaran memakai tanggal dan titik jemput dari paket', functio
         ->set('nama', 'Peserta Uji')
         ->set('whatsapp', '081234567890')
         ->set('jumlahPeserta', 2)
+        ->set('peserta', ['Peserta Uji', 'Peserta Kedua'])
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors();

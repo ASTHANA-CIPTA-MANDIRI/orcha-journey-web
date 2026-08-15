@@ -254,6 +254,8 @@
                                 Privasi</a></li>
                         <li><a href="{{ route('riwayat-kesehatan') }}" class="transition hover:text-orcha-sky">Riwayat
                                 Kesehatan Peserta</a></li>
+                        <li><a href="{{ route('konfirmasi-pembayaran') }}"
+                                class="transition hover:text-orcha-sky">Konfirmasi Pembayaran</a></li>
                         <li><a href="{{ route('pembatalan') }}" class="transition hover:text-orcha-sky">Ajukan
                                 Pembatalan</a></li>
                     </ul>

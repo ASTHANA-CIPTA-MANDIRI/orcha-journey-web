@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Etalase\EtalaseController;
 use App\Http\Controllers\Api\Kontak\PesanController;
 use App\Http\Controllers\Api\OpenTrip\PembatalanController;
+use App\Http\Controllers\Api\OpenTrip\PembayaranController;
 use App\Http\Controllers\Api\OpenTrip\PendaftaranController;
 use App\Http\Controllers\Api\PaketWisata\PaketWisataController;
 use App\Http\Controllers\Api\SewaKendaraan\KendaraanController;
@@ -41,6 +42,10 @@ Route::prefix('v1')
         Route::get('/pendaftaran/{pendaftaran}', [PendaftaranController::class, 'show']);
         Route::get('/pendaftaran/{pendaftaran}/riwayat-kesehatan', [PendaftaranController::class, 'riwayatKesehatan']);
         Route::patch('/pendaftaran/{pendaftaran}/status', [PendaftaranController::class, 'ubahStatus']);
+
+        Route::get('/pembayaran', [PembayaranController::class, 'index']);
+        Route::get('/pembayaran/{pembayaran}', [PembayaranController::class, 'show']);
+        Route::patch('/pembayaran/{pembayaran}/status', [PembayaranController::class, 'ubahStatus']);
 
         Route::get('/pembatalan', [PembatalanController::class, 'index']);
         Route::get('/pembatalan/{pembatalan}', [PembatalanController::class, 'show']);

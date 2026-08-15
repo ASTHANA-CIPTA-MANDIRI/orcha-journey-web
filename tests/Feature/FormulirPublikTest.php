@@ -63,11 +63,14 @@ test('pendaftaran open trip menghasilkan kode dan tersimpan', function () {
         ->set('whatsapp', '081298765432')
         ->set('paketId', $paket->uuid)
         ->set('jumlahPeserta', 3)
+        ->set('peserta', ['Siti Aminah', 'Budi Santoso', 'Rina Wijaya'])
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors();
 
     $pendaftaran = PendaftaranOpenTrip::first();
+
+    expect($pendaftaran->daftar_peserta)->toBe(['Siti Aminah', 'Budi Santoso', 'Rina Wijaya']);
 
     expect($pendaftaran->nama)->toBe('Siti Aminah')
         ->and($pendaftaran->nama_paket)->toBe('Open Trip Karimunjawa')
@@ -238,4 +241,66 @@ test('menghapus pendaftaran ikut menghapus data kesehatannya', function () {
 
     expect(PendaftaranOpenTrip::count())->toBe(0)
         ->and(RiwayatKesehatan::count())->toBe(0);
+});
+
+/* ------------------- NAMA PESERTA & KELENGKAPAN ------------------- */
+
+test('jumlah kotak nama mengikuti jumlah peserta', function () {
+    $komponen = Volt::test('public.open-trip.pendaftaran')
+        ->set('nama', 'Siti Aminah')
+        ->set('jumlahPeserta', 3);
+
+    // Peserta pertama terisi sendiri dari nama pemesan
+    expect($komponen->get('peserta'))->toHaveCount(3)
+        ->and($komponen->get('peserta')[0])->toBe('Siti Aminah');
+
+    // Dikurangi lagi, yang sudah diketik tidak hilang
+    $komponen->set('peserta.1', 'Budi Santoso')->set('jumlahPeserta', 2);
+
+    expect($komponen->get('peserta'))->toBe(['Siti Aminah', 'Budi Santoso']);
+});
+
+test('nama peserta wajib diisi semuanya', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Uji', 'category' => 'open_trip', 'price' => 500000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+    ]);
+
+    Volt::test('public.open-trip.pendaftaran')
+        ->set('nama', 'Siti Aminah')
+        ->set('whatsapp', '081298765432')
+        ->set('paketId', $paket->uuid)
+        ->set('jumlahPeserta', 2)
+        ->set('peserta', ['Siti Aminah', ''])
+        ->set('setuju', true)
+        ->call('daftar')
+        ->assertHasErrors(['peserta.1']);
+
+    expect(PendaftaranOpenTrip::count())->toBe(0);
+});
+
+test('kelengkapan riwayat kesehatan terbaca dari jumlah peserta', function () {
+    $pendaftaran = PendaftaranOpenTrip::create([
+        'nama' => 'Siti Aminah', 'whatsapp' => '0812', 'jumlah_peserta' => 3,
+        'daftar_peserta' => ['Siti Aminah', 'Budi Santoso', 'Rina Wijaya'],
+    ]);
+
+    expect($pendaftaran->kesehatan_terisi)->toBe(0)
+        ->and($pendaftaran->kesehatan_lengkap)->toBeFalse()
+        ->and($pendaftaran->peserta_belum_isi)->toBe(['Siti Aminah', 'Budi Santoso', 'Rina Wijaya']);
+
+    RiwayatKesehatan::create([
+        'kode_pendaftaran' => $pendaftaran->kode,
+        'nama_peserta' => 'budi santoso',   // beda huruf besar-kecil, tetap terhitung
+        'kontak_darurat_nama' => 'Sari',
+        'kontak_darurat_hp' => '0812',
+        'kontak_darurat_hubungan' => 'Istri',
+        'setuju_data_kesehatan' => true,
+    ]);
+
+    $pendaftaran->refresh();
+
+    expect($pendaftaran->kesehatan_terisi)->toBe(1)
+        ->and($pendaftaran->kesehatan_lengkap)->toBeFalse()
+        ->and($pendaftaran->peserta_belum_isi)->toBe(['Siti Aminah', 'Rina Wijaya']);
 });

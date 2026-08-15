@@ -9,6 +9,7 @@ use App\Models\Etalase\DestinationPopuler;
 use App\Models\Etalase\Partner;
 use App\Models\Etalase\Testimoni;
 use App\Models\Kontak\PesanKontak;
+use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\Pembatalan;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
@@ -39,6 +40,7 @@ class DashboardController extends ApiController
                     'pendaftaran_baru' => PendaftaranOpenTrip::where('status', 'baru')->count(),
                     'penyewaan_baru' => PenyewaanKendaraan::where('status', 'baru')->count(),
                     'pembatalan_diajukan' => Pembatalan::where('status', 'diajukan')->count(),
+                    'pembayaran_menunggu' => KonfirmasiPembayaran::menunggu()->count(),
                     'pesan_belum_dibaca' => PesanKontak::belumDibaca()->count(),
                 ],
             ],
@@ -75,6 +77,13 @@ class DashboardController extends ApiController
                 'nilai' => Pembatalan::where('status', 'diajukan')->count(),
                 'ikon' => 'x-circle',
                 'tautan' => 'pembatalan',
+            ],
+            [
+                'kunci' => 'pembayaran_menunggu',
+                'label' => 'Bukti bayar menunggu',
+                'nilai' => KonfirmasiPembayaran::menunggu()->count(),
+                'ikon' => 'banknotes',
+                'tautan' => 'pembayaran',
             ],
             [
                 'kunci' => 'pesan_belum_dibaca',

@@ -34,6 +34,7 @@ Volt::route('/kontak', 'public.kontak.index')->name('kontak');
 Volt::route('/pendaftaran-open-trip', 'public.open-trip.pendaftaran')->name('pendaftaran-open-trip');
 Volt::route('/riwayat-kesehatan', 'public.open-trip.riwayat-kesehatan')->name('riwayat-kesehatan');
 Volt::route('/pembatalan', 'public.open-trip.pembatalan')->name('pembatalan');
+Volt::route('/konfirmasi-pembayaran', 'public.open-trip.konfirmasi-pembayaran')->name('konfirmasi-pembayaran');
 
 // Halaman informasi & ketentuan
 Volt::route('/faq', 'public.informasi.faq')->name('faq');

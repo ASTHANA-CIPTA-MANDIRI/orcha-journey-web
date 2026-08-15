@@ -30,6 +30,10 @@
                         class="font-semibold text-orcha-ocean hover:underline">WhatsApp resmi</a>
                     setelah pesanan Anda dipastikan. Bila ragu, tanyakan dulu lewat nomor itu.
                 </p>
+                <a href="{{ route('konfirmasi-pembayaran') }}"
+                    class="inline-block mt-2 text-sm font-bold text-orcha-ocean hover:underline">
+                    Sudah transfer? Kirim buktinya di sini →
+                </a>
             @endunless
         </div>
     </div>
