@@ -22,3 +22,7 @@ yarn-error.log
 /.vscode
 /.zed
 .DS_Store
+
+# Salinan kembar buatan OneDrive/iCloud ("Berkas 2.php") — jangan pernah ikut komit,
+# nama kelasnya sama sehingga membingungkan autoload dan pencarian kode.
+*\ 2.*
