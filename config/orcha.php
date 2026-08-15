@@ -183,11 +183,21 @@ return [
         // Pelunasan paling lambat H-5 sebelum keberangkatan.
         'pelunasan_hari_sebelum' => 5,
         'pelunasan_sewa_kendaraan' => 'saat unit diserahkan',
-        // Nomor rekening sengaja dikosongkan. Isi lewat berkas ini bila ingin
-        // ditampilkan di halaman Ketentuan Pembayaran; selama kosong, halaman
-        // mengarahkan pelanggan meminta nomor rekening lewat WhatsApp.
+        /*
+         | SATU-SATUNYA nama penerima yang sah. Dipajang di semua halaman yang
+         | menyinggung pembayaran supaya pelanggan punya patokan memeriksa
+         | sebelum mentransfer — penipu biasanya memakai rekening pribadi.
+         */
+        'atas_nama' => 'PT ASTHANA CIPTA MANDIRI',
+
+        /*
+         | Nomor rekening sengaja TIDAK dipajang di website. Nomor yang
+         | terpampang gampang disalin penipu untuk membuat halaman tiruan yang
+         | tampak meyakinkan; yang dicek pelanggan cukup NAMA penerimanya.
+         | Nomornya dikirim admin lewat WhatsApp setelah pesanan dipastikan.
+         */
         'rekening' => [
-            // ['bank' => 'BCA', 'nomor' => '0000000000', 'atas_nama' => 'Orcha Journey'],
+            // ['bank' => 'BCA', 'nomor' => '0000000000'],
         ],
         'metode' => ['Transfer bank', 'QRIS', 'Tunai di kantor'],
     ],

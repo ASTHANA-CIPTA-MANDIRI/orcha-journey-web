@@ -223,6 +223,8 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                 Tim kami mengecek ketersediaan unit lalu mengirim rincian biaya final lewat WhatsApp.
                             </p>
 
+                            <x-peringatan-pembayaran ringkas class="mt-3" />
+
                             <div class="flex flex-col justify-center gap-3 mt-6 sm:flex-row">
                                 <a href="{{ $wa("Halo Orcha Journey, saya baru memesan sewa kendaraan dengan kode $kodeTerkirim.") }}"
                                     target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-primary">
@@ -526,6 +528,8 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                         </div>
 
                         <div class="p-6 card-orcha sm:p-7">
+                            <x-peringatan-pembayaran class="mb-5" />
+
                             <h2 class="text-lg font-bold font-heading text-orcha-navy">Cara kerjanya</h2>
                             <ol class="mt-4 space-y-3 text-sm text-slate-600">
                                 @foreach (['Anda kirim pemesanan lewat formulir ini.', 'Kami cek ketersediaan unit pada tanggal tersebut.', 'Rincian biaya final dikirim lewat WhatsApp.', 'Unit dikunci setelah uang muka masuk.'] as $i => $langkah)

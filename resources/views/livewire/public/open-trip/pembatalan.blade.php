@@ -284,6 +284,8 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
 
                             <div>
                                 <h2 class="text-xl font-bold font-heading text-orcha-navy">Rekening Pengembalian</h2>
+
+                                <x-peringatan-pembayaran ringkas class="mt-3" />
                                 <p class="mt-1 text-sm text-slate-500">Dana hanya dikirim ke rekening atas nama pemesan
                                     yang melakukan pembayaran.</p>
                             </div>

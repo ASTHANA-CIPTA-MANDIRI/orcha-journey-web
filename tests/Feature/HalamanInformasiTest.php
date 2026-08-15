@@ -69,8 +69,26 @@ test('tabel pengembalian dana mengikuti config', function () {
         ->assertSee('77% dari DP');
 });
 
-test('nomor rekening tidak ditampilkan selama config kosong', function () {
-    $this->get(route('ketentuan-pembayaran'))
-        ->assertOk()
-        ->assertSee('jangan mentransfer ke rekening apa pun sebelum menerima konfirmasi resmi', false);
+test('halaman pembayaran menyebut nama penerima yang sah, tanpa nomor rekening', function () {
+    $halaman = $this->get(route('ketentuan-pembayaran'))->assertOk();
+
+    // Nama penerima adalah patokan yang bisa dicek pelanggan di mesin bank
+    $halaman->assertSee(config('orcha.pembayaran.atas_nama'))
+        ->assertSee('bukan kami', false);
+
+    // Nomornya sengaja tidak dipajang supaya tidak disalin penipu
+    expect(config('orcha.pembayaran.rekening'))->toBeEmpty();
 });
+
+test('nama penerima yang sah muncul di semua halaman yang menyinggung pembayaran', function (string $url) {
+    $this->get($url)
+        ->assertOk()
+        ->assertSee(config('orcha.pembayaran.atas_nama'));
+})->with([
+    fn () => route('ketentuan-pembayaran'),
+    fn () => route('faq'),
+    fn () => route('kebijakan-pengembalian'),
+    fn () => route('pembatalan'),
+    fn () => route('sewa-kendaraan.pesan'),
+    fn () => route('pendaftaran-open-trip'),
+]);

@@ -9,6 +9,7 @@ new #[Layout('components.layouts.guest')] #[Title('Kebijakan Pembatalan & Pengem
     {
         $tangga = config('orcha.pengembalian.tangga');
         $prosesHari = config('orcha.pengembalian.proses_hari_kerja');
+        $atasNama = config('orcha.pembayaran.atas_nama');
         $pelunasan = config('orcha.pembayaran.pelunasan_hari_sebelum');
 
         $barisTangga = collect($tangga)
@@ -47,7 +48,7 @@ new #[Layout('components.layouts.guest')] #[Title('Kebijakan Pembatalan & Pengem
                             <li>Tim kami mengirimkan perhitungan pengembalian untuk disetujui.</li>
                             <li>Setelah disetujui, dana dikirim ke rekening atas nama pemesan dalam {$prosesHari} hari kerja.</li>
                         </ol>
-                        <p>Pengembalian hanya dikirim ke rekening atas nama pemesan yang sama dengan yang melakukan pembayaran.</p>
+                        <p>Pengembalian hanya dikirim ke rekening atas nama pemesan yang sama dengan yang melakukan pembayaran, dan hanya dikirim dari rekening kami atas nama <strong>{$atasNama}</strong>.</p>
                     ",
                 ],
                 [

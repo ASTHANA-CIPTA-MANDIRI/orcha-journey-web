@@ -17,11 +17,14 @@ new #[Layout('components.layouts.guest')] #[Title('Ketentuan Pembayaran & DP —
 
         $daftarMetode = collect($metode)->map(fn ($m) => "<li>{$m}</li>")->implode('');
 
+        $atasNama = config('orcha.pembayaran.atas_nama');
+
         $blokRekening = empty($rekening)
-            ? '<p>Nomor rekening tujuan dikirimkan oleh tim kami saat konfirmasi pemesanan. Demi keamanan, <strong>jangan mentransfer ke rekening apa pun sebelum menerima konfirmasi resmi</strong> dari nomor WhatsApp Orcha Journey yang tercantum di situs ini.</p>'
+            ? "<p>Seluruh pembayaran hanya sah ke rekening atas nama <strong>{$atasNama}</strong>. Nama selain itu <strong>bukan kami</strong> — jangan ditransfer.</p>"
+                ."<p>Nomor rekeningnya sengaja tidak kami pajang di situs ini: nomor yang terpampang mudah disalin penipu untuk membuat halaman tiruan. Nomornya dikirim tim kami lewat WhatsApp resmi saat konfirmasi pemesanan. Yang perlu Anda periksa di mesin bank cukup nama penerimanya.</p>"
             : '<div class="table-wrap"><table class="table-orcha"><thead><tr><th>Bank</th><th>Nomor Rekening</th><th>Atas Nama</th></tr></thead><tbody>'
-                . collect($rekening)->map(fn ($r) => "<tr><td>{$r['bank']}</td><td>{$r['nomor']}</td><td>{$r['atas_nama']}</td></tr>")->implode('')
-                . '</tbody></table></div>';
+                .collect($rekening)->map(fn ($r) => "<tr><td>{$r['bank']}</td><td>{$r['nomor']}</td><td>{$atasNama}</td></tr>")->implode('')
+                .'</tbody></table></div>';
 
         return [
             'sections' => [

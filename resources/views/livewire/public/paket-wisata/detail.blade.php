@@ -266,6 +266,8 @@ new #[Layout('components.layouts.guest')] class extends Component {
                                         class="inline-block mt-2 font-semibold text-orcha-ocean hover:underline">
                                         Lihat ketentuan pembayaran
                                     </a>
+
+                                    <x-peringatan-pembayaran ringkas class="mt-3" />
                                 </div>
                             </div>
                         </div>

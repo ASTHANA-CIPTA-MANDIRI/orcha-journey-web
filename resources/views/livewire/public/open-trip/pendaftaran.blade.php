@@ -171,6 +171,8 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                 </ol>
                             </div>
 
+                            <x-peringatan-pembayaran class="mt-4 text-left" />
+
                             <div class="flex flex-col justify-center gap-3 mt-6 sm:flex-row">
                                 <a href="{{ route('riwayat-kesehatan', ['kode' => $kodeTerdaftar]) }}"
                                     class="btn-orcha btn-orcha-primary">
@@ -381,6 +383,8 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                 <aside class="lg:col-span-4">
                     {{-- Ikut menggulung bersama halaman, berhenti di atas layar --}}
                     <div class="space-y-6 lg:sticky lg:top-24">
+                        <x-peringatan-pembayaran />
+
                         <div class="p-6 card-orcha sm:p-7">
                             <h2 class="text-lg font-bold font-heading text-orcha-navy">Setelah mendaftar</h2>
                             <ol class="mt-4 space-y-4">

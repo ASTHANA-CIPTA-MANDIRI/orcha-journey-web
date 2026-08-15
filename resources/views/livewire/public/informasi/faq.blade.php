@@ -50,7 +50,7 @@ new #[Layout('components.layouts.guest')] #[Title('FAQ — Pertanyaan yang Serin
                         ],
                         [
                             'q' => 'Metode pembayaran apa saja yang diterima?',
-                            'a' => 'Kami menerima ' . strtolower(implode(', ', config('orcha.pembayaran.metode'))) . '. Rincian rekening dikirim oleh tim kami saat konfirmasi pemesanan.',
+                            'a' => 'Kami menerima ' . strtolower(implode(', ', config('orcha.pembayaran.metode'))) . '. Pembayaran hanya sah ke rekening atas nama ' . config('orcha.pembayaran.atas_nama') . ' — nama selain itu bukan kami. Nomor rekeningnya dikirim tim kami lewat WhatsApp saat konfirmasi pemesanan, sengaja tidak dipajang di situs supaya tidak disalin penipu.',
                         ],
                         [
                             'q' => 'Apakah harga yang tertera sudah final?',
