@@ -945,38 +945,25 @@ input[type="radio"] {
 
 /* ============ Cap nama di latar footer ============
    Tulisan besar yang sengaja dibuat nyaris tak terlihat: memberi bobot pada
-   bagian bawah halaman tanpa menambah satu pun hal yang harus dibaca. Ditaruh
-   menempel dasar dan dipotong, jadi terbaca sebagai tekstur. */
+   bagian bawah halaman tanpa menambah satu pun hal yang harus dibaca.
+   Digambar sebagai SVG dengan textLength supaya lebarnya persis selebar
+   footer — selalu di tengah, tidak pernah terpotong di samping. */
 .orcha-cap-footer {
     position: absolute;
-    left: 50%;
-    bottom: -0.3em;
-    transform: translateX(-50%);
+    left: 0;
+    right: 0;
+    bottom: -0.5rem;
     width: 100%;
-    text-align: center;
+    height: clamp(4.5rem, 11vw, 10rem);
     pointer-events: none;
     user-select: none;
-    overflow: hidden;
-    line-height: 0.82;
 }
 
-.orcha-cap-footer span {
-    display: block;
+.orcha-cap-footer text {
     font-family: var(--font-heading, inherit);
     font-weight: 900;
-    letter-spacing: -0.02em;
-    white-space: nowrap;
-    /* Ikut lebar layar supaya selalu pas, tidak pernah terpotong di samping */
-    font-size: clamp(3.5rem, 13vw, 13rem);
-    color: transparent;
-    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.06);
-    background: linear-gradient(180deg, rgba(255, 255, 255, .045), rgba(255, 255, 255, 0));
-    -webkit-background-clip: text;
-    background-clip: text;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-    .orcha-cap-footer span {
-        transition: opacity .3s ease;
-    }
+    font-size: 130px;
+    fill: rgba(255, 255, 255, 0.035);
+    stroke: rgba(255, 255, 255, 0.06);
+    stroke-width: 1;
 }

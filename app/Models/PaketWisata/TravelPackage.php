@@ -139,7 +139,13 @@ class TravelPackage extends Model
             ->where(fn ($q) => $q->whereNull('tayang_sampai')->orWhere('tayang_sampai', '>=', $sekarang))
             ->where(fn ($q) => $q->where('berakhir_otomatis', false)
                 ->orWhereNull('tanggal_berangkat')
-                ->orWhere('tanggal_berangkat', '>', $sekarang->toDateString()));
+                // Dibandingkan dengan tanggal BESOK, bukan "> hari ini".
+                // MySQL menyimpan kolom ini sebagai DATE, sementara SQLite
+                // menyimpannya sebagai teks '2026-08-15 00:00:00' — dan teks
+                // itu terhitung lebih besar dari '2026-08-15', sehingga paket
+                // yang berangkat hari ini sempat lolos di SQLite tapi tidak di
+                // MySQL. Memakai '>= besok' hasilnya sama di keduanya.
+                ->orWhere('tanggal_berangkat', '>=', $sekarang->copy()->addDay()->toDateString()));
     }
 
     /** Apakah paket ini sedang tampil di website sekarang. */
@@ -172,7 +178,12 @@ class TravelPackage extends Model
 
         // Begitu hari keberangkatan tiba, pendaftaran tutup — paket tidak perlu
         // tampil lagi. Karena itu batasnya tanggal berangkat, bukan pulang.
-        if ($this->berakhir_otomatis && $this->tanggal_berangkat
+        //
+        // `?? true` penting: pada data yang baru dibuat tanpa menyebut kolom
+        // ini, nilainya masih null di memori walau di basis data sudah true.
+        // Tanpa itu, lencana bisa menulis "Tayang" untuk paket yang justru
+        // sudah disaring keluar oleh scopeTayang().
+        if (($this->berakhir_otomatis ?? true) && $this->tanggal_berangkat
             && $this->tanggal_berangkat->startOfDay()->lte(now()->startOfDay())) {
             return 'berakhir';
         }

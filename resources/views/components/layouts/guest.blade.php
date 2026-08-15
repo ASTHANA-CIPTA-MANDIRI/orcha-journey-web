@@ -156,9 +156,15 @@
         {{-- Tulisan raksasa "ORCHA JOURNEY" sebagai latar. Sangat samar dan
              dipotong di bawah supaya terbaca sebagai tekstur, bukan tulisan
              kedua yang bersaing dengan isi footer. --}}
-        <div class="orcha-cap-footer" aria-hidden="true">
-            <span>Orcha Journey</span>
-        </div>
+        <svg class="orcha-cap-footer" viewBox="0 0 1000 150" preserveAspectRatio="xMidYMax meet"
+            aria-hidden="true" focusable="false">
+            {{-- textLength memaksa tulisannya selebar bidang gambar, jadi selalu
+                 pas di tengah dan tidak pernah terpotong — berapa pun lebar
+                 layar dan seberapa pun lebar hurufnya. --}}
+            <text x="500" y="120" text-anchor="middle" textLength="960" lengthAdjust="spacingAndGlyphs">
+                Orcha Journey
+            </text>
+        </svg>
 
         <div class="relative container-orcha py-14 sm:py-20">
             <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">

@@ -120,21 +120,42 @@ new #[Layout('components.layouts.guest')] class extends Component {
 
                             <div class="mt-6 space-y-6">
                                 @foreach ($paket->itinerary as $hari)
-                                    <div>
-                                        <span
-                                            class="inline-block px-4 py-1.5 text-sm font-bold text-white rounded-full bg-gradient-to-r from-orcha-abyss to-orcha-ocean">
-                                            {{ $hari['hari'] ?? 'Hari' }}
-                                        </span>
+                                    @php
+                                        $agendaHari = collect($hari['agenda'] ?? [])->filter(fn ($a) => filled($a['kegiatan'] ?? null));
+                                        $jamHari = $agendaHari->pluck('jam')->filter()->values();
+                                    @endphp
 
-                                        <ul class="mt-4 space-y-3">
+                                    <div>
+                                        {{-- Sisi kanan baris hari dulu kosong; diisi ringkasan hari itu
+                                             supaya sekilas terlihat padat-tidaknya acara. --}}
+                                        <div class="flex flex-wrap items-center justify-between gap-3">
+                                            <span
+                                                class="inline-block px-4 py-1.5 text-sm font-bold text-white rounded-full bg-gradient-to-r from-orcha-abyss to-orcha-ocean">
+                                                {{ $hari['hari'] ?? 'Hari' }}
+                                            </span>
+
+                                            @if ($agendaHari->isNotEmpty())
+                                                <span class="text-xs font-semibold text-slate-400">
+                                                    {{ $agendaHari->count() }} kegiatan
+                                                    @if ($jamHari->count() > 1)
+                                                        · {{ $jamHari->first() }} – {{ $jamHari->last() }}
+                                                    @endif
+                                                </span>
+                                            @endif
+                                        </div>
+
+                                        <ul class="relative mt-4 space-y-3 before:absolute before:left-[5px] before:top-2 before:bottom-2 before:w-px before:bg-orcha-foam">
                                             @foreach ($hari['agenda'] ?? [] as $agenda)
                                                 {{-- Titik, jam, dan kegiatan sejajar karena ketiganya
                                                      memakai tinggi baris yang sama (leading-6 = 24px);
                                                      titiknya dipusatkan di dalam kotak setinggi itu,
                                                      bukan digeser dengan angka ajaib. --}}
-                                                <li class="flex items-start gap-3">
-                                                    <span class="flex items-center h-6 shrink-0">
-                                                        <span class="w-2.5 h-2.5 rounded-full bg-orcha-sky"></span>
+                                                <li class="relative flex items-start gap-3">
+                                                    {{-- Cincin putih memutus garis penghubung tepat di
+                                                         titiknya, jadi garis tidak tampak menembus titik. --}}
+                                                    <span class="relative z-10 flex items-center h-6 shrink-0">
+                                                        <span
+                                                            class="w-2.5 h-2.5 rounded-full bg-orcha-sky ring-4 ring-white"></span>
                                                     </span>
                                                     <span
                                                         class="font-mono text-sm font-bold leading-6 shrink-0 text-orcha-ocean w-16 tabular-nums">{{ $agenda['jam'] ?? '' }}</span>
@@ -171,16 +192,14 @@ new #[Layout('components.layouts.guest')] class extends Component {
                                  tidak ada diskon, yang tampil cuma sapuan ombak samar. --}}
                             <div
                                 class="relative overflow-hidden p-6 text-white bg-gradient-to-br from-orcha-navy to-orcha-abyss sm:p-7">
-                                <div class="absolute inset-0 pointer-events-none" aria-hidden="true"
-                                    style="background-image: radial-gradient(70% 90% at 100% 0%, rgba(26,176,226,.32), transparent 70%);">
-                                </div>
-
-                                <svg class="absolute bottom-0 right-0 w-48 h-24 pointer-events-none text-white/[.05]"
-                                    viewBox="0 0 200 100" fill="none" aria-hidden="true">
-                                    <path d="M0 70c25-18 50-18 75 0s50 18 75 0 50-18 50 0" stroke="currentColor"
-                                        stroke-width="6" stroke-linecap="round" />
-                                    <path d="M0 92c25-18 50-18 75 0s50 18 75 0 50-18 50 0" stroke="currentColor"
-                                        stroke-width="6" stroke-linecap="round" />
+                                {{-- Ombak selebar panel, bukan cahaya di satu sudut: sudut
+                                     yang menyala membuat sisi kiri terlihat gelap sebelah. --}}
+                                <svg class="absolute inset-x-0 bottom-0 w-full h-28 pointer-events-none text-white/[.06]"
+                                    viewBox="0 0 400 100" preserveAspectRatio="none" fill="none" aria-hidden="true">
+                                    <path d="M0 62c33-20 66-20 100 0s67 20 100 0 67-20 100 0 67 20 100 0" stroke="currentColor"
+                                        stroke-width="5" stroke-linecap="round" />
+                                    <path d="M0 86c33-20 66-20 100 0s67 20 100 0 67-20 100 0 67 20 100 0" stroke="currentColor"
+                                        stroke-width="5" stroke-linecap="round" />
                                 </svg>
 
                                 <div class="relative flex items-start justify-between gap-4">

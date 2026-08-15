@@ -115,3 +115,19 @@ test('paket yang belum tayang tidak bisa dipilih di pendaftaran open trip', func
         ->assertSee('Trip Siap')
         ->assertDontSee('Trip Draf');
 });
+
+test('lencana dan penyaring selalu sepakat, termasuk pada data yang baru dibuat', function () {
+    foreach ([
+        ['besok', now()->addDay(), true],
+        ['hari ini', now(), false],
+        ['kemarin', now()->subDay(), false],
+    ] as [$kapan, $tanggal, $harusTayang]) {
+        $paket = buatPaket([
+            'name' => "Trip berangkat {$kapan}",
+            'tanggal_berangkat' => $tanggal->toDateString(),
+        ]);
+
+        expect($paket->sedang_tayang)->toBe($harusTayang, "penyaring salah untuk {$kapan}")
+            ->and($paket->status_tayang === 'tayang')->toBe($harusTayang, "lencana salah untuk {$kapan}");
+    }
+});
