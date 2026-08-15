@@ -180,11 +180,9 @@ new #[Layout('components.layouts.guest')] class extends Component {
                     <div class="space-y-6 lg:sticky lg:top-24">
                         <div class="overflow-hidden card-orcha">
                             @php
-                                $adaDiskon = $paket->original_price > 0 && $paket->original_price > $paket->price;
-                                $hemat = $adaDiskon ? $paket->original_price - $paket->price : 0;
-                                $persen = $adaDiskon
-                                    ? (int) floor(($hemat / $paket->original_price) * 100)
-                                    : 0;
+                                $adaDiskon = $paket->ada_diskon;
+                                $hemat = $paket->hemat_rupiah;
+                                $persen = $paket->diskon_tampil;
                             @endphp
 
                             {{-- Sisi kanan panel harga dulu kosong. Diisi hal yang memang
@@ -225,9 +223,9 @@ new #[Layout('components.layouts.guest')] class extends Component {
                                         <div
                                             class="flex flex-col items-center justify-center text-center shrink-0 w-[4.75rem] h-[4.75rem] rounded-full bg-orcha-sun/15 ring-1 ring-orcha-sun/40">
                                             <span
-                                                class="text-lg font-black leading-none font-heading text-orcha-sun">{{ $persen }}%</span>
+                                                class="text-[.6rem] font-bold tracking-wider uppercase text-orcha-sun/80">Hemat</span>
                                             <span
-                                                class="mt-1 text-[.6rem] font-bold tracking-wider uppercase text-orcha-sun/80">Hemat</span>
+                                                class="text-lg font-black leading-none font-heading text-orcha-sun">{{ $persen }}%</span>
                                         </div>
                                     @endif
                                 </div>

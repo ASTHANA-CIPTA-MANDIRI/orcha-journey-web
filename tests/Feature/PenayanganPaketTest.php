@@ -131,3 +131,51 @@ test('lencana dan penyaring selalu sepakat, termasuk pada data yang baru dibuat'
             ->and($paket->status_tayang === 'tayang')->toBe($harusTayang, "lencana salah untuk {$kapan}");
     }
 });
+
+/* ---------------------------- DISKON DIPAJANG ---------------------------- */
+
+test('persen hemat di kartu dan halaman detail selalu sama', function () {
+    $paket = buatPaket([
+        'name' => 'Open Trip Banyuwangi',
+        'price' => 1430000,
+        'original_price' => 1700000,
+        'discount_percentage' => 16,
+    ]);
+
+    // Angka simpanan yang dipakai — admin boleh membulatkannya untuk promo
+    expect($paket->diskon_tampil)->toBe(16)
+        ->and($paket->hemat_rupiah)->toBe(270000);
+
+    $daftar = $this->get(route('paket-wisata'))->assertOk();
+    $detail = $this->get(route('paket-detail', $paket->uuid))->assertOk();
+
+    // Keduanya menyebut angka yang sama persis. "15%" sengaja tidak diuji
+    // lewat assertDontSee karena angka itu juga muncul di nilai CSS halaman.
+    $daftar->assertSee('Hemat 16%');
+    $detail->assertSee('>16%<', false);
+});
+
+test('persen dihitung sendiri bila simpanannya kosong', function () {
+    $paket = buatPaket(['price' => 1430000, 'original_price' => 1700000, 'discount_percentage' => 0]);
+
+    // 15,88% dibulatkan ke bawah
+    expect($paket->diskon_tampil)->toBe(15);
+});
+
+test('harga jual tidak lebih murah berarti tidak ada lencana hemat', function () {
+    $paket = buatPaket([
+        'name' => 'Paket Tanpa Diskon',
+        'price' => 500000,
+        'original_price' => 400000,
+        // Data lama sempat menyimpan persen ngawur seperti ini
+        'discount_percentage' => 75,
+    ]);
+
+    expect($paket->ada_diskon)->toBeFalse()
+        ->and($paket->diskon_tampil)->toBe(0);
+
+    $this->get(route('paket-wisata'))
+        ->assertOk()
+        ->assertSee('Paket Tanpa Diskon')
+        ->assertDontSee('Hemat 75%');
+});

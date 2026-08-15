@@ -76,12 +76,14 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2 mt-2">
-            @if ($paket->original_price > 0 && $paket->original_price > $paket->price)
+            {{-- Angkanya dari satu sumber (diskon_tampil), sama dengan yang
+                 dipajang halaman detail. --}}
+            @if ($paket->ada_diskon)
                 <span class="text-sm line-through text-slate-400">{{ $rupiah($paket->original_price) }}</span>
             @endif
-            @if ($paket->discount_percentage)
+            @if ($paket->diskon_tampil > 0)
                 <span class="px-2 py-0.5 text-xs font-bold text-red-600 bg-red-100 rounded-full">
-                    Hemat {{ $paket->discount_percentage }}%
+                    Hemat {{ $paket->diskon_tampil }}%
                 </span>
             @endif
         </div>

@@ -196,6 +196,45 @@ class TravelPackage extends Model
         return config('orcha.status_tayang')[$this->status_tayang] ?? 'Tayang';
     }
 
+    /**
+     * Apakah paket ini benar-benar sedang diskon.
+     *
+     * Angka persen tersimpan tidak dipercaya sendirian: data lama sempat punya
+     * 75% padahal harga jualnya tidak lebih murah dari harga asli.
+     */
+    public function getAdaDiskonAttribute(): bool
+    {
+        return $this->original_price > 0 && $this->original_price > $this->price;
+    }
+
+    /**
+     * Persen diskon yang DIPAJANG — satu-satunya sumber untuk kartu maupun
+     * halaman detail, supaya keduanya tidak pernah menyebut angka berbeda.
+     *
+     * Yang dipakai adalah angka simpanan, karena admin boleh membulatkannya
+     * untuk keperluan promo. Kalau kosong, baru dihitung dari selisih harga.
+     */
+    public function getDiskonTampilAttribute(): int
+    {
+        if (! $this->ada_diskon) {
+            return 0;
+        }
+
+        $tersimpan = (int) $this->discount_percentage;
+
+        if ($tersimpan > 0) {
+            return $tersimpan;
+        }
+
+        return (int) floor((($this->original_price - $this->price) / $this->original_price) * 100);
+    }
+
+    /** Rupiah yang dihemat pembeli. */
+    public function getHematRupiahAttribute(): int
+    {
+        return $this->ada_diskon ? (int) ($this->original_price - $this->price) : 0;
+    }
+
     public function scopeOfCategory($query, ?string $category)
     {
         return $query->when($category, fn ($q) => $q->where('category', $category));
