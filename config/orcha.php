@@ -206,6 +206,31 @@ return [
     */
     /*
     |--------------------------------------------------------------------------
+    | Fasilitas yang Sering Dipakai
+    |--------------------------------------------------------------------------
+    |
+    | Dipakai formulir paket di dashboard supaya admin tinggal mencentang,
+    | bukan mengetik ulang tiap kali. Bukan daftar tertutup — paket tetap boleh
+    | punya fasilitas di luar daftar ini.
+    |
+    */
+    'fasilitas_umum' => [
+        'Transportasi AC',
+        'BBM & Tol',
+        'Sopir berpengalaman',
+        'Homestay / penginapan',
+        'Makan sesuai itinerary',
+        'Tiket masuk wisata',
+        'Dokumentasi foto',
+        'Tour leader',
+        'Asuransi perjalanan',
+        'Air mineral',
+        'Perlengkapan snorkeling',
+        'P3K',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Panel Admin Bawaan Orcha
     |--------------------------------------------------------------------------
     |

@@ -68,6 +68,7 @@ class MetaController extends ApiController
                 'alasan_pembatalan' => config('orcha.alasan_pembatalan'),
                 'wilayah' => config('orcha.wilayah'),
                 'pembayaran' => config('orcha.pembayaran'),
+                'fasilitas_umum' => config('orcha.fasilitas_umum'),
             ],
         ]);
     }
