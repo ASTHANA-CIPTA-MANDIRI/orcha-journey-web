@@ -294,6 +294,21 @@ return [
     */
     'admin_bawaan' => (bool) env('ORCHA_ADMIN_BAWAAN', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Pemberitahuan Email
+    |--------------------------------------------------------------------------
+    |
+    | Setiap formulir yang berhasil dikirim pelanggan (pendaftaran, bukti
+    | pembayaran, riwayat kesehatan, pembatalan) ikut dikirimkan ke alamat ini
+    | supaya ada salinan di luar aplikasi.
+    |
+    | Kosong berarti pemberitahuan dimatikan — dipakai saat pengembangan dan
+    | pengujian supaya tidak ada surat yang benar-benar terkirim.
+    |
+    */
+    'email_pemberitahuan' => env('ORCHA_EMAIL_PEMBERITAHUAN'),
+
     'api' => [
         'kunci' => env('ORCHA_API_KEY'),
         'ip_diizinkan' => array_filter(array_map('trim', explode(',', (string) env('ORCHA_API_IP', '')))),

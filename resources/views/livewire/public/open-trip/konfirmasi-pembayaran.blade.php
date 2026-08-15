@@ -4,6 +4,8 @@ use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\GambarWebp;
+use App\Support\BerkasKwitansi;
+use App\Support\KirimPemberitahuan;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -121,7 +123,7 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
         }
         RateLimiter::hit($kunci, 3600);
 
-        KonfirmasiPembayaran::create([
+        $bayar = KonfirmasiPembayaran::create([
             'kode' => $this->kode,
             'jenis' => $this->jenis,
             'nominal' => (int) $this->nominal,
@@ -131,6 +133,39 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
             'bukti' => GambarWebp::simpan($this->bukti, 'bukti-bayar'),
             'catatan' => $this->catatan ?: null,
         ]);
+
+        // Bukti transfernya ikut dilampirkan supaya bisa dicocokkan langsung
+        // dari kotak masuk, tanpa membuka dashboard.
+        $rincian = [
+            'Jenis' => $bayar->jenis_label,
+            'Nominal' => $bayar->nominal_formatted,
+            'Tanggal transfer' => $bayar->tanggal_transfer->translatedFormat('j F Y'),
+            'Bank pengirim' => $bayar->bank_pengirim,
+            'Atas nama' => $bayar->atas_nama_pengirim,
+            'Pemesan' => $bayar->pesanan()?->nama ?? '— kode tidak dikenal —',
+        ];
+
+        // Kwitansi PDF dilampirkan supaya ada berkas yang bisa disimpan dan
+        // dicetak — capnya "Menunggu Dicek", bukan "Lunas", karena pada tahap
+        // ini pembayarannya memang belum diperiksa tim.
+        $kwitansi = BerkasKwitansi::buat(
+            'Tanda Terima Pembayaran',
+            $bayar->kode,
+            $rincian,
+            $bayar->catatan,
+            $bayar->nominal_formatted,
+            'Nominal dilaporkan',
+            'Menunggu Dicek',
+        );
+
+        KirimPemberitahuan::kirim(
+            'Bukti Pembayaran Masuk',
+            $bayar->kode,
+            $rincian,
+            $bayar->catatan,
+            [$bayar->bukti],
+            $kwitansi ? [BerkasKwitansi::namaBerkas('tanda-terima', $bayar->kode) => $kwitansi] : [],
+        );
 
         $this->terkirim = true;
         $this->reset(['nominal', 'nominalTeks', 'bankPengirim', 'atasNamaPengirim', 'bukti', 'catatan', 'setuju']);

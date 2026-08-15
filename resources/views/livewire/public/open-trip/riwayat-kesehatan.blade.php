@@ -2,6 +2,7 @@
 
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\OpenTrip\RiwayatKesehatan;
+use App\Support\KirimPemberitahuan;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -139,6 +140,10 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
         }
         RateLimiter::hit($kunci, 3600);
 
+        $adaCatatanKhusus = filled($this->riwayatPenyakit) || filled($this->alergi)
+            || filled($this->obatRutin) || filled($this->pantangan)
+            || ! empty($this->kondisiKhusus);
+
         RiwayatKesehatan::create([
             'kode_pendaftaran' => $this->kode,
             'nama_peserta' => $this->namaPeserta,
@@ -162,6 +167,21 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
             'kontak_darurat_hubungan' => $this->kontakHubungan ?: null,
             'setuju_data_kesehatan' => true,
         ]);
+
+        // Isi kesehatannya sengaja TIDAK dirinci di surat: itu data pribadi,
+        // dan kotak masuk bukan tempat yang tepat untuk menyimpannya. Yang
+        // dikirim cukup penanda bahwa formulirnya sudah masuk.
+        KirimPemberitahuan::kirim(
+            'Riwayat Kesehatan Peserta Masuk',
+            $this->kode,
+            [
+                'Peserta' => $this->namaPeserta,
+                'Kontak darurat' => trim($this->kontakNama.' ('.$this->kontakHubungan.') '.$this->kontakHp),
+                'Ada catatan khusus' => $adaCatatanKhusus ? 'Ya — periksa di dashboard' : 'Tidak',
+            ],
+            'Rincian kesehatannya tidak disertakan di surat ini karena bersifat pribadi. '
+                .'Bukalah lewat dashboard Orcha.',
+        );
 
         $this->namaTerkirim = $this->namaPeserta;
         $this->terkirim = true;

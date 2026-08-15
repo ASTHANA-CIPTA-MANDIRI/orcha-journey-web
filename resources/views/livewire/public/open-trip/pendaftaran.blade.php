@@ -2,6 +2,8 @@
 
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
+use App\Support\BerkasKwitansi;
+use App\Support\KirimPemberitahuan;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -202,6 +204,36 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                 ->filter()->unique()->implode(', ') ?: $paket->titik_jemput,
             'catatan' => $this->catatan ?: null,
         ]);
+
+        $rincian = [
+            'Paket' => $paket->name,
+            'Keberangkatan' => $paket->jadwal_label ?: '—',
+            'Pemesan' => $pendaftaran->nama,
+            'WhatsApp' => $pendaftaran->whatsapp,
+            'Email' => $pendaftaran->email,
+            'Jumlah peserta' => $pendaftaran->jumlah_peserta.' orang',
+            'Peserta & titik jemput' => collect($pendaftaran->peserta)
+                ->map(fn ($satu) => $satu['nama'].' — '.($satu['titik_jemput'] ?: 'belum dipilih'))
+                ->implode("\n"),
+        ];
+
+        // Dikirim SETELAH tersimpan, dan kegagalannya tidak membatalkan apa pun.
+        KirimPemberitahuan::kirim(
+            'Pendaftaran Open Trip Baru',
+            $pendaftaran->kode,
+            $rincian,
+            $pendaftaran->catatan,
+            [],
+            ($bukti = BerkasKwitansi::buat(
+                'Bukti Pendaftaran Open Trip',
+                $pendaftaran->kode,
+                $rincian,
+                $pendaftaran->catatan,
+                $paket->price ? 'Rp '.number_format((float) $paket->price, 0, ',', '.').' / orang' : null,
+                'Harga paket',
+                'Terdaftar',
+            )) ? [BerkasKwitansi::namaBerkas('bukti-pendaftaran', $pendaftaran->kode) => $bukti] : [],
+        );
 
         $this->kodeTerdaftar = $pendaftaran->kode;
         $this->reset(['nama', 'whatsapp', 'email', 'catatan', 'setuju', 'peserta']);

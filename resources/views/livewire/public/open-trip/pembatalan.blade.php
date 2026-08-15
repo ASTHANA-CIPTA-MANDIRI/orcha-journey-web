@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\OpenTrip\Pembatalan;
+use App\Support\BerkasKwitansi;
+use App\Support\KirimPemberitahuan;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
@@ -92,7 +94,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
         }
         RateLimiter::hit($kunci, 3600);
 
-        Pembatalan::create([
+        $pembatalan = Pembatalan::create([
             'kode_pendaftaran' => $this->kode,
             'nama_pemohon' => $this->nama,
             'whatsapp' => $this->whatsapp,
@@ -104,6 +106,39 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
             'nomor_rekening' => $this->nomorRekening,
             'atas_nama_rekening' => $this->atasNama,
         ]);
+
+        $rincian = [
+            'Pemohon' => $pembatalan->nama_pemohon,
+            'WhatsApp' => $pembatalan->whatsapp,
+            'Email' => $pembatalan->email,
+            'Alasan' => $pembatalan->alasan_label,
+            'Peserta dibatalkan' => $pembatalan->jumlah_dibatalkan.' orang',
+            'Rekening pengembalian' => $pembatalan->bank.' · '.$pembatalan->nomor_rekening
+                .' a.n. '.$pembatalan->atas_nama_rekening,
+        ];
+
+        // Tanda terima pengajuan — bukan tanda pengembalian dana. Capnya
+        // "Diajukan" supaya tidak terbaca sebagai janji dana sudah dikirim.
+        $tandaTerima = BerkasKwitansi::buat(
+            'Tanda Terima Pengajuan Pembatalan',
+            $pembatalan->kode_pendaftaran,
+            $rincian,
+            $pembatalan->penjelasan,
+            null,
+            null,
+            'Diajukan',
+        );
+
+        KirimPemberitahuan::kirim(
+            'Pengajuan Pembatalan',
+            $pembatalan->kode_pendaftaran,
+            $rincian,
+            $pembatalan->penjelasan,
+            [],
+            $tandaTerima
+                ? [BerkasKwitansi::namaBerkas('pengajuan-pembatalan', $pembatalan->kode_pendaftaran) => $tandaTerima]
+                : [],
+        );
 
         $this->terkirim = true;
     }
