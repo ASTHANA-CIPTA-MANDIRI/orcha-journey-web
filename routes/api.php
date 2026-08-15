@@ -88,6 +88,12 @@ Route::prefix('v1')
         Route::match(['put', 'post'], '/testimoni/{testimoni}', [KatalogTulisController::class, 'perbaruiTestimoni']);
         Route::delete('/testimoni/{testimoni}', [KatalogTulisController::class, 'hapusTestimoni']);
 
+        // Saran isian paket (destinasi & fasilitas) — bertambah sendiri saat
+        // paket disimpan, dan boleh dirapikan admin.
+        Route::get('/saran', [KatalogTulisController::class, 'saran']);
+        Route::post('/saran', [KatalogTulisController::class, 'simpanSaran']);
+        Route::delete('/saran/{saran}', [KatalogTulisController::class, 'hapusSaran']);
+
         Route::post('/partner', [KatalogTulisController::class, 'simpanPartner']);
         Route::match(['put', 'post'], '/partner/{partner}', [KatalogTulisController::class, 'perbaruiPartner']);
         Route::delete('/partner/{partner}', [KatalogTulisController::class, 'hapusPartner']);

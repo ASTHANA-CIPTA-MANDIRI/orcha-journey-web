@@ -8,6 +8,7 @@ use App\Models\PendaftaranOpenTrip;
 use App\Models\PenyewaanKendaraan;
 use App\Models\PesanKontak;
 use App\Models\RiwayatKesehatan;
+use App\Models\SaranPaket;
 use App\Models\Testimoni;
 use App\Models\TravelPackage;
 use Illuminate\Http\UploadedFile;
@@ -474,4 +475,99 @@ test('menulis pun tetap butuh kunci', function () {
     $this->postJson('/api/v1/partner', ['nama' => 'Tanpa Kunci'])->assertStatus(401);
 
     expect(Partner::count())->toBe(0);
+});
+
+/* --------------------- SARAN ISIAN PAKET --------------------- */
+
+/**
+ * Migrasi sudah mengisi daftar saran dari config fasilitas dan destinasi yang
+ * ada. Uji di bawah ini menguji perilakunya, jadi mulainya dari daftar kosong
+ * supaya hitungannya jelas.
+ */
+function saranKosong(): void
+{
+    SaranPaket::query()->delete();
+}
+
+test('daftar saran terbagi per jenis dan urut nama', function () {
+    saranKosong();
+
+    SaranPaket::create(['jenis' => 'destinasi', 'nama' => 'Kawah Ijen']);
+    SaranPaket::create(['jenis' => 'destinasi', 'nama' => 'Baluran']);
+    SaranPaket::create(['jenis' => 'fasilitas', 'nama' => 'Homestay']);
+
+    $this->getJson('/api/v1/saran', kirim())
+        ->assertOk()
+        ->assertJsonPath('data.destinasi.0.nama', 'Baluran')
+        ->assertJsonPath('data.destinasi.1.nama', 'Kawah Ijen')
+        ->assertJsonPath('data.fasilitas.0.nama', 'Homestay')
+        ->assertJsonCount(2, 'data.destinasi');
+});
+
+test('saran baru tersimpan dan tidak berganda', function () {
+    saranKosong();
+
+    $this->postJson('/api/v1/saran', ['jenis' => 'fasilitas', 'nama' => 'Kaos peserta'], kirim())
+        ->assertCreated();
+
+    // Nama yang sama tidak menggandakan baris
+    $this->postJson('/api/v1/saran', ['jenis' => 'fasilitas', 'nama' => 'Kaos peserta'], kirim())
+        ->assertOk();
+
+    expect(SaranPaket::jenis('fasilitas')->count())->toBe(1);
+});
+
+test('jenis saran di luar daftar ditolak', function () {
+    saranKosong();
+
+    $this->postJson('/api/v1/saran', ['jenis' => 'ngawur', 'nama' => 'X'], kirim())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('jenis');
+
+    expect(SaranPaket::count())->toBe(0);
+});
+
+test('menghapus saran tidak mengubah paket yang sudah tersimpan', function () {
+    saranKosong();
+
+    $saran = SaranPaket::create(['jenis' => 'destinasi', 'nama' => 'Kawah Ijen']);
+
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Ijen', 'category' => 'open_trip', 'price' => 500000,
+        'minimal_peserta' => 6, 'destination_list' => ['Kawah Ijen'],
+    ]);
+
+    $this->deleteJson("/api/v1/saran/{$saran->id}", [], kirim())->assertOk();
+
+    expect(SaranPaket::count())->toBe(0)
+        ->and($paket->fresh()->destination_list)->toBe(['Kawah Ijen']);
+});
+
+test('isian paket baru otomatis masuk daftar saran', function () {
+    saranKosong();
+
+    $this->postJson('/api/v1/paket-wisata', [
+        'nama' => 'Open Trip Baluran',
+        'kategori' => 'open_trip',
+        'minimal_peserta' => 6,
+        'harga' => 900000,
+        'destinasi' => ['Taman Nasional Baluran', 'Pantai Bama'],
+        'fasilitas' => ['Kaos peserta'],
+    ], kirim())->assertCreated();
+
+    expect(SaranPaket::jenis('destinasi')->orderBy('nama')->pluck('nama')->all())
+        ->toBe(['Pantai Bama', 'Taman Nasional Baluran'])
+        ->and(SaranPaket::jenis('fasilitas')->pluck('nama')->all())
+        ->toBe(['Kaos peserta']);
+
+    // Menyimpan paket kedua dengan isi yang sama tidak menggandakan saran
+    $this->postJson('/api/v1/paket-wisata', [
+        'nama' => 'Open Trip Baluran Edisi 2',
+        'kategori' => 'open_trip',
+        'minimal_peserta' => 6,
+        'harga' => 950000,
+        'destinasi' => ['Pantai Bama'],
+    ], kirim())->assertCreated();
+
+    expect(SaranPaket::jenis('destinasi')->count())->toBe(2);
 });

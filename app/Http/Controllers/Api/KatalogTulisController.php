@@ -7,6 +7,7 @@ use App\Http\Resources\PaketWisataResource;
 use App\Models\Car;
 use App\Models\DestinationPopuler;
 use App\Models\Partner;
+use App\Models\SaranPaket;
 use App\Models\Testimoni;
 use App\Models\TravelPackage;
 use App\Support\ItineraryTeks;
@@ -31,6 +32,7 @@ class KatalogTulisController extends ApiController
 
         $paket = TravelPackage::create($this->siapkanPaket($data, $request));
 
+        $this->catatSaranPaket($data);
         $this->catat($request, 'tambah paket wisata', ['nama' => $paket->name]);
 
         return response()->json([
@@ -45,6 +47,7 @@ class KatalogTulisController extends ApiController
 
         $paket->update($this->siapkanPaket($data, $request, $paket->foto));
 
+        $this->catatSaranPaket($data);
         $this->catat($request, 'ubah paket wisata', ['nama' => $paket->name]);
 
         return response()->json([
@@ -115,6 +118,16 @@ class KatalogTulisController extends ApiController
             'itinerary' => ItineraryTeks::keArray($data['itinerary_teks'] ?? '') ?: null,
             'foto' => $this->simpanGambar($request, 'paket', $fotoLama),
         ];
+    }
+
+    /**
+     * Isian baru ikut masuk daftar saran, jadi paket berikutnya dengan
+     * destinasi atau fasilitas yang sama tidak perlu diketik ulang.
+     */
+    private function catatSaranPaket(array $data): void
+    {
+        SaranPaket::catat('destinasi', $data['destinasi'] ?? []);
+        SaranPaket::catat('fasilitas', $data['fasilitas'] ?? []);
     }
 
     /* ------------------------------ ARMADA ------------------------------ */
@@ -361,6 +374,51 @@ class KatalogTulisController extends ApiController
         $this->catat($request, 'hapus partner', ['id' => $partner->id]);
 
         return response()->json(['pesan' => 'Partner dihapus.']);
+    }
+
+    /* ------------------------- SARAN ISIAN PAKET ------------------------- */
+
+    public function saran(): JsonResponse
+    {
+        return response()->json([
+            'data' => collect(SaranPaket::JENIS)
+                ->mapWithKeys(fn ($jenis) => [
+                    $jenis => SaranPaket::jenis($jenis)
+                        ->orderBy('nama')
+                        ->get(['id', 'nama'])
+                        ->all(),
+                ])
+                ->all(),
+        ]);
+    }
+
+    public function simpanSaran(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'jenis' => 'required|in:'.implode(',', SaranPaket::JENIS),
+            'nama' => 'required|string|max:191',
+        ]);
+
+        $saran = SaranPaket::firstOrCreate([
+            'jenis' => $data['jenis'],
+            'nama' => trim($data['nama']),
+        ]);
+
+        return response()->json([
+            'data' => ['id' => $saran->id, 'nama' => $saran->nama],
+            'pesan' => 'Ditambahkan ke daftar pilihan.',
+        ], $saran->wasRecentlyCreated ? 201 : 200);
+    }
+
+    public function hapusSaran(SaranPaket $saran, Request $request): JsonResponse
+    {
+        $this->catat($request, 'hapus saran paket', ['jenis' => $saran->jenis, 'nama' => $saran->nama]);
+
+        $saran->delete();
+
+        // Sengaja tidak menyentuh paket yang sudah tersimpan: yang hilang hanya
+        // pilihan cepatnya, bukan isi paketnya.
+        return response()->json(['pesan' => 'Dihapus dari daftar pilihan.']);
     }
 
     /* ------------------------------ GAMBAR ------------------------------ */
