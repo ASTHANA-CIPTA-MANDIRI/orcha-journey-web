@@ -8,104 +8,130 @@
         '&text=' .
         rawurlencode("Halo Orcha Journey, saya tertarik paket {$paket->name} ({$paket->category_label}). Boleh minta detailnya?");
     $unggulan = (bool) $paket->is_best_choice;
+    $destinasi = collect($paket->destination_list ?? [])->filter()->values();
 @endphp
 
 <article
-    {{ $attributes->merge(['class' => 'flex flex-col overflow-hidden bg-white card-orcha ' . ($unggulan ? 'ring-2 ring-orcha-sun' : '')]) }}>
+    {{ $attributes->merge(['class' => 'flex flex-col overflow-hidden bg-white card-orcha group ' . ($unggulan ? 'ring-2 ring-orcha-sun' : '')]) }}>
 
-    <div
-        class="relative px-6 pt-6 pb-5 sm:px-7 {{ $unggulan ? 'bg-gradient-to-br from-orcha-navy to-orcha-abyss text-white' : 'bg-gradient-to-br from-orcha-foam to-white' }}">
+    {{-- ============ SAMPUL ============
+         Kartu ini dulu tanpa gambar sama sekali — semuanya teks rata kiri yang
+         menumpuk. Sampul memberi jangkar visual sebelum satu kata pun dibaca.
+
+         Memakai foto unggahan admin; bila paket belum punya foto, otomatis
+         jatuh ke ilustrasi bawaan sehingga kartunya tidak pernah kosong. --}}
+    <div class="relative overflow-hidden aspect-[16/10] bg-orcha-navy">
+        <img src="{{ $paket->sampul }}" alt="{{ $paket->name }}" loading="lazy"
+            class="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105">
+
+        <div class="absolute inset-0 bg-gradient-to-t from-orcha-navy via-orcha-navy/55 to-transparent"></div>
+
+        <span
+            class="absolute top-4 left-4 px-3 py-1 text-[0.7rem] font-bold tracking-wider uppercase rounded-full bg-white/90 text-orcha-ocean backdrop-blur">
+            {{ $paket->category_label }}
+        </span>
+
         @if ($unggulan)
             <span
-                class="absolute top-0 right-0 px-4 py-1.5 text-[0.7rem] font-black tracking-wider uppercase rounded-bl-2xl bg-orcha-sun text-orcha-navy">
+                class="absolute top-4 right-4 px-3 py-1 text-[0.7rem] font-black tracking-wider uppercase rounded-full bg-orcha-sun text-orcha-navy">
                 Terlaris
             </span>
         @endif
 
-        <span
-            class="inline-block px-3 py-1 text-[0.7rem] font-bold tracking-wider uppercase rounded-full {{ $unggulan ? 'bg-white/15 text-orcha-sun' : 'bg-orcha-wave/10 text-orcha-ocean' }}">
-            {{ $paket->category_label }}
-        </span>
+        <div class="absolute inset-x-0 bottom-0 p-5 sm:p-6">
+            <h3 class="text-xl font-bold leading-snug text-white sm:text-2xl font-heading">
+                {{ $paket->name }}
+            </h3>
 
-        <h3 class="mt-3 text-2xl font-bold font-heading {{ $unggulan ? 'text-white' : 'text-orcha-navy' }}">
-            {{ $paket->name }}
-        </h3>
-
-        <div class="mt-2 space-y-1 text-sm {{ $unggulan ? 'text-slate-300' : 'text-slate-500' }}">
             @if ($paket->jadwal_label)
-                <p class="flex items-center gap-1.5 font-semibold {{ $unggulan ? 'text-orcha-sun' : 'text-orcha-ocean' }}">
-                    <x-heroicon-o-calendar-days class="w-4 h-4" />
+                <p class="flex items-center gap-1.5 mt-1.5 text-sm font-semibold text-orcha-sun">
+                    <x-heroicon-s-calendar-days class="w-4 h-4 shrink-0" />
                     {{ $paket->jadwal_label }}
                 </p>
-            @endif
-
-            @if ($paket->duration)
-                <p class="flex items-center gap-1.5">
-                    <x-heroicon-o-clock class="w-4 h-4" />
-                    {{ $paket->duration }}
-                </p>
-            @endif
-
-            @if ($paket->titik_jemput)
-                <p class="flex items-center gap-1.5">
-                    <x-heroicon-o-map-pin class="w-4 h-4" />
-                    Jemput: {{ $paket->titik_jemput }}
-                </p>
-            @endif
-
-            @if ($paket->minimal_peserta > 1)
-                <p class="flex items-center gap-1.5">
-                    <x-heroicon-o-user-group class="w-4 h-4" />
-                    Berangkat minimal {{ $paket->minimal_peserta }} orang
-                </p>
-            @endif
-        </div>
-
-        @if ($paket->catatan_promo)
-            <p
-                class="inline-block px-3 py-1 mt-3 text-xs font-bold rounded-full {{ $unggulan ? 'bg-orcha-sun text-orcha-navy' : 'bg-orcha-sun/20 text-orcha-ocean' }}">
-                {{ $paket->catatan_promo }}
-            </p>
-        @endif
-
-        <div class="flex flex-wrap items-end mt-4 gap-x-3 gap-y-1">
-            <p class="text-3xl font-black font-heading {{ $unggulan ? 'text-orcha-sun' : 'text-orcha-ocean' }}">
-                {{ $rupiah($paket->price) }}
-            </p>
-            <span class="text-sm {{ $unggulan ? 'text-slate-400' : 'text-slate-500' }}">/ orang</span>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2 mt-2">
-            {{-- Angkanya dari satu sumber (diskon_tampil), sama dengan yang
-                 dipajang halaman detail. --}}
-            @if ($paket->ada_diskon)
-                <span class="text-sm line-through text-slate-400">{{ $rupiah($paket->original_price) }}</span>
-            @endif
-            @if ($paket->diskon_tampil > 0)
-                <span class="px-2 py-0.5 text-xs font-bold text-red-600 bg-red-100 rounded-full">
-                    Hemat {{ $paket->diskon_tampil }}%
-                </span>
             @endif
         </div>
     </div>
 
-    <div class="flex flex-col flex-1 p-6 sm:p-7">
-        <p class="text-xs font-bold tracking-wider uppercase text-slate-400">Destinasi termasuk</p>
-        <ul class="flex-1 mt-3 space-y-2.5">
-            @forelse ($paket->destination_list ?? [] as $destinasi)
-                <li class="flex items-start gap-2 text-sm text-slate-600">
-                    <x-heroicon-s-map-pin class="w-4 h-4 mt-0.5 shrink-0 text-orcha-sky" />
-                    <span>{{ $destinasi }}</span>
-                </li>
-            @empty
-                <li class="text-sm text-slate-400">Rincian menyusul — tanyakan ke kami.</li>
-            @endforelse
-        </ul>
+    <div class="flex flex-col flex-1 p-5 sm:p-6">
 
-        <div class="mt-7 space-y-2">
+        {{-- ============ KETERANGAN SINGKAT ============
+             Disusun dua kolom bersekat, bukan empat baris rata kiri berurutan.
+             Matanya jadi punya titik henti, bukan satu tiang panjang. --}}
+        <div class="grid grid-cols-2 border rounded-2xl border-orcha-foam divide-x divide-orcha-foam">
+            <div class="p-3 text-center">
+                <x-heroicon-o-clock class="w-5 h-5 mx-auto text-orcha-sky" />
+                <p class="mt-1 text-sm font-bold text-orcha-navy">{{ $paket->duration ?: '—' }}</p>
+                <p class="text-[0.68rem] tracking-wide uppercase text-slate-400">Durasi</p>
+            </div>
+
+            <div class="p-3 text-center">
+                <x-heroicon-o-user-group class="w-5 h-5 mx-auto text-orcha-sky" />
+                <p class="mt-1 text-sm font-bold text-orcha-navy">
+                    {{ $paket->minimal_peserta > 1 ? 'Min. ' . $paket->minimal_peserta . ' orang' : 'Bebas' }}
+                </p>
+                <p class="text-[0.68rem] tracking-wide uppercase text-slate-400">Peserta</p>
+            </div>
+        </div>
+
+        @if ($paket->titik_jemput)
+            <p class="flex items-start gap-2 mt-3 text-sm text-slate-500">
+                <x-heroicon-s-map-pin class="w-4 h-4 mt-0.5 shrink-0 text-orcha-sun" />
+                <span>Jemput: <span class="font-semibold text-orcha-navy">{{ $paket->titik_jemput }}</span></span>
+            </p>
+        @endif
+
+        {{-- ============ DESTINASI ============
+             Berupa cip yang mengalir mengikuti lebar kartu, bukan daftar
+             menurun — mengisi ruang kosong di kanan dan lebih cepat dipindai. --}}
+        @if ($destinasi->isNotEmpty())
+            <div class="mt-4">
+                <p class="text-[0.68rem] font-bold tracking-wider uppercase text-slate-400">Destinasi termasuk</p>
+                <div class="flex flex-wrap gap-1.5 mt-2">
+                    @foreach ($destinasi->take(4) as $satu)
+                        <span
+                            class="px-2.5 py-1 text-xs font-medium rounded-full bg-orcha-foam text-orcha-navy">{{ $satu }}</span>
+                    @endforeach
+
+                    @if ($destinasi->count() > 4)
+                        <span class="px-2.5 py-1 text-xs font-bold rounded-full bg-orcha-sky/15 text-orcha-ocean">
+                            +{{ $destinasi->count() - 4 }} lagi
+                        </span>
+                    @endif
+                </div>
+            </div>
+        @endif
+
+        @if ($paket->catatan_promo)
+            <p class="inline-flex self-start gap-1.5 items-center px-3 py-1 mt-4 text-xs font-bold rounded-full bg-orcha-sun/20 text-orcha-ocean">
+                <x-heroicon-s-sparkles class="w-3.5 h-3.5" />
+                {{ $paket->catatan_promo }}
+            </p>
+        @endif
+
+        {{-- ============ HARGA ============
+             Harga di kiri, potongan di kanan: barisnya jadi punya dua sisi,
+             tidak lagi semuanya menempel ke tepi kiri. --}}
+        <div class="flex items-end justify-between gap-3 pt-4 mt-auto border-t border-orcha-foam">
+            <div>
+                <p class="text-[0.68rem] tracking-wide uppercase text-slate-400">Mulai dari</p>
+                <p class="text-2xl font-black leading-tight font-heading text-orcha-ocean">
+                    {{ $rupiah($paket->price) }}
+                    <span class="text-xs font-medium text-slate-500">/ orang</span>
+                </p>
+            </div>
+
+            @if ($paket->diskon_tampil > 0)
+                <div class="text-right shrink-0">
+                    <span class="inline-block px-2 py-0.5 text-xs font-bold text-red-600 bg-red-100 rounded-full">{{ 'Hemat ' . $paket->diskon_tampil . '%' }}</span>
+                    <p class="mt-1 text-xs line-through text-slate-400">{{ $rupiah($paket->original_price) }}</p>
+                </div>
+            @endif
+        </div>
+
+        <div class="mt-4 space-y-2">
             <a href="{{ route('paket-detail', $paket->uuid) }}"
                 class="w-full btn-orcha {{ $unggulan ? 'btn-orcha-sun' : 'btn-orcha-primary' }}">
-                Lihat Detail & Itinerary
+                Lihat Detail &amp; Itinerary
                 <x-heroicon-o-arrow-right class="w-5 h-5" />
             </a>
 
