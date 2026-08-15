@@ -1,4 +1,12 @@
-<!DOCTYPE html>
+        {{-- Cap nama sebagai latar footer. Digambar SVG dengan textLength supaya
+             lebarnya persis mengikuti lebar footer — di tengah, tidak pernah
+             terpotong, dan ikut mengecil sendiri di layar sempit. --}}
+        <svg class="orcha-cap-footer" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid meet"
+            aria-hidden="true" focusable="false">
+            <text x="500" y="150" text-anchor="middle" textLength="940" lengthAdjust="spacingAndGlyphs">
+                Orcha Journey
+            </text>
+        </svg><!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="no-js scroll-smooth">
 
 <head>

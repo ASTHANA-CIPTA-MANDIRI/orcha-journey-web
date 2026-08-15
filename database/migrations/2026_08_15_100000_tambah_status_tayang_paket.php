@@ -27,8 +27,9 @@ return new class extends Migration
             // Berhenti tayang. Kosong = tidak dibatasi waktu.
             $table->dateTime('tayang_sampai')->nullable()->after('tayang_mulai');
 
-            // Trip bertanggal berhenti tayang sendiri setelah rombongan pulang.
-            // Bisa dimatikan untuk paket yang tanggalnya cuma contoh.
+            // Trip bertanggal berhenti tayang sendiri pada hari keberangkatan —
+            // pendaftaran memang sudah tidak masuk akal saat itu. Bisa dimatikan
+            // untuk paket yang tanggalnya cuma contoh.
             $table->boolean('berakhir_otomatis')->default(true)->after('tayang_sampai');
         });
     }
