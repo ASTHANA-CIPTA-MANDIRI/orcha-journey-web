@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\Partner;
+use App\Models\Etalase\Partner;
 use Illuminate\Database\Seeder;
 
 class PartnerSeeder extends Seeder

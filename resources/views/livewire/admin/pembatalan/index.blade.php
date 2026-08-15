@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Pembatalan;
+use App\Models\OpenTrip\Pembatalan;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;

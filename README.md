@@ -65,6 +65,27 @@ Volt::route('/sewa-kendaraan/{jenis?}', 'public.sewa-kendaraan.index')->name('se
 
 ### Satu fitur, satu folder
 
+Berlaku juga di `app/` — model, controller API, resource, dan perkakas
+dikelompokkan per fitur, bukan hanya per jenis berkas:
+
+```
+app/
+├── Models/{PaketWisata,SewaKendaraan,OpenTrip,Etalase,Kontak}/
+├── Http/Controllers/Api/
+│   ├── ApiController.php            (bagian bersama)
+│   ├── Concerns/MenyimpanGambar.php (unggahan → WebP)
+│   ├── Umum/{Dashboard,Meta}Controller.php
+│   ├── PaketWisata/PaketWisataController.php
+│   ├── SewaKendaraan/{Kendaraan,Penyewaan}Controller.php
+│   ├── OpenTrip/{Pendaftaran,Pembatalan}Controller.php
+│   ├── Kontak/PesanController.php
+│   └── Etalase/EtalaseController.php
+├── Http/Resources/{PaketWisata,SewaKendaraan,OpenTrip,Kontak}/
+├── Support/{PaketWisata,Etalase}/ + GambarWebp.php
+└── Console/Commands/{Umum,Etalase}/
+```
+
+
 Berkas Blade dikelompokkan per fitur — publik maupun admin:
 
 ```
@@ -219,6 +240,16 @@ Rincian jalur, bentuk balasan, dan rancangan sisi Phoenix (kelas pemanggil, perm
 ## Gambar
 
 Foto asli disimpan di `public/images/`, video latar beranda di `public/videos/`.
+
+**Semua unggahan dari dashboard otomatis jadi WebP.** Admin boleh mengunggah JPG
+atau PNG; `App\Support\GambarWebp` mengubahnya, mengecilkan sisi terpanjang ke
+1920px, dan menyimpannya sebagai `.webp` — biasanya sepertiga sampai separuh
+ukuran aslinya. Bila server tidak mendukung WebP, berkasnya disimpan apa adanya
+supaya unggahan tidak pernah hilang.
+
+Foto sampul paket dipakai sebagai latar hero di halaman paket. Pita hero itu
+lebar dan pendek, jadi bagian atas & bawah foto pasti terpotong — **ukuran yang
+pas 1600 × 600** (paling kecil 1200 × 450), dengan bagian penting di tengah.
 
 Destinasi yang belum punya foto memakai sampul **SVG buatan sendiri** (ilustrasi
 pemandangan laut bergaya datar, dibuat `App\Support\SampulDestinasi` dan tetap sama

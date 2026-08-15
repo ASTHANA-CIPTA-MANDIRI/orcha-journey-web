@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\DestinationPopuler;
+use App\Models\Etalase\DestinationPopuler;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;

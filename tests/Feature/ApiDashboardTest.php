@@ -1,16 +1,16 @@
 <?php
 
-use App\Models\Car;
-use App\Models\DestinationPopuler;
-use App\Models\Partner;
-use App\Models\Pembatalan;
-use App\Models\PendaftaranOpenTrip;
-use App\Models\PenyewaanKendaraan;
-use App\Models\PesanKontak;
-use App\Models\RiwayatKesehatan;
-use App\Models\SaranPaket;
-use App\Models\Testimoni;
-use App\Models\TravelPackage;
+use App\Models\Etalase\DestinationPopuler;
+use App\Models\Etalase\Partner;
+use App\Models\Etalase\Testimoni;
+use App\Models\Kontak\PesanKontak;
+use App\Models\OpenTrip\Pembatalan;
+use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Models\OpenTrip\RiwayatKesehatan;
+use App\Models\PaketWisata\SaranPaket;
+use App\Models\PaketWisata\TravelPackage;
+use App\Models\SewaKendaraan\Car;
+use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -621,4 +621,58 @@ test('rujukan membawa pilihan status paket', function () {
         ->assertOk()
         ->assertJsonPath('data.status_paket.terbit', 'Terbit')
         ->assertJsonPath('data.status_tayang.terjadwal', 'Terjadwal');
+});
+
+/* ------------------------- GAMBAR JADI WEBP ------------------------- */
+
+test('gambar jpg yang diunggah tersimpan sebagai webp', function () {
+    Storage::fake('public');
+
+    $this->postJson('/api/v1/partner', [
+        'nama' => 'Homestay Ijen',
+        'gambar' => UploadedFile::fake()->image('logo.jpg', 600, 400),
+    ], kirim())->assertCreated();
+
+    $jalur = Partner::firstOrFail()->foto;
+
+    expect($jalur)->toEndWith('.webp');
+
+    $isi = Storage::disk('public')->get(str_replace('/storage/', '', $jalur));
+
+    // Tanda pengenal berkas WebP: "RIFF....WEBP"
+    expect(substr($isi, 0, 4))->toBe('RIFF')
+        ->and(substr($isi, 8, 4))->toBe('WEBP');
+});
+
+test('gambar png ikut jadi webp', function () {
+    Storage::fake('public');
+
+    $this->postJson('/api/v1/testimoni', [
+        'nama' => 'Sari',
+        'rating' => 5,
+        'isi' => 'Menyenangkan.',
+        'gambar' => UploadedFile::fake()->image('avatar.png', 300, 300),
+    ], kirim())->assertCreated();
+
+    expect(Testimoni::firstOrFail()->avatar)->toEndWith('.webp');
+});
+
+test('gambar raksasa dikecilkan supaya halaman tetap ringan', function () {
+    Storage::fake('public');
+
+    $this->postJson('/api/v1/paket-wisata', [
+        'nama' => 'Open Trip Foto Besar',
+        'kategori' => 'open_trip',
+        'minimal_peserta' => 6,
+        'harga' => 1000000,
+        'gambar' => UploadedFile::fake()->image('sampul.jpg', 4000, 2000),
+    ], kirim())->assertCreated();
+
+    $jalur = TravelPackage::firstOrFail()->foto;
+    $isi = Storage::disk('public')->get(str_replace('/storage/', '', $jalur));
+
+    [$lebar, $tinggi] = getimagesizefromstring($isi);
+
+    expect($lebar)->toBe(1920)
+        ->and($tinggi)->toBe(960);
 });

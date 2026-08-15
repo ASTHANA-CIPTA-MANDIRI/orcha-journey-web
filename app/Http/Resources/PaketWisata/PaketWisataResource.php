@@ -1,0 +1,53 @@
+<?php
+
+namespace App\Http\Resources\PaketWisata;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+/**
+ * @property \App\Models\PaketWisata\TravelPackage $resource
+ */
+class PaketWisataResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'uuid' => $this->uuid,
+            'nama' => $this->name,
+            'kategori' => $this->category,
+            'kategori_label' => $this->category_label,
+            'status' => $this->status,
+            'status_tayang' => $this->status_tayang,
+            'status_tayang_label' => $this->status_tayang_label,
+            'sedang_tayang' => $this->sedang_tayang,
+            'tayang_mulai' => $this->tayang_mulai?->format('Y-m-d\TH:i'),
+            'tayang_sampai' => $this->tayang_sampai?->format('Y-m-d\TH:i'),
+            'berakhir_otomatis' => (bool) $this->berakhir_otomatis,
+            'durasi' => $this->duration,
+            'jadwal_label' => $this->jadwal_label,
+            'tanggal_berangkat' => $this->tanggal_berangkat?->toDateString(),
+            'tanggal_pulang' => $this->tanggal_pulang?->toDateString(),
+            'batas_pelunasan' => $this->batas_pelunasan?->toDateString(),
+            'sudah_lewat' => $this->sudah_lewat,
+            'titik_jemput' => $this->titik_jemput,
+            'minimal_peserta' => $this->minimal_peserta,
+            'harga' => $this->price,
+            'harga_asli' => $this->original_price,
+            'diskon_persen' => $this->discount_percentage,
+            'catatan_promo' => $this->catatan_promo,
+            'pilihan_terbaik' => (bool) $this->is_best_choice,
+            'destinasi' => $this->destination_list ?? [],
+            'fasilitas' => $this->fasilitas ?? [],
+            'itinerary' => $this->itinerary ?? [],
+
+            // Bentuk teks siap sunting, supaya dashboard lemon tidak perlu
+            // menulis ulang aturan formatnya sendiri.
+            'itinerary_teks' => \App\Support\PaketWisata\ItineraryTeks::keTeks($this->itinerary),
+            'sampul' => $this->sampul,
+            'jumlah_pendaftar' => $this->whenCounted('pendaftaran'),
+            'tautan_publik' => url('/paket/'.$this->uuid),
+        ];
+    }
+}

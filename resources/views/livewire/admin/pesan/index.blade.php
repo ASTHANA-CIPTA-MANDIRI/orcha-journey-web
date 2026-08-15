@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\PesanKontak;
+use App\Models\Kontak\PesanKontak;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;

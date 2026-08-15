@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\PesanKontak;
+use App\Models\Kontak\PesanKontak;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;

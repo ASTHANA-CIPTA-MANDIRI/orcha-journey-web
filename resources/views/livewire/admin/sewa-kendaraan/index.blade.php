@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Car;
+use App\Models\SewaKendaraan\Car;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;

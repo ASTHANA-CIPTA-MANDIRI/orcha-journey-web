@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\DestinationPopuler;
+use App\Models\Etalase\DestinationPopuler;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Rule;

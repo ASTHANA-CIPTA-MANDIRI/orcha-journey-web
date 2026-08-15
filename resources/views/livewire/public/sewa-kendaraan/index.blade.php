@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Car;
+use App\Models\SewaKendaraan\Car;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;

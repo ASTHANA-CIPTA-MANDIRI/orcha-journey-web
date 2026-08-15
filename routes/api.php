@@ -1,13 +1,14 @@
 <?php
 
-use App\Http\Controllers\Api\DashboardController;
-use App\Http\Controllers\Api\KatalogController;
-use App\Http\Controllers\Api\KatalogTulisController;
-use App\Http\Controllers\Api\MetaController;
-use App\Http\Controllers\Api\PembatalanController;
-use App\Http\Controllers\Api\PendaftaranController;
-use App\Http\Controllers\Api\PenyewaanController;
-use App\Http\Controllers\Api\PesanController;
+use App\Http\Controllers\Api\Etalase\EtalaseController;
+use App\Http\Controllers\Api\Kontak\PesanController;
+use App\Http\Controllers\Api\OpenTrip\PembatalanController;
+use App\Http\Controllers\Api\OpenTrip\PendaftaranController;
+use App\Http\Controllers\Api\PaketWisata\PaketWisataController;
+use App\Http\Controllers\Api\SewaKendaraan\KendaraanController;
+use App\Http\Controllers\Api\SewaKendaraan\PenyewaanController;
+use App\Http\Controllers\Api\Umum\DashboardController;
+use App\Http\Controllers\Api\Umum\MetaController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -22,79 +23,73 @@ use Illuminate\Support\Facades\Route;
 | permintaan per menit per IP. Hak akses per admin tetap urusan Phoenix —
 | di sisi Orcha, siapa pun yang memegang kunci dianggap sudah berwenang.
 |
+| Controllernya dikelompokkan per fitur, sama seperti berkas Blade.
+|
 */
 
 Route::prefix('v1')
     ->middleware(['kunci.orcha', 'throttle:120,1'])
     ->group(function () {
-        // Keterangan sistem
+        /* ------------------------------- UMUM ------------------------------- */
         Route::get('/ping', [MetaController::class, 'ping']);
         Route::get('/menu', [MetaController::class, 'menu']);
         Route::get('/rujukan', [MetaController::class, 'rujukan']);
-
-        // Dashboard
         Route::get('/dashboard', DashboardController::class);
 
-        // Pendaftaran open trip
+        /* ----------------------------- OPEN TRIP ----------------------------- */
         Route::get('/pendaftaran', [PendaftaranController::class, 'index']);
         Route::get('/pendaftaran/{pendaftaran}', [PendaftaranController::class, 'show']);
         Route::get('/pendaftaran/{pendaftaran}/riwayat-kesehatan', [PendaftaranController::class, 'riwayatKesehatan']);
         Route::patch('/pendaftaran/{pendaftaran}/status', [PendaftaranController::class, 'ubahStatus']);
 
-        // Sewa kendaraan yang masuk
-        Route::get('/penyewaan', [PenyewaanController::class, 'index']);
-        Route::get('/penyewaan/{penyewaan}', [PenyewaanController::class, 'show']);
-        Route::patch('/penyewaan/{penyewaan}/status', [PenyewaanController::class, 'ubahStatus']);
-
-        // Pembatalan
         Route::get('/pembatalan', [PembatalanController::class, 'index']);
         Route::get('/pembatalan/{pembatalan}', [PembatalanController::class, 'show']);
         Route::patch('/pembatalan/{pembatalan}/status', [PembatalanController::class, 'ubahStatus']);
 
-        // Pesan kontak
+        /* --------------------------- SEWA KENDARAAN --------------------------- */
+        Route::get('/penyewaan', [PenyewaanController::class, 'index']);
+        Route::get('/penyewaan/{penyewaan}', [PenyewaanController::class, 'show']);
+        Route::patch('/penyewaan/{penyewaan}/status', [PenyewaanController::class, 'ubahStatus']);
+
+        Route::get('/kendaraan', [KendaraanController::class, 'index']);
+        Route::get('/kendaraan/{kendaraan}', [KendaraanController::class, 'show']);
+        Route::post('/kendaraan', [KendaraanController::class, 'store']);
+        Route::match(['put', 'post'], '/kendaraan/{kendaraan}', [KendaraanController::class, 'update']);
+        Route::delete('/kendaraan/{kendaraan}', [KendaraanController::class, 'destroy']);
+
+        /* ------------------------------ KONTAK ------------------------------ */
         Route::get('/pesan', [PesanController::class, 'index']);
         Route::get('/pesan/{pesan}', [PesanController::class, 'show']);
         Route::patch('/pesan/{pesan}/dibaca', [PesanController::class, 'tandaiDibaca']);
 
-        // Etalase — dibaca
-        Route::get('/paket-wisata', [KatalogController::class, 'paket']);
-        Route::get('/paket-wisata/{paket}', [KatalogController::class, 'paketDetail']);
-        Route::get('/kendaraan', [KatalogController::class, 'kendaraan']);
-        Route::get('/kendaraan/{kendaraan}', [KatalogController::class, 'kendaraanDetail']);
-        Route::get('/destinasi', [KatalogController::class, 'destinasi']);
-        Route::get('/testimoni', [KatalogController::class, 'testimoni']);
-        Route::get('/partner', [KatalogController::class, 'partner']);
-
-        /*
-         | Etalase — ditulis
-         |
+        /* ---------------------------- PAKET WISATA ----------------------------
          | Gambar ikut sebagai multipart pada permintaan yang sama. Pembaruan
          | memakai POST + _method=PUT karena PHP tidak menguraikan multipart
          | pada permintaan PUT.
          */
-        Route::post('/paket-wisata', [KatalogTulisController::class, 'simpanPaket']);
-        Route::match(['put', 'post'], '/paket-wisata/{paket}', [KatalogTulisController::class, 'perbaruiPaket']);
-        Route::delete('/paket-wisata/{paket}', [KatalogTulisController::class, 'hapusPaket']);
+        Route::get('/saran', [PaketWisataController::class, 'saran']);
+        Route::post('/saran', [PaketWisataController::class, 'simpanSaran']);
+        Route::delete('/saran/{saran}', [PaketWisataController::class, 'hapusSaran']);
 
-        Route::post('/kendaraan', [KatalogTulisController::class, 'simpanKendaraan']);
-        Route::match(['put', 'post'], '/kendaraan/{kendaraan}', [KatalogTulisController::class, 'perbaruiKendaraan']);
-        Route::delete('/kendaraan/{kendaraan}', [KatalogTulisController::class, 'hapusKendaraan']);
+        Route::get('/paket-wisata', [PaketWisataController::class, 'index']);
+        Route::get('/paket-wisata/{paket}', [PaketWisataController::class, 'show']);
+        Route::post('/paket-wisata', [PaketWisataController::class, 'store']);
+        Route::match(['put', 'post'], '/paket-wisata/{paket}', [PaketWisataController::class, 'update']);
+        Route::delete('/paket-wisata/{paket}', [PaketWisataController::class, 'destroy']);
 
-        Route::post('/destinasi', [KatalogTulisController::class, 'simpanDestinasi']);
-        Route::match(['put', 'post'], '/destinasi/{destinasi}', [KatalogTulisController::class, 'perbaruiDestinasi']);
-        Route::delete('/destinasi/{destinasi}', [KatalogTulisController::class, 'hapusDestinasi']);
+        /* ------------------------------ ETALASE ------------------------------ */
+        Route::get('/destinasi', [EtalaseController::class, 'destinasi']);
+        Route::post('/destinasi', [EtalaseController::class, 'simpanDestinasi']);
+        Route::match(['put', 'post'], '/destinasi/{destinasi}', [EtalaseController::class, 'perbaruiDestinasi']);
+        Route::delete('/destinasi/{destinasi}', [EtalaseController::class, 'hapusDestinasi']);
 
-        Route::post('/testimoni', [KatalogTulisController::class, 'simpanTestimoni']);
-        Route::match(['put', 'post'], '/testimoni/{testimoni}', [KatalogTulisController::class, 'perbaruiTestimoni']);
-        Route::delete('/testimoni/{testimoni}', [KatalogTulisController::class, 'hapusTestimoni']);
+        Route::get('/testimoni', [EtalaseController::class, 'testimoni']);
+        Route::post('/testimoni', [EtalaseController::class, 'simpanTestimoni']);
+        Route::match(['put', 'post'], '/testimoni/{testimoni}', [EtalaseController::class, 'perbaruiTestimoni']);
+        Route::delete('/testimoni/{testimoni}', [EtalaseController::class, 'hapusTestimoni']);
 
-        // Saran isian paket (destinasi & fasilitas) — bertambah sendiri saat
-        // paket disimpan, dan boleh dirapikan admin.
-        Route::get('/saran', [KatalogTulisController::class, 'saran']);
-        Route::post('/saran', [KatalogTulisController::class, 'simpanSaran']);
-        Route::delete('/saran/{saran}', [KatalogTulisController::class, 'hapusSaran']);
-
-        Route::post('/partner', [KatalogTulisController::class, 'simpanPartner']);
-        Route::match(['put', 'post'], '/partner/{partner}', [KatalogTulisController::class, 'perbaruiPartner']);
-        Route::delete('/partner/{partner}', [KatalogTulisController::class, 'hapusPartner']);
+        Route::get('/partner', [EtalaseController::class, 'partner']);
+        Route::post('/partner', [EtalaseController::class, 'simpanPartner']);
+        Route::match(['put', 'post'], '/partner/{partner}', [EtalaseController::class, 'perbaruiPartner']);
+        Route::delete('/partner/{partner}', [EtalaseController::class, 'hapusPartner']);
     });

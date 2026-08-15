@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\TravelPackage;
+use App\Models\PaketWisata\TravelPackage;
 
 function buatPaket(array $ubah = []): TravelPackage
 {
@@ -51,7 +51,7 @@ test('paket berhenti tayang setelah batas waktunya', function () {
         ->and($paket->fresh()->status_tayang_label)->toBe('Berakhir');
 });
 
-test('trip bertanggal berhenti tayang sendiri setelah rombongan pulang', function () {
+test('trip berhenti tayang begitu hari keberangkatan tiba', function () {
     $paket = buatPaket([
         'tanggal_berangkat' => now()->addDays(2)->toDateString(),
         'tanggal_pulang' => now()->addDays(4)->toDateString(),
@@ -59,12 +59,12 @@ test('trip bertanggal berhenti tayang sendiri setelah rombongan pulang', functio
 
     expect($paket->sedang_tayang)->toBeTrue();
 
-    // Masih tayang di hari terakhir trip
-    $this->travelTo(now()->addDays(4)->setTime(9, 0));
+    // Sehari sebelum berangkat masih boleh mendaftar
+    $this->travelTo(now()->addDay()->setTime(23, 0));
     expect($paket->fresh()->sedang_tayang)->toBeTrue();
 
-    // Hari berikutnya sudah tidak
-    $this->travelTo(now()->addDays(5));
+    // Hari keberangkatan: pendaftaran tutup, paket tidak tampil lagi
+    $this->travelTo(now()->addDays(2)->setTime(6, 0));
     expect($paket->fresh()->sedang_tayang)->toBeFalse()
         ->and($paket->fresh()->status_tayang_label)->toBe('Berakhir');
 });

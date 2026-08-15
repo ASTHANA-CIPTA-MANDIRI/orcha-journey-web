@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\TravelPackage;
+use App\Models\PaketWisata\TravelPackage;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 

@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Testimoni;
+use App\Models\Etalase\Testimoni;
 
 $halaman = [
     'testimoni',

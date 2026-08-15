@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\Car;
-use App\Models\PenyewaanKendaraan;
+use App\Models\SewaKendaraan\Car;
+use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use Livewire\Volt\Volt;
 
 function buatMobil(array $ubah = []): Car

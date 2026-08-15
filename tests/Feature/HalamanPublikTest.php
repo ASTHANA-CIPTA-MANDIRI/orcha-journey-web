@@ -1,8 +1,8 @@
 <?php
 
-use App\Models\Car;
-use App\Models\DestinationPopuler;
-use App\Models\TravelPackage;
+use App\Models\Etalase\DestinationPopuler;
+use App\Models\PaketWisata\TravelPackage;
+use App\Models\SewaKendaraan\Car;
 
 /** Ambil hanya bagian <nav>…</nav> (menu header) dari halaman. */
 function menuHeader(string $html): string

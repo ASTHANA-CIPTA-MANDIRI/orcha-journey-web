@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\DestinationPopuler;
-use App\Support\SampulDestinasi;
+use App\Models\Etalase\DestinationPopuler;
+use App\Support\Etalase\SampulDestinasi;
 
 function buatDestinasi(string $nama, string $wilayah, string $provinsi, int $pengunjung = 1000): DestinationPopuler
 {

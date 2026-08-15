@@ -1,8 +1,8 @@
 <?php
 
-use App\Models\PendaftaranOpenTrip;
-use App\Models\TravelPackage;
-use App\Support\ItineraryTeks;
+use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Models\PaketWisata\TravelPackage;
+use App\Support\PaketWisata\ItineraryTeks;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {

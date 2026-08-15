@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\TravelPackage;
-use App\Support\ItineraryTeks;
+use App\Models\PaketWisata\TravelPackage;
+use App\Support\PaketWisata\ItineraryTeks;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Rule;
 use Livewire\WithFileUploads;

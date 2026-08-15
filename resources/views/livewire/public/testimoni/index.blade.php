@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Testimoni;
+use App\Models\Etalase\Testimoni;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;

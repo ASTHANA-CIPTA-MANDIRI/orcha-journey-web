@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\PendaftaranOpenTrip;
+use App\Models\OpenTrip\PendaftaranOpenTrip;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;

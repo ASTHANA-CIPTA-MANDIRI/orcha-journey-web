@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Testimoni;
+use App\Models\Etalase\Testimoni;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Rule;

@@ -1,10 +1,10 @@
 <?php
 
-use App\Models\Car;
-use App\Models\DestinationPopuler;
-use App\Models\Partner;
-use App\Models\Testimoni;
-use App\Models\TravelPackage;
+use App\Models\Etalase\DestinationPopuler;
+use App\Models\Etalase\Partner;
+use App\Models\Etalase\Testimoni;
+use App\Models\PaketWisata\TravelPackage;
+use App\Models\SewaKendaraan\Car;
 
 test('landing page tampil dan memuat semua section layanan', function () {
     $response = $this->get('/');

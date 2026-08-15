@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\Testimoni;
+use App\Models\Etalase\Testimoni;
 use Illuminate\Database\Seeder;
 
 class TestimonialSeeder extends Seeder

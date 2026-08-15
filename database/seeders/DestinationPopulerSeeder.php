@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\DestinationPopuler;
+use App\Models\Etalase\DestinationPopuler;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -12,7 +12,7 @@ class DestinationPopulerSeeder extends Seeder
      * Destinasi tersebar di seluruh Indonesia, bukan hanya Yogyakarta.
      *
      * Gambar memakai ilustrasi vektor buatan `php artisan orcha:sampul-destinasi`
-     * (lihat App\Support\SampulDestinasi) — sengaja bergaya gambar, bukan foto,
+     * (lihat App\Support\Etalase\SampulDestinasi) — sengaja bergaya gambar, bukan foto,
      * supaya tidak ada gambar yang seolah-olah memotret tempat aslinya. Begitu
      * admin mengunggah foto asli lewat panel, foto itu yang dipakai.
      */

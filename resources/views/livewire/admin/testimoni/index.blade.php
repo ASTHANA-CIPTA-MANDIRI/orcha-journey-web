@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Testimoni;
+use App\Models\Etalase\Testimoni;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;

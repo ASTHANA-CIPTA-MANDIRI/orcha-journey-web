@@ -1,13 +1,13 @@
 <?php
 
-use App\Models\Car;
-use App\Models\DestinationPopuler;
-use App\Models\Partner;
-use App\Models\PendaftaranOpenTrip;
-use App\Models\PenyewaanKendaraan;
-use App\Models\PesanKontak;
-use App\Models\Testimoni;
-use App\Models\TravelPackage;
+use App\Models\SewaKendaraan\Car;
+use App\Models\Etalase\DestinationPopuler;
+use App\Models\Etalase\Partner;
+use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Models\SewaKendaraan\PenyewaanKendaraan;
+use App\Models\Kontak\PesanKontak;
+use App\Models\Etalase\Testimoni;
+use App\Models\PaketWisata\TravelPackage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;

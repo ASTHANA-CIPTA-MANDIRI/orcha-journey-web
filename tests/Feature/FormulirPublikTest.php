@@ -1,9 +1,9 @@
 <?php
 
-use App\Models\PendaftaranOpenTrip;
-use App\Models\PesanKontak;
-use App\Models\RiwayatKesehatan;
-use App\Models\TravelPackage;
+use App\Models\Kontak\PesanKontak;
+use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Models\OpenTrip\RiwayatKesehatan;
+use App\Models\PaketWisata\TravelPackage;
 use App\Models\User;
 use Livewire\Volt\Volt;
 

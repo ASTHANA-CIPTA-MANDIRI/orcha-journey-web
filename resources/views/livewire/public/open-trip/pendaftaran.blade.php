@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\PendaftaranOpenTrip;
-use App\Models\TravelPackage;
+use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Models\PaketWisata\TravelPackage;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
