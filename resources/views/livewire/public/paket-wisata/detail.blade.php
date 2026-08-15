@@ -9,13 +9,17 @@ new #[Layout('components.layouts.guest')] class extends Component {
 
     public function mount(TravelPackage $paket): void
     {
+        // Paket draf, terjadwal, atau yang sudah berakhir tidak boleh terbuka
+        // meski alamatnya diketahui — halamannya diperlakukan seperti tidak ada.
+        abort_unless($paket->sedang_tayang, 404);
+
         $this->paket = $paket;
     }
 
     public function with(): array
     {
         return [
-            'paketLain' => TravelPackage::where('category', $this->paket->category)
+            'paketLain' => TravelPackage::tayang()->where('category', $this->paket->category)
                 ->whereKeyNot($this->paket->id)
                 ->orderBy('price')
                 ->limit(3)
@@ -124,13 +128,18 @@ new #[Layout('components.layouts.guest')] class extends Component {
 
                                         <ul class="mt-4 space-y-3">
                                             @foreach ($hari['agenda'] ?? [] as $agenda)
+                                                {{-- Titik, jam, dan kegiatan sejajar karena ketiganya
+                                                     memakai tinggi baris yang sama (leading-6 = 24px);
+                                                     titiknya dipusatkan di dalam kotak setinggi itu,
+                                                     bukan digeser dengan angka ajaib. --}}
                                                 <li class="flex items-start gap-3">
+                                                    <span class="flex items-center h-6 shrink-0">
+                                                        <span class="w-2.5 h-2.5 rounded-full bg-orcha-sky"></span>
+                                                    </span>
                                                     <span
-                                                        class="mt-[7px] w-2.5 h-2.5 rounded-full bg-orcha-sky shrink-0"></span>
+                                                        class="font-mono text-sm font-bold leading-6 shrink-0 text-orcha-ocean w-16 tabular-nums">{{ $agenda['jam'] ?? '' }}</span>
                                                     <span
-                                                        class="font-mono text-sm font-bold shrink-0 text-orcha-ocean w-16">{{ $agenda['jam'] ?? '' }}</span>
-                                                    <span
-                                                        class="text-sm text-slate-600">{{ $agenda['kegiatan'] ?? '' }}</span>
+                                                        class="text-sm leading-6 text-slate-600">{{ $agenda['kegiatan'] ?? '' }}</span>
                                                 </li>
                                             @endforeach
                                         </ul>

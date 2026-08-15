@@ -571,3 +571,54 @@ test('isian paket baru otomatis masuk daftar saran', function () {
 
     expect(SaranPaket::jenis('destinasi')->count())->toBe(2);
 });
+
+/* ------------------- STATUS & JADWAL TAYANG LEWAT API ------------------- */
+
+test('status dan jadwal tayang ikut terbaca dan tersimpan lewat api', function () {
+    $balasan = $this->postJson('/api/v1/paket-wisata', [
+        'nama' => 'Open Trip Terjadwal',
+        'kategori' => 'open_trip',
+        'minimal_peserta' => 6,
+        'harga' => 1000000,
+        'status' => 'terbit',
+        'tayang_mulai' => now()->addWeek()->format('Y-m-d H:i'),
+    ], kirim())->assertCreated();
+
+    $balasan->assertJsonPath('data.status', 'terbit')
+        ->assertJsonPath('data.status_tayang', 'terjadwal')
+        ->assertJsonPath('data.status_tayang_label', 'Terjadwal')
+        ->assertJsonPath('data.sedang_tayang', false);
+
+    expect(TravelPackage::firstOrFail()->tayang_mulai)->not->toBeNull();
+});
+
+test('paket baru tanpa status dianggap terbit', function () {
+    $this->postJson('/api/v1/paket-wisata', [
+        'nama' => 'Open Trip Biasa',
+        'kategori' => 'open_trip',
+        'minimal_peserta' => 6,
+        'harga' => 1000000,
+    ], kirim())->assertCreated()->assertJsonPath('data.status_tayang', 'tayang');
+});
+
+test('berhenti tayang sebelum mulai tayang ditolak', function () {
+    $this->postJson('/api/v1/paket-wisata', [
+        'nama' => 'Open Trip Ngawur',
+        'kategori' => 'open_trip',
+        'minimal_peserta' => 6,
+        'harga' => 1000000,
+        'tayang_mulai' => now()->addWeek()->format('Y-m-d H:i'),
+        'tayang_sampai' => now()->format('Y-m-d H:i'),
+    ], kirim())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('tayang_sampai');
+
+    expect(TravelPackage::count())->toBe(0);
+});
+
+test('rujukan membawa pilihan status paket', function () {
+    $this->getJson('/api/v1/rujukan', kirim())
+        ->assertOk()
+        ->assertJsonPath('data.status_paket.terbit', 'Terbit')
+        ->assertJsonPath('data.status_tayang.terjadwal', 'Terjadwal');
+});

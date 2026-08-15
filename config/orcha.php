@@ -130,6 +130,26 @@ return [
         'ditolak' => 'Ditolak',
     ],
 
+    /*
+    | Keterangan penayangan paket. Dihitung dari status + jadwal, tidak
+    | disimpan — lihat TravelPackage::getStatusTayangAttribute().
+    */
+    'status_tayang' => [
+        'tayang' => 'Tayang',
+        'terjadwal' => 'Terjadwal',
+        'berakhir' => 'Berakhir',
+        'draf' => 'Draf',
+        'arsip' => 'Arsip',
+    ],
+
+    // Yang bisa dipilih admin. 'terjadwal' dan 'berakhir' tidak masuk sini
+    // karena keduanya hasil hitungan, bukan pilihan.
+    'status_paket' => [
+        'terbit' => 'Terbit',
+        'draf' => 'Draf',
+        'arsip' => 'Arsip',
+    ],
+
     'status_pendaftaran' => [
         'baru' => 'Baru',
         'dihubungi' => 'Sudah Dihubungi',

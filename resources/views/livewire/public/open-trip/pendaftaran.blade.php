@@ -110,7 +110,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
      */
     private function paketTersedia()
     {
-        return TravelPackage::where('category', 'open_trip')
+        return TravelPackage::tayang()->where('category', 'open_trip')
             ->where(fn ($q) => $q->whereNull('tanggal_berangkat')->orWhereDate('tanggal_berangkat', '>=', today()))
             ->orderByRaw('tanggal_berangkat is null')
             ->orderBy('tanggal_berangkat')

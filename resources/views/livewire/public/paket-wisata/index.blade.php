@@ -37,12 +37,13 @@ new #[Layout('components.layouts.guest')] #[Title('Paket Wisata — Open Trip, P
             'kategoriAktif' => $this->kategori,
             'kategoriPaket' => config('orcha.kategori_paket'),
             'packages' => TravelPackage::query()
+                ->tayang()
                 ->when($this->kategori, fn ($q) => $q->where('category', $this->kategori))
                 ->orderByDesc('is_best_choice')
                 ->orderBy('price')
                 ->get(),
             'jumlahPerKategori' => collect(config('orcha.kategori_paket'))
-                ->map(fn ($label, $kunci) => TravelPackage::where('category', $kunci)->count()),
+                ->map(fn ($label, $kunci) => TravelPackage::tayang()->where('category', $kunci)->count()),
         ];
     }
 }; ?>

@@ -79,6 +79,10 @@ class KatalogTulisController extends ApiController
         return $request->validate([
             'nama' => 'required|string|max:255',
             'kategori' => 'required|in:'.implode(',', array_keys(config('orcha.kategori_paket'))),
+            'status' => 'nullable|in:'.implode(',', array_keys(config('orcha.status_paket'))),
+            'tayang_mulai' => 'nullable|date',
+            'tayang_sampai' => 'nullable|date|after_or_equal:tayang_mulai',
+            'berakhir_otomatis' => 'nullable|boolean',
             'durasi' => 'nullable|string|max:60',
             'tanggal_berangkat' => 'nullable|date',
             'tanggal_pulang' => 'nullable|date|after_or_equal:tanggal_berangkat',
@@ -103,6 +107,10 @@ class KatalogTulisController extends ApiController
         return [
             'name' => $data['nama'],
             'category' => $data['kategori'],
+            'status' => $data['status'] ?? 'terbit',
+            'tayang_mulai' => $data['tayang_mulai'] ?? null,
+            'tayang_sampai' => $data['tayang_sampai'] ?? null,
+            'berakhir_otomatis' => (bool) ($data['berakhir_otomatis'] ?? true),
             'duration' => $data['durasi'] ?? null,
             'tanggal_berangkat' => $data['tanggal_berangkat'] ?? null,
             'tanggal_pulang' => $data['tanggal_pulang'] ?? null,

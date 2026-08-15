@@ -17,6 +17,10 @@ class TravelPackage extends Model
         'uuid',
         'name',
         'category',
+        'status',
+        'tayang_mulai',
+        'tayang_sampai',
+        'berakhir_otomatis',
         'duration',
         'tanggal_berangkat',
         'tanggal_pulang',
@@ -41,6 +45,9 @@ class TravelPackage extends Model
         'tanggal_berangkat' => 'date',
         'tanggal_pulang' => 'date',
         'minimal_peserta' => 'integer',
+        'tayang_mulai' => 'datetime',
+        'tayang_sampai' => 'datetime',
+        'berakhir_otomatis' => 'boolean',
     ];
 
     /**
@@ -113,6 +120,67 @@ class TravelPackage extends Model
     public function getSudahLewatAttribute(): bool
     {
         return $this->tanggal_berangkat !== null && $this->tanggal_berangkat->isPast();
+    }
+
+    /**
+     * Paket yang boleh tampil di website saat ini.
+     *
+     * Semua syaratnya dihitung dari tanggal, jadi paket terjadwal muncul dan
+     * paket lewat menghilang dengan sendirinya — tanpa cron, tanpa ada yang
+     * perlu menekan tombol.
+     */
+    public function scopeTayang($query)
+    {
+        $sekarang = now();
+
+        return $query->where('status', 'terbit')
+            ->where(fn ($q) => $q->whereNull('tayang_mulai')->orWhere('tayang_mulai', '<=', $sekarang))
+            ->where(fn ($q) => $q->whereNull('tayang_sampai')->orWhere('tayang_sampai', '>=', $sekarang))
+            ->where(fn ($q) => $q->where('berakhir_otomatis', false)
+                ->orWhereNull('tanggal_berangkat')
+                ->orWhereRaw('COALESCE(tanggal_pulang, tanggal_berangkat) >= ?', [$sekarang->toDateString()]));
+    }
+
+    /** Apakah paket ini sedang tampil di website sekarang. */
+    public function getSedangTayangAttribute(): bool
+    {
+        return static::whereKey($this->getKey())->tayang()->exists();
+    }
+
+    /**
+     * Keterangan singkat kenapa paket tampil atau tidak — dipakai lencana di
+     * dashboard supaya admin tidak perlu menebak.
+     */
+    public function getStatusTayangAttribute(): string
+    {
+        if ($this->status === 'draf') {
+            return 'draf';
+        }
+
+        if ($this->status === 'arsip') {
+            return 'arsip';
+        }
+
+        if ($this->tayang_mulai && $this->tayang_mulai->isFuture()) {
+            return 'terjadwal';
+        }
+
+        if ($this->tayang_sampai && $this->tayang_sampai->isPast()) {
+            return 'berakhir';
+        }
+
+        $akhirTrip = $this->tanggal_pulang ?? $this->tanggal_berangkat;
+
+        if ($this->berakhir_otomatis && $akhirTrip && $akhirTrip->endOfDay()->isPast()) {
+            return 'berakhir';
+        }
+
+        return 'tayang';
+    }
+
+    public function getStatusTayangLabelAttribute(): string
+    {
+        return config('orcha.status_tayang')[$this->status_tayang] ?? 'Tayang';
     }
 
     public function scopeOfCategory($query, ?string $category)

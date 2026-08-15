@@ -76,6 +76,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
         // Beranda hanya menampilkan sorotan; daftar lengkapnya ada di
         // halaman /paket-wisata, /sewa-kendaraan, dan /destinasi.
         $packages = TravelPackage::query()
+            ->tayang()
             ->orderByDesc('is_best_choice')
             ->orderBy('price')
             ->limit(6)
