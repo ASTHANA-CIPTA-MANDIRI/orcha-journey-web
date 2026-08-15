@@ -165,6 +165,15 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
             $bayar->catatan,
             [$bayar->bukti],
             $kwitansi ? [BerkasKwitansi::namaBerkas('tanda-terima', $bayar->kode) => $kwitansi] : [],
+            // Alamatnya diambil dari pendaftaran yang kodenya dicantumkan —
+            // formulir ini sendiri tidak menanyakan email. Kalau kodenya salah
+            // ketik, salinannya memang tidak terkirim; buktinya tetap tercatat.
+            emailPelanggan: $bayar->pesanan()?->email,
+            judulPelanggan: 'Bukti Transfer Anda Sudah Kami Terima',
+            langkahPelanggan: "Bukti transfer Anda masuk dan akan dicek tim kami pada jam kerja, lalu hasilnya "
+                ."dikabarkan lewat WhatsApp.\n\n"
+                .'Perlu diketahui: kwitansi terlampir masih bertanda "Menunggu Dicek", jadi belum berarti lunas. '
+                .'Simpan bukti transfer aslinya sampai pembayaran dinyatakan diterima.',
         );
 
         $this->terkirim = true;

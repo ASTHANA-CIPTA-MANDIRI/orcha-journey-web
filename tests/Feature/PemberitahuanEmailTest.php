@@ -24,11 +24,12 @@ beforeEach(function () {
     ]);
 });
 
-function pendaftaranUji(): PendaftaranOpenTrip
+function pendaftaranUji(?string $email = null): PendaftaranOpenTrip
 {
     return PendaftaranOpenTrip::create([
         'nama' => 'Siti Aminah',
         'whatsapp' => '081298765432',
+        'email' => $email,
         'jumlah_peserta' => 2,
         'daftar_peserta' => [
             ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja'],
@@ -151,6 +152,150 @@ test('pengajuan pembatalan mengirim surat dengan tanda terima pdf', function () 
             && str_contains($surat->rincian['Rekening pengembalian'], '1234567890')
             && count($surat->berkasPdf) === 1;
     });
+});
+
+/* -------------------- SALINAN UNTUK PELANGGAN --------------------
+ *
+ * Sebelum ini hanya kotak kantor yang menerima surat, sehingga pelanggan
+ * tidak punya bukti apa pun begitu halaman ditutup — termasuk kode
+ * pendaftarannya sendiri, yang justru dibutuhkan di semua formulir lanjutan.
+ */
+
+test('pendaftar ikut menerima salinan suratnya sendiri', function () {
+    Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $this->paket->uuid)
+        ->set('nama', 'Siti Aminah')
+        ->set('whatsapp', '081298765432')
+        ->set('email', 'siti@contoh.test')
+        ->set('jumlahPeserta', 1)
+        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja']])
+        ->set('setuju', true)
+        ->call('daftar')
+        ->assertHasNoErrors();
+
+    $kode = PendaftaranOpenTrip::firstOrFail()->kode;
+
+    // Kantor tetap dapat suratnya seperti semula
+    Mail::assertSent(PemberitahuanFormulir::class, fn ($surat) => $surat->hasTo('halo@orchajourney.com')
+        && $surat->untukPelanggan === false);
+
+    Mail::assertSent(PemberitahuanFormulir::class, function ($surat) use ($kode) {
+        $html = $surat->render();
+
+        return $surat->hasTo('siti@contoh.test')
+            && $surat->untukPelanggan === true
+            && $surat->judul === 'Pendaftaran Anda Sudah Kami Terima'
+            // Kwitansinya ikut supaya pelanggan punya berkas yang bisa disimpan
+            && count($surat->berkasPdf) === 1
+            && str_starts_with(reset($surat->berkasPdf), '%PDF-')
+            // Kodenya disebut di badan surat, bukan cuma di subjek
+            && str_contains($html, $kode)
+            && str_contains($html, 'Langkah Berikutnya')
+            // Kotak masuk adalah tempat penipu menyamar → nama penerima yang sah ikut ditegaskan
+            && str_contains($html, 'PT ASTHANA CIPTA MANDIRI');
+    });
+
+    Mail::assertSentCount(2);
+});
+
+test('subjek surat pelanggan tidak memakai awalan kotak kantor', function () {
+    $kantor = new PemberitahuanFormulir('Pendaftaran Open Trip Baru', 'OT-1508-ABCD', []);
+    $pelanggan = new PemberitahuanFormulir('Pendaftaran Anda Sudah Kami Terima', 'OT-1508-ABCD', [], untukPelanggan: true);
+
+    expect($kantor->envelope()->subject)->toBe('[Orcha] Pendaftaran Open Trip Baru — OT-1508-ABCD');
+    expect($pelanggan->envelope()->subject)->toBe('Orcha Journey — Pendaftaran Anda Sudah Kami Terima (OT-1508-ABCD)');
+});
+
+test('salinan pembayaran dikirim ke alamat pendaftarnya, tanpa mengembalikan fotonya', function () {
+    $pendaftaran = pendaftaranUji('siti@contoh.test');
+
+    Volt::test('public.open-trip.konfirmasi-pembayaran')
+        ->set('kode', $pendaftaran->kode)
+        ->set('jenis', 'dp')
+        ->set('nominalTeks', '500000')
+        ->set('tanggalTransfer', now()->toDateString())
+        ->set('bankPengirim', 'BCA')
+        ->set('atasNamaPengirim', 'Siti Aminah')
+        ->set('bukti', UploadedFile::fake()->image('bukti.jpg'))
+        ->set('setuju', true)
+        ->call('kirim')
+        ->assertHasNoErrors();
+
+    Mail::assertSent(PemberitahuanFormulir::class, function ($surat) {
+        return $surat->hasTo('siti@contoh.test')
+            && $surat->untukPelanggan === true
+            // Foto bukti berasal dari pelanggan sendiri — tak perlu dikirim balik
+            && $surat->lampiran === []
+            && count($surat->berkasPdf) === 1
+            // Jangan sampai terbaca sebagai tanda lunas
+            && str_contains($surat->catatan, 'Menunggu Dicek');
+    });
+});
+
+test('salinan kesehatan untuk pelanggan tidak memuat kontak darurat', function () {
+    $pendaftaran = pendaftaranUji('siti@contoh.test');
+
+    Volt::test('public.open-trip.riwayat-kesehatan')
+        ->set('kode', $pendaftaran->kode)
+        ->set('namaPeserta', 'Budi Santoso')
+        ->set('usia', 28)
+        ->set('jenisKelamin', 'Laki-laki')
+        ->set('kemampuanRenang', 'tidak_bisa')
+        ->set('riwayatPenyakit', 'Asma ringan')
+        ->set('kontakNama', 'Siti')
+        ->set('kontakHp', '081298765432')
+        ->set('kontakHubungan', 'Istri')
+        ->set('setuju', true)
+        ->call('simpan')
+        ->assertHasNoErrors();
+
+    Mail::assertSent(PemberitahuanFormulir::class, function ($surat) {
+        if (! $surat->untukPelanggan) {
+            return false;
+        }
+
+        $isi = $surat->render();
+
+        return $surat->hasTo('siti@contoh.test')
+            && str_contains($isi, 'Budi Santoso')
+            // Penyakit maupun kontak daruratnya tidak ikut ke kotak masuk pelanggan
+            && ! str_contains($isi, 'Asma ringan')
+            && ! str_contains($isi, '081298765432');
+    });
+});
+
+test('alamat pelanggan yang salah ketik tidak menggagalkan apa pun', function () {
+    Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $this->paket->uuid)
+        ->set('nama', 'Siti Aminah')
+        ->set('whatsapp', '081298765432')
+        // Lolos validasi peramban, tetapi bukan alamat yang bisa dikirimi
+        ->set('email', null)
+        ->set('jumlahPeserta', 1)
+        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja']])
+        ->set('setuju', true)
+        ->call('daftar')
+        ->assertHasNoErrors();
+
+    expect(PendaftaranOpenTrip::count())->toBe(1);
+    Mail::assertSentCount(1);
+});
+
+test('salinan pelanggan bisa dimatikan lewat setelan', function () {
+    config()->set('orcha.email_salinan_pelanggan', false);
+
+    Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $this->paket->uuid)
+        ->set('nama', 'Siti Aminah')
+        ->set('whatsapp', '081298765432')
+        ->set('email', 'siti@contoh.test')
+        ->set('jumlahPeserta', 1)
+        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja']])
+        ->set('setuju', true)
+        ->call('daftar')
+        ->assertHasNoErrors();
+
+    Mail::assertSentCount(1);
 });
 
 /* ------------------------------ PENJAGAAN ------------------------------ */

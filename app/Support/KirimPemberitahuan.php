@@ -9,11 +9,22 @@ use Illuminate\Support\Facades\Mail;
 /**
  * Pengirim pemberitahuan formulir.
  *
+ * Ada dua penerima yang berbeda kepentingan:
+ *
+ * 1. Kotak kantor (halo@orchajourney.com) — perlu tahu ada pekerjaan masuk,
+ *    lengkap dengan lampiran bukti supaya bisa dicocokkan dari kotak masuk.
+ * 2. Pelanggan yang baru mengisi formulir — perlu pegangan hitam di atas
+ *    putih bahwa datanya benar-benar masuk, berikut langkah berikutnya.
+ *    Tanpa ini, satu-satunya bukti pelanggan cuma tulisan di layar yang
+ *    hilang begitu halamannya ditutup.
+ *
  * Aturan terpenting di sini: kegagalan mengirim surat TIDAK BOLEH membatalkan
  * apa yang sudah dikerjakan pelanggan. Data pendaftaran atau bukti transfer
  * sudah tersimpan sebelum ini dipanggil; kalau server surat sedang mati,
  * kejadiannya cukup dicatat di log — bukan dilempar ke layar pelanggan yang
- * mengira pendaftarannya gagal lalu mengirim ulang.
+ * mengira pendaftarannya gagal lalu mengirim ulang. Karena itu pula kedua
+ * surat dikirim terpisah: surat pelanggan yang gagal tidak ikut menggagalkan
+ * surat kantor, dan sebaliknya.
  */
 class KirimPemberitahuan
 {
@@ -21,6 +32,8 @@ class KirimPemberitahuan
      * @param  array<string, string|null>  $rincian
      * @param  array<int, string>  $lampiran
      * @param  array<string, string>  $berkasPdf
+     * @param  array<string, string|null>|null  $rincianPelanggan  bila salinan pelanggan perlu memuat lebih sedikit baris
+     * @return bool berhasil-tidaknya surat ke kotak kantor
      */
     public static function kirim(
         string $judul,
@@ -29,6 +42,37 @@ class KirimPemberitahuan
         ?string $catatan = null,
         array $lampiran = [],
         array $berkasPdf = [],
+        ?string $emailPelanggan = null,
+        ?string $judulPelanggan = null,
+        ?string $langkahPelanggan = null,
+        ?array $rincianPelanggan = null,
+    ): bool {
+        $keKantor = self::keKantor($judul, $kode, $rincian, $catatan, $lampiran, $berkasPdf);
+
+        self::kePelanggan(
+            $emailPelanggan,
+            $judulPelanggan ?: $judul,
+            $kode,
+            $rincianPelanggan ?? $rincian,
+            $langkahPelanggan,
+            $berkasPdf,
+        );
+
+        return $keKantor;
+    }
+
+    /**
+     * @param  array<string, string|null>  $rincian
+     * @param  array<int, string>  $lampiran
+     * @param  array<string, string>  $berkasPdf
+     */
+    private static function keKantor(
+        string $judul,
+        string $kode,
+        array $rincian,
+        ?string $catatan,
+        array $lampiran,
+        array $berkasPdf,
     ): bool {
         $tujuan = config('orcha.email_pemberitahuan');
 
@@ -37,16 +81,55 @@ class KirimPemberitahuan
             return false;
         }
 
+        return self::coba($tujuan, $judul, $kode, fn () => new PemberitahuanFormulir(
+            $judul, $kode, $rincian, $catatan, $lampiran, $berkasPdf
+        ));
+    }
+
+    /**
+     * Salinan untuk pelanggan.
+     *
+     * Bukti transfer dari disk sengaja TIDAK ikut dilampirkan: berkas itu
+     * berasal dari pelanggan sendiri, jadi mengirimkannya balik hanya
+     * memperbesar surat. Yang ikut cuma kwitansi PDF yang kita buatkan.
+     *
+     * @param  array<string, string|null>  $rincian
+     * @param  array<string, string>  $berkasPdf
+     */
+    private static function kePelanggan(
+        ?string $email,
+        string $judul,
+        string $kode,
+        array $rincian,
+        ?string $langkah,
+        array $berkasPdf,
+    ): bool {
+        if (! config('orcha.email_salinan_pelanggan', true)) {
+            return false;
+        }
+
+        // Alamat email di formulir kami memang boleh kosong — nomor WhatsApp
+        // yang wajib. Salah ketik pun tidak perlu diributkan ke pelanggan.
+        if (blank($email) || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
+        return self::coba($email, $judul, $kode, fn () => new PemberitahuanFormulir(
+            $judul, $kode, $rincian, $langkah, [], $berkasPdf, untukPelanggan: true
+        ));
+    }
+
+    private static function coba(string $tujuan, string $judul, string $kode, \Closure $surat): bool
+    {
         try {
-            Mail::to($tujuan)->send(
-                new PemberitahuanFormulir($judul, $kode, $rincian, $catatan, $lampiran, $berkasPdf)
-            );
+            Mail::to($tujuan)->send($surat());
 
             return true;
         } catch (\Throwable $e) {
             Log::error('Pemberitahuan formulir gagal dikirim', [
                 'judul' => $judul,
                 'kode' => $kode,
+                'tujuan' => $tujuan,
                 'galat' => $e->getMessage(),
             ]);
 

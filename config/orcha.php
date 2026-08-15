@@ -312,6 +312,18 @@ return [
     */
     'email_pemberitahuan' => env('ORCHA_EMAIL_PEMBERITAHUAN'),
 
+    /*
+    | Salinan untuk pelanggan.
+    |
+    | Selain kotak kantor, pengisi formulir ikut menerima suratnya sendiri —
+    | berisi kode, rincian, dan kwitansi PDF. Tanpa ini satu-satunya bukti
+    | pelanggan hanyalah tulisan di layar yang hilang begitu halaman ditutup,
+    | dan kode pendaftaran yang telanjur ditutup tidak bisa dipulihkan.
+    |
+    | Bisa dimatikan tanpa mengubah kode bila suatu saat perlu.
+    */
+    'email_salinan_pelanggan' => (bool) env('ORCHA_EMAIL_SALINAN_PELANGGAN', true),
+
     'api' => [
         'kunci' => env('ORCHA_API_KEY'),
         'ip_diizinkan' => array_filter(array_map('trim', explode(',', (string) env('ORCHA_API_IP', '')))),

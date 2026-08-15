@@ -10,6 +10,12 @@
     $navy = '#0f2d4a';
     $ocean = '#1d6fa5';
     $emas = '#ffc74e';
+
+    // Surat yang sama dipakai dua arah. Yang membacanya berbeda, jadi
+    // sapaannya juga berbeda: kotak kantor menerima "pemberitahuan", pelanggan
+    // menerima "terima kasih" berikut langkah berikutnya dan peringatan
+    // penipuan — kotak masuk adalah tempat penipu paling sering menyamar.
+    $untukPelanggan = $untukPelanggan ?? false;
 @endphp
 
 <!DOCTYPE html>
@@ -76,7 +82,7 @@
                         <td align="center" style="padding:32px 32px 8px;">
                             <p
                                 style="margin:0 0 10px;color:{{ $ocean }};font-size:11px;letter-spacing:2.5px;text-transform:uppercase;font-weight:bold;">
-                                Pemberitahuan Baru
+                                {{ $untukPelanggan ? 'Terima Kasih' : 'Pemberitahuan Baru' }}
                             </p>
                             <h1
                                 style="margin:0;color:{{ $navy }};font-size:25px;line-height:1.25;font-weight:800;letter-spacing:-.3px;">
@@ -144,7 +150,7 @@
                                         <td style="padding:14px 18px;">
                                             <p
                                                 style="margin:0 0 4px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:{{ $ocean }};font-weight:bold;">
-                                                Catatan
+                                                {{ $untukPelanggan ? 'Langkah Berikutnya' : 'Catatan' }}
                                             </p>
                                             <p style="margin:0;font-size:13px;line-height:1.7;color:#475569;">
                                                 {!! nl2br(e($catatan)) !!}
@@ -156,7 +162,7 @@
                         </tr>
                     @endif
 
-                    @if (! empty($lampiran))
+                    @if (! empty($lampiran) || ! empty($berkasPdf))
                         <tr>
                             <td style="padding:16px 32px 0;">
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
@@ -164,8 +170,42 @@
                                     <tr>
                                         <td align="center" style="padding:13px 18px;">
                                             <span style="font-size:13px;color:#8a6410;">
-                                                📎 Berkas buktinya terlampir di surat ini
+                                                📎
+                                                {{ $untukPelanggan
+                                                    ? 'Kwitansi PDF terlampir — simpan sebagai bukti Anda'
+                                                    : 'Berkas buktinya terlampir di surat ini' }}
                                             </span>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    @endif
+
+                    {{-- ============ PERINGATAN PENIPUAN ============
+                         Hanya di surat pelanggan. Penipu paling sering menyamar
+                         lewat kotak masuk dan WhatsApp, memakai nama perusahaan
+                         yang sama tetapi rekening pribadi. Satu kalimat yang
+                         bisa dicek sendiri di ATM lebih berguna daripada
+                         imbauan panjang "berhati-hatilah". --}}
+                    @if ($untukPelanggan)
+                        <tr>
+                            <td style="padding:16px 32px 0;">
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                                    style="background:#fff5f5;border-left:3px solid #dc2626;border-radius:0 10px 10px 0;">
+                                    <tr>
+                                        <td style="padding:14px 18px;">
+                                            <p
+                                                style="margin:0 0 4px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#b91c1c;font-weight:bold;">
+                                                Hati-hati Penipuan
+                                            </p>
+                                            <p style="margin:0;font-size:13px;line-height:1.7;color:#7f1d1d;">
+                                                Pembayaran hanya sah ke rekening atas nama
+                                                <strong>{{ config('orcha.pembayaran.atas_nama') }}</strong>.
+                                                Nama selain itu — termasuk rekening pribadi yang mengatasnamakan kami —
+                                                adalah penipuan. Kami juga tidak pernah meminta kode OTP atau
+                                                kata sandi apa pun.
+                                            </p>
                                         </td>
                                     </tr>
                                 </table>
@@ -180,9 +220,11 @@
                                 <tr>
                                     <td
                                         style="background-image:linear-gradient(135deg,{{ $ocean }},{{ $navy }});background-color:{{ $ocean }};border-radius:999px;">
-                                        <a href="{{ config('app.url') }}"
+                                        {{-- Pelanggan diarahkan ke WhatsApp: itu jalur yang benar-benar
+                                             dijawab tim, sedangkan surat ini tidak dibalas. --}}
+                                        <a href="{{ $untukPelanggan ? 'https://api.whatsapp.com/send?phone=' . config('orcha.whatsapp') . '&text=' . rawurlencode('Halo Orcha Journey, saya ingin bertanya soal ' . $kode) : config('app.url') }}"
                                             style="display:inline-block;padding:13px 32px;color:#ffffff;font-size:14px;font-weight:bold;text-decoration:none;letter-spacing:.3px;">
-                                            Buka Website Orcha
+                                            {{ $untukPelanggan ? 'Tanya Lewat WhatsApp' : 'Buka Website Orcha' }}
                                         </a>
                                     </td>
                                 </tr>
@@ -202,7 +244,8 @@
                                 {{ config('orcha.email') }} · +{{ config('orcha.whatsapp') }}
                             </p>
                             <p style="margin:12px 0 0;font-size:10px;color:#b6c2ce;">
-                                Surat ini dikirim otomatis oleh website. Tidak perlu dibalas.
+                                Surat ini dikirim otomatis oleh website dan tidak dibalas.
+                                {{ $untukPelanggan ? 'Pertanyaan silakan lewat WhatsApp di atas.' : '' }}
                             </p>
                         </td>
                     </tr>

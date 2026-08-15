@@ -181,6 +181,15 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
             ],
             'Rincian kesehatannya tidak disertakan di surat ini karena bersifat pribadi. '
                 .'Bukalah lewat dashboard Orcha.',
+            emailPelanggan: PendaftaranOpenTrip::where('kode', $this->kode)->value('email'),
+            judulPelanggan: 'Riwayat Kesehatan Sudah Kami Terima',
+            langkahPelanggan: "Data kesehatan atas nama {$this->namaPeserta} sudah tercatat untuk pendaftaran "
+                ."{$this->kode}.\n\n"
+                .'Bila masih ada peserta lain yang belum mengisi, formulirnya dibuka lagi dengan kode yang sama — '
+                .'satu formulir untuk tiap peserta.',
+            // Kontak darurat sengaja tidak diulang di salinan pelanggan: yang
+            // perlu memegangnya tim kami, bukan kotak masuk pelanggan.
+            rincianPelanggan: ['Peserta' => $this->namaPeserta],
         );
 
         $this->namaTerkirim = $this->namaPeserta;

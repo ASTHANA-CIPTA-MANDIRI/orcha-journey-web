@@ -242,6 +242,13 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                 'Harga paket',
                 'Terdaftar',
             )) ? [BerkasKwitansi::namaBerkas('bukti-pendaftaran', $pendaftaran->kode) => $bukti] : [],
+            emailPelanggan: $pendaftaran->email,
+            judulPelanggan: 'Pendaftaran Anda Sudah Kami Terima',
+            langkahPelanggan: "Simpan kode {$pendaftaran->kode}. Kode inilah yang dipakai untuk mengirim bukti "
+                ."transfer, mengisi riwayat kesehatan tiap peserta, sampai mengajukan pembatalan.\n\n"
+                .'Berikutnya: transfer DP '.config('orcha.pembayaran.dp_persen').'% paling lambat '
+                .config('orcha.pembayaran.dp_batas_jam').' jam sejak pendaftaran ini, lalu unggah buktinya lewat '
+                .'halaman Konfirmasi Pembayaran. Tempat duduk baru terkunci setelah DP masuk.',
         );
 
         $this->kodeTerdaftar = $pendaftaran->kode;
