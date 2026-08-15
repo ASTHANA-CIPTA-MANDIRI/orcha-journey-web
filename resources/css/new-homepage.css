@@ -980,3 +980,10 @@ input[type="radio"] {
         stroke: rgba(255, 199, 78, 0.05);
     }
 }
+
+
+/* Isian kode pesanan ditulis huruf besar, tapi CONTOHNYA jangan ikut —
+   "atau" yang berteriak jadi "ATAU" terbaca seperti bagian dari kodenya. */
+.isian-orcha.uppercase::placeholder {
+    text-transform: none;
+}
