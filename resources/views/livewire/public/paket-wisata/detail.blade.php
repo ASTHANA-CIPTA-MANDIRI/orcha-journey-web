@@ -158,22 +158,67 @@ new #[Layout('components.layouts.guest')] class extends Component {
                 <aside class="lg:col-span-4">
                     <div class="space-y-6 lg:sticky lg:top-24">
                         <div class="overflow-hidden card-orcha">
-                            <div class="p-6 text-white bg-gradient-to-br from-orcha-navy to-orcha-abyss sm:p-7">
-                                @if ($paket->catatan_promo)
-                                    <span
-                                        class="inline-block px-3 py-1 mb-3 text-xs font-bold rounded-full bg-orcha-sun text-orcha-navy">
-                                        {{ $paket->catatan_promo }}
-                                    </span>
-                                @endif
+                            @php
+                                $adaDiskon = $paket->original_price > 0 && $paket->original_price > $paket->price;
+                                $hemat = $adaDiskon ? $paket->original_price - $paket->price : 0;
+                                $persen = $adaDiskon
+                                    ? (int) floor(($hemat / $paket->original_price) * 100)
+                                    : 0;
+                            @endphp
 
-                                @if ($paket->original_price > 0 && $paket->original_price > $paket->price)
-                                    <p class="text-sm line-through text-slate-400">
-                                        {{ $rupiah($paket->original_price) }}</p>
-                                @endif
+                            {{-- Sisi kanan panel harga dulu kosong. Diisi hal yang memang
+                                 berguna — besar potongannya — bukan sekadar hiasan. Bila
+                                 tidak ada diskon, yang tampil cuma sapuan ombak samar. --}}
+                            <div
+                                class="relative overflow-hidden p-6 text-white bg-gradient-to-br from-orcha-navy to-orcha-abyss sm:p-7">
+                                <div class="absolute inset-0 pointer-events-none" aria-hidden="true"
+                                    style="background-image: radial-gradient(70% 90% at 100% 0%, rgba(26,176,226,.32), transparent 70%);">
+                                </div>
 
-                                <p class="text-3xl font-black font-heading text-orcha-sun">
-                                    {{ $rupiah($paket->price) }}</p>
-                                <p class="text-sm text-slate-300">per orang</p>
+                                <svg class="absolute bottom-0 right-0 w-48 h-24 pointer-events-none text-white/[.05]"
+                                    viewBox="0 0 200 100" fill="none" aria-hidden="true">
+                                    <path d="M0 70c25-18 50-18 75 0s50 18 75 0 50-18 50 0" stroke="currentColor"
+                                        stroke-width="6" stroke-linecap="round" />
+                                    <path d="M0 92c25-18 50-18 75 0s50 18 75 0 50-18 50 0" stroke="currentColor"
+                                        stroke-width="6" stroke-linecap="round" />
+                                </svg>
+
+                                <div class="relative flex items-start justify-between gap-4">
+                                    <div class="min-w-0">
+                                        @if ($paket->catatan_promo)
+                                            <span
+                                                class="inline-block px-3 py-1 mb-3 text-xs font-bold rounded-full bg-orcha-sun text-orcha-navy">
+                                                {{ $paket->catatan_promo }}
+                                            </span>
+                                        @endif
+
+                                        @if ($adaDiskon)
+                                            <p class="text-sm line-through text-slate-400">
+                                                {{ $rupiah($paket->original_price) }}</p>
+                                        @endif
+
+                                        <p class="text-3xl font-black font-heading text-orcha-sun">
+                                            {{ $rupiah($paket->price) }}</p>
+                                        <p class="text-sm text-slate-300">per orang</p>
+                                    </div>
+
+                                    @if ($adaDiskon && $persen > 0)
+                                        <div
+                                            class="flex flex-col items-center justify-center text-center shrink-0 w-[4.75rem] h-[4.75rem] rounded-full bg-orcha-sun/15 ring-1 ring-orcha-sun/40">
+                                            <span
+                                                class="text-lg font-black leading-none font-heading text-orcha-sun">{{ $persen }}%</span>
+                                            <span
+                                                class="mt-1 text-[.6rem] font-bold tracking-wider uppercase text-orcha-sun/80">Hemat</span>
+                                        </div>
+                                    @endif
+                                </div>
+
+                                @if ($adaDiskon)
+                                    <p class="relative mt-3 text-xs text-slate-300">
+                                        Lebih hemat <strong class="text-white">{{ $rupiah($hemat) }}</strong> per orang
+                                        dari harga normal.
+                                    </p>
+                                @endif
                             </div>
 
                             <div class="p-6 space-y-3 sm:p-7">

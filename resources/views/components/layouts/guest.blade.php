@@ -153,6 +153,13 @@
             style="background-image: radial-gradient(60% 50% at 15% 0%, rgba(26,176,226,.35), transparent 70%), radial-gradient(50% 40% at 90% 100%, rgba(255,199,78,.18), transparent 70%);">
         </div>
 
+        {{-- Tulisan raksasa "ORCHA JOURNEY" sebagai latar. Sangat samar dan
+             dipotong di bawah supaya terbaca sebagai tekstur, bukan tulisan
+             kedua yang bersaing dengan isi footer. --}}
+        <div class="orcha-cap-footer" aria-hidden="true">
+            <span>Orcha Journey</span>
+        </div>
+
         <div class="relative container-orcha py-14 sm:py-20">
             <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
 

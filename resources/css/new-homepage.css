@@ -941,3 +941,42 @@ input[type="radio"] {
         transform: scale(1.16);
     }
 }
+
+
+/* ============ Cap nama di latar footer ============
+   Tulisan besar yang sengaja dibuat nyaris tak terlihat: memberi bobot pada
+   bagian bawah halaman tanpa menambah satu pun hal yang harus dibaca. Ditaruh
+   menempel dasar dan dipotong, jadi terbaca sebagai tekstur. */
+.orcha-cap-footer {
+    position: absolute;
+    left: 50%;
+    bottom: -0.3em;
+    transform: translateX(-50%);
+    width: 100%;
+    text-align: center;
+    pointer-events: none;
+    user-select: none;
+    overflow: hidden;
+    line-height: 0.82;
+}
+
+.orcha-cap-footer span {
+    display: block;
+    font-family: var(--font-heading, inherit);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    /* Ikut lebar layar supaya selalu pas, tidak pernah terpotong di samping */
+    font-size: clamp(3.5rem, 13vw, 13rem);
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.06);
+    background: linear-gradient(180deg, rgba(255, 255, 255, .045), rgba(255, 255, 255, 0));
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .orcha-cap-footer span {
+        transition: opacity .3s ease;
+    }
+}
