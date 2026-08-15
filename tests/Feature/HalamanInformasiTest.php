@@ -92,3 +92,29 @@ test('nama penerima yang sah muncul di semua halaman yang menyinggung pembayaran
     fn () => route('sewa-kendaraan.pesan'),
     fn () => route('pendaftaran-open-trip'),
 ]);
+
+/* ------------------- METODE & BUKTI PEMBAYARAN ------------------- */
+
+test('hanya transfer bank yang ditawarkan', function () {
+    $halaman = $this->get(route('ketentuan-pembayaran'))->assertOk();
+
+    $halaman->assertSee('Transfer bank')
+        // QRIS dan tunai sempat tercantum padahal tidak dilayani
+        ->assertDontSee('QRIS')
+        ->assertDontSee('Tunai di kantor');
+
+    expect(config('orcha.pembayaran.metode'))->toBe(['Transfer bank']);
+});
+
+test('bukti pembayaran diarahkan ke formulir, bukan percakapan', function () {
+    $this->get(route('ketentuan-pembayaran'))
+        ->assertOk()
+        ->assertSee('formulir Konfirmasi Pembayaran')
+        ->assertSee(route('konfirmasi-pembayaran'), false)
+        // Bukan lagi "kirim bukti ke nomor WhatsApp"
+        ->assertDontSee('Kirimkan bukti transfer ke nomor WhatsApp');
+
+    $this->get(route('faq'))
+        ->assertOk()
+        ->assertSee(route('konfirmasi-pembayaran'), false);
+});

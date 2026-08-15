@@ -66,11 +66,12 @@ new #[Layout('components.layouts.guest')] #[Title('Ketentuan Pembayaran & DP —
                     'judul' => '4. Bukti Pembayaran',
                     'isi' => '
                         <ol>
-                            <li>Kirimkan bukti transfer ke nomor WhatsApp resmi kami paling lambat 1×24 jam setelah pembayaran.</li>
-                            <li>Tim kami memverifikasi dan membalas dengan tanda terima resmi.</li>
-                            <li>Simpan tanda terima tersebut sampai perjalanan selesai; itu adalah dasar bila terjadi selisih catatan.</li>
+                            <li>Kirim bukti transfer lewat <a href="'.route('konfirmasi-pembayaran').'">formulir Konfirmasi Pembayaran</a> paling lambat 1×24 jam setelah pembayaran.</li>
+                            <li>Sertakan kode pesanan Anda (mis. OT-1508-A7K3) supaya pembayaran langsung tercocokkan.</li>
+                            <li>Tim kami memeriksa lalu mengabari hasilnya lewat WhatsApp.</li>
+                            <li>Simpan tanda terima yang Anda peroleh sampai perjalanan selesai; itu dasarnya bila terjadi selisih catatan.</li>
                         </ol>
-                        <p>Pembayaran tanpa bukti yang terkirim tidak dapat kami verifikasi dan pemesanan belum dianggap terkunci.</p>
+                        <p>Bukti dikirim lewat formulir, bukan lewat percakapan, supaya tidak tenggelam di antara pesan lain dan pemeriksaannya bisa ditelusuri. Pembayaran tanpa bukti yang terkirim tidak dapat kami verifikasi, dan pemesanan belum dianggap terkunci.</p>
                     ',
                 ],
                 [

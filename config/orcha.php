@@ -215,7 +215,10 @@ return [
         'rekening' => [
             // ['bank' => 'BCA', 'nomor' => '0000000000'],
         ],
-        'metode' => ['Transfer bank', 'QRIS', 'Tunai di kantor'],
+        // Hanya transfer bank. QRIS dan tunai sempat tercantum padahal tidak
+        // dilayani — dan cara bayar yang dijanjikan di situs tapi ditolak saat
+        // pemesanan justru bikin pelanggan ragu.
+        'metode' => ['Transfer bank'],
     ],
 
     /*
