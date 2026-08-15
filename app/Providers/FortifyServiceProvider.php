@@ -15,7 +15,13 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Orcha tidak lagi punya halaman login sendiri — pengelolaannya ada di
+        // dashboard lemon, dengan satu akun saja. Fortify mendaftarkan rute
+        // login/two-factor miliknya sendiri, jadi harus diminta berhenti di
+        // sini, bukan cukup dari routes/web.php.
+        if (! config('orcha.admin_bawaan')) {
+            Fortify::ignoreRoutes();
+        }
     }
 
     /**

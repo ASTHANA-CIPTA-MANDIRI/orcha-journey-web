@@ -204,6 +204,25 @@ return [
     | - per_halaman  : jumlah baris bawaan tiap permintaan daftar.
     |
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Panel Admin Bawaan Orcha
+    |--------------------------------------------------------------------------
+    |
+    | Pengelolaan Orcha sudah pindah ke dashboard lemon supaya admin cukup satu
+    | akun. Karena itu halaman login, daftar, dan /admin/* di aplikasi ini
+    | DIMATIKAN secara bawaan — tidak ada lagi akun kedua yang perlu diingat.
+    |
+    | Berkasnya sengaja tidak dihapus. Bila suatu saat lemon bermasalah dan
+    | Orcha perlu diurus sendiri untuk sementara, cukup setel:
+    |
+    |     ORCHA_ADMIN_BAWAAN=true
+    |
+    | lalu jalankan `php artisan optimize:clear`.
+    |
+    */
+    'admin_bawaan' => (bool) env('ORCHA_ADMIN_BAWAAN', false),
+
     'api' => [
         'kunci' => env('ORCHA_API_KEY'),
         'ip_diizinkan' => array_filter(array_map('trim', explode(',', (string) env('ORCHA_API_IP', '')))),

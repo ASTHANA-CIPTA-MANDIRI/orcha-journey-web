@@ -44,51 +44,62 @@ Volt::route('/kebijakan-privasi', 'public.informasi.kebijakan-privasi')->name('k
 
 /*
 |--------------------------------------------------------------------------
-| Panel Admin
+| Panel Admin Bawaan (DIMATIKAN)
 |--------------------------------------------------------------------------
+|
+| Pengelolaan Orcha sudah pindah ke dashboard lemon (Phoenix) supaya admin
+| cukup satu akun. Halaman login, daftar, dan /admin/* di sini tidak lagi
+| tersedia — termasuk /login yang dulu ada di alamat ini.
+|
+| Berkas komponennya sengaja dibiarkan. Untuk menyalakannya kembali sementara
+| (mis. lemon sedang bermasalah), setel ORCHA_ADMIN_BAWAAN=true di .env lalu
+| jalankan `php artisan optimize:clear`.
+|
 */
-Route::middleware(['auth'])->group(function () {
-    Volt::route('/admin/dashboard', 'admin.dashboard.index')->name('dashboard');
+if (config('orcha.admin_bawaan')) {
+    Route::middleware(['auth'])->group(function () {
+        Volt::route('/admin/dashboard', 'admin.dashboard.index')->name('dashboard');
 
-    // Pesanan yang masuk dari website
-    Volt::route('/admin/pendaftaran', 'admin.pendaftaran.index')->name('admin.pendaftaran');
-    Volt::route('/admin/penyewaan', 'admin.penyewaan.index')->name('admin.penyewaan');
-    Volt::route('/admin/pembatalan', 'admin.pembatalan.index')->name('admin.pembatalan');
-    Volt::route('/admin/pesan', 'admin.pesan.index')->name('admin.pesan');
+        // Pesanan yang masuk dari website
+        Volt::route('/admin/pendaftaran', 'admin.pendaftaran.index')->name('admin.pendaftaran');
+        Volt::route('/admin/penyewaan', 'admin.penyewaan.index')->name('admin.penyewaan');
+        Volt::route('/admin/pembatalan', 'admin.pembatalan.index')->name('admin.pembatalan');
+        Volt::route('/admin/pesan', 'admin.pesan.index')->name('admin.pesan');
 
-    // Paket wisata
-    Volt::route('/admin/paket-wisata', 'admin.paket-wisata.index');
-    Volt::route('/admin/paket-wisata/create', 'admin.paket-wisata.create');
-    Volt::route('/admin/paket-wisata/{package}/edit', 'admin.paket-wisata.edit');
+        // Paket wisata
+        Volt::route('/admin/paket-wisata', 'admin.paket-wisata.index');
+        Volt::route('/admin/paket-wisata/create', 'admin.paket-wisata.create');
+        Volt::route('/admin/paket-wisata/{package}/edit', 'admin.paket-wisata.edit');
 
-    // Sewa kendaraan (tambah/ubah lewat modal di halaman index)
-    Volt::route('/admin/sewa-kendaraan', 'admin.sewa-kendaraan.index');
+        // Sewa kendaraan (tambah/ubah lewat modal di halaman index)
+        Volt::route('/admin/sewa-kendaraan', 'admin.sewa-kendaraan.index');
 
-    // Destinasi populer
-    Volt::route('/admin/destinasi', 'admin.destinasi.index');
+        // Destinasi populer
+        Volt::route('/admin/destinasi', 'admin.destinasi.index');
 
-    // Testimoni & partner
-    Volt::route('/admin/testimoni', 'admin.testimoni.index');
-    Volt::route('/admin/testimoni/create', 'admin.testimoni.create');
-    Volt::route('/admin/testimoni/{testimonial}/edit', 'admin.testimoni.edit');
-    Volt::route('/admin/partner', 'admin.partner.index');
+        // Testimoni & partner
+        Volt::route('/admin/testimoni', 'admin.testimoni.index');
+        Volt::route('/admin/testimoni/create', 'admin.testimoni.create');
+        Volt::route('/admin/testimoni/{testimonial}/edit', 'admin.testimoni.edit');
+        Volt::route('/admin/partner', 'admin.partner.index');
 
-    Route::redirect('settings', 'settings/profile');
+        Route::redirect('settings', 'settings/profile');
 
-    Volt::route('settings/profile', 'settings.profile')->name('profile.edit');
-    Volt::route('settings/password', 'settings.password')->name('password.edit');
-    Volt::route('settings/appearance', 'settings.appearance')->name('appearance.edit');
+        Volt::route('settings/profile', 'settings.profile')->name('profile.edit');
+        Volt::route('settings/password', 'settings.password')->name('password.edit');
+        Volt::route('settings/appearance', 'settings.appearance')->name('appearance.edit');
 
-    Volt::route('settings/two-factor', 'settings.two-factor')
-        ->middleware(
-            when(
-                Features::canManageTwoFactorAuthentication()
-                    && Features::optionEnabled(Features::twoFactorAuthentication(), 'confirmPassword'),
-                ['password.confirm'],
-                [],
-            ),
-        )
-        ->name('two-factor.show');
-});
+        Volt::route('settings/two-factor', 'settings.two-factor')
+            ->middleware(
+                when(
+                    Features::canManageTwoFactorAuthentication()
+                        && Features::optionEnabled(Features::twoFactorAuthentication(), 'confirmPassword'),
+                    ['password.confirm'],
+                    [],
+                ),
+            )
+            ->name('two-factor.show');
+    });
 
-require __DIR__.'/auth.php';
+    require __DIR__.'/auth.php';
+}

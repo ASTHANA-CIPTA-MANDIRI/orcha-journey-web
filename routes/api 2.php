@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\KatalogController;
-use App\Http\Controllers\Api\KatalogTulisController;
 use App\Http\Controllers\Api\MetaController;
 use App\Http\Controllers\Api\PembatalanController;
 use App\Http\Controllers\Api\PendaftaranController;
@@ -56,7 +55,7 @@ Route::prefix('v1')
         Route::get('/pesan/{pesan}', [PesanController::class, 'show']);
         Route::patch('/pesan/{pesan}/dibaca', [PesanController::class, 'tandaiDibaca']);
 
-        // Etalase — dibaca
+        // Etalase (baca saja)
         Route::get('/paket-wisata', [KatalogController::class, 'paket']);
         Route::get('/paket-wisata/{paket}', [KatalogController::class, 'paketDetail']);
         Route::get('/kendaraan', [KatalogController::class, 'kendaraan']);
@@ -64,31 +63,4 @@ Route::prefix('v1')
         Route::get('/destinasi', [KatalogController::class, 'destinasi']);
         Route::get('/testimoni', [KatalogController::class, 'testimoni']);
         Route::get('/partner', [KatalogController::class, 'partner']);
-
-        /*
-         | Etalase — ditulis
-         |
-         | Gambar ikut sebagai multipart pada permintaan yang sama. Pembaruan
-         | memakai POST + _method=PUT karena PHP tidak menguraikan multipart
-         | pada permintaan PUT.
-         */
-        Route::post('/paket-wisata', [KatalogTulisController::class, 'simpanPaket']);
-        Route::match(['put', 'post'], '/paket-wisata/{paket}', [KatalogTulisController::class, 'perbaruiPaket']);
-        Route::delete('/paket-wisata/{paket}', [KatalogTulisController::class, 'hapusPaket']);
-
-        Route::post('/kendaraan', [KatalogTulisController::class, 'simpanKendaraan']);
-        Route::match(['put', 'post'], '/kendaraan/{kendaraan}', [KatalogTulisController::class, 'perbaruiKendaraan']);
-        Route::delete('/kendaraan/{kendaraan}', [KatalogTulisController::class, 'hapusKendaraan']);
-
-        Route::post('/destinasi', [KatalogTulisController::class, 'simpanDestinasi']);
-        Route::match(['put', 'post'], '/destinasi/{destinasi}', [KatalogTulisController::class, 'perbaruiDestinasi']);
-        Route::delete('/destinasi/{destinasi}', [KatalogTulisController::class, 'hapusDestinasi']);
-
-        Route::post('/testimoni', [KatalogTulisController::class, 'simpanTestimoni']);
-        Route::match(['put', 'post'], '/testimoni/{testimoni}', [KatalogTulisController::class, 'perbaruiTestimoni']);
-        Route::delete('/testimoni/{testimoni}', [KatalogTulisController::class, 'hapusTestimoni']);
-
-        Route::post('/partner', [KatalogTulisController::class, 'simpanPartner']);
-        Route::match(['put', 'post'], '/partner/{partner}', [KatalogTulisController::class, 'perbaruiPartner']);
-        Route::delete('/partner/{partner}', [KatalogTulisController::class, 'hapusPartner']);
     });

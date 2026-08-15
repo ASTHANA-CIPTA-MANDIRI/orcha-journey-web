@@ -2,7 +2,6 @@
 
 use App\Models\Car;
 use App\Models\PenyewaanKendaraan;
-use App\Models\User;
 use Livewire\Volt\Volt;
 
 function buatMobil(array $ubah = []): Car
@@ -158,36 +157,6 @@ test('pemesanan menolak isian yang tidak lengkap', function () {
         ->set('tanggalMulai', now()->subWeek()->toDateString())
         ->call('pesan')
         ->assertHasErrors(['unit', 'transmisi', 'tanggalMulai', 'nama', 'whatsapp', 'setuju']);
-});
-
-/* ------------------------------ ADMIN ------------------------------ */
-
-test('admin bisa membuka dan mengubah status pemesanan sewa', function () {
-    $this->actingAs(User::factory()->create());
-    $mobil = buatMobil();
-
-    $sewa = PenyewaanKendaraan::create([
-        'car_id' => $mobil->id,
-        'nama_kendaraan' => $mobil->name,
-        'nama' => 'Budi Santoso',
-        'whatsapp' => '081234567890',
-        'transmisi' => 'Manual',
-        'satuan' => 'hari',
-        'durasi' => 2,
-        'tanggal_mulai' => now()->addWeek()->toDateString(),
-        'jam_mulai' => '08:00',
-        'dengan_sopir' => true,
-        'estimasi_biaya' => 1000000,
-    ]);
-
-    $this->get('/admin/penyewaan')->assertOk()->assertSee('Budi Santoso');
-
-    Volt::test('admin.penyewaan.index')
-        ->call('buka', $sewa->id)
-        ->set('statusBaru', 'dikonfirmasi')
-        ->call('simpanStatus');
-
-    expect($sewa->fresh()->status)->toBe('dikonfirmasi');
 });
 
 /* --------------------- PENATAAN BERKAS PER FITUR --------------------- */

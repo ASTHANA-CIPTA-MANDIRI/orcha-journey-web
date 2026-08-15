@@ -2,7 +2,6 @@
 
 use App\Models\Pembatalan;
 use App\Models\PendaftaranOpenTrip;
-use App\Models\User;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
@@ -70,30 +69,4 @@ test('halaman kebijakan pengembalian menautkan formulir pembatalan', function ()
     $this->get(route('kebijakan-pengembalian'))
         ->assertOk()
         ->assertSee(route('pembatalan'), false);
-});
-
-test('admin bisa membuka dan memperbarui status pembatalan', function () {
-    $this->actingAs(User::factory()->create());
-
-    $pembatalan = Pembatalan::create([
-        'kode_pendaftaran' => $this->pendaftaran->kode,
-        'nama_pemohon' => 'Budi Santoso',
-        'whatsapp' => '081234567890',
-        'alasan' => 'kendala_biaya',
-        'jumlah_dibatalkan' => 1,
-        'bank' => 'BCA',
-        'nomor_rekening' => '1234567890',
-        'atas_nama_rekening' => 'Budi Santoso',
-    ]);
-
-    $this->get('/admin/pembatalan')->assertOk()->assertSee('Budi Santoso');
-
-    Volt::test('admin.pembatalan.index')
-        ->call('buka', $pembatalan->id)
-        ->set('statusBaru', 'dana_dikirim')
-        ->set('catatanAdmin', 'Potongan 50%, sudah dikirim.')
-        ->call('simpan');
-
-    expect($pembatalan->fresh()->status)->toBe('dana_dikirim')
-        ->and($pembatalan->fresh()->catatan_admin)->toBe('Potongan 50%, sudah dikirim.');
 });

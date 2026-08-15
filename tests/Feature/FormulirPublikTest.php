@@ -186,12 +186,6 @@ test('riwayat kesehatan wajib menyertakan persetujuan dan kontak darurat', funct
 
 /* ============================ ADMIN ================================= */
 
-test('halaman admin pesan dan pendaftaran bisa dibuka', function (string $url) {
-    $this->actingAs(User::factory()->create());
-
-    $this->get($url)->assertOk();
-})->with(['/admin/pesan', '/admin/pendaftaran']);
-
 test('data kesehatan tidak pernah tampil di halaman publik', function () {
     $pendaftaran = PendaftaranOpenTrip::create([
         'nama' => 'Peserta Rahasia', 'whatsapp' => '0812', 'jumlah_peserta' => 1,

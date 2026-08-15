@@ -161,44 +161,9 @@ Isinya: `kartu` (ringkasan berangka), `paket_per_kategori`, `kendaraan_per_jenis
 | GET | `/testimoni` | |
 | GET | `/partner` | |
 
-### Etalase (menulis)
-
-| Cara | Jalur | Keterangan |
-| --- | --- | --- |
-| POST | `/paket-wisata` | tambah paket |
-| POST | `/paket-wisata/{id}` | ubah paket |
-| DELETE | `/paket-wisata/{id}` | ditolak 422 bila paket sudah punya pendaftar |
-| POST | `/kendaraan` · `/kendaraan/{id}` · DELETE | ditolak 422 bila unit pernah disewa |
-| POST | `/destinasi` · `/destinasi/{id}` · DELETE | |
-| POST | `/testimoni` · `/testimoni/{id}` · DELETE | |
-| POST | `/partner` · `/partner/{id}` · DELETE | |
-
-Gambar dikirim **multipart** dengan nama medan `gambar`, pada permintaan yang sama.
-Berkasnya disimpan di server Orcha (`/storage/...`), bukan di Phoenix — supaya website
-Orcha tetap bisa menampilkannya tanpa bergantung aplikasi tetangga. Bila `gambar` tidak
-diikutkan saat mengubah, gambar lama tetap dipakai.
-
-Pembaruan memakai **POST**, bukan PUT, karena PHP tidak menguraikan multipart pada
-permintaan PUT.
-
-Isian yang ditolak dibalas 422 dengan `errors` per kolom, berbahasa Indonesia — Phoenix
-cukup menampilkan pesan pertamanya.
-
-## Login Orcha sudah dimatikan
-
-Karena seluruh pengelolaan pindah ke lemon, halaman `/login`, `/register`, dan
-`/admin/*` di aplikasi Orcha **dimatikan** (404). Rute Fortify pun dihentikan lewat
-`Fortify::ignoreRoutes()`. Admin tidak perlu mengingat akun kedua.
-
-Berkas komponennya sengaja tidak dihapus. Bila lemon bermasalah dan Orcha perlu diurus
-sendiri untuk sementara:
-
-```env
-ORCHA_ADMIN_BAWAAN=true
-```
-
-lalu `php artisan optimize:clear`. Ada uji (`AdminBawaanMatiTest`) yang menjaga supaya
-halaman itu tidak hidup lagi tanpa disengaja.
+Pengubahan etalase untuk sekarang tetap lewat admin Orcha karena melibatkan unggah
+gambar. Kalau nanti mau dipindah ke Phoenix, tambahkan `store`/`update` di
+`KatalogController`.
 
 ---
 

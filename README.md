@@ -207,6 +207,10 @@ Penjagaannya: kunci rahasia bersama di header `X-Orcha-Key`, daftar IP yang diiz
 (`ORCHA_API_IP`), dan batas 120 permintaan per menit. Riwayat kesehatan peserta tidak ikut
 di daftar biasa — hanya keluar lewat jalur khususnya dan setiap pembukaannya dicatat.
 
+Karena seluruh pengelolaan sudah pindah ke lemon, **halaman login dan `/admin/*` di
+aplikasi ini dimatikan** (404) — admin tidak perlu akun kedua. Untuk menyalakannya lagi
+sementara: `ORCHA_ADMIN_BAWAAN=true` lalu `php artisan optimize:clear`.
+
 Rincian jalur, bentuk balasan, dan rancangan sisi Phoenix (kelas pemanggil, permission
 `akses_orcha`, tombol sidebar) ada di **[docs/API-DASHBOARD.md](docs/API-DASHBOARD.md)**.
 

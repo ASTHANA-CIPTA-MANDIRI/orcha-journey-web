@@ -34,10 +34,6 @@ class PaketWisataResource extends JsonResource
             'destinasi' => $this->destination_list ?? [],
             'fasilitas' => $this->fasilitas ?? [],
             'itinerary' => $this->itinerary ?? [],
-
-            // Bentuk teks siap sunting, supaya dashboard lemon tidak perlu
-            // menulis ulang aturan formatnya sendiri.
-            'itinerary_teks' => \App\Support\ItineraryTeks::keTeks($this->itinerary),
             'sampul' => $this->sampul,
             'jumlah_pendaftar' => $this->whenCounted('pendaftaran'),
             'tautan_publik' => url('/paket/'.$this->uuid),
