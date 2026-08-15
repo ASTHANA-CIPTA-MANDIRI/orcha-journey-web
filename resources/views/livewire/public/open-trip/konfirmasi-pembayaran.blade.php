@@ -432,33 +432,6 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
          (wire:model.blur memformat ulang dengan aturan yang sama); ini hanya
          supaya pengguna tidak menunggu pindah kolom untuk melihat "500.000".
          Ditulis inline karena berkas Vite tidak ikut ter-deploy. --}}
-    <script>
-        (function () {
-            if (window.__orchaUangPublik) return;
-            window.__orchaUangPublik = true;
 
-            const bertitik = (angka) => angka.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-
-            document.addEventListener('input', (e) => {
-                const el = e.target;
-                if (!el.classList || !el.classList.contains('orcha-uang')) return;
-
-                const angka = el.value.replace(/\D/g, '');
-                const baru = angka === '' ? '' : bertitik(angka);
-                if (baru === el.value) return;
-
-                // Jaga posisi kursor supaya tidak melompat ke ujung tiap kali
-                // titik pemisah bertambah.
-                const digitSebelumKursor = el.value.slice(0, el.selectionStart).replace(/\D/g, '').length;
-                el.value = baru;
-
-                let posisi = 0, terhitung = 0;
-                while (posisi < baru.length && terhitung < digitSebelumKursor) {
-                    if (/\d/.test(baru[posisi])) terhitung++;
-                    posisi++;
-                }
-                el.setSelectionRange(posisi, posisi);
-            });
-        })();
-    </script>
+    <x-skrip-isian />
 </div>

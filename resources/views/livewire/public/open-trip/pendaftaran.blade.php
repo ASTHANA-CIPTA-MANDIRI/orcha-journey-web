@@ -4,6 +4,7 @@ use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
 use App\Support\BerkasKwitansi;
 use App\Support\KirimPemberitahuan;
+use App\Support\NomorTelepon;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -64,7 +65,9 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
     {
         return [
             'nama' => 'required|string|min:3|max:120',
-            'whatsapp' => 'required|string|min:8|max:30|regex:/^[0-9+()\-\s]+$/',
+            'whatsapp' => ['required', 'string', 'max:25', fn ($atribut, $nilai, $gagal) => NomorTelepon::sah($nilai)
+                ? null
+                : $gagal('Nomor WhatsApp belum benar. Contoh: 0812-3456-7890.')],
             'email' => 'nullable|email|max:150',
             'paketId' => 'required|exists:tbl_travel_package,uuid',
             'jumlahPeserta' => 'required|integer|min:1|max:60',
@@ -90,6 +93,12 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
     }
 
     /** Kotak peserta mengikuti jumlahnya, tanpa menghapus yang sudah diisi. */
+    /** Nomor dirapikan jadi 0812-3456-7890, apa pun cara pengguna menuliskannya. */
+    public function updatedWhatsapp(): void
+    {
+        $this->whatsapp = NomorTelepon::rapi($this->whatsapp);
+    }
+
     public function updatedJumlahPeserta(): void
     {
         $this->rapikanPeserta();
@@ -449,9 +458,9 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                 </div>
                                 <div>
                                     <label for="d-wa" class="label-orcha">Nomor WhatsApp <x-wajib /></label>
-                                    <input id="d-wa" type="tel" wire:model="whatsapp" required minlength="8"
-                                        maxlength="30" placeholder="08xxxxxxxxxx"
-                                        class="isian-orcha @error('whatsapp') isian-galat @enderror">
+                                    <input id="d-wa" type="tel" inputmode="tel" wire:model.blur="whatsapp" required minlength="8"
+                                        maxlength="30" placeholder="0812-3456-7890"
+                                        class="isian-orcha orcha-telp @error('whatsapp') isian-galat @enderror">
                                     @error('whatsapp')
                                         <p class="galat-orcha">{{ $message }}</p>
                                     @enderror
@@ -639,4 +648,6 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             </div>
         </div>
     </section>
+
+    <x-skrip-isian />
 </div>
