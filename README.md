@@ -192,6 +192,26 @@ partner, pesan masuk, pendaftaran open trip, sewa masuk, dan pembatalan.
 
 ---
 
+## API dashboard untuk admin Phoenix
+
+Admin Orcha juga bisa dijalankan dari dashboard Phoenix ("lemon by acm") supaya admin
+cukup satu kali login. Basis datanya tetap di sini; Phoenix hanya menggambar tampilannya
+lewat API `/api/v1/*`.
+
+```bash
+php artisan orcha:kunci-api --tulis   # buat kunci, tulis ke .env
+curl -H "X-Orcha-Key: $ORCHA_API_KEY" https://orchajourney.com/api/v1/ping
+```
+
+Penjagaannya: kunci rahasia bersama di header `X-Orcha-Key`, daftar IP yang diizinkan
+(`ORCHA_API_IP`), dan batas 120 permintaan per menit. Riwayat kesehatan peserta tidak ikut
+di daftar biasa — hanya keluar lewat jalur khususnya dan setiap pembukaannya dicatat.
+
+Rincian jalur, bentuk balasan, dan rancangan sisi Phoenix (kelas pemanggil, permission
+`akses_orcha`, tombol sidebar) ada di **[docs/API-DASHBOARD.md](docs/API-DASHBOARD.md)**.
+
+---
+
 ## Gambar
 
 Foto asli disimpan di `public/images/`, video latar beranda di `public/videos/`.
@@ -224,6 +244,7 @@ Berkas uji di `tests/Feature/`:
 | `OpenTripBanyuwangiTest` | data trip sungguhan dari flyer |
 | `TampilanTest` | hal-hal tampilan yang gampang jebol (aset, ikon, tipografi) |
 | `AdminPagesTest` | halaman admin |
+| `ApiDashboardTest` | API dashboard: penjagaan kunci, daftar, ubah status |
 
 ---
 

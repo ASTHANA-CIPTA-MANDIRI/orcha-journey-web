@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class Car extends Model
@@ -119,5 +120,10 @@ class Car extends Model
     public function scopeOfType($query, ?string $type)
     {
         return $query->when($type, fn ($q) => $q->where('type', $type));
+    }
+
+    public function penyewaan(): HasMany
+    {
+        return $this->hasMany(PenyewaanKendaraan::class);
     }
 }

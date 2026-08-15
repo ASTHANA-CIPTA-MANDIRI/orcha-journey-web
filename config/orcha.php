@@ -189,4 +189,25 @@ return [
             ['batas' => 'Kurang dari 7 hari sebelum keberangkatan', 'kembali' => 'Tidak ada', 'potongan' => '100% dari DP'],
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | API Dashboard
+    |--------------------------------------------------------------------------
+    |
+    | Dipakai dashboard admin Phoenix ("lemon by acm") supaya admin cukup satu
+    | kali login. Phoenix memanggil API ini dari server ke server, jadi kuncinya
+    | tidak pernah sampai ke browser.
+    |
+    | - kunci        : rahasia bersama. Wajib sama persis di kedua aplikasi.
+    | - ip_diizinkan : batasi ke IP server Phoenix. Kosong = tidak dibatasi.
+    | - per_halaman  : jumlah baris bawaan tiap permintaan daftar.
+    |
+    */
+    'api' => [
+        'kunci' => env('ORCHA_API_KEY'),
+        'ip_diizinkan' => array_filter(array_map('trim', explode(',', (string) env('ORCHA_API_IP', '')))),
+        'per_halaman' => 25,
+        'per_halaman_maks' => 100,
+    ],
 ];

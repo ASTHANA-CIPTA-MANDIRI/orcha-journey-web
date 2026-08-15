@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class TravelPackage extends Model
@@ -117,5 +118,10 @@ class TravelPackage extends Model
     public function scopeOfCategory($query, ?string $category)
     {
         return $query->when($category, fn ($q) => $q->where('category', $category));
+    }
+
+    public function pendaftaran(): HasMany
+    {
+        return $this->hasMany(PendaftaranOpenTrip::class, 'travel_package_id');
     }
 }
