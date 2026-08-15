@@ -437,3 +437,41 @@ test('halaman tetap jalan walau menerima peserta bentuk lama', function () {
 
     $komponen->assertHasNoErrors();
 });
+
+test('mengosongkan isian angka tidak mematahkan halaman', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip', 'price' => 1430000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+        'titik_jemput' => 'Jogja, Klaten, Surakarta',
+    ]);
+
+    // Menghapus angka satu per satu — "21" jadi "2" lalu kosong — adalah hal
+    // biasa saat mengetik. Properti bertipe int dulu menolak nilai kosong dan
+    // membuat seluruh halaman berhenti dengan PropertyNotFoundException.
+    $komponen = Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $paket->uuid)
+        ->set('nama', 'Siti Aminah')
+        ->set('jumlahPeserta', 21)
+        ->set('peserta.1.nama', 'Budi Santoso')
+        ->set('jumlahPeserta', 2)
+        ->set('jumlahPeserta', '');
+
+    // Nama yang telanjur diketik tidak ikut hilang saat angkanya dikosongkan
+    expect($komponen->get('peserta'))->toHaveCount(2)
+        ->and($komponen->get('peserta')[1]['nama'])->toBe('Budi Santoso');
+
+    // Dikirim dalam keadaan kosong: ditegur validasi, bukan galat halaman
+    $komponen->set('whatsapp', '081298765432')
+        ->set('setuju', true)
+        ->call('daftar')
+        ->assertHasErrors(['jumlahPeserta']);
+
+    expect(PendaftaranOpenTrip::count())->toBe(0);
+});
+
+test('isian angka pada formulir publik lain juga tahan dikosongkan', function (string $komponen, string $medan) {
+    Volt::test($komponen)->set($medan, '')->assertHasNoErrors();
+})->with([
+    ['public.open-trip.pembatalan', 'jumlahDibatalkan'],
+    ['public.sewa-kendaraan.pemesanan', 'durasi'],
+]);

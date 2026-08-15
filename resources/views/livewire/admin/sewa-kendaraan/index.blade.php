@@ -69,7 +69,7 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | Mobil')] class extend
     public array $transmisiTersedia = ['Manual'];
 
     #[Rule('required|numeric|min:1')]
-    public int $capacity = 4;
+    public $capacity = 4;
 
     #[Rule('boolean')]
     public bool $isAvailable = true;

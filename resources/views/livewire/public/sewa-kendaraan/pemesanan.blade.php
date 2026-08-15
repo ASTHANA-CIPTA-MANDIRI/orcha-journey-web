@@ -14,7 +14,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
 
     public string $satuan = 'hari';
 
-    public int $durasi = 1;
+    public $durasi = 1;
 
     public string $tanggalMulai = '';
 

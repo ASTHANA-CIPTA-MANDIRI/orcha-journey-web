@@ -20,7 +20,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
 
     public string $penjelasan = '';
 
-    public int $jumlahDibatalkan = 1;
+    public $jumlahDibatalkan = 1;
 
     public string $bank = '';
 

@@ -16,7 +16,17 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
 
     public string $paketId = '';
 
-    public int $jumlahPeserta = 1;
+    /*
+     | SENGAJA tanpa tipe int.
+     |
+     | Isian angka di peramban mengirim string kosong saat pengguna menghapus
+     | angkanya — dan itu wajar: menghapus "21" jadi "2" lalu kosong sebelum
+     | mengetik angka baru. Properti bertipe int tidak bisa menerima nilai
+     | kosong, dan Livewire menganggapnya properti hilang sehingga halaman
+     | berhenti dengan galat. Nilainya dibersihkan saat dipakai dan ditegur
+     | oleh aturan validasi.
+     */
+    public $jumlahPeserta = 1;
 
     /**
      * Nama tiap peserta. Peserta pertama adalah pemesan itu sendiri, jadi
@@ -119,7 +129,17 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
 
     private function rapikanPeserta(): void
     {
-        $jumlah = max(1, min(60, (int) $this->jumlahPeserta));
+        $jumlah = (int) $this->jumlahPeserta;
+
+        // Isian sedang kosong atau belum masuk akal: biarkan kotak yang sudah
+        // terisi apa adanya. Meruntuhkannya jadi satu baris hanya karena
+        // pengguna sedang menghapus angka berarti nama yang telanjur diketik
+        // ikut hilang. Validasi yang menegur saat dikirim.
+        if ($jumlah < 1) {
+            return;
+        }
+
+        $jumlah = min(60, $jumlah);
         $paket = $this->paketDipilih();
 
         // Paket dengan satu titik jemput tidak perlu ditanya — langsung diisikan.
