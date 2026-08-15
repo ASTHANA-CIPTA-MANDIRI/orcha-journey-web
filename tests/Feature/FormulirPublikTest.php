@@ -414,3 +414,26 @@ test('data lama yang hanya berisi nama tetap terbaca', function () {
         ['nama' => 'Budi Santoso', 'titik_jemput' => 'Jogja'],
     ]);
 });
+
+test('halaman tetap jalan walau menerima peserta bentuk lama', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip', 'price' => 1430000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+        'titik_jemput' => 'Jogja, Klaten, Surakarta',
+    ]);
+
+    // Halaman yang sudah terbuka SEBELUM bentuk datanya berubah masih memegang
+    // deretan nama polos. Begitu pengunjung menyentuh apa pun, isian itu harus
+    // diterjemahkan, bukan membuat halamannya berhenti.
+    $komponen = Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $paket->uuid)
+        ->set('peserta', ['Siti Aminah', 'Budi Santoso'])
+        ->set('jumlahPeserta', 2);
+
+    expect($komponen->get('peserta'))->toBe([
+        ['nama' => 'Siti Aminah', 'titik_jemput' => ''],
+        ['nama' => 'Budi Santoso', 'titik_jemput' => ''],
+    ]);
+
+    $komponen->assertHasNoErrors();
+});
