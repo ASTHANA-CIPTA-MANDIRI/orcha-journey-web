@@ -30,6 +30,10 @@
     // ia tahu — melainkan "berarti sisa saya berapa". Tanpa blok ini, berkasnya
     // hanya mengulang angka yang baru saja ia ketik sendiri.
     $tagihan = $tagihan ?? [];
+
+    // Daftar bebas baris biaya + denda, ditutup satu baris total. Dipakai nota
+    // sewa kendaraan, yang tagihannya tersusun dari beberapa hal sekaligus.
+    $nota = $nota ?? [];
 @endphp
 
 <!DOCTYPE html>
@@ -266,6 +270,41 @@
                     <td align="right" valign="top" style="border-bottom:none;">
                         <span class="nilai">{{ $biaya['sisa_teks'] }}</span>
                     </td>
+                </tr>
+            </table>
+        @endif
+
+        {{-- ============ NOTA ============
+             Daftar bebas berisi baris biaya dan denda, ditutup satu baris total.
+             Sebelumnya denda hanya jadi baris keterangan di antara data lain dan
+             tidak pernah dijumlahkan, jadi penyewa harus menjumlahkan sendiri
+             dari nota yang seharusnya menjawab itu. --}}
+        @if (! empty($nota))
+            <div style="margin-top:16px;">
+                <div class="bagian">Rincian Tagihan</div>
+                <div class="rule"></div>
+            </div>
+
+            <table width="100%" cellpadding="0" cellspacing="0" class="biaya" style="margin-top:7px;">
+                @foreach ($nota['baris'] ?? [] as $baris)
+                    <tr>
+                        <td>
+                            {{ $baris['label'] }}
+                            @if (! empty($baris['keterangan']))
+                                <div class="tempo">{{ $baris['keterangan'] }}</div>
+                            @endif
+                        </td>
+                        <td align="right" valign="top">
+                            <span class="nilai" style="{{ ! empty($baris['denda']) ? 'color:#b91c1c;' : '' }}">
+                                {{ $baris['nilai'] }}
+                            </span>
+                        </td>
+                    </tr>
+                @endforeach
+
+                <tr class="total">
+                    <td><span class="total-teks">{{ $nota['label_total'] ?? 'Total tagihan' }}</span></td>
+                    <td align="right"><span class="total-angka">{{ $nota['total'] }}</span></td>
                 </tr>
             </table>
         @endif

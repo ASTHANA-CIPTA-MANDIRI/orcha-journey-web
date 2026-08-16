@@ -450,3 +450,69 @@ test('unit yang kembali tanpa kerusakan baru tidak diusulkan denda', function ()
     expect($sewa->denda_kerusakan_usulan)->toBe(0)
         ->and($sewa->rincian_denda_kerusakan)->toBe([]);
 });
+
+test('nota akhir menjumlahkan biaya sewa dengan seluruh denda', function () {
+    $mobil = buatMobil();
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 2, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-12', 'jam_selesai' => '08:00',
+        'dikembalikan_pada' => '2026-09-12 11:00',
+        'estimasi_biaya' => 700000, 'denda_keterlambatan' => 150000,
+        'denda_kerusakan' => 900000, 'denda_lain' => 50000, 'status' => 'selesai',
+    ]);
+
+    $nota = App\Http\Controllers\Api\SewaKendaraan\PenyewaanController::notaSewa($sewa);
+
+    // Sebelumnya denda hanya jadi baris keterangan dan tidak pernah dijumlahkan
+    expect($nota['total'])->toBe('Rp 1.800.000')
+        ->and($nota['baris'])->toHaveCount(4)
+        ->and($nota['baris'][0]['label'])->toBe('Biaya sewa')
+        ->and($nota['baris'][1]['nilai'])->toBe('Rp 150.000');
+
+    // Denda yang nol tidak ikut ditampilkan
+    $sewa->update(['denda_lain' => 0]);
+    expect(App\Http\Controllers\Api\SewaKendaraan\PenyewaanController::notaSewa($sewa->fresh())['baris'])
+        ->toHaveCount(3);
+});
+
+test('unit yang kembali mengirim nota akhir ke penyewa', function () {
+    Illuminate\Support\Facades\Mail::fake();
+    config()->set('orcha.email_pemberitahuan', 'halo@orchajourney.com');
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    $mobil = buatMobil();
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'budi@contoh.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-11', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 350000, 'status' => 'berjalan',
+    ]);
+
+    $this->patchJson("/api/v1/penyewaan/{$sewa->id}/serah-terima", [
+        'dikembalikan_pada' => '2026-09-11 11:00',
+        'denda_keterlambatan' => 105000,
+        'catatan_denda' => 'Telat 3 jam.',
+    ], [
+        'X-Orcha-Key' => config('orcha.api.kunci'),
+        'X-Orcha-Admin' => 'admin@phoenix.test',
+        'Accept' => 'application/json',
+    ])->assertOk();
+
+    Illuminate\Support\Facades\Mail::assertSent(App\Mail\PemberitahuanFormulir::class, function ($surat) {
+        if (! $surat->untukPelanggan) {
+            return false;
+        }
+
+        // Bukti penagihan: dendanya disebut, dan berkasnya terlampir
+        return $surat->hasTo('budi@contoh.test')
+            && $surat->judul === 'Nota Akhir Sewa — Ada Denda'
+            && count($surat->berkasPdf) === 1
+            && str_starts_with(reset($surat->berkasPdf), '%PDF-');
+    });
+});

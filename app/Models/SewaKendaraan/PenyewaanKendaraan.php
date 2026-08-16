@@ -40,6 +40,7 @@ class PenyewaanKendaraan extends Model
         'kondisi_awal',
         'kondisi_akhir',
         'jaminan',
+        'berkas_jaminan',
         'denda_keterlambatan',
         'denda_kerusakan',
         'denda_lain',

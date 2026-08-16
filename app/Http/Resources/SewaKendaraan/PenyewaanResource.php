@@ -51,6 +51,7 @@ class PenyewaanResource extends JsonResource
             'bahan_bakar_awal' => $this->bahan_bakar_awal,
             'bahan_bakar_akhir' => $this->bahan_bakar_akhir,
             'jaminan' => $this->jaminan,
+            'berkas_jaminan' => $this->berkas_jaminan,
             'kondisi_awal' => $this->kondisi_awal ?? [],
             'kondisi_akhir' => $this->kondisi_akhir ?? [],
             // Hanya bagian yang memburuk selama masa sewa — lecet lama tidak

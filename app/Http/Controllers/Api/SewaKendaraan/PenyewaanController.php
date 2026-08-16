@@ -6,6 +6,9 @@ use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\SewaKendaraan\PenyewaanResource;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\BerkasKwitansi;
+use App\Support\GambarWebp;
+use App\Support\KirimPemberitahuan;
+use App\Support\SalinanPelanggan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -78,16 +81,6 @@ class PenyewaanController extends ApiController
             'Lokasi pengembalian' => $penyewaan->lokasi_kembali,
             'Penyewa' => $penyewaan->nama,
             'WhatsApp' => $penyewaan->whatsapp,
-            'Biaya sewa' => 'Rp '.number_format((int) $penyewaan->estimasi_biaya, 0, ',', '.'),
-            'Denda keterlambatan' => $penyewaan->denda_keterlambatan
-                ? 'Rp '.number_format($penyewaan->denda_keterlambatan, 0, ',', '.')
-                : null,
-            'Denda kerusakan' => $penyewaan->denda_kerusakan
-                ? 'Rp '.number_format($penyewaan->denda_kerusakan, 0, ',', '.')
-                : null,
-            'Denda lain' => $penyewaan->denda_lain
-                ? 'Rp '.number_format($penyewaan->denda_lain, 0, ',', '.')
-                : null,
         ]);
 
         $isi = BerkasKwitansi::buat(
@@ -98,6 +91,11 @@ class PenyewaanController extends ApiController
             'Rp '.number_format($penyewaan->total_tagihan, 0, ',', '.'),
             $sudahKembali ? 'Total termasuk denda' : 'Estimasi biaya sewa',
             $sudahKembali ? 'Nota Akhir' : 'Belum Dibayar',
+            // Biaya dan denda dijumlahkan di notanya sendiri. Sebelumnya denda
+            // hanya jadi baris keterangan di antara data lain dan tidak pernah
+            // ditambahkan, jadi penyewa harus menjumlahkan sendiri dari berkas
+            // yang seharusnya menjawab itu.
+            nota: self::notaSewa($penyewaan),
         );
 
         abort_if($isi === null, 503, 'Kwitansi gagal dibuat.');
@@ -109,6 +107,129 @@ class PenyewaanController extends ApiController
             'Content-Disposition' => 'attachment; filename="'
                 .BerkasKwitansi::namaBerkas($sudahKembali ? 'nota-sewa' : 'rincian-sewa', $penyewaan->kode).'"',
         ]);
+    }
+
+    /**
+     * Mengunggah foto berkas jaminan penyewa (KTP, SIM, dan sejenisnya).
+     *
+     * Jalur tersendiri karena bentuknya berkas, bukan JSON — dan karena ini
+     * data pribadi, pengunggahannya dicatat seperti pembukaan riwayat
+     * kesehatan.
+     */
+    public function berkasJaminan(PenyewaanKendaraan $penyewaan, Request $request): JsonResponse
+    {
+        $request->validate(['berkas' => 'required|image|max:8192']);
+
+        $penyewaan->update([
+            'berkas_jaminan' => GambarWebp::simpan($request->file('berkas'), 'jaminan'),
+        ]);
+
+        $this->catat($request, 'unggah berkas jaminan penyewa', ['kode' => $penyewaan->kode]);
+
+        return response()->json([
+            'data' => (new PenyewaanResource($penyewaan->fresh()))->resolve(),
+            'pesan' => 'Berkas jaminan tersimpan.',
+        ]);
+    }
+
+    /**
+     * Mengirim nota akhir ke penyewa sebagai bukti penagihan.
+     *
+     * Berkasnya sama persis dengan yang bisa diunduh admin, jadi tidak ada dua
+     * versi angka yang beredar. Kegagalan mengirim tidak membatalkan catatan
+     * serah terimanya — itu sudah tersimpan sebelum ini dipanggil.
+     */
+    private static function kirimNotaAkhir(PenyewaanKendaraan $penyewaan): void
+    {
+        if (blank($penyewaan->email)) {
+            return;
+        }
+
+        $rincian = array_filter([
+            'Kendaraan' => $penyewaan->nama_kendaraan.' ('.$penyewaan->transmisi.')',
+            'Kembali pada' => $penyewaan->dikembalikan_pada?->translatedFormat('j F Y, H:i'),
+            'Ditunggu kembali' => $penyewaan->jadwal_selesai?->translatedFormat('j F Y, H:i'),
+            'Lokasi pengembalian' => $penyewaan->lokasi_kembali,
+            'Total tagihan' => 'Rp '.number_format($penyewaan->total_tagihan, 0, ',', '.'),
+        ]);
+
+        $berkas = BerkasKwitansi::buat(
+            'Nota Akhir Sewa Kendaraan',
+            $penyewaan->kode,
+            $rincian,
+            $penyewaan->catatan_denda,
+            'Rp '.number_format($penyewaan->total_tagihan, 0, ',', '.'),
+            'Total termasuk denda',
+            'Nota Akhir',
+            nota: self::notaSewa($penyewaan),
+        );
+
+        $adaDenda = $penyewaan->total_denda > 0;
+
+        KirimPemberitahuan::kirim(
+            'Unit Kembali & Nota Akhir',
+            $penyewaan->kode,
+            $rincian,
+            $penyewaan->catatan_denda,
+            [],
+            $berkas ? [BerkasKwitansi::namaBerkas('nota-sewa', $penyewaan->kode) => $berkas] : [],
+            pelanggan: new SalinanPelanggan(
+                email: $penyewaan->email,
+                judul: $adaDenda ? 'Nota Akhir Sewa — Ada Denda' : 'Terima Kasih, Unit Sudah Kembali',
+                langkah: $adaDenda
+                    ? 'Unit sudah kembali dan diperiksa. Ada denda yang perlu diselesaikan, '
+                        ."rinciannya ada di lampiran surat ini — bagian mana, alasannya, dan berapa.\n\n"
+                        .'Bila menurut Anda ada yang tidak sesuai, hubungi kami lewat WhatsApp sebelum '
+                        .'membayar; hasil pemeriksaan saat unit diserahkan kami simpan dan bisa dibandingkan.'
+                    : 'Unit sudah kembali dan diperiksa, tidak ada denda. Terima kasih sudah menjaga '
+                        .'kendaraannya. Nota akhirnya terlampir untuk arsip Anda.',
+            ),
+        );
+    }
+
+    /**
+     * Baris nota sewa: biaya sewanya, lalu tiap denda yang benar-benar ada.
+     *
+     * Denda yang nol tidak ditampilkan — nota yang penuh baris "Rp 0" membuat
+     * yang benar-benar ditagih jadi sulit ditemukan.
+     *
+     * @return array<string, mixed>
+     */
+    public static function notaSewa(PenyewaanKendaraan $penyewaan): array
+    {
+        $rp = fn ($angka) => 'Rp '.number_format((int) $angka, 0, ',', '.');
+
+        $baris = [[
+            'label' => 'Biaya sewa',
+            'keterangan' => $penyewaan->durasi_label.' · '.($penyewaan->dengan_sopir ? 'dengan sopir' : 'lepas kunci'),
+            'nilai' => $rp($penyewaan->estimasi_biaya),
+        ]];
+
+        foreach ([
+            ['Denda keterlambatan', $penyewaan->denda_keterlambatan, $penyewaan->terlambat
+                ? floor($penyewaan->terlambat_menit / 60).' jam '.($penyewaan->terlambat_menit % 60).' menit lewat tenggat'
+                : null],
+            ['Denda kerusakan', $penyewaan->denda_kerusakan, collect($penyewaan->kerusakan_baru)
+                ->pluck('bagian')->implode(', ') ?: null],
+            ['Denda lain', $penyewaan->denda_lain, null],
+        ] as [$label, $nilai, $keterangan]) {
+            if ((int) $nilai <= 0) {
+                continue;
+            }
+
+            $baris[] = [
+                'label' => $label,
+                'keterangan' => $keterangan,
+                'nilai' => $rp($nilai),
+                'denda' => true,
+            ];
+        }
+
+        return [
+            'baris' => $baris,
+            'total' => $rp($penyewaan->total_tagihan),
+            'label_total' => 'Total tagihan',
+        ];
     }
 
     /**
@@ -170,6 +291,13 @@ class PenyewaanController extends ApiController
         // diingat sendiri adalah status yang paling sering tertinggal.
         if (filled($data['dikembalikan_pada'] ?? null) && ! in_array($penyewaan->status, ['selesai', 'batal'], true)) {
             $penyewaan->update(['status' => 'selesai']);
+        }
+
+        // Nota akhir dikirim ke penyewa begitu unitnya kembali. Denda yang
+        // hanya disebut lisan di loket gampang jadi perdebatan seminggu
+        // kemudian; yang dikirim ini menyebut bagian mana, kenapa, dan berapa.
+        if (filled($data['dikembalikan_pada'] ?? null)) {
+            self::kirimNotaAkhir($penyewaan->fresh());
         }
 
         $this->catat($request, 'catat serah terima kendaraan', [

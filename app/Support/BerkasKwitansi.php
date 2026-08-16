@@ -30,10 +30,11 @@ class BerkasKwitansi
         ?string $capStatus = null,
         array $biaya = [],
         array $tagihan = [],
+        array $nota = [],
     ): ?string {
         try {
             return Pdf::loadView('pdf.kwitansi', compact(
-                'judul', 'kode', 'rincian', 'catatan', 'jumlah', 'jumlahLabel', 'capStatus', 'biaya', 'tagihan'
+                'judul', 'kode', 'rincian', 'catatan', 'jumlah', 'jumlahLabel', 'capStatus', 'biaya', 'tagihan', 'nota'
             ))->setPaper('a4')->output();
         } catch (\Throwable $e) {
             Log::error('Kwitansi PDF gagal dibuat', [
