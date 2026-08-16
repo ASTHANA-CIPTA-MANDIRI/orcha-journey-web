@@ -25,6 +25,15 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
 
     public string $lokasiAntar = '';
 
+    /**
+     * Lokasi pengembalian ditanya terpisah.
+     *
+     * Penyewa sering mengambil unit di kantor lalu mengembalikannya di bandara,
+     * atau sebaliknya. Kalau hanya satu isian, sopir yang menjemput unit
+     * berangkat ke alamat yang salah.
+     */
+    public string $lokasiKembali = '';
+
     public string $nama = '';
 
     public string $whatsapp = '';
@@ -92,12 +101,17 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             'tanggalMulai' => 'required|date|after_or_equal:today',
             'jamMulai' => 'required|date_format:H:i',
             'denganSopir' => 'required|in:ya,tidak',
-            'lokasiAntar' => 'nullable|string|max:191',
+            // Wajib: tanpa alamat yang jelas, unit tidak bisa diantar maupun
+            // dijemput kembali.
+            'lokasiAntar' => 'required|string|min:4|max:191',
+            'lokasiKembali' => 'required|string|min:4|max:191',
             'nama' => 'required|string|min:3|max:120',
             'whatsapp' => ['required', 'string', 'max:25', fn ($atribut, $nilai, $gagal) => NomorTelepon::sah($nilai)
                 ? null
                 : $gagal('Nomor WhatsApp belum benar. Contoh: 0812-3456-7890.')],
-            'email' => 'nullable|email|max:150',
+            // Wajib: kwitansi dan tanda terima unit dikirim ke alamat ini, dan
+            // itu berkas yang dibutuhkan penyewa bila terjadi sengketa.
+            'email' => 'required|email|max:150',
             'catatan' => 'nullable|string|max:1000',
             'setuju' => 'accepted',
         ];
@@ -111,7 +125,8 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             'tanggalMulai' => 'tanggal mulai',
             'jamMulai' => 'jam mulai',
             'denganSopir' => 'kebutuhan sopir',
-            'lokasiAntar' => 'lokasi antar/jemput',
+            'lokasiAntar' => 'lokasi pengantaran unit',
+            'lokasiKembali' => 'lokasi pengembalian unit',
             'setuju' => 'persetujuan ketentuan sewa',
         ];
     }
@@ -148,12 +163,23 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
         }
         RateLimiter::hit($kunci, 3600);
 
+        // Tenggat pengembalian dihitung sekali lalu disimpan. Kalau dihitung
+        // ulang setiap kali dibaca, mengubah aturan durasi di kemudian hari
+        // akan diam-diam menggeser tenggat pesanan yang sudah berjalan — dan
+        // denda keterlambatan ikut bergeser bersamanya.
+        $selesai = PenyewaanKendaraan::hitungSelesai(
+            $this->tanggalMulai, $this->jamMulai, $this->satuan, (int) $this->durasi
+        );
+
         $sewa = PenyewaanKendaraan::create([
             'car_id' => $mobil->id,
+            'tanggal_selesai' => $selesai->toDateString(),
+            'jam_selesai' => $selesai->format('H:i'),
+            'lokasi_kembali' => $this->lokasiKembali,
             'nama_kendaraan' => $mobil->name,
             'nama' => $this->nama,
             'whatsapp' => $this->whatsapp,
-            'email' => $this->email ?: null,
+            'email' => $this->email,
             'transmisi' => $this->transmisi,
             'satuan' => $this->satuan,
             'durasi' => $this->durasi,
@@ -166,7 +192,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
         ]);
 
         $this->kodeTerkirim = $sewa->kode;
-        $this->reset(['nama', 'whatsapp', 'email', 'catatan', 'lokasiAntar', 'setuju']);
+        $this->reset(['nama', 'whatsapp', 'email', 'catatan', 'lokasiAntar', 'lokasiKembali', 'setuju']);
     }
 
     public function pesanLagi(): void
@@ -194,6 +220,12 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
         return [
             'armada' => $this->armada(),
             'mobil' => $mobil,
+            // Tenggat pengembalian ditampilkan sebelum dikirim: keterlambatan
+            // didenda, jadi penyewa harus tahu jam berapa unit ditunggu kembali
+            // sejak sebelum ia menekan Pesan.
+            'jadwalSelesai' => $this->tanggalMulai && $this->jamMulai && (int) $this->durasi > 0
+                ? PenyewaanKendaraan::hitungSelesai($this->tanggalMulai, $this->jamMulai, $this->satuan, (int) $this->durasi)
+                : null,
             'satuanTersedia' => collect(config('orcha.satuan_sewa'))
                 ->filter(fn ($info, $kunci) => $mobil === null || $mobil->tarif($kunci) !== null),
             'estimasi' => $mobil?->estimasiBiaya($this->satuan, $this->durasi, $this->denganSopir === 'ya'),
@@ -432,16 +464,53 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                 @enderror
                             </fieldset>
 
-                            <div>
-                                <label for="sk-lokasi" class="label-orcha">Lokasi antar / jemput <span
-                                        class="font-normal text-slate-400">(opsional)</span></label>
-                                <input id="sk-lokasi" type="text" wire:model="lokasiAntar" maxlength="191"
-                                    placeholder="Contoh: Bandara YIA, atau alamat penjemputan"
-                                    class="isian-orcha @error('lokasiAntar') isian-galat @enderror">
-                                @error('lokasiAntar')
-                                    <p class="galat-orcha">{{ $message }}</p>
-                                @enderror
+                            {{-- Dua alamat, bukan satu: penyewa sering mengambil unit di
+                                 kantor lalu mengembalikannya di bandara. Kalau hanya satu
+                                 isian, sopir yang menjemput unit berangkat ke alamat yang
+                                 salah. --}}
+                            <div class="grid gap-5 sm:grid-cols-2">
+                                <div>
+                                    <label for="sk-lokasi" class="label-orcha">Lokasi pengantaran unit <x-wajib /></label>
+                                    <input id="sk-lokasi" type="text" wire:model="lokasiAntar" required minlength="4" maxlength="191"
+                                        placeholder="Contoh: Bandara YIA, atau alamat lengkap"
+                                        class="isian-orcha @error('lokasiAntar') isian-galat @enderror">
+                                    @error('lokasiAntar')
+                                        <p class="galat-orcha">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                                <div>
+                                    <label for="sk-lokasi-kembali" class="label-orcha">Lokasi pengembalian unit <x-wajib /></label>
+                                    <input id="sk-lokasi-kembali" type="text" wire:model="lokasiKembali" required minlength="4" maxlength="191"
+                                        placeholder="Boleh sama dengan lokasi pengantaran"
+                                        class="isian-orcha @error('lokasiKembali') isian-galat @enderror">
+                                    @error('lokasiKembali')
+                                        <p class="galat-orcha">{{ $message }}</p>
+                                    @enderror
+                                </div>
                             </div>
+
+                            {{-- ============ TENGGAT PENGEMBALIAN ============
+                                 Ditampilkan sebelum dikirim, bukan setelahnya: keterlambatan
+                                 didenda, jadi penyewa harus tahu jam berapa unit ditunggu
+                                 kembali sejak sebelum ia menekan Pesan. --}}
+                            @if ($jadwalSelesai)
+                                <div class="flex items-start gap-3 p-4 rounded-2xl bg-orcha-foam/70">
+                                    <x-heroicon-s-clock class="w-5 h-5 mt-0.5 shrink-0 text-orcha-ocean" />
+                                    <div>
+                                        <p class="text-sm font-bold text-orcha-navy">
+                                            Unit ditunggu kembali
+                                            {{ $jadwalSelesai->translatedFormat('l, d F Y') }} pukul
+                                            {{ $jadwalSelesai->format('H:i') }} WIB
+                                        </p>
+                                        <p class="mt-1 text-xs text-slate-600">
+                                            Ada tenggang {{ config('orcha.denda_sewa.tenggang_menit') }} menit.
+                                            Lewat dari itu dikenakan denda keterlambatan
+                                            {{ config('orcha.denda_sewa.persen_tarif_harian_per_jam') }}% tarif harian
+                                            per jam.
+                                        </p>
+                                    </div>
+                                </div>
+                            @endif
 
                             <hr class="border-orcha-foam">
 
@@ -471,9 +540,8 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                             </div>
 
                             <div>
-                                <label for="sk-email" class="label-orcha">Email <span
-                                        class="font-normal text-slate-400">(opsional)</span></label>
-                                <input id="sk-email" type="email" wire:model="email" maxlength="150"
+                                <label for="sk-email" class="label-orcha">Email <x-wajib /></label>
+                                <input id="sk-email" type="email" wire:model="email" required maxlength="150"
                                     placeholder="nama@email.com"
                                     class="isian-orcha @error('email') isian-galat @enderror">
                                 @error('email')

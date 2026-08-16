@@ -2,6 +2,7 @@
 
 namespace App\Models\SewaKendaraan;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
@@ -27,6 +28,22 @@ class PenyewaanKendaraan extends Model
         'jam_mulai',
         'dengan_sopir',
         'lokasi_antar',
+        'lokasi_kembali',
+        'tanggal_selesai',
+        'jam_selesai',
+        'diserahkan_pada',
+        'dikembalikan_pada',
+        'kilometer_awal',
+        'kilometer_akhir',
+        'bahan_bakar_awal',
+        'bahan_bakar_akhir',
+        'kondisi_awal',
+        'kondisi_akhir',
+        'jaminan',
+        'denda_keterlambatan',
+        'denda_kerusakan',
+        'denda_lain',
+        'catatan_denda',
         'estimasi_biaya',
         'catatan',
         'status',
@@ -37,6 +54,14 @@ class PenyewaanKendaraan extends Model
         'dengan_sopir' => 'boolean',
         'durasi' => 'integer',
         'estimasi_biaya' => 'integer',
+        'tanggal_selesai' => 'date',
+        'diserahkan_pada' => 'datetime',
+        'dikembalikan_pada' => 'datetime',
+        'kondisi_awal' => 'array',
+        'kondisi_akhir' => 'array',
+        'denda_keterlambatan' => 'integer',
+        'denda_kerusakan' => 'integer',
+        'denda_lain' => 'integer',
     ];
 
     /**
@@ -73,5 +98,146 @@ class PenyewaanKendaraan extends Model
     public function getStatusLabelAttribute(): string
     {
         return config('orcha.status_penyewaan')[$this->status] ?? 'Baru';
+    }
+
+    /**
+     * Kapan unit ini seharusnya kembali.
+     *
+     * Dihitung dari jam mulai ditambah durasinya, lalu DISIMPAN saat pemesanan
+     * dibuat. Kalau dihitung ulang setiap kali dibaca, mengubah aturan durasi
+     * di kemudian hari akan diam-diam menggeser tenggat pesanan yang sudah
+     * berjalan — dan denda ikut bergeser bersamanya.
+     */
+    public static function hitungSelesai(string $tanggalMulai, string $jamMulai, string $satuan, int $durasi): Carbon
+    {
+        $mulai = Carbon::parse($tanggalMulai.' '.$jamMulai);
+
+        return match ($satuan) {
+            'jam' => $mulai->copy()->addHours($durasi),
+            '12jam' => $mulai->copy()->addHours(12 * $durasi),
+            default => $mulai->copy()->addDays($durasi),
+        };
+    }
+
+    public function getJadwalMulaiAttribute(): ?Carbon
+    {
+        return $this->tanggal_mulai
+            ? Carbon::parse($this->tanggal_mulai->toDateString().' '.($this->jam_mulai ?: '00:00'))
+            : null;
+    }
+
+    public function getJadwalSelesaiAttribute(): ?Carbon
+    {
+        if ($this->tanggal_selesai) {
+            return Carbon::parse($this->tanggal_selesai->toDateString().' '.($this->jam_selesai ?: '00:00'));
+        }
+
+        // Baris lama yang tersimpan sebelum kolomnya ada tetap bisa dibaca.
+        return $this->tanggal_mulai
+            ? self::hitungSelesai($this->tanggal_mulai->toDateString(), $this->jam_mulai ?: '00:00', $this->satuan, (int) $this->durasi)
+            : null;
+    }
+
+    /**
+     * Terlambat berapa menit — dihitung dari waktu pengembalian sebenarnya,
+     * atau dari sekarang bila unit belum kembali.
+     */
+    public function getTerlambatMenitAttribute(): int
+    {
+        $tenggat = $this->jadwal_selesai;
+
+        if (! $tenggat || in_array($this->status, ['selesai', 'batal'], true) && ! $this->dikembalikan_pada) {
+            return 0;
+        }
+
+        $pembanding = $this->dikembalikan_pada ?: now();
+
+        return max(0, (int) $tenggat->diffInMinutes($pembanding, false));
+    }
+
+    public function getTerlambatAttribute(): bool
+    {
+        return $this->terlambat_menit > config('orcha.denda_sewa.tenggang_menit');
+    }
+
+    /**
+     * Denda keterlambatan yang DIUSULKAN sistem.
+     *
+     * Angka ini usulan, bukan keputusan: admin yang menetapkan berapa yang
+     * benar-benar ditagih, karena alasan telat kadang memang di luar kuasa
+     * penyewa. Yang penting angkanya bisa dijelaskan asal-usulnya.
+     */
+    public function getDendaKeterlambatanUsulanAttribute(): int
+    {
+        $aturan = config('orcha.denda_sewa');
+        $lewat = $this->terlambat_menit - $aturan['tenggang_menit'];
+
+        if ($lewat <= 0) {
+            return 0;
+        }
+
+        $tarifHarian = $this->kendaraan?->price_per_day ?? 0;
+
+        if ($tarifHarian <= 0) {
+            return 0;
+        }
+
+        $jam = (int) ceil($lewat / 60);
+        $perJam = $tarifHarian * $aturan['persen_tarif_harian_per_jam'] / 100;
+        $maksimalPerHari = $tarifHarian * $aturan['maksimal_persen_per_hari'] / 100;
+
+        // Batas atas dihitung per hari keterlambatan, bukan sekali untuk
+        // seluruhnya: telat tiga hari memang tiga kali lipat.
+        $hari = (int) ceil($jam / 24);
+
+        return (int) round(min($jam * $perJam, $hari * $maksimalPerHari));
+    }
+
+    public function getTotalDendaAttribute(): int
+    {
+        return (int) ($this->denda_keterlambatan + $this->denda_kerusakan + $this->denda_lain);
+    }
+
+    public function getTotalTagihanAttribute(): int
+    {
+        return (int) $this->estimasi_biaya + $this->total_denda;
+    }
+
+    /**
+     * Kerusakan yang BARU muncul selama masa sewa.
+     *
+     * Inilah alasan kondisi disimpan per bagian: yang ditagihkan ke penyewa
+     * hanya bagian yang kondisinya memburuk dibanding saat unit diserahkan.
+     * Lecet yang sudah ada sejak awal tidak ikut terhitung.
+     *
+     * @return array<int, array{bagian: string, dari: string, jadi: string}>
+     */
+    public function getKerusakanBaruAttribute(): array
+    {
+        $awal = $this->kondisi_awal ?? [];
+        $akhir = $this->kondisi_akhir ?? [];
+
+        if ($akhir === []) {
+            return [];
+        }
+
+        $urutan = array_keys(config('orcha.kondisi_pemeriksaan'));
+        $nilai = fn ($kondisi) => array_search($kondisi, $urutan, true);
+
+        $baru = [];
+
+        foreach ($akhir as $bagian => $sesudah) {
+            $sebelum = $awal[$bagian] ?? 'baik';
+
+            if ($nilai($sesudah) > $nilai($sebelum)) {
+                $baru[] = [
+                    'bagian' => config('orcha.pemeriksaan_kendaraan')[$bagian] ?? $bagian,
+                    'dari' => config('orcha.kondisi_pemeriksaan')[$sebelum] ?? $sebelum,
+                    'jadi' => config('orcha.kondisi_pemeriksaan')[$sesudah] ?? $sesudah,
+                ];
+            }
+        }
+
+        return $baru;
     }
 }

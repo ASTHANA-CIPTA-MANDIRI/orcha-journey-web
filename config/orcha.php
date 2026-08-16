@@ -118,6 +118,53 @@ return [
         'lancar' => 'Lancar berenang',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Denda Sewa Kendaraan
+    |--------------------------------------------------------------------------
+    |
+    | ANGKANYA USULAN AWAL — sesuaikan dengan aturan Orcha yang sebenarnya.
+    |
+    | Keterlambatan dihitung per jam dari tarif hariannya, bukan nominal tetap,
+    | supaya adil untuk unit murah maupun mahal. Ada tenggang beberapa menit
+    | karena macet di jalan bukan hal yang pantas didendakan, dan ada batas
+    | atas per hari supaya denda tidak melampaui harga sewa harian itu sendiri.
+    |
+    */
+    'denda_sewa' => [
+        'tenggang_menit' => 30,
+        'persen_tarif_harian_per_jam' => 10,
+        // Lewat batas ini, satu hari keterlambatan dihitung satu hari sewa penuh.
+        'maksimal_persen_per_hari' => 100,
+    ],
+
+    /*
+    | Bagian kendaraan yang diperiksa saat serah terima dan saat kembali.
+    | Daftarnya sengaja pendek dan seragam: yang dibandingkan nanti adalah
+    | bagian yang sama, bukan kalimat bebas yang tidak pernah bisa dicocokkan.
+    */
+    'pemeriksaan_kendaraan' => [
+        'bodi_depan' => 'Bodi depan & bemper',
+        'bodi_belakang' => 'Bodi belakang & bemper',
+        'bodi_kanan' => 'Bodi samping kanan',
+        'bodi_kiri' => 'Bodi samping kiri',
+        'kaca' => 'Kaca & spion',
+        'lampu' => 'Lampu depan, belakang, sein',
+        'ban' => 'Ban & pelek (termasuk ban serep)',
+        'interior' => 'Interior & jok',
+        'ac' => 'AC & kelistrikan',
+        'mesin' => 'Mesin & rem',
+        'kelengkapan' => 'Dongkrak, kunci roda, segitiga, P3K',
+        'surat' => 'STNK & buku servis',
+    ],
+
+    'kondisi_pemeriksaan' => [
+        'baik' => 'Baik',
+        'lecet' => 'Lecet / minor',
+        'rusak' => 'Rusak',
+        'hilang' => 'Hilang',
+    ],
+
     'satuan_sewa' => [
         'jam' => ['label' => 'Per jam', 'satuan' => 'jam', 'maks' => 23],
         '12jam' => ['label' => 'Paket 12 jam', 'satuan' => '× 12 jam', 'maks' => 2],

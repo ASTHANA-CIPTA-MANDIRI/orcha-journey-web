@@ -75,6 +75,12 @@ class MetaController extends ApiController
                 'fasilitas_umum' => config('orcha.fasilitas_umum'),
                 'status_paket' => config('orcha.status_paket'),
                 'status_tayang' => config('orcha.status_tayang'),
+                // Dipakai lembar serah terima kendaraan di lemon: daftar bagian
+                // yang diperiksa dan pilihan kondisinya harus sama persis di
+                // kedua sisi, kalau tidak perbandingannya tidak berarti.
+                'pemeriksaan_kendaraan' => config('orcha.pemeriksaan_kendaraan'),
+                'kondisi_pemeriksaan' => config('orcha.kondisi_pemeriksaan'),
+                'denda_sewa' => config('orcha.denda_sewa'),
             ],
         ]);
     }

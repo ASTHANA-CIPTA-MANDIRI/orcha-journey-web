@@ -42,6 +42,7 @@ Route::prefix('v1')
         Route::get('/pendaftaran/{pendaftaran}', [PendaftaranController::class, 'show']);
         Route::get('/pendaftaran/{pendaftaran}/riwayat-kesehatan', [PendaftaranController::class, 'riwayatKesehatan']);
         Route::patch('/pendaftaran/{pendaftaran}/status', [PendaftaranController::class, 'ubahStatus']);
+        Route::get('/pendaftaran/{pendaftaran}/kwitansi', [PendaftaranController::class, 'kwitansi']);
 
         Route::get('/pembayaran', [PembayaranController::class, 'index']);
         Route::get('/pembayaran/{pembayaran}', [PembayaranController::class, 'show']);
@@ -55,6 +56,7 @@ Route::prefix('v1')
         Route::get('/penyewaan', [PenyewaanController::class, 'index']);
         Route::get('/penyewaan/{penyewaan}', [PenyewaanController::class, 'show']);
         Route::patch('/penyewaan/{penyewaan}/status', [PenyewaanController::class, 'ubahStatus']);
+        Route::patch('/penyewaan/{penyewaan}/serah-terima', [PenyewaanController::class, 'serahTerima']);
 
         Route::get('/kendaraan', [KendaraanController::class, 'index']);
         Route::get('/kendaraan/{kendaraan}', [KendaraanController::class, 'show']);

@@ -99,6 +99,9 @@ test('pemesanan sewa tersimpan lengkap dengan estimasi biaya', function () {
         ->set('denganSopir', 'ya')
         ->set('nama', 'Budi Santoso')
         ->set('whatsapp', '081234567890')
+        ->set('email', 'budi@contoh.test')
+        ->set('lokasiAntar', 'Bandara YIA')
+        ->set('lokasiKembali', 'Kantor Orcha')
         ->set('setuju', true)
         ->call('pesan')
         ->assertHasNoErrors();
@@ -126,6 +129,9 @@ test('pemesanan menolak transmisi yang tidak tersedia pada unit', function () {
         ->set('tanggalMulai', now()->addWeek()->toDateString())
         ->set('nama', 'Budi Santoso')
         ->set('whatsapp', '081234567890')
+        ->set('email', 'budi@contoh.test')
+        ->set('lokasiAntar', 'Bandara YIA')
+        ->set('lokasiKembali', 'Kantor Orcha')
         ->set('setuju', true)
         ->call('pesan')
         ->assertHasErrors(['transmisi']);
@@ -144,6 +150,9 @@ test('pemesanan menolak satuan yang tidak dijual unit itu', function () {
         ->set('tanggalMulai', now()->addWeek()->toDateString())
         ->set('nama', 'Budi Santoso')
         ->set('whatsapp', '081234567890')
+        ->set('email', 'budi@contoh.test')
+        ->set('lokasiAntar', 'Bandara YIA')
+        ->set('lokasiKembali', 'Kantor Orcha')
         ->set('setuju', true)
         ->call('pesan')
         ->assertHasErrors(['satuan']);
@@ -182,4 +191,151 @@ test('berkas blade dikelompokkan per fitur', function () {
     // Tidak ada lagi berkas publik yang menggantung di luar folder fitur
     $menggantung = glob(base_path('resources/views/livewire/public/*.blade.php'));
     expect($menggantung)->toBeEmpty();
+});
+
+/* ---------------- PENGEMBALIAN, DENDA & PEMERIKSAAN FISIK ---------------- */
+
+test('tenggat pengembalian dihitung dan disimpan saat memesan', function () {
+    $mobil = buatMobil();
+
+    Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $mobil->uuid)
+        ->set('transmisi', 'Matic')
+        ->set('satuan', 'jam')
+        ->set('durasi', 6)
+        ->set('tanggalMulai', '2026-09-10')
+        ->set('jamMulai', '07:00')
+        ->set('denganSopir', 'ya')
+        ->set('nama', 'Budi Santoso')
+        ->set('whatsapp', '081234567890')
+        ->set('email', 'budi@contoh.test')
+        ->set('lokasiAntar', 'Bandara YIA')
+        ->set('lokasiKembali', 'Kantor Orcha')
+        ->set('setuju', true)
+        ->call('pesan')
+        ->assertHasNoErrors();
+
+    $sewa = PenyewaanKendaraan::firstOrFail();
+
+    // Sewa 6 jam mulai 07.00 → kembali 13.00 di hari yang sama
+    expect($sewa->tanggal_selesai->toDateString())->toBe('2026-09-10')
+        ->and(substr((string) $sewa->jam_selesai, 0, 5))->toBe('13:00')
+        ->and($sewa->lokasi_kembali)->toBe('Kantor Orcha')
+        ->and($sewa->email)->toBe('budi@contoh.test');
+});
+
+test('email dan kedua lokasi wajib diisi', function () {
+    $mobil = buatMobil();
+
+    Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $mobil->uuid)
+        ->set('transmisi', 'Matic')
+        ->set('satuan', 'hari')
+        ->set('durasi', 1)
+        ->set('tanggalMulai', now()->addWeek()->toDateString())
+        ->set('jamMulai', '07:00')
+        ->set('denganSopir', 'ya')
+        ->set('nama', 'Budi Santoso')
+        ->set('whatsapp', '081234567890')
+        ->set('setuju', true)
+        ->call('pesan')
+        ->assertHasErrors(['email', 'lokasiAntar', 'lokasiKembali']);
+});
+
+test('durasi harian menghasilkan tenggat pada jam yang sama', function () {
+    $selesai = PenyewaanKendaraan::hitungSelesai('2026-09-10', '08:00', 'hari', 3);
+
+    expect($selesai->format('Y-m-d H:i'))->toBe('2026-09-13 08:00');
+});
+
+test('terlambat dalam tenggang tidak didenda', function () {
+    $mobil = buatMobil(['price_per_day' => 500000]);
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-11', 'jam_selesai' => '08:00',
+        'dikembalikan_pada' => '2026-09-11 08:20',   // telat 20 menit
+        'estimasi_biaya' => 500000, 'status' => 'berjalan',
+    ]);
+
+    // Macet di jalan bukan hal yang pantas didendakan
+    expect($sewa->terlambat_menit)->toBe(20)
+        ->and($sewa->terlambat)->toBeFalse()
+        ->and($sewa->denda_keterlambatan_usulan)->toBe(0);
+});
+
+test('denda keterlambatan dihitung per jam dari tarif harian', function () {
+    $mobil = buatMobil(['price_per_day' => 500000]);
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-11', 'jam_selesai' => '08:00',
+        'dikembalikan_pada' => '2026-09-11 11:00',   // telat 3 jam
+        'estimasi_biaya' => 500000, 'status' => 'berjalan',
+    ]);
+
+    // Lewat tenggang 30 menit → 2,5 jam dibulatkan 3 jam × 10% × 500.000
+    expect($sewa->denda_keterlambatan_usulan)->toBe(150000);
+});
+
+test('denda keterlambatan dibatasi tarif sehari per hari telat', function () {
+    $mobil = buatMobil(['price_per_day' => 500000]);
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-11', 'jam_selesai' => '08:00',
+        'dikembalikan_pada' => '2026-09-12 08:00',   // telat sehari penuh
+        'estimasi_biaya' => 500000, 'status' => 'berjalan',
+    ]);
+
+    // Tanpa batas, 24 jam × 10% = 240% tarif harian untuk telat sehari
+    expect($sewa->denda_keterlambatan_usulan)->toBe(500000);
+});
+
+test('hanya kerusakan baru yang ditagihkan ke penyewa', function () {
+    $mobil = buatMobil();
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 500000, 'status' => 'berjalan',
+        // Bodi kanan SUDAH lecet sebelum unit diserahkan
+        'kondisi_awal' => ['bodi_kanan' => 'lecet', 'kaca' => 'baik', 'ban' => 'baik'],
+        'kondisi_akhir' => ['bodi_kanan' => 'lecet', 'kaca' => 'rusak', 'ban' => 'baik'],
+    ]);
+
+    $baru = $sewa->kerusakan_baru;
+
+    // Lecet lama tidak ikut terhitung; hanya kaca yang memburuk
+    expect($baru)->toHaveCount(1)
+        ->and($baru[0]['bagian'])->toBe('Kaca & spion')
+        ->and($baru[0]['dari'])->toBe('Baik')
+        ->and($baru[0]['jadi'])->toBe('Rusak');
+});
+
+test('total tagihan menjumlahkan sewa dengan seluruh denda', function () {
+    $mobil = buatMobil();
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 500000, 'status' => 'selesai',
+        'denda_keterlambatan' => 150000, 'denda_kerusakan' => 300000, 'denda_lain' => 50000,
+    ]);
+
+    expect($sewa->total_denda)->toBe(500000)
+        ->and($sewa->total_tagihan)->toBe(1000000);
 });

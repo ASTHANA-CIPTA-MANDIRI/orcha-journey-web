@@ -53,4 +53,61 @@ class PenyewaanController extends ApiController
             'pesan' => 'Status pemesanan sewa diperbarui.',
         ]);
     }
+
+    /**
+     * Serah terima unit: saat diserahkan, dan saat kembali.
+     *
+     * Satu jalur untuk dua kejadian, karena bentuk datanya sama — kilometer,
+     * bahan bakar, dan hasil pemeriksaan per bagian. Yang membedakan hanya
+     * kapan diisinya.
+     *
+     * Denda TIDAK dihitung sendiri lalu langsung ditagihkan. Sistem hanya
+     * mengusulkan angkanya; yang menetapkan tetap admin, karena alasan telat
+     * kadang memang di luar kuasa penyewa. Yang penting angkanya bisa
+     * dijelaskan asal-usulnya, bukan muncul begitu saja.
+     */
+    public function serahTerima(PenyewaanKendaraan $penyewaan, Request $request): JsonResponse
+    {
+        $bagian = implode(',', array_keys(config('orcha.pemeriksaan_kendaraan')));
+        $kondisi = implode(',', array_keys(config('orcha.kondisi_pemeriksaan')));
+
+        $data = $request->validate([
+            'diserahkan_pada' => 'nullable|date',
+            'dikembalikan_pada' => 'nullable|date',
+            'kilometer_awal' => 'nullable|integer|min:0|max:9999999',
+            'kilometer_akhir' => 'nullable|integer|min:0|max:9999999',
+            'bahan_bakar_awal' => 'nullable|string|max:20',
+            'bahan_bakar_akhir' => 'nullable|string|max:20',
+            'jaminan' => 'nullable|string|max:191',
+            'kondisi_awal' => 'nullable|array',
+            'kondisi_awal.*' => 'in:'.$kondisi,
+            'kondisi_akhir' => 'nullable|array',
+            'kondisi_akhir.*' => 'in:'.$kondisi,
+            'denda_keterlambatan' => 'nullable|integer|min:0',
+            'denda_kerusakan' => 'nullable|integer|min:0',
+            'denda_lain' => 'nullable|integer|min:0',
+            'catatan_denda' => 'nullable|string|max:1000',
+        ]);
+
+        // Bagian yang tidak dikenal ditolak diam-diam, supaya perbandingan
+        // kondisi awal dan akhir selalu memakai daftar yang sama.
+        foreach (['kondisi_awal', 'kondisi_akhir'] as $kunci) {
+            if (isset($data[$kunci])) {
+                $data[$kunci] = array_intersect_key($data[$kunci], array_flip(explode(',', $bagian)));
+            }
+        }
+
+        $penyewaan->update(array_filter($data, fn ($nilai) => $nilai !== null));
+
+        $this->catat($request, 'catat serah terima kendaraan', [
+            'kode' => $penyewaan->kode,
+            'dikembalikan' => $penyewaan->dikembalikan_pada?->toDateTimeString(),
+            'total_denda' => $penyewaan->fresh()->total_denda,
+        ]);
+
+        return response()->json([
+            'data' => (new PenyewaanResource($penyewaan->fresh()))->resolve(),
+            'pesan' => 'Catatan serah terima kendaraan tersimpan.',
+        ]);
+    }
 }

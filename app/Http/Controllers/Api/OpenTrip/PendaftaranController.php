@@ -7,6 +7,8 @@ use App\Http\Resources\OpenTrip\PendaftaranResource;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\Pembatalan;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Support\BerkasKwitansi;
+use App\Support\RincianBiaya;
 use App\Support\TagihanPesanan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -125,6 +127,55 @@ class PendaftaranController extends ApiController
                 'alasan_catatan' => $riwayat->alasan_catatan,
                 'dibuat_pada' => $riwayat->created_at?->toIso8601String(),
             ])->all(),
+        ]);
+    }
+
+    /**
+     * Kwitansi pendaftaran, berkas yang sama persis dengan yang dikirim ke
+     * pelanggan lewat surat.
+     *
+     * Dibuat di sini, bukan digambar ulang di lemon: kalau ada dua tempat yang
+     * membuat kwitansi, cepat atau lambat keduanya berbeda isi — dan yang
+     * dipegang pelanggan berbeda dengan yang dipegang admin.
+     *
+     * Gunanya untuk jaga-jaga saat surat tidak sampai: admin bisa mengunduh
+     * lalu mengirimkannya lewat WhatsApp.
+     */
+    public function kwitansi(PendaftaranOpenTrip $pendaftaran, Request $request)
+    {
+        $biaya = RincianBiaya::untuk($pendaftaran->paket, (int) $pendaftaran->jumlah_peserta);
+
+        $rincian = [
+            'Paket' => $pendaftaran->nama_paket,
+            'Keberangkatan' => $pendaftaran->tanggal_berangkat?->translatedFormat('j F Y') ?: '—',
+            'Pemesan' => $pendaftaran->nama,
+            'WhatsApp' => $pendaftaran->whatsapp,
+            'Email' => $pendaftaran->email,
+            'Jumlah peserta' => $pendaftaran->jumlah_peserta.' orang',
+            'Peserta & titik jemput' => collect($pendaftaran->peserta)
+                ->map(fn ($satu) => $satu['nama'].' — '.($satu['titik_jemput'] ?: 'belum dipilih'))
+                ->implode("\n"),
+        ];
+
+        $isi = BerkasKwitansi::buat(
+            'Rincian Biaya Pendaftaran',
+            $pendaftaran->kode,
+            $rincian,
+            $pendaftaran->catatan,
+            $biaya ? $biaya['dp_teks'] : null,
+            $biaya ? 'Dibayar sekarang · DP '.$biaya['dp_persen'].'%' : null,
+            'Belum Dibayar',
+            biaya: $biaya,
+        );
+
+        abort_if($isi === null, 503, 'Kwitansi gagal dibuat.');
+
+        $this->catat($request, 'unduh kwitansi pendaftaran', ['kode' => $pendaftaran->kode]);
+
+        return response($isi, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'
+                .BerkasKwitansi::namaBerkas('rincian-biaya', $pendaftaran->kode).'"',
         ]);
     }
 
