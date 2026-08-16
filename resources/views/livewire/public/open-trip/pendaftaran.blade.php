@@ -269,7 +269,17 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                         .'Konfirmasi Pembayaran. Sisanya '.$biaya['sisa_teks'].' dilunasi paling lambat H-'
                         .$biaya['pelunasan_hari'].' sebelum berangkat. Rinciannya ada di lampiran surat ini.'
                     : 'Berikutnya: tim kami menghitung biayanya lebih dulu, lalu mengabari Anda lewat WhatsApp.')
-                .' Tempat duduk baru terkunci setelah DP masuk.',
+                .' Tempat duduk baru terkunci setelah DP masuk.'
+                // Rombongan besar butuh pintunya sejak awal: tiap peserta mengisi
+                // riwayat kesehatannya sendiri, dan halaman itu menyediakan tautan
+                // pribadi per peserta yang tinggal dibagikan lewat WhatsApp.
+                .($pendaftaran->jumlah_peserta > 1
+                    ? "\n\nRiwayat kesehatan diisi satu formulir untuk tiap peserta karena kondisi tiap orang "
+                        .'berbeda. Buka '.route('riwayat-kesehatan', ['kode' => $pendaftaran->kode])
+                        .' — di sana terlihat siapa saja yang belum mengisi, lengkap dengan tautan pribadi '
+                        .'yang tinggal Anda kirimkan ke masing-masing peserta.'
+                    : "\n\nJangan lupa mengisi riwayat kesehatan di "
+                        .route('riwayat-kesehatan', ['kode' => $pendaftaran->kode])),
         );
 
         $this->kodeTerdaftar = $pendaftaran->kode;

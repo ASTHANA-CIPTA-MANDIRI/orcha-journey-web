@@ -58,9 +58,37 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
 
     public ?string $namaTerkirim = null;
 
+    /**
+     * Mengetik nama sendiri, karena namanya tidak ada di daftar peserta.
+     *
+     * Perlu ada jalan keluarnya: rombongan sering bertambah orang setelah
+     * mendaftar, dan nama yang tertulis saat pendaftaran kadang cuma panggilan.
+     */
+    public bool $namaBebas = false;
+
     public function mount(): void
     {
         $this->kode = strtoupper((string) request()->query('kode', ''));
+
+        // Tautan yang dibagikan ketua rombongan sudah membawa nama pesertanya,
+        // jadi yang membuka tinggal mengisi data kesehatannya sendiri.
+        $this->namaPeserta = trim((string) request()->query('peserta', ''));
+
+        if (blank($this->namaPeserta) || blank($this->kode)) {
+            return;
+        }
+
+        // Ejaannya disamakan dengan yang terdaftar. Kalau tidak, "budi santoso"
+        // dari tautan dianggap orang lain oleh penanda "sudah diisi", dan
+        // rombongannya tidak pernah terlihat lengkap.
+        $terdaftar = collect(PendaftaranOpenTrip::where('kode', $this->kode)->first()?->peserta ?? [])
+            ->pluck('nama')
+            ->first(fn ($nama) => mb_strtolower(trim($nama)) === mb_strtolower($this->namaPeserta));
+
+        // Nama di luar daftar tetap bisa mengisi — rombongan sering bertambah
+        // orang setelah pendaftarannya masuk.
+        $this->namaBebas = blank($terdaftar);
+        $this->namaPeserta = $terdaftar ?: $this->namaPeserta;
     }
 
     protected function rules(): array
@@ -202,6 +230,7 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
     {
         $this->terkirim = false;
         $this->namaTerkirim = null;
+        $this->namaBebas = false;
     }
 
     public function with(): array
@@ -211,10 +240,32 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
             ? PendaftaranOpenTrip::with('paket')->where('kode', strtoupper(trim($this->kode)))->first()
             : null;
 
+        // Daftar peserta beserta status pengisiannya. Inilah yang dipakai
+        // ketua rombongan untuk tahu siapa yang masih perlu ditagih — sebelum
+        // ini yang tampil cuma angka "2 dari 5", tanpa keterangan siapanya.
+        $daftarPeserta = [];
+
+        if ($pendaftaran) {
+            $sudah = $pendaftaran->riwayatKesehatan()->pluck('nama_peserta')
+                ->map(fn ($nama) => mb_strtolower(trim($nama)))
+                ->all();
+
+            $daftarPeserta = collect($pendaftaran->peserta)
+                ->pluck('nama')
+                ->filter()
+                ->map(fn ($nama) => [
+                    'nama' => $nama,
+                    'sudah' => in_array(mb_strtolower(trim($nama)), $sudah, true),
+                ])
+                ->values()
+                ->all();
+        }
+
         return [
             'daftarKondisi' => config('orcha.kondisi_kesehatan'),
             'daftarRenang' => config('orcha.kemampuan_renang'),
             'pendaftaran' => $pendaftaran,
+            'daftarPeserta' => $daftarPeserta,
             'jumlahTerisi' => $pendaftaran
                 ? RiwayatKesehatan::where('kode_pendaftaran', $pendaftaran->kode)->count()
                 : 0,
@@ -224,6 +275,15 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
 
 @php
     $wa = fn (string $pesan) => 'https://api.whatsapp.com/send?phone=' . config('orcha.whatsapp') . '&text=' . rawurlencode($pesan);
+
+    // Tautan pribadi tiap peserta: kode dan namanya sudah terbawa, sehingga
+    // yang membukanya tinggal mengisi kondisi kesehatannya sendiri. Ini yang
+    // membuat rombongan besar bisa jalan sendiri — ketua rombongan cukup
+    // membagikan tautannya, tidak perlu menyalin data kesehatan orang lain.
+    $tautanPeserta = fn ($kode, $nama) => route('riwayat-kesehatan', ['kode' => $kode, 'peserta' => $nama]);
+
+    // Tanpa nomor tujuan: WhatsApp yang menanyakan mau dikirim ke siapa.
+    $bagikan = fn (string $pesan) => 'https://api.whatsapp.com/send?text=' . rawurlencode($pesan);
 @endphp
 
 <div>
@@ -242,10 +302,41 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                             <h2 class="mt-4 text-2xl font-bold font-heading text-orcha-navy">
                                 Data {{ $namaTerkirim }} tersimpan
                             </h2>
+                            @php $belum = collect($daftarPeserta)->reject(fn ($s) => $s['sudah'])->values(); @endphp
+
                             <p class="mt-2 text-sm text-slate-600">
-                                Terima kasih. Kalau masih ada peserta lain dalam rombongan yang sama, isi formulirnya
-                                satu per satu memakai kode yang sama.
+                                @if ($belum->isEmpty())
+                                    Terima kasih. Seluruh peserta rombongan ini sudah mengisi formulir kesehatannya.
+                                @else
+                                    Terima kasih. Masih ada {{ $belum->count() }} peserta yang belum mengisi —
+                                    tiap orang mengisi sendiri karena riwayat kesehatannya berbeda-beda.
+                                @endif
                             </p>
+
+                            {{-- Menagih yang belum mengisi paling mudah dilakukan justru sekarang,
+                                 saat orangnya baru selesai dan masih memegang ponselnya. --}}
+                            @if ($belum->isNotEmpty())
+                                <ul class="max-w-md mx-auto mt-5 space-y-2 text-left">
+                                    @foreach ($belum as $satu)
+                                        @php
+                                            $tautan = $tautanPeserta($kode, $satu['nama']);
+                                            $pesan = "Halo {$satu['nama']}, tolong isi data kesehatan untuk trip "
+                                                . ($pendaftaran?->nama_paket ?: 'Orcha Journey')
+                                                . ". Formulirnya di sini: {$tautan}";
+                                        @endphp
+
+                                        <li class="flex items-center gap-2 p-3 rounded-xl bg-orcha-foam/60">
+                                            <x-heroicon-o-clock class="w-5 h-5 shrink-0 text-slate-400" />
+                                            <span class="flex-1 text-sm font-semibold text-orcha-navy">{{ $satu['nama'] }}</span>
+                                            <a href="{{ $bagikan($pesan) }}" target="_blank" rel="noopener noreferrer"
+                                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full text-orcha-ocean bg-white">
+                                                <x-bi-whatsapp class="w-3.5 h-3.5" />
+                                                Kirim tautan
+                                            </a>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
 
                             <div class="flex flex-col justify-center gap-3 mt-6 sm:flex-row">
                                 <button type="button" wire:click="isiPesertaLain" class="btn-orcha btn-orcha-primary">
@@ -292,6 +383,70 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                                             @endforeach
                                         </dl>
 
+                                        {{-- ============ DAFTAR PESERTA ============
+                                             Sebelumnya yang tampil hanya angka "2 dari 5", jadi ketua rombongan
+                                             tahu ada yang kurang tetapi tidak tahu siapa. Di sini namanya
+                                             disebut satu per satu berikut tombol untuk menagihnya. --}}
+                                        @if (count($daftarPeserta) > 1)
+                                            <div class="pt-4 mt-4 border-t border-white/70">
+                                                <p class="text-xs font-bold tracking-wider uppercase text-orcha-ocean">
+                                                    Peserta rombongan ini
+                                                </p>
+                                                <p class="mt-1 text-xs text-slate-500">
+                                                    Tiap peserta mengisi formulirnya sendiri karena riwayat
+                                                    kesehatannya berbeda-beda. Kirimkan tautannya lewat WhatsApp —
+                                                    yang membuka langsung terisi kode dan namanya.
+                                                </p>
+
+                                                <ul class="mt-3 space-y-2">
+                                                    @foreach ($daftarPeserta as $satu)
+                                                        @php
+                                                            $tautan = $tautanPeserta($pendaftaran->kode, $satu['nama']);
+                                                            $pesan =
+                                                                "Halo {$satu['nama']}, tolong isi data kesehatan untuk trip " .
+                                                                ($pendaftaran->nama_paket ?: 'Orcha Journey') .
+                                                                ". Formulirnya di sini: {$tautan}";
+                                                        @endphp
+
+                                                        <li
+                                                            class="flex flex-wrap items-center gap-2 p-3 bg-white sm:flex-nowrap rounded-xl">
+                                                            @if ($satu['sudah'])
+                                                                <x-heroicon-s-check-circle
+                                                                    class="w-5 h-5 shrink-0 text-orcha-sky" />
+                                                            @else
+                                                                <x-heroicon-o-clock class="w-5 h-5 shrink-0 text-slate-300" />
+                                                            @endif
+
+                                                            <span
+                                                                class="flex-1 text-sm font-semibold text-orcha-navy">{{ $satu['nama'] }}</span>
+
+                                                            @if ($satu['sudah'])
+                                                                <span
+                                                                    class="px-2.5 py-1 text-[0.68rem] font-bold tracking-wide uppercase rounded-full text-orcha-ocean bg-orcha-foam">
+                                                                    Sudah diisi
+                                                                </span>
+                                                            @else
+                                                                <a href="{{ $bagikan($pesan) }}" target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full text-orcha-ocean bg-orcha-sky/15 hover:bg-orcha-sky/25">
+                                                                    <x-bi-whatsapp class="w-3.5 h-3.5" />
+                                                                    Kirim tautan
+                                                                </a>
+
+                                                                {{-- Disalin lewat atribut onclick, bukan berkas skrip:
+                                                                     tata letak tamu tidak menyediakan tumpukan skrip. --}}
+                                                                <button type="button" title="Salin tautannya"
+                                                                    onclick="navigator.clipboard.writeText('{{ $tautan }}');this.firstElementChild.classList.add('text-orcha-sky');this.title='Tautan tersalin'"
+                                                                    class="p-1.5 rounded-full text-slate-400 hover:bg-orcha-foam">
+                                                                    <x-heroicon-o-link class="w-4 h-4" />
+                                                                </button>
+                                                            @endif
+                                                        </li>
+                                                    @endforeach
+                                                </ul>
+                                            </div>
+                                        @endif
+
                                         @if ($jumlahTerisi >= $pendaftaran->jumlah_peserta)
                                             <p class="pt-4 mt-4 text-sm border-t border-white/70 text-slate-600">
                                                 Semua peserta sudah mengisi. Anda tetap bisa menambah bila jumlah
@@ -314,12 +469,57 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                             <div class="grid gap-5 sm:grid-cols-3">
                                 <div class="sm:col-span-2">
                                     <label for="rk-nama" class="label-orcha">Nama peserta <x-wajib /></label>
-                                    <input id="rk-nama" type="text" wire:model="namaPeserta" required minlength="3" maxlength="120"
-                                        placeholder="Nama sesuai identitas"
-                                        class="isian-orcha @error('namaPeserta') isian-galat @enderror">
-                                    @error('namaPeserta')
-                                        <p class="galat-orcha">{{ $message }}</p>
-                                    @enderror
+
+                                    {{-- Dipilih dari daftar, bukan diketik ulang. Nama yang salah ketik
+                                         membuat penanda "sudah diisi" meleset, dan rombongan besar jadi
+                                         tidak pernah terlihat lengkap padahal semua sudah mengisi. --}}
+                                    @if (count($daftarPeserta) && ! $namaBebas)
+                                        @php
+                                            $dipilihSudah = collect($daftarPeserta)->firstWhere('nama', $namaPeserta)['sudah'] ?? false;
+                                        @endphp
+
+                                        <select id="rk-nama" wire:model.live="namaPeserta" required
+                                            class="isian-orcha @error('namaPeserta') isian-galat @enderror">
+                                            <option value="">— Pilih peserta —</option>
+                                            @foreach ($daftarPeserta as $satu)
+                                                <option value="{{ $satu['nama'] }}">
+                                                    {{ $satu['nama'] }}{{ $satu['sudah'] ? ' — sudah diisi' : '' }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+
+                                        @error('namaPeserta')
+                                            <p class="galat-orcha">{{ $message }}</p>
+                                        @enderror
+
+                                        {{-- Sudah pernah masuk tetap boleh dikirim ulang: kondisi kesehatan
+                                             bisa berubah, dan pengisi pertama kadang keliru orang. --}}
+                                        @if ($dipilihSudah)
+                                            <p class="mt-1 text-xs font-semibold text-amber-600">
+                                                Data atas nama ini sudah pernah masuk. Mengirim lagi menambah
+                                                catatan baru, bukan mengganti yang lama.
+                                            </p>
+                                        @endif
+
+                                        <button type="button" wire:click="$set('namaBebas', true)"
+                                            class="mt-1 text-xs font-semibold underline text-orcha-ocean underline-offset-2">
+                                            Nama saya tidak ada di daftar
+                                        </button>
+                                    @else
+                                        <input id="rk-nama" type="text" wire:model="namaPeserta" required minlength="3" maxlength="120"
+                                            placeholder="Nama sesuai identitas"
+                                            class="isian-orcha @error('namaPeserta') isian-galat @enderror">
+                                        @error('namaPeserta')
+                                            <p class="galat-orcha">{{ $message }}</p>
+                                        @enderror
+
+                                        @if (count($daftarPeserta))
+                                            <button type="button" wire:click="$set('namaBebas', false)"
+                                                class="mt-1 text-xs font-semibold underline text-orcha-ocean underline-offset-2">
+                                                Kembali memilih dari daftar peserta
+                                            </button>
+                                        @endif
+                                    @endif
                                 </div>
                                 <div>
                                     <label for="rk-usia" class="label-orcha">Usia <x-wajib /></label>
