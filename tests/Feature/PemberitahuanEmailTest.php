@@ -268,6 +268,13 @@ test('berkas resmi memakai kerangka merek yang sama', function () {
         // Tanpa biaya, panel tagihannya memang tidak tampil
         ->and($html)->not->toContain('Rincian Biaya')
         ->and($html)->toContain('Perlu Diperhatikan');
+
+    // Pita kaki: berkas begini sering dicetak lalu berpindah tangan lepas dari
+    // surelnya, jadi kontak dan nomor berkasnya harus ikut di lembar yang sama.
+    expect($html)->toContain('Nomor Berkas')
+        ->and($html)->toContain('OT-1508-ABCD')
+        ->and($html)->toContain(config('orcha.email'))
+        ->and($html)->toContain('sah tanpa tanda tangan basah');
 });
 
 test('tanda terima pembayaran tetap tanpa tabel biaya', function () {

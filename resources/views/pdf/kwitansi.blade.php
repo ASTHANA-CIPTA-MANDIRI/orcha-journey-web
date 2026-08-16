@@ -34,7 +34,7 @@
     <title>{{ $judul }} — {{ $kode }}</title>
     <style>
         /* Ruang bawah dilebihkan untuk pita kaki yang dipasang mengambang. */
-        @page { margin: 0 0 54px; }
+        @page { margin: 0 0 68px; }
 
         /* Helvetica adalah huruf bawaan PDF: tidak ikut disisipkan ke berkasnya.
            Memakai DejaVu membuat berkas membengkak ~1 MB hanya untuk hurufnya,
@@ -43,7 +43,7 @@
         body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #475569;
                margin: 0; padding: 0; }
 
-        .isi { padding: 0 34px; }
+        .isi { padding: 0 34px 10px; }
 
         /* ---------- kepala ---------- */
         .pita-kepala { background-color: {{ $navy }}; padding: 18px 34px 16px; }
@@ -81,7 +81,7 @@
                padding: 7px 15px; text-transform: uppercase; letter-spacing: 1.4px; }
 
         /* ---------- baris rincian ---------- */
-        .baris td { padding: 6px 12px; }
+        .baris td { padding: 5px 12px; }
         .zebra { background-color: #fafcfd; }
 
         /* ---------- biaya ---------- */
@@ -109,8 +109,25 @@
 
         /* ---------- kaki ---------- */
         .kaki { font-size: 8.5px; color: #94a3b8; line-height: 1.7; }
-        .pita-kaki { position: fixed; bottom: 0; left: 0; right: 0; background-color: {{ $navy }};
-                     padding: 9px 34px; font-size: 8px; color: {{ $langit }}; letter-spacing: .5px; }
+
+        /* ---------- pita kaki ----------
+           Mengambang di dasar halaman, jadi tingginya harus tetap: apa pun
+           panjang daftar pesertanya, pitanya berada di tempat yang sama.
+           Garis emas tipis di atasnya menutup halaman seperti kop menutup
+           bagian atasnya — berkasnya jadi berbingkai, bukan menggantung. */
+        .kaki-luar { position: fixed; bottom: 0; left: 0; right: 0; }
+        .kaki-emas { height: 2px; background-color: {{ $emas }}; font-size: 0; line-height: 0; }
+        .pita-kaki { background-color: {{ $navy }}; padding: 10px 34px 11px; }
+        .kaki-merek { font-size: 9.5px; font-weight: bold; color: #fff; letter-spacing: .8px; }
+        .kaki-merek span { color: {{ $emas }}; }
+        .kaki-slogan { font-size: 7px; color: {{ $langit }}; letter-spacing: 1.6px;
+                       text-transform: uppercase; padding-top: 2px; }
+        .kaki-kontak { font-size: 8px; color: {{ $langit }}; line-height: 1.6; }
+        .kaki-nomor { font-family: Courier, monospace; font-size: 9px; font-weight: bold;
+                      color: {{ $emas }}; letter-spacing: .6px; }
+        .kaki-sah { font-size: 6.5px; color: #6f9cbd; letter-spacing: .3px; padding-top: 3px; }
+        .kaki-nomor-label { font-size: 6.5px; color: #6f9cbd; letter-spacing: 1.6px;
+                            text-transform: uppercase; padding-bottom: 1px; }
     </style>
 </head>
 
@@ -331,7 +348,7 @@
                     {{-- Stempel dan tanda tangan ditumpuk: stempel jadi latar,
                          tanda tangan di atasnya — seperti dokumen yang dicap lalu
                          ditandatangani, bukan dua gambar berjajar. --}}
-                    <div style="position:relative;height:78px;margin-top:2px;">
+                    <div style="position:relative;height:70px;margin-top:2px;">
                         @if ($stempel)
                             <img src="{{ $stempel }}" width="74" height="74" alt=""
                                 style="position:absolute;top:0;left:50%;margin-left:-37px;opacity:.85;">
@@ -353,20 +370,46 @@
                 </td>
             </tr>
         </table>
-
-        <div class="kaki" style="margin-top:12px;padding-top:8px;border-top:1px solid #e9eff5;">
-            Berkas ini dibuat otomatis oleh sistem dan sah tanpa tanda tangan basah.
-        </div>
     </div>
 
-    {{-- Pita kaki dipasang mengambang supaya tetap menempel di dasar halaman,
-         berapa pun panjang daftar pesertanya. --}}
-    <table width="100%" cellpadding="0" cellspacing="0" class="pita-kaki">
-        <tr>
-            <td>ORCHA JOURNEY &middot; YOGYAKARTA</td>
-            <td align="right">{{ $kode }}</td>
-        </tr>
-    </table>
+    {{-- ============ PITA KAKI ============
+         Dipasang mengambang supaya tetap menempel di dasar halaman, berapa pun
+         panjang daftar pesertanya.
+
+         Isinya bukan sekadar hiasan: berkas begini sering dicetak lalu
+         berpindah tangan lepas dari surelnya, jadi kontak dan nomor berkasnya
+         harus ikut di lembar yang sama. Nomornya dicetak keemasan di kanan —
+         itu yang dicari orang lebih dulu saat berkasnya ditanyakan. --}}
+    <div class="kaki-luar">
+        <div class="kaki-emas"></div>
+
+        <table width="100%" cellpadding="0" cellspacing="0" class="pita-kaki">
+            <tr>
+                <td width="34" valign="middle">
+                    <img src="{{ $logo }}" width="26" height="26" alt="">
+                </td>
+
+                <td valign="middle" style="padding-left:9px;">
+                    <div class="kaki-merek">ORCHA <span>JOURNEY</span></div>
+                    <div class="kaki-slogan">Yogyakarta</div>
+                </td>
+
+                <td valign="middle" align="center" class="kaki-kontak">
+                    {{ config('orcha.email') }} &middot; +{{ config('orcha.whatsapp') }}
+                    &middot; {{ str_replace(['https://', 'http://'], '', config('app.url')) }}
+                    {{-- Keterangan keabsahan ikut di pita, bukan berdiri sendiri di
+                         badan berkas: kalimatnya baku dan berlaku untuk semua
+                         berkas, jadi tempatnya memang di kaki halaman. --}}
+                    <div class="kaki-sah">Dibuat otomatis oleh sistem &mdash; sah tanpa tanda tangan basah</div>
+                </td>
+
+                <td valign="middle" align="right">
+                    <div class="kaki-nomor-label">Nomor Berkas</div>
+                    <div class="kaki-nomor">{{ $kode }}</div>
+                </td>
+            </tr>
+        </table>
+    </div>
 </body>
 
 </html>
