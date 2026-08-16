@@ -289,7 +289,9 @@
             <div
                 class="flex flex-col items-center gap-2 pt-8 mt-12 text-xs text-center border-t border-white/10 text-slate-500 sm:flex-row sm:justify-between sm:text-left">
                 <p>&copy; {{ date('Y') }} Orcha Journey. Seluruh hak cipta dilindungi.</p>
-                <p>Yogyakarta · Indonesia</p>
+                {{-- Slogannya, bukan nama kota: kotanya sudah tersebut di blok
+                     alamat tepat di atas baris ini. --}}
+                <p>{{ config('orcha.slogan') }}</p>
             </div>
         </div>
     </footer>

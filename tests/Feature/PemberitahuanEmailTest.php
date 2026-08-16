@@ -274,7 +274,25 @@ test('berkas resmi memakai kerangka merek yang sama', function () {
     expect($html)->toContain('Nomor Berkas')
         ->and($html)->toContain('OT-1508-ABCD')
         ->and($html)->toContain(config('orcha.email'))
-        ->and($html)->toContain('sah tanpa tanda tangan basah');
+        ->and($html)->toContain('sah tanpa tanda tangan basah')
+        // Yang mendampingi nama merek adalah slogannya, bukan nama kota —
+        // kotanya sudah tersebut di alamat pada kop halaman
+        ->and($html)->toContain(config('orcha.slogan'))
+        ->and(substr_count($html, config('orcha.slogan')))->toBe(2);
+});
+
+test('slogan mendampingi nama merek di surat, bukan nama kota', function () {
+    $html = (new PemberitahuanFormulir('Uji', 'OT-0000-XXXX', ['Pemesan' => 'Siti']))->render();
+
+    expect($html)->toContain(config('orcha.slogan'))
+        ->and($html)->not->toContain('Orcha Journey · Yogyakarta');
+});
+
+test('kaki halaman publik memakai slogan', function () {
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee(config('orcha.slogan'))
+        ->assertDontSee('Yogyakarta · Indonesia');
 });
 
 test('tanda terima pembayaran tetap tanpa tabel biaya', function () {

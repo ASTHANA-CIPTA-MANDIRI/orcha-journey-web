@@ -61,7 +61,7 @@
                                             ORCHA <span style="color:{{ $emas }};">JOURNEY</span>
                                         </p>
                                         <p style="margin:3px 0 0;color:#a9c9de;font-size:11px;letter-spacing:2px;text-transform:uppercase;">
-                                            Teman Setia Perjalanan Anda
+                                            {{ config('orcha.slogan') }}
                                         </p>
                                     </td>
                                     <td valign="middle" align="right" style="white-space:nowrap;">
@@ -264,7 +264,7 @@
                         <td align="center"
                             style="padding:20px 32px 26px;background:#f7fafc;border-top:1px solid #eef2f7;">
                             <p style="margin:0;font-size:12px;color:{{ $navy }};font-weight:bold;">
-                                Orcha Journey · Yogyakarta
+                                Orcha Journey &middot; {{ config('orcha.slogan') }}
                             </p>
                             <p style="margin:6px 0 0;font-size:11px;color:#94a3b8;line-height:1.7;">
                                 {{ config('orcha.alamat') }}<br>

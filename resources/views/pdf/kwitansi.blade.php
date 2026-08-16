@@ -141,7 +141,7 @@
             </td>
             <td valign="middle">
                 <div class="merek">ORCHA <span>JOURNEY</span></div>
-                <div class="slogan">Teman Setia Perjalanan Anda</div>
+                <div class="slogan">{{ config('orcha.slogan') }}</div>
             </td>
             <td valign="middle" align="right" class="kontak">
                 {{ config('orcha.alamat') }}<br>
@@ -391,7 +391,10 @@
 
                 <td valign="middle" style="padding-left:9px;">
                     <div class="kaki-merek">ORCHA <span>JOURNEY</span></div>
-                    <div class="kaki-slogan">Yogyakarta</div>
+                    {{-- Slogannya, bukan nama kota: kotanya sudah tersebut di alamat
+                         pada kop, dan yang pantas mendampingi nama merek di kaki
+                         halaman adalah janji layanannya. --}}
+                    <div class="kaki-slogan">{{ config('orcha.slogan') }}</div>
                 </td>
 
                 <td valign="middle" align="center" class="kaki-kontak">
