@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\OpenTrip;
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\OpenTrip\PembayaranResource;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
+use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Support\StatusPendaftaran;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -49,9 +51,29 @@ class PembayaranController extends ApiController
             'ke' => $data['status'],
         ]);
 
+        // Satu kejadian, satu langkah: menyetujui bukti transfer sekaligus
+        // memajukan status pendaftarannya. Dijalankan di sini, bukan di lemon,
+        // supaya berlaku dari mana pun statusnya diubah.
+        $pesan = 'Status pembayaran diperbarui.';
+        $pesanan = $pembayaran->pesanan();
+
+        if ($pesanan instanceof PendaftaranOpenTrip) {
+            $statusBaru = StatusPendaftaran::selaraskan($pesanan);
+
+            if ($statusBaru) {
+                $label = config('orcha.status_pendaftaran')[$statusBaru] ?? $statusBaru;
+                $pesan .= " Status pendaftaran {$pesanan->kode} ikut menjadi {$label}.";
+
+                $this->catat($request, 'status pendaftaran menyesuaikan pembayaran', [
+                    'kode' => $pesanan->kode,
+                    'ke' => $statusBaru,
+                ]);
+            }
+        }
+
         return response()->json([
             'data' => (new PembayaranResource($pembayaran->fresh()))->resolve(),
-            'pesan' => 'Status pembayaran diperbarui.',
+            'pesan' => $pesan,
         ]);
     }
 }

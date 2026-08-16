@@ -92,6 +92,26 @@ return [
         'hamil' => 'Sedang hamil',
     ],
 
+    /*
+    | Kondisi yang benar-benar mengubah cara tim menangani peserta di lapangan:
+    | bisa kambuh mendadak, atau membatasi kegiatan berat dan air. Dipakai
+    | memilah mana peserta yang perlu perhatian khusus.
+    |
+    | Yang TIDAK masuk sini bukan berarti sepele — maag, asam urat, mabuk
+    | perjalanan, gangguan penglihatan dan pendengaran tetap dicatat dan tetap
+    | ditampilkan, hanya saja tidak menuntut kesiapan khusus sebelum berangkat.
+    | Kalau semuanya ditandai merah, penandanya berhenti berarti.
+    */
+    'kondisi_berisiko' => [
+        'jantung',
+        'epilepsi',
+        'asma',
+        'diabetes',
+        'hipertensi',
+        'vertigo',
+        'hamil',
+    ],
+
     'kemampuan_renang' => [
         'tidak_bisa' => 'Tidak bisa berenang',
         'sedikit' => 'Bisa sedikit',

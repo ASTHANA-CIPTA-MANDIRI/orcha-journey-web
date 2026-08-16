@@ -840,3 +840,121 @@ test('detail pendaftaran tanpa pembayaran tetap utuh bentuknya', function () {
         // Paket belum berharga → tagihannya tidak dikarang
         ->and($hasil['tagihan'])->toBe([]);
 });
+
+/* ------------- TINGKAT PERHATIAN & STATUS SEMI OTOMATIS ------------- */
+
+function buatKesehatan(string $kode, array $ubah = []): RiwayatKesehatan
+{
+    return RiwayatKesehatan::create(array_merge([
+        'kode_pendaftaran' => $kode,
+        'nama_peserta' => 'Budi Santoso',
+        'usia' => 30,
+        'jenis_kelamin' => 'Laki-laki',
+        'kemampuan_renang' => 'lancar',
+        'kontak_darurat_nama' => 'Siti',
+        'kontak_darurat_hp' => '081234567890',
+        'setuju_data_kesehatan' => true,
+    ], $ubah));
+}
+
+test('peserta tanpa keluhan apa pun ditandai aman', function () {
+    expect(buatKesehatan('OT-X')->tingkat_perhatian)->toBe('aman');
+});
+
+test('penyakit yang bisa kambuh menuntut perhatian tinggi', function () {
+    $riwayat = buatKesehatan('OT-X', ['kondisi_khusus' => ['jantung', 'maag']]);
+
+    expect($riwayat->tingkat_perhatian)->toBe('tinggi')
+        ->and($riwayat->alasan_perhatian)->toContain('Gangguan jantung')
+        // Maag tetap dicatat, tapi bukan yang menuntut kesiapan khusus
+        ->and($riwayat->alasan_catatan)->toContain('Maag / GERD');
+});
+
+test('obat rutin dan alergi juga menuntut perhatian tinggi', function () {
+    expect(buatKesehatan('OT-X', ['obat_rutin' => 'Salbutamol'])->tingkat_perhatian)->toBe('tinggi')
+        ->and(buatKesehatan('OT-Y', ['alergi' => 'Udang'])->tingkat_perhatian)->toBe('tinggi');
+});
+
+test('pantangan makanan saja tidak membuat peserta merah', function () {
+    // Inti pemisahannya: kalau semua ditandai merah, penandanya berhenti berarti
+    $riwayat = buatKesehatan('OT-X', ['pantangan_makanan' => 'Tidak suka pedas']);
+
+    expect($riwayat->tingkat_perhatian)->toBe('sedang')
+        ->and($riwayat->alasan_perhatian)->toBe([])
+        ->and($riwayat->alasan_catatan)->toContain('Pantangan makanan: Tidak suka pedas');
+});
+
+test('tidak bisa berenang dicatat, bukan diabaikan', function () {
+    expect(buatKesehatan('OT-X', ['kemampuan_renang' => 'tidak_bisa'])->alasan_catatan)
+        ->toContain('Tidak bisa berenang');
+});
+
+test('menyetujui pembayaran ikut memajukan status pendaftaran', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip', 'price' => 1430000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+    ]);
+    $pendaftaran = buatPendaftaran(['travel_package_id' => $paket->id]);   // 2 peserta = 2.860.000
+
+    $dp = KonfirmasiPembayaran::create([
+        'kode' => $pendaftaran->kode, 'jenis' => 'dp', 'nominal' => 858000,
+        'tanggal_transfer' => now()->toDateString(), 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Budi Santoso', 'status' => 'menunggu',
+    ]);
+
+    $this->patchJson("/api/v1/pembayaran/{$dp->id}/status", ['status' => 'diterima'], kirim())
+        ->assertOk()
+        ->assertJsonPath('pesan', fn ($pesan) => str_contains($pesan, 'DP Masuk'));
+
+    expect($pendaftaran->fresh()->status)->toBe('dp_masuk');
+
+    // Pelunasan membuatnya lunas
+    $lunas = KonfirmasiPembayaran::create([
+        'kode' => $pendaftaran->kode, 'jenis' => 'pelunasan', 'nominal' => 2002000,
+        'tanggal_transfer' => now()->toDateString(), 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Budi Santoso', 'status' => 'menunggu',
+    ]);
+
+    $this->patchJson("/api/v1/pembayaran/{$lunas->id}/status", ['status' => 'diterima'], kirim())->assertOk();
+
+    expect($pendaftaran->fresh()->status)->toBe('lunas');
+});
+
+test('bukti yang ditolak menarik kembali status pendaftarannya', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip', 'price' => 1430000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+    ]);
+    $pendaftaran = buatPendaftaran(['travel_package_id' => $paket->id, 'status' => 'dp_masuk']);
+
+    $bayar = KonfirmasiPembayaran::create([
+        'kode' => $pendaftaran->kode, 'jenis' => 'dp', 'nominal' => 858000,
+        'tanggal_transfer' => now()->toDateString(), 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Budi Santoso', 'status' => 'menunggu',
+    ]);
+
+    $this->patchJson("/api/v1/pembayaran/{$bayar->id}/status", ['status' => 'ditolak'], kirim())->assertOk();
+
+    // Tidak ada uang yang sah masuk, jadi statusnya tidak dimajukan sendiri
+    expect($pendaftaran->fresh()->status)->toBe('dp_masuk');
+});
+
+test('pesanan yang sudah dibatalkan tidak dihidupkan lagi oleh pembayaran', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip', 'price' => 1430000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+    ]);
+    $pendaftaran = buatPendaftaran(['travel_package_id' => $paket->id, 'status' => 'batal']);
+
+    $bayar = KonfirmasiPembayaran::create([
+        'kode' => $pendaftaran->kode, 'jenis' => 'dp', 'nominal' => 858000,
+        'tanggal_transfer' => now()->toDateString(), 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Budi', 'status' => 'menunggu',
+    ]);
+
+    $this->patchJson("/api/v1/pembayaran/{$bayar->id}/status", ['status' => 'diterima'], kirim())->assertOk();
+
+    // Pembatalan adalah keputusan manusia; uang yang masuk sesudahnya tidak
+    // boleh diam-diam menghidupkannya lagi
+    expect($pendaftaran->fresh()->status)->toBe('batal');
+});

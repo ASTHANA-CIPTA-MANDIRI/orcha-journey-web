@@ -118,6 +118,11 @@ class PendaftaranController extends ApiController
                 ],
                 'catatan_tambahan' => $riwayat->catatan_tambahan,
                 'ada_catatan_khusus' => $riwayat->ada_catatan_khusus,
+                // Bukan sekadar "ada catatan": tinggi menuntut kesiapan sebelum
+                // berangkat, sedang cukup diingat di lapangan.
+                'tingkat_perhatian' => $riwayat->tingkat_perhatian,
+                'alasan_perhatian' => $riwayat->alasan_perhatian,
+                'alasan_catatan' => $riwayat->alasan_catatan,
                 'dibuat_pada' => $riwayat->created_at?->toIso8601String(),
             ])->all(),
         ]);
