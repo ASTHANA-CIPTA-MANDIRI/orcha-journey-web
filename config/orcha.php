@@ -338,10 +338,10 @@ return [
          * bukan seberapa banyak yang kebetulan sudah dibayar.
          */
         'tangga' => [
-            ['batas' => 'Lebih dari 30 hari sebelum keberangkatan', 'kembali' => 'Seluruh pembayaran', 'potongan' => 'Tanpa potongan'],
-            ['batas' => '15 – 30 hari sebelum keberangkatan', 'kembali' => 'Pembayaran dikurangi potongan', 'potongan' => '25% dari total biaya'],
-            ['batas' => '8 – 14 hari sebelum keberangkatan', 'kembali' => 'Pembayaran dikurangi potongan', 'potongan' => '50% dari total biaya'],
-            ['batas' => 'Kurang dari 7 hari sebelum keberangkatan', 'kembali' => 'Tidak ada', 'potongan' => '100% dari total biaya'],
+            ['batas' => 'Lebih dari 30 hari sebelum keberangkatan', 'kembali' => 'Seluruh pembayaran', 'potongan' => 'Tanpa potongan', 'persen' => 0, 'jam_min' => 720],
+            ['batas' => '15 – 30 hari sebelum keberangkatan', 'kembali' => 'Pembayaran dikurangi potongan', 'potongan' => '25% dari total biaya', 'persen' => 25, 'jam_min' => 360],
+            ['batas' => '7 – 14 hari sebelum keberangkatan', 'kembali' => 'Pembayaran dikurangi potongan', 'potongan' => '50% dari total biaya', 'persen' => 50, 'jam_min' => 168],
+            ['batas' => 'Kurang dari 7 hari sebelum keberangkatan', 'kembali' => 'Tidak ada', 'potongan' => '100% dari total biaya', 'persen' => 100, 'jam_min' => 0],
         ],
 
         /*
@@ -359,11 +359,11 @@ return [
          * di muka lalu menghitung "H-30".
          */
         'tangga_sewa' => [
-            ['batas' => 'Lebih dari 7 hari sebelum mulai sewa', 'kembali' => 'Seluruh pembayaran', 'potongan' => 'Tanpa potongan'],
-            ['batas' => '3 – 7 hari sebelum mulai sewa', 'kembali' => 'Pembayaran dikurangi potongan', 'potongan' => '25% dari total biaya'],
-            ['batas' => '24 jam – 3 hari sebelum mulai sewa', 'kembali' => 'Pembayaran dikurangi potongan', 'potongan' => '50% dari total biaya'],
-            ['batas' => 'Kurang dari 24 jam sebelum mulai sewa', 'kembali' => 'Tidak ada', 'potongan' => '100% dari total biaya'],
-            ['batas' => 'Tidak datang tanpa kabar', 'kembali' => 'Tidak ada', 'potongan' => '100% dari total biaya'],
+            ['batas' => 'Lebih dari 7 hari sebelum mulai sewa', 'kembali' => 'Seluruh pembayaran', 'potongan' => 'Tanpa potongan', 'persen' => 0, 'jam_min' => 168],
+            ['batas' => '3 – 7 hari sebelum mulai sewa', 'kembali' => 'Pembayaran dikurangi potongan', 'potongan' => '25% dari total biaya', 'persen' => 25, 'jam_min' => 72],
+            ['batas' => '24 jam – 3 hari sebelum mulai sewa', 'kembali' => 'Pembayaran dikurangi potongan', 'potongan' => '50% dari total biaya', 'persen' => 50, 'jam_min' => 24],
+            ['batas' => 'Kurang dari 24 jam sebelum mulai sewa', 'kembali' => 'Tidak ada', 'potongan' => '100% dari total biaya', 'persen' => 100, 'jam_min' => 0],
+            ['batas' => 'Tidak datang tanpa kabar', 'kembali' => 'Tidak ada', 'potongan' => '100% dari total biaya', 'persen' => 100, 'jam_min' => null],
         ],
 
         /*

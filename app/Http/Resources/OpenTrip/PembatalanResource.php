@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\OpenTrip;
 
+use App\Support\PerkiraanPotongan;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -39,6 +40,15 @@ class PembatalanResource extends JsonResource
             'status' => $this->status,
             'status_label' => $this->status_label,
             'catatan_admin' => $this->catatan_admin,
+
+            // Perkiraan potongan menurut tangga yang berlaku. Dikirim supaya
+            // admin tidak menghitungnya ulang satu per satu — pertanyaan
+            // pertama pada tiap pengajuan selalu "kembalinya berapa".
+            //
+            // Tetap perkiraan: yang menetapkan tim, karena ada hal yang tidak
+            // diketahui sistem (biaya yang sudah terlanjur dibayarkan ke pihak
+            // ketiga, kesepakatan menjadwal ulang).
+            'perkiraan' => PerkiraanPotongan::untuk($this->pesanan()),
             'pendaftaran' => $this->whenLoaded('pendaftaran', fn () => [
                 'kode' => $this->pendaftaran?->kode,
                 'nama_paket' => $this->pendaftaran?->nama_paket,

@@ -240,6 +240,10 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
             'pesanan' => $pesanan,
             'sewa' => $sewa,
             'ringkas' => $ringkas,
+            // "Kalau saya batal sekarang, kembali berapa?" adalah pertanyaan
+            // pertama pada tiap pembatalan. Dijawab di layar ini, bukan sehari
+            // kemudian lewat WhatsApp.
+            'perkiraan' => \App\Support\PerkiraanPotongan::untuk($pesanan),
             'daftarAlasan' => config('orcha.alasan_pembatalan'),
             // Tangga yang ditampilkan mengikuti jenis pesanannya. Menampilkan
             // tangga open trip kepada penyewa kendaraan bukan sekadar keliru
@@ -345,6 +349,49 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
                                             ada yang sudah berganti.
                                         </p>
                                     </div>
+
+                                    {{-- Perkiraan pengembalian.
+
+                                         Angka ini yang dicari orang sebelum memutuskan, dan selama
+                                         ini baru diketahuinya sehari kemudian lewat WhatsApp. Disebut
+                                         perkiraan apa adanya: tim masih memeriksa hal yang tidak
+                                         diketahui sistem, misalnya biaya yang sudah terlanjur
+                                         dibayarkan ke pihak ketiga. --}}
+                                    @if ($perkiraan)
+                                        <div class="p-5 mt-3 border rounded-2xl border-orcha-foam">
+                                            <p class="text-xs font-bold tracking-wider uppercase text-slate-500">
+                                                Perkiraan bila dibatalkan hari ini
+                                            </p>
+
+                                            <div class="grid gap-4 mt-3 sm:grid-cols-3">
+                                                @foreach ([
+                                                    ['Sudah dibayar', $perkiraan['dibayar_teks'], 'text-orcha-navy'],
+                                                    ['Potongan (' . $perkiraan['persen'] . '%)', '− ' . $perkiraan['potongan_teks'], 'text-rose-600'],
+                                                    ['Perkiraan kembali', $perkiraan['kembali_teks'], 'text-emerald-700'],
+                                                ] as [$label, $nilai, $warna])
+                                                    <div>
+                                                        <dt class="text-xs text-slate-500">{{ $label }}</dt>
+                                                        <dd class="text-lg font-bold {{ $warna }}">{{ $nilai }}</dd>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+
+                                            <p class="mt-3 text-xs text-slate-500">
+                                                Dasarnya: <strong>{{ $perkiraan['batas'] }}</strong> —
+                                                potongan {{ $perkiraan['persen'] }}% dari total biaya
+                                                {{ $perkiraan['total_teks'] }}.
+                                                @if ($perkiraan['potongan'] >= $perkiraan['dibayar'] && $perkiraan['persen'] > 0)
+                                                    Potongan dibatasi sebesar pembayaran Anda; sisanya tidak ditagihkan.
+                                                @endif
+                                            </p>
+
+                                            <p class="mt-2 text-xs text-slate-500">
+                                                Angka ini perkiraan. Tim kami memeriksa dulu biaya yang sudah
+                                                terlanjur dikeluarkan, lalu mengirim perhitungan resminya untuk
+                                                Anda setujui.
+                                            </p>
+                                        </div>
+                                    @endif
                                 @elseif (filled($kode))
                                     <p class="mt-3 text-sm text-slate-500">Kode belum cocok. Periksa kembali huruf dan
                                         angkanya.</p>

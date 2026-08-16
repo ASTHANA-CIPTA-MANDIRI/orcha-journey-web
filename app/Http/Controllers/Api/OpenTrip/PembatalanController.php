@@ -12,7 +12,11 @@ class PembatalanController extends ApiController
 {
     public function index(Request $request): JsonResponse
     {
+        // Kedua jenis pesanan dimuat di muka. Perkiraan potongan pada tiap
+        // baris butuh pesanannya, dan tanpa ini satu halaman daftar akan
+        // menembak dua query per baris.
         $daftar = Pembatalan::query()
+            ->with(['pendaftaran.paket', 'penyewaan'])
             ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
                 fn ($sub) => $sub->where('nama_pemohon', 'like', "%{$cari}%")
                     ->orWhere('kode_pendaftaran', 'like', "%{$cari}%")
@@ -28,7 +32,7 @@ class PembatalanController extends ApiController
     public function show(Pembatalan $pembatalan): JsonResponse
     {
         return response()->json([
-            'data' => (new PembatalanResource($pembatalan->load('pendaftaran')))->resolve(),
+            'data' => (new PembatalanResource($pembatalan->load(['pendaftaran.paket', 'penyewaan'])))->resolve(),
         ]);
     }
 

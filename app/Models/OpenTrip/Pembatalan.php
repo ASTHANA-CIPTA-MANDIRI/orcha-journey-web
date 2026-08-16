@@ -53,7 +53,12 @@ class Pembatalan extends Model
      */
     public function pesanan(): PendaftaranOpenTrip|PenyewaanKendaraan|null
     {
-        return self::milik($this->kode_pendaftaran);
+        // Lewat relasi, bukan query baru: daftar pembatalan memuat banyak baris
+        // sekaligus, dan controller-nya bisa memuat keduanya di muka dengan
+        // with() — dua query untuk seluruh halaman, bukan dua per baris.
+        return str_starts_with((string) $this->kode_pendaftaran, 'SK-')
+            ? $this->penyewaan
+            : $this->pendaftaran;
     }
 
     /** Mencari pesanan dari kodenya saja, tanpa perlu ada baris pembatalan. */
