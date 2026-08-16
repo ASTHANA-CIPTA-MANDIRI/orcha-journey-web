@@ -323,11 +323,25 @@ return [
     */
     'pengembalian' => [
         'proses_hari_kerja' => 14,
+        /*
+         * Potongan dihitung dari TOTAL BIAYA, bukan dari uang muka.
+         *
+         * Sebelumnya semua dihitung dari uang muka, dan sisa pembayaran di
+         * luar itu selalu dikembalikan penuh. Akibatnya pelanggan yang
+         * melunasi di awal lalu membatalkan H-3 hanya kehilangan uang mukanya
+         * — 30% — padahal pada hari itu biaya kami sudah keluar hampir
+         * seluruhnya: kursi, kamar, tiket masuk, tim. Selisihnya kami yang
+         * menanggung, dan justru pelanggan yang membayar paling awal yang
+         * paling terlindungi. Itu terbalik.
+         *
+         * Dihitung dari total, waktu pembatalan yang menentukan potongannya —
+         * bukan seberapa banyak yang kebetulan sudah dibayar.
+         */
         'tangga' => [
-            ['batas' => 'Lebih dari 30 hari sebelum keberangkatan', 'kembali' => '100% dari DP', 'potongan' => 'Tanpa potongan'],
-            ['batas' => '15 – 30 hari sebelum keberangkatan', 'kembali' => '50% dari DP', 'potongan' => '50% dari DP'],
-            ['batas' => '8 – 14 hari sebelum keberangkatan', 'kembali' => '25% dari DP', 'potongan' => '75% dari DP'],
-            ['batas' => 'Kurang dari 7 hari sebelum keberangkatan', 'kembali' => 'Tidak ada', 'potongan' => '100% dari DP'],
+            ['batas' => 'Lebih dari 30 hari sebelum keberangkatan', 'kembali' => 'Seluruh pembayaran', 'potongan' => 'Tanpa potongan'],
+            ['batas' => '15 – 30 hari sebelum keberangkatan', 'kembali' => 'Pembayaran dikurangi potongan', 'potongan' => '25% dari total biaya'],
+            ['batas' => '8 – 14 hari sebelum keberangkatan', 'kembali' => 'Pembayaran dikurangi potongan', 'potongan' => '50% dari total biaya'],
+            ['batas' => 'Kurang dari 7 hari sebelum keberangkatan', 'kembali' => 'Tidak ada', 'potongan' => '100% dari total biaya'],
         ],
 
         /*
@@ -345,11 +359,27 @@ return [
          * di muka lalu menghitung "H-30".
          */
         'tangga_sewa' => [
-            ['batas' => 'Lebih dari 7 hari sebelum mulai sewa', 'kembali' => '100% dari DP', 'potongan' => 'Tanpa potongan'],
-            ['batas' => '3 – 7 hari sebelum mulai sewa', 'kembali' => '75% dari DP', 'potongan' => '25% dari DP'],
-            ['batas' => '24 jam – 3 hari sebelum mulai sewa', 'kembali' => '50% dari DP', 'potongan' => '50% dari DP'],
-            ['batas' => 'Kurang dari 24 jam sebelum mulai sewa', 'kembali' => 'Tidak ada', 'potongan' => '100% dari DP'],
-            ['batas' => 'Tidak datang tanpa kabar', 'kembali' => 'Tidak ada', 'potongan' => '100% dari DP'],
+            ['batas' => 'Lebih dari 7 hari sebelum mulai sewa', 'kembali' => 'Seluruh pembayaran', 'potongan' => 'Tanpa potongan'],
+            ['batas' => '3 – 7 hari sebelum mulai sewa', 'kembali' => 'Pembayaran dikurangi potongan', 'potongan' => '25% dari total biaya'],
+            ['batas' => '24 jam – 3 hari sebelum mulai sewa', 'kembali' => 'Pembayaran dikurangi potongan', 'potongan' => '50% dari total biaya'],
+            ['batas' => 'Kurang dari 24 jam sebelum mulai sewa', 'kembali' => 'Tidak ada', 'potongan' => '100% dari total biaya'],
+            ['batas' => 'Tidak datang tanpa kabar', 'kembali' => 'Tidak ada', 'potongan' => '100% dari total biaya'],
+        ],
+
+        /*
+         * Dua aturan yang mengikat kedua tangga di atas.
+         *
+         * Yang kedua penting untuk dua arah sekaligus: pelanggan yang baru
+         * membayar uang muka tidak tiba-tiba berutang saat membatalkan di
+         * menit akhir, dan kami tidak perlu menagih orang yang sudah batal —
+         * pekerjaan yang hampir tidak pernah sepadan hasilnya.
+         */
+        'aturan_dasar' => [
+            'Potongan dihitung dari total biaya pemesanan, bukan dari uang muka. '
+                .'Melunasi lebih awal tidak menghapus potongan; yang menentukan besarnya '
+                .'adalah kapan pembatalan diajukan.',
+            'Potongan tidak pernah melebihi jumlah yang sudah Anda bayarkan. '
+                .'Bila potongannya lebih besar dari pembayaran Anda, sisanya tidak ditagihkan.',
         ],
 
         /*
@@ -361,8 +391,9 @@ return [
         'catatan_sewa' => [
             'Sewa dengan sopir yang dibatalkan kurang dari 24 jam sebelum pengambilan dikenakan '
                 .'biaya sopir satu hari sesuai tarif yang berlaku, di luar potongan pada tabel.',
-            'Pembayaran di luar uang muka — bila Anda sudah melunasi — dikembalikan penuh, '
-                .'berapa pun jarak pembatalannya.',
+            'Unit yang sudah dilunasi tetap dikenakan potongan sesuai tabel. Melunasi lebih '
+                .'awal mengunci jadwalnya, dan jadwal yang terkunci itulah yang hilang saat '
+                .'pembatalan mendadak.',
             'Bila pembatalan datang dari pihak kami (unit rusak dan tidak ada penggantinya), '
                 .'seluruh pembayaran dikembalikan penuh tanpa potongan apa pun.',
         ],

@@ -248,6 +248,10 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
             'tanggaPengembalian' => $sewa
                 ? config('orcha.pengembalian.tangga_sewa')
                 : config('orcha.pengembalian.tangga'),
+            // Dua aturan pengikatnya tampil untuk kedua jenis pesanan. Yang
+            // paling perlu dibaca justru pelanggan yang sudah melunasi: sejak
+            // aturan ini, melunasi lebih awal tidak lagi menghapus potongan.
+            'aturanDasar' => config('orcha.pengembalian.aturan_dasar', []),
             'catatanSewa' => $sewa ? config('orcha.pengembalian.catatan_sewa', []) : [],
             'prosesHari' => config('orcha.pengembalian.proses_hari_kerja'),
         ];
@@ -504,15 +508,35 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
                         <div class="p-6 card-orcha sm:p-7">
                             <h2 class="text-lg font-bold font-heading text-orcha-navy">Besaran pengembalian</h2>
                             <div class="mt-4 space-y-3">
+                                {{-- Yang ditebalkan adalah POTONGANNYA, bukan kalimat
+                                     "pembayaran dikurangi potongan". Angka itu yang dicari
+                                     mata orang yang sedang menimbang batal atau tidak;
+                                     kalimatnya sendiri tidak memberi tahu apa-apa. --}}
                                 @foreach ($tanggaPengembalian as $baris)
                                     <div class="p-3 rounded-2xl bg-orcha-foam/60">
                                         <p class="text-xs text-slate-500">{{ $baris['batas'] }}</p>
-                                        <p class="text-sm font-bold text-orcha-navy">{{ $baris['kembali'] }}</p>
+                                        <p class="text-sm font-bold text-orcha-navy">
+                                            Potongan {{ strtolower($baris['potongan']) }}
+                                        </p>
+                                        <p class="text-xs text-slate-500">Kembali: {{ $baris['kembali'] }}</p>
                                     </div>
                                 @endforeach
                             </div>
+                            {{-- Dua aturan pengikatnya ikut tampil di sini, bukan hanya di
+                                 halaman kebijakan. Orang membuat keputusan membatalkan di
+                                 layar ini, dan yang paling perlu membacanya adalah
+                                 pelanggan yang sudah melunasi. --}}
+                            <ul class="mt-4 space-y-2 text-xs text-slate-600">
+                                @foreach ($aturanDasar as $aturan)
+                                    <li class="flex gap-2">
+                                        <span class="font-bold text-orcha-ocean">•</span>
+                                        <span>{{ $aturan }}</span>
+                                    </li>
+                                @endforeach
+                            </ul>
+
                             @if ($catatanSewa)
-                                <ul class="mt-4 space-y-2 text-xs text-slate-500">
+                                <ul class="mt-3 space-y-2 text-xs text-slate-500">
                                     @foreach ($catatanSewa as $catatan)
                                         <li class="flex gap-2">
                                             <span class="text-orcha-ocean">•</span>

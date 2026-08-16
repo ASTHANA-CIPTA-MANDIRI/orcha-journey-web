@@ -124,7 +124,7 @@ test('tangga pengembalian yang tampil mengikuti jenis pesanannya', function () {
     Volt::test('public.open-trip.pembatalan')
         ->set('kode', $sewa->kode)
         ->assertSee('Lebih dari 7 hari sebelum mulai sewa')
-        ->assertSee('75% dari DP')
+        ->assertSee('25% dari total biaya')
         ->assertSee('Tidak datang tanpa kabar')
         ->assertDontSee('30 hari sebelum keberangkatan')
         // Aturan khas sewa yang tidak muat di tabel ikut tampil
@@ -142,10 +142,36 @@ test('halaman kebijakan memuat tangga sewa dari sumber yang sama', function () {
         ->assertOk()
         ->assertSee('Pembatalan Sewa Kendaraan')
         ->assertSee('24 jam – 3 hari sebelum mulai sewa')
-        ->assertSee('75% dari DP')
+        ->assertSee('25% dari total biaya')
         ->assertSee('seluruh pembayaran dikembalikan penuh tanpa potongan apa pun')
         // Aturan lama yang diketik langsung di halaman sudah tidak ada lagi
         ->assertDontSee('uang muka kembali 50%');
+});
+
+test('pelunasan lebih awal tidak lagi menghapus potongan pembatalan', function () {
+    // Dulu potongan dihitung dari uang muka dan sisanya selalu dikembalikan
+    // penuh. Pelanggan yang melunasi di awal lalu batal H-3 hanya kehilangan
+    // 30% — padahal pada hari itu biaya Orcha sudah keluar hampir seluruhnya.
+    // Yang membayar paling awal justru paling terlindungi; itu terbalik.
+    $halaman = $this->get(route('kebijakan-pengembalian'))->assertOk();
+
+    $halaman->assertSee('Potongan dihitung dari')
+        ->assertSee('total biaya pemesanan')
+        ->assertSee('100% dari total biaya')
+        // Batas yang menjaga arah sebaliknya: yang baru bayar DP tidak
+        // tiba-tiba berutang saat membatalkan di menit akhir.
+        ->assertSee('tidak pernah melebihi jumlah yang sudah Anda bayarkan')
+        // Kalimat lama yang justru menjadi sebab kerugiannya sudah hilang
+        ->assertDontSee('sisa pembayaran di luar uang muka dikembalikan penuh');
+});
+
+test('aturan potongan ikut tampil di formulir pembatalan', function () {
+    // Keputusan membatalkan diambil di layar formulir, bukan di halaman
+    // kebijakan yang jarang dibuka.
+    Volt::test('public.open-trip.pembatalan')
+        ->set('kode', $this->pendaftaran->kode)
+        ->assertSee('Melunasi lebih awal tidak menghapus potongan')
+        ->assertSee('tidak pernah melebihi jumlah yang sudah Anda bayarkan');
 });
 
 test('isian pemohon terisi sendiri dari pesanan yang ditemukan', function () {

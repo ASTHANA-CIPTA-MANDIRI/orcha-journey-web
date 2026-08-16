@@ -28,15 +28,24 @@ new #[Layout('components.layouts.guest')] #[Title('Kebijakan Pembatalan & Pengem
             ->map(fn ($c) => "<li>{$c}</li>")
             ->implode('');
 
+        // Dua aturan yang mengikat kedua tangga. Ditulis sekali di config lalu
+        // dipakai halaman ini dan formulir pembatalan — aturan uang tidak
+        // boleh punya dua salinan yang bisa berbeda.
+        $aturanDasar = collect(config('orcha.pengembalian.aturan_dasar', []))
+            ->map(fn ($a) => "<li>{$a}</li>")
+            ->implode('');
+
         return [
             'sections' => [
                 [
                     'slug' => 'dasar',
                     'judul' => '1. Dasar Kebijakan',
-                    'isi' => '
+                    'isi' => "
                         <p>Begitu pemesanan dikunci, Orcha Journey langsung mengeluarkan biaya di muka: uang muka armada, pemesanan akomodasi, tiket masuk rombongan, dan penjadwalan tim. Karena itu pembatalan yang semakin dekat dengan tanggal keberangkatan menanggung potongan yang semakin besar.</p>
-                        <p>Seluruh perhitungan pengembalian dihitung dari <strong>uang muka</strong>, bukan dari total biaya, kecuali pemesanan sudah dilunasi. Bila sudah lunas, sisa pembayaran di luar uang muka dikembalikan penuh.</p>
-                    ',
+                        <p>Potongan dihitung dari <strong>total biaya pemesanan</strong>, bukan dari uang muka. Yang dikembalikan adalah pembayaran Anda dikurangi potongan itu.</p>
+                        <ul>{$aturanDasar}</ul>
+                        <p>Contoh: pemesanan Rp 2.000.000 yang sudah dilunasi lalu dibatalkan 3 hari sebelum berangkat menanggung potongan 100% — tidak ada pengembalian. Pemesanan yang sama, dibatalkan 20 hari sebelum berangkat, menanggung potongan 25% (Rp 500.000) dan mengembalikan Rp 1.500.000.</p>
+                    ",
                 ],
                 [
                     'slug' => 'tangga-pengembalian',
