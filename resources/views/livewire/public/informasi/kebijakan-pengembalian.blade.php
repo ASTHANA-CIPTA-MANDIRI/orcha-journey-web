@@ -12,8 +12,20 @@ new #[Layout('components.layouts.guest')] #[Title('Kebijakan Pembatalan & Pengem
         $atasNama = config('orcha.pembayaran.atas_nama');
         $pelunasan = config('orcha.pembayaran.pelunasan_hari_sebelum');
 
-        $barisTangga = collect($tangga)
+        $baris = fn (array $tangga) => collect($tangga)
             ->map(fn ($b) => "<tr><td>{$b['batas']}</td><td><strong>{$b['kembali']}</strong></td><td>{$b['potongan']}</td></tr>")
+            ->implode('');
+
+        $barisTangga = $baris($tangga);
+
+        // Aturan sewa dibaca dari config yang sama dengan yang dipakai formulir
+        // pembatalan. Sebelumnya angkanya diketik langsung di halaman ini, dan
+        // dua tempat yang mengeja aturan yang sama akan berbeda cepat atau
+        // lambat — biasanya diketahui setelah ada pelanggan yang membacanya.
+        $barisTanggaSewa = $baris(config('orcha.pengembalian.tangga_sewa', []));
+
+        $catatanSewa = collect(config('orcha.pengembalian.catatan_sewa', []))
+            ->map(fn ($c) => "<li>{$c}</li>")
             ->implode('');
 
         return [
@@ -101,14 +113,21 @@ new #[Layout('components.layouts.guest')] #[Title('Kebijakan Pembatalan & Pengem
                 [
                     'slug' => 'sewa-kendaraan',
                     'judul' => '8. Pembatalan Sewa Kendaraan',
-                    'isi' => '
-                        <ul>
-                            <li>Pembatalan lebih dari 7 hari sebelum tanggal pakai: uang muka kembali penuh.</li>
-                            <li>Pembatalan 3–7 hari sebelum tanggal pakai: uang muka kembali 50%.</li>
-                            <li>Pembatalan kurang dari 3 hari sebelum tanggal pakai: uang muka tidak dikembalikan.</li>
-                            <li>Bila unit tidak dapat kami sediakan, kami mengganti dengan unit setara atau mengembalikan dana 100%.</li>
+                    'isi' => "
+                        <p>Sewa kendaraan memakai tangga tersendiri, dan sengaja lebih longgar daripada
+                        open trip. Kursi trip yang batal beberapa hari sebelum berangkat hampir mustahil
+                        terjual lagi, sedangkan unit kendaraan yang batal hari ini masih mungkin tersewa
+                        besok. Jaraknya dihitung ke <strong>waktu mulai sewa</strong>, bukan tanggal
+                        keberangkatan rombongan.</p>
+                        <div class=\"table-wrap\"><table class=\"table-orcha\">
+                            <thead><tr><th>Waktu Pembatalan</th><th>Dana Kembali</th><th>Potongan</th></tr></thead>
+                            <tbody>{$barisTanggaSewa}</tbody>
+                        </table></div>
+                        <ul>{$catatanSewa}
+                            <li>Bila unit tidak dapat kami sediakan, kami mengganti dengan unit setara
+                            atau mengembalikan dana 100%.</li>
                         </ul>
-                    ',
+                    ",
                 ],
             ],
         ];

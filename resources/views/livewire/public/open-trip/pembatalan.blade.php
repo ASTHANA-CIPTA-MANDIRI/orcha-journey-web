@@ -241,7 +241,14 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
             'sewa' => $sewa,
             'ringkas' => $ringkas,
             'daftarAlasan' => config('orcha.alasan_pembatalan'),
-            'tanggaPengembalian' => config('orcha.pengembalian.tangga'),
+            // Tangga yang ditampilkan mengikuti jenis pesanannya. Menampilkan
+            // tangga open trip kepada penyewa kendaraan bukan sekadar keliru
+            // di layar — orang membuat keputusan membatalkan berdasarkan angka
+            // yang ia baca di sini.
+            'tanggaPengembalian' => $sewa
+                ? config('orcha.pengembalian.tangga_sewa')
+                : config('orcha.pengembalian.tangga'),
+            'catatanSewa' => $sewa ? config('orcha.pengembalian.catatan_sewa', []) : [],
             'prosesHari' => config('orcha.pengembalian.proses_hari_kerja'),
         ];
     }
@@ -504,9 +511,20 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
                                     </div>
                                 @endforeach
                             </div>
+                            @if ($catatanSewa)
+                                <ul class="mt-4 space-y-2 text-xs text-slate-500">
+                                    @foreach ($catatanSewa as $catatan)
+                                        <li class="flex gap-2">
+                                            <span class="text-orcha-ocean">•</span>
+                                            <span>{{ $catatan }}</span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
+
                             <p class="mt-4 text-xs text-slate-500">
                                 Dihitung dari tanggal pengajuan diterima, bukan tanggal pengajuan lisan.
-                                Untuk sewa kendaraan, jaraknya dihitung ke tanggal mulai sewa.
+                                {{ $sewa ? 'Jaraknya dihitung ke waktu mulai sewa.' : '' }}
                             </p>
                         </div>
 

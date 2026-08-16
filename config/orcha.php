@@ -329,6 +329,43 @@ return [
             ['batas' => '8 – 14 hari sebelum keberangkatan', 'kembali' => '25% dari DP', 'potongan' => '75% dari DP'],
             ['batas' => 'Kurang dari 7 hari sebelum keberangkatan', 'kembali' => 'Tidak ada', 'potongan' => '100% dari DP'],
         ],
+
+        /*
+         * Sewa kendaraan punya tangganya sendiri, dan sengaja lebih longgar.
+         *
+         * Kursi open trip yang batal H-5 hampir mustahil dijual lagi, dan
+         * biayanya sudah keluar: hotel, kursi bus, guide — semuanya per kepala
+         * dan dipesan jauh hari. Unit kendaraan tidak begitu; mobil yang batal
+         * hari ini masih bisa disewakan besok, kadang hari itu juga. Menahan
+         * seluruh uang muka untuk pembatalan H-5 sulit dipertanggungjawabkan
+         * kalau unitnya ternyata tetap tersewa.
+         *
+         * Satuannya pun berbeda: penyewa berpikir dalam hari dan jam menjelang
+         * pengambilan, bukan dalam minggu. Tidak ada yang memesan mobil 30 hari
+         * di muka lalu menghitung "H-30".
+         */
+        'tangga_sewa' => [
+            ['batas' => 'Lebih dari 7 hari sebelum mulai sewa', 'kembali' => '100% dari DP', 'potongan' => 'Tanpa potongan'],
+            ['batas' => '3 – 7 hari sebelum mulai sewa', 'kembali' => '75% dari DP', 'potongan' => '25% dari DP'],
+            ['batas' => '24 jam – 3 hari sebelum mulai sewa', 'kembali' => '50% dari DP', 'potongan' => '50% dari DP'],
+            ['batas' => 'Kurang dari 24 jam sebelum mulai sewa', 'kembali' => 'Tidak ada', 'potongan' => '100% dari DP'],
+            ['batas' => 'Tidak datang tanpa kabar', 'kembali' => 'Tidak ada', 'potongan' => '100% dari DP'],
+        ],
+
+        /*
+         * Tiga hal yang khas sewa dan tidak muat di dalam tabel.
+         *
+         * Yang ketiga paling sering terlupakan di kebijakan mana pun, dan
+         * paling merusak kepercayaan bila tidak tertulis.
+         */
+        'catatan_sewa' => [
+            'Sewa dengan sopir yang dibatalkan kurang dari 24 jam sebelum pengambilan dikenakan '
+                .'biaya sopir satu hari sesuai tarif yang berlaku, di luar potongan pada tabel.',
+            'Pembayaran di luar uang muka — bila Anda sudah melunasi — dikembalikan penuh, '
+                .'berapa pun jarak pembatalannya.',
+            'Bila pembatalan datang dari pihak kami (unit rusak dan tidak ada penggantinya), '
+                .'seluruh pembayaran dikembalikan penuh tanpa potongan apa pun.',
+        ],
     ],
 
     /*

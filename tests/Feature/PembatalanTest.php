@@ -104,6 +104,50 @@ test('sewa kendaraan juga bisa diajukan pembatalannya', function () {
         ->and($pembatalan->jumlah_dibatalkan)->toBe(1);
 });
 
+test('tangga pengembalian yang tampil mengikuti jenis pesanannya', function () {
+    $mobil = Car::create([
+        'name' => 'Avanza Uji', 'brand' => 'Toyota', 'type' => 'mobil',
+        'transmission' => 'Matic', 'capacity' => 7, 'price_per_day' => 500000,
+        'is_available' => true, 'transmisi_tersedia' => ['Matic'],
+    ]);
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => 'Avanza Uji', 'nama' => 'Rina Wijaya',
+        'whatsapp' => '081298765432', 'transmisi' => 'Matic', 'satuan' => 'hari', 'durasi' => 2,
+        'tanggal_mulai' => now()->addWeeks(2)->toDateString(), 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 1000000, 'status' => 'dp_masuk',
+    ]);
+
+    // Orang membuat keputusan membatalkan berdasarkan angka yang ia baca di
+    // sini. Menampilkan tangga open trip kepada penyewa kendaraan bukan
+    // sekadar keliru di layar — ia menyesatkan keputusan uang.
+    Volt::test('public.open-trip.pembatalan')
+        ->set('kode', $sewa->kode)
+        ->assertSee('Lebih dari 7 hari sebelum mulai sewa')
+        ->assertSee('75% dari DP')
+        ->assertSee('Tidak datang tanpa kabar')
+        ->assertDontSee('30 hari sebelum keberangkatan')
+        // Aturan khas sewa yang tidak muat di tabel ikut tampil
+        ->assertSee('biaya sopir satu hari');
+
+    Volt::test('public.open-trip.pembatalan')
+        ->set('kode', $this->pendaftaran->kode)
+        ->assertSee('Lebih dari 30 hari sebelum keberangkatan')
+        ->assertDontSee('sebelum mulai sewa');
+});
+
+test('halaman kebijakan memuat tangga sewa dari sumber yang sama', function () {
+    // Dua tempat yang mengeja aturan yang sama akan berbeda cepat atau lambat.
+    $this->get(route('kebijakan-pengembalian'))
+        ->assertOk()
+        ->assertSee('Pembatalan Sewa Kendaraan')
+        ->assertSee('24 jam – 3 hari sebelum mulai sewa')
+        ->assertSee('75% dari DP')
+        ->assertSee('seluruh pembayaran dikembalikan penuh tanpa potongan apa pun')
+        // Aturan lama yang diketik langsung di halaman sudah tidak ada lagi
+        ->assertDontSee('uang muka kembali 50%');
+});
+
 test('isian pemohon terisi sendiri dari pesanan yang ditemukan', function () {
     // Orang yang sedang membatalkan biasanya terburu-buru; mengetik ulang
     // nama dan nomor yang sudah ada di pesanannya hanya menambah salah ketik,
