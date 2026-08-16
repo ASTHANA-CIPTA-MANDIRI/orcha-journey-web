@@ -80,6 +80,7 @@ class MetaController extends ApiController
                 // kedua sisi, kalau tidak perbandingannya tidak berarti.
                 'pemeriksaan_kendaraan' => config('orcha.pemeriksaan_kendaraan'),
                 'kondisi_pemeriksaan' => config('orcha.kondisi_pemeriksaan'),
+                'biaya_kerusakan' => config('orcha.biaya_kerusakan'),
                 'denda_sewa' => config('orcha.denda_sewa'),
             ],
         ]);

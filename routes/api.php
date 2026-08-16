@@ -57,6 +57,7 @@ Route::prefix('v1')
         Route::get('/penyewaan/{penyewaan}', [PenyewaanController::class, 'show']);
         Route::patch('/penyewaan/{penyewaan}/status', [PenyewaanController::class, 'ubahStatus']);
         Route::patch('/penyewaan/{penyewaan}/serah-terima', [PenyewaanController::class, 'serahTerima']);
+        Route::get('/penyewaan/{penyewaan}/kwitansi', [PenyewaanController::class, 'kwitansi']);
 
         Route::get('/kendaraan', [KendaraanController::class, 'index']);
         Route::get('/kendaraan/{kendaraan}', [KendaraanController::class, 'show']);

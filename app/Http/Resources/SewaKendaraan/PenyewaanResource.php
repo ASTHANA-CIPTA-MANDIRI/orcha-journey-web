@@ -40,6 +40,8 @@ class PenyewaanResource extends JsonResource
             'terlambat' => $this->terlambat,
             'terlambat_menit' => $this->terlambat_menit,
             'denda_keterlambatan_usulan' => $this->denda_keterlambatan_usulan,
+            'denda_kerusakan_usulan' => $this->denda_kerusakan_usulan,
+            'rincian_denda_kerusakan' => $this->rincian_denda_kerusakan,
 
             // Serah terima
             'diserahkan_pada' => $this->diserahkan_pada?->toIso8601String(),

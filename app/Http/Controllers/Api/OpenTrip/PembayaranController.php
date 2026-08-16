@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\OpenTrip\PembayaranResource;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Support\KabarPembayaran;
 use App\Support\StatusPendaftaran;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -56,19 +57,27 @@ class PembayaranController extends ApiController
         // supaya berlaku dari mana pun statusnya diubah.
         $pesan = 'Status pembayaran diperbarui.';
         $pesanan = $pembayaran->pesanan();
+        $statusBaru = StatusPendaftaran::selaraskan($pesanan);
 
-        if ($pesanan instanceof PendaftaranOpenTrip) {
-            $statusBaru = StatusPendaftaran::selaraskan($pesanan);
+        if ($statusBaru) {
+            $rujukan = $pesanan instanceof PendaftaranOpenTrip
+                ? config('orcha.status_pendaftaran')
+                : config('orcha.status_penyewaan');
 
-            if ($statusBaru) {
-                $label = config('orcha.status_pendaftaran')[$statusBaru] ?? $statusBaru;
-                $pesan .= " Status pendaftaran {$pesanan->kode} ikut menjadi {$label}.";
+            $label = $rujukan[$statusBaru] ?? $statusBaru;
+            $pesan .= " Status pesanan {$pesanan->kode} ikut menjadi {$label}.";
 
-                $this->catat($request, 'status pendaftaran menyesuaikan pembayaran', [
-                    'kode' => $pesanan->kode,
-                    'ke' => $statusBaru,
-                ]);
-            }
+            $this->catat($request, 'status pesanan menyesuaikan pembayaran', [
+                'kode' => $pesanan->kode,
+                'ke' => $statusBaru,
+            ]);
+        }
+
+        // Pelanggan diberi tahu begitu pembayarannya diperiksa. Sebelumnya ia
+        // hanya diberi tahu saat MENGIRIM bukti, lalu menunggu tanpa kabar —
+        // dan yang paling sering ditanyakan lewat WhatsApp justru ini.
+        if ($sebelum !== $data['status']) {
+            KabarPembayaran::kirim($pembayaran->fresh(), $pesanan);
         }
 
         return response()->json([

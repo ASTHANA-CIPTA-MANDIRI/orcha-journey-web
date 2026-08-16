@@ -1007,3 +1007,82 @@ test('pesanan sewa yang dibatalkan tidak ikut ditutup jadi selesai', function ()
 
     expect($sewa->fresh()->status)->toBe('batal');
 });
+
+test('status pembayaran yang diubah mengabari pelanggan', function () {
+    Illuminate\Support\Facades\Mail::fake();
+    config()->set('orcha.email_pemberitahuan', 'halo@orchajourney.com');
+
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip', 'price' => 1430000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+    ]);
+    $pendaftaran = buatPendaftaran(['travel_package_id' => $paket->id, 'email' => 'siti@contoh.test']);
+
+    $bayar = KonfirmasiPembayaran::create([
+        'kode' => $pendaftaran->kode, 'jenis' => 'dp', 'nominal' => 858000,
+        'tanggal_transfer' => now()->toDateString(), 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Siti', 'status' => 'menunggu',
+    ]);
+
+    $this->patchJson("/api/v1/pembayaran/{$bayar->id}/status", ['status' => 'diterima'], kirim())->assertOk();
+
+    Illuminate\Support\Facades\Mail::assertSent(App\Mail\PemberitahuanFormulir::class, function ($surat) {
+        if (! $surat->untukPelanggan) {
+            return false;
+        }
+
+        $isi = $surat->render();
+
+        return $surat->hasTo('siti@contoh.test')
+            && $surat->judul === 'Pembayaran Anda Sudah Diterima'
+            // Sisa yang perlu dilunasi ikut disebut, bukan cuma "diterima"
+            && str_contains($isi, 'Rp 2.002.000');
+    });
+});
+
+test('bukti yang ditolak mengabari pelanggan dengan alasannya', function () {
+    Illuminate\Support\Facades\Mail::fake();
+    config()->set('orcha.email_pemberitahuan', 'halo@orchajourney.com');
+
+    $pendaftaran = buatPendaftaran(['email' => 'siti@contoh.test']);
+
+    $bayar = KonfirmasiPembayaran::create([
+        'kode' => $pendaftaran->kode, 'jenis' => 'dp', 'nominal' => 500000,
+        'tanggal_transfer' => now()->toDateString(), 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Siti', 'status' => 'menunggu',
+    ]);
+
+    $this->patchJson("/api/v1/pembayaran/{$bayar->id}/status", [
+        'status' => 'ditolak', 'catatan_admin' => 'Nominal tidak cocok dengan mutasi.',
+    ], kirim())->assertOk();
+
+    Illuminate\Support\Facades\Mail::assertSent(App\Mail\PemberitahuanFormulir::class, function ($surat) {
+        if (! $surat->untukPelanggan) {
+            return false;
+        }
+
+        return $surat->judul === 'Bukti Pembayaran Perlu Diperiksa Ulang'
+            // Alasannya disebut, dan uang yang sudah berpindah tidak diabaikan
+            && str_contains($surat->langkah ?? $surat->catatan, 'Nominal tidak cocok');
+    });
+});
+
+test('status pesanan hanya maju oleh pembayaran yang sudah diterima', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip', 'price' => 1430000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+    ]);
+    $pendaftaran = buatPendaftaran(['travel_package_id' => $paket->id]);
+
+    // Bukti yang baru dikirim dan belum dicek TIDAK memajukan status —
+    // kalau tidak, siapa pun bisa memajukan statusnya sendiri dengan
+    // mengunggah gambar.
+    KonfirmasiPembayaran::create([
+        'kode' => $pendaftaran->kode, 'jenis' => 'dp', 'nominal' => 858000,
+        'tanggal_transfer' => now()->toDateString(), 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Siti', 'status' => 'menunggu',
+    ]);
+
+    expect(App\Support\StatusPendaftaran::selaraskan($pendaftaran))->toBeNull()
+        ->and($pendaftaran->fresh()->status)->toBe('baru');
+});

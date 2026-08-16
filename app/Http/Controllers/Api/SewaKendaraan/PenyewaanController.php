@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\SewaKendaraan;
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\SewaKendaraan\PenyewaanResource;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
+use App\Support\BerkasKwitansi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -51,6 +52,62 @@ class PenyewaanController extends ApiController
         return response()->json([
             'data' => (new PenyewaanResource($penyewaan->fresh()))->resolve(),
             'pesan' => 'Status pemesanan sewa diperbarui.',
+        ]);
+    }
+
+    /**
+     * Kwitansi sewa kendaraan.
+     *
+     * Isinya mengikuti keadaan pesanannya: sebelum unit kembali yang tampil
+     * estimasi biaya sewa, sesudahnya yang tampil total termasuk denda. Denda
+     * dirinci per jenis supaya penyewa bisa melihat asal angkanya — nota yang
+     * hanya menyebut satu total selalu berakhir jadi perdebatan.
+     */
+    public function kwitansi(PenyewaanKendaraan $penyewaan, Request $request)
+    {
+        $sudahKembali = (bool) $penyewaan->dikembalikan_pada;
+
+        $rincian = array_filter([
+            'Kendaraan' => $penyewaan->nama_kendaraan.' ('.$penyewaan->transmisi.')',
+            'Sopir' => $penyewaan->dengan_sopir ? 'Dengan sopir' : 'Lepas kunci',
+            'Mulai' => $penyewaan->jadwal_mulai?->translatedFormat('j F Y, H:i'),
+            'Ditunggu kembali' => $penyewaan->jadwal_selesai?->translatedFormat('j F Y, H:i'),
+            'Kembali pada' => $penyewaan->dikembalikan_pada?->translatedFormat('j F Y, H:i'),
+            'Durasi' => $penyewaan->durasi_label,
+            'Lokasi pengantaran' => $penyewaan->lokasi_antar,
+            'Lokasi pengembalian' => $penyewaan->lokasi_kembali,
+            'Penyewa' => $penyewaan->nama,
+            'WhatsApp' => $penyewaan->whatsapp,
+            'Biaya sewa' => 'Rp '.number_format((int) $penyewaan->estimasi_biaya, 0, ',', '.'),
+            'Denda keterlambatan' => $penyewaan->denda_keterlambatan
+                ? 'Rp '.number_format($penyewaan->denda_keterlambatan, 0, ',', '.')
+                : null,
+            'Denda kerusakan' => $penyewaan->denda_kerusakan
+                ? 'Rp '.number_format($penyewaan->denda_kerusakan, 0, ',', '.')
+                : null,
+            'Denda lain' => $penyewaan->denda_lain
+                ? 'Rp '.number_format($penyewaan->denda_lain, 0, ',', '.')
+                : null,
+        ]);
+
+        $isi = BerkasKwitansi::buat(
+            $sudahKembali ? 'Nota Akhir Sewa Kendaraan' : 'Rincian Pemesanan Sewa Kendaraan',
+            $penyewaan->kode,
+            $rincian,
+            $penyewaan->catatan_denda ?: $penyewaan->catatan,
+            'Rp '.number_format($penyewaan->total_tagihan, 0, ',', '.'),
+            $sudahKembali ? 'Total termasuk denda' : 'Estimasi biaya sewa',
+            $sudahKembali ? 'Nota Akhir' : 'Belum Dibayar',
+        );
+
+        abort_if($isi === null, 503, 'Kwitansi gagal dibuat.');
+
+        $this->catat($request, 'unduh kwitansi sewa', ['kode' => $penyewaan->kode]);
+
+        return response($isi, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'
+                .BerkasKwitansi::namaBerkas($sudahKembali ? 'nota-sewa' : 'rincian-sewa', $penyewaan->kode).'"',
         ]);
     }
 

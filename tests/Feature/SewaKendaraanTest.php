@@ -410,3 +410,43 @@ test('tanda terima pembayaran memuat posisi tagihan, bukan cuma nominalnya', fun
         ->and($html)->toContain('Rp 2.860.000')
         ->and($html)->toContain('Sisa pembayaran');
 });
+
+test('denda kerusakan diusulkan dari hasil pemeriksaan', function () {
+    $mobil = buatMobil();
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 350000, 'status' => 'berjalan',
+        // Bodi kanan sudah lecet sebelum diserahkan, kaca masih baik
+        'kondisi_awal' => ['bodi_kanan' => 'lecet', 'kaca' => 'baik', 'ban' => 'baik'],
+        'kondisi_akhir' => ['bodi_kanan' => 'rusak', 'kaca' => 'rusak', 'ban' => 'baik'],
+    ]);
+
+    // Kaca baik → rusak = 900.000 penuh.
+    // Bodi kanan lecet → rusak hanya SELISIHNYA: 1.200.000 − 200.000 = 1.000.000,
+    // karena unit memang sudah lecet saat diserahkan.
+    expect($sewa->denda_kerusakan_usulan)->toBe(1900000)
+        ->and($sewa->rincian_denda_kerusakan)->toHaveCount(2);
+
+    $bodi = collect($sewa->rincian_denda_kerusakan)->firstWhere('bagian', 'Bodi samping kanan');
+    expect($bodi['biaya'])->toBe(1000000)
+        ->and($bodi['dari'])->toBe('Lecet / minor');
+});
+
+test('unit yang kembali tanpa kerusakan baru tidak diusulkan denda', function () {
+    $mobil = buatMobil();
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 350000, 'status' => 'berjalan',
+        'kondisi_awal' => ['bodi_kanan' => 'lecet'],
+        'kondisi_akhir' => ['bodi_kanan' => 'lecet'],
+    ]);
+
+    expect($sewa->denda_kerusakan_usulan)->toBe(0)
+        ->and($sewa->rincian_denda_kerusakan)->toBe([]);
+});

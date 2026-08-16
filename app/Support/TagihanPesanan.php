@@ -27,7 +27,7 @@ class TagihanPesanan
      * @return array<string, mixed> kosong bila pesanannya tidak dikenal
      *                              atau harganya memang belum ada
      */
-    public static function untuk(PendaftaranOpenTrip|PenyewaanKendaraan|null $pesanan): array
+    public static function untuk(PendaftaranOpenTrip|PenyewaanKendaraan|null $pesanan, bool $hanyaDiterima = false): array
     {
         if (! $pesanan) {
             return [];
@@ -39,8 +39,21 @@ class TagihanPesanan
             return [];
         }
 
+        // Dua pertanyaan berbeda, dua hitungan berbeda.
+        //
+        // Untuk mengisikan nominal di formulir pelanggan, bukti yang masih
+        // menunggu dicek ikut dihitung — orang yang baru mengirim bukti DP satu
+        // jam lalu memang sedang menunggu.
+        //
+        // Untuk memajukan STATUS pesanan, hanya yang sudah diterima yang boleh
+        // dihitung. Status "DP Masuk" berarti uangnya sudah ada, bukan sudah
+        // diklaim; kalau tidak, siapa pun bisa memajukan statusnya sendiri
+        // hanya dengan mengunggah gambar.
         $sudah = (int) KonfirmasiPembayaran::where('kode', $pesanan->kode)
-            ->where('status', '!=', 'ditolak')
+            ->when($hanyaDiterima,
+                fn ($q) => $q->where('status', 'diterima'),
+                fn ($q) => $q->where('status', '!=', 'ditolak'),
+            )
             ->sum('nominal');
 
         $sisa = max(0, $total - $sudah);

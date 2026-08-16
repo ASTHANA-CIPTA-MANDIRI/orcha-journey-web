@@ -193,6 +193,70 @@ class PenyewaanKendaraan extends Model
         return (int) round(min($jam * $perJam, $hari * $maksimalPerHari));
     }
 
+    /**
+     * Denda kerusakan yang DIUSULKAN dari hasil pemeriksaan.
+     *
+     * Admin tidak perlu menaksir dari nol setiap kali: ceklis fisik yang sudah
+     * diisi langsung menjadi satu angka, dan tiap barisnya bisa ditunjukkan ke
+     * penyewa. Hanya bagian yang memburuk selama masa sewa yang dihitung —
+     * lecet lama tidak pernah ikut.
+     *
+     * Angka ini usulan, bukan tagihan: nota bengkel yang sebenarnya selalu
+     * menang, dan admin bebas mengubahnya.
+     */
+    public function getDendaKerusakanUsulanAttribute(): int
+    {
+        $tarif = config('orcha.biaya_kerusakan');
+        $urutan = array_keys(config('orcha.kondisi_pemeriksaan'));
+        $awal = $this->kondisi_awal ?? [];
+        $jumlah = 0;
+
+        foreach ($this->kondisi_akhir ?? [] as $bagian => $sesudah) {
+            $sebelum = $awal[$bagian] ?? 'baik';
+
+            if (array_search($sesudah, $urutan, true) <= array_search($sebelum, $urutan, true)) {
+                continue;
+            }
+
+            // Yang ditagih selisihnya, bukan biaya penuh: unit yang diserahkan
+            // sudah lecet lalu kembali rusak tidak pantas ditagih seolah
+            // sebelumnya mulus.
+            $jumlah += max(0, ($tarif[$bagian][$sesudah] ?? 0) - ($tarif[$bagian][$sebelum] ?? 0));
+        }
+
+        return (int) $jumlah;
+    }
+
+    /**
+     * Rincian usulan denda kerusakan, satu baris per bagian.
+     *
+     * @return array<int, array{bagian: string, dari: string, jadi: string, biaya: int}>
+     */
+    public function getRincianDendaKerusakanAttribute(): array
+    {
+        $tarif = config('orcha.biaya_kerusakan');
+        $urutan = array_keys(config('orcha.kondisi_pemeriksaan'));
+        $awal = $this->kondisi_awal ?? [];
+        $baris = [];
+
+        foreach ($this->kondisi_akhir ?? [] as $bagian => $sesudah) {
+            $sebelum = $awal[$bagian] ?? 'baik';
+
+            if (array_search($sesudah, $urutan, true) <= array_search($sebelum, $urutan, true)) {
+                continue;
+            }
+
+            $baris[] = [
+                'bagian' => config('orcha.pemeriksaan_kendaraan')[$bagian] ?? $bagian,
+                'dari' => config('orcha.kondisi_pemeriksaan')[$sebelum] ?? $sebelum,
+                'jadi' => config('orcha.kondisi_pemeriksaan')[$sesudah] ?? $sesudah,
+                'biaya' => max(0, ($tarif[$bagian][$sesudah] ?? 0) - ($tarif[$bagian][$sebelum] ?? 0)),
+            ];
+        }
+
+        return $baris;
+    }
+
     public function getTotalDendaAttribute(): int
     {
         return (int) ($this->denda_keterlambatan + $this->denda_kerusakan + $this->denda_lain);

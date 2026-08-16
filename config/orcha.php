@@ -165,6 +165,31 @@ return [
         'hilang' => 'Hilang',
     ],
 
+    /*
+    | Perkiraan biaya perbaikan per bagian, dipakai MENGUSULKAN denda kerusakan
+    | supaya admin tidak menaksir dari nol setiap kali. Angkanya usulan, bukan
+    | tagihan: nota bengkel yang sebenarnya selalu menang, dan admin bebas
+    | mengubahnya.
+    |
+    | ANGKA DI BAWAH INI PERKIRAAN AWAL — sesuaikan dengan harga bengkel
+    | langganan Orcha. Yang penting bentuknya: tiap bagian punya tarif untuk
+    | lecet, rusak, dan hilang, jadi satu ceklis langsung jadi satu angka.
+    */
+    'biaya_kerusakan' => [
+        'bodi_depan' => ['lecet' => 250000, 'rusak' => 1500000, 'hilang' => 3000000],
+        'bodi_belakang' => ['lecet' => 250000, 'rusak' => 1500000, 'hilang' => 3000000],
+        'bodi_kanan' => ['lecet' => 200000, 'rusak' => 1200000, 'hilang' => 2500000],
+        'bodi_kiri' => ['lecet' => 200000, 'rusak' => 1200000, 'hilang' => 2500000],
+        'kaca' => ['lecet' => 150000, 'rusak' => 900000, 'hilang' => 1200000],
+        'lampu' => ['lecet' => 100000, 'rusak' => 600000, 'hilang' => 800000],
+        'ban' => ['lecet' => 150000, 'rusak' => 700000, 'hilang' => 1000000],
+        'interior' => ['lecet' => 100000, 'rusak' => 500000, 'hilang' => 750000],
+        'ac' => ['lecet' => 150000, 'rusak' => 900000, 'hilang' => 1500000],
+        'mesin' => ['lecet' => 300000, 'rusak' => 2500000, 'hilang' => 5000000],
+        'kelengkapan' => ['lecet' => 50000, 'rusak' => 200000, 'hilang' => 350000],
+        'surat' => ['lecet' => 0, 'rusak' => 250000, 'hilang' => 1000000],
+    ],
+
     'satuan_sewa' => [
         'jam' => ['label' => 'Per jam', 'satuan' => 'jam', 'maks' => 23],
         '12jam' => ['label' => 'Paket 12 jam', 'satuan' => '× 12 jam', 'maks' => 2],
