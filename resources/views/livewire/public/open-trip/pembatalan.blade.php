@@ -4,7 +4,7 @@ use App\Models\OpenTrip\Pembatalan;
 use App\Support\BerkasKwitansi;
 use App\Support\KirimPemberitahuan;
 use App\Support\SalinanPelanggan;
-use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\NomorTelepon;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
@@ -42,12 +42,24 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
     public function mount(): void
     {
         $this->kode = strtoupper((string) request()->query('kode', ''));
+
+        // Tautan dari email dan WhatsApp membawa kodenya sendiri. Tanpa ini,
+        // pengisian otomatis baru jalan kalau kodenya diketik ulang — padahal
+        // justru orang yang datang lewat tautan yang paling tidak perlu
+        // mengetik apa pun.
+        $this->updatedKode();
     }
 
     protected function rules(): array
     {
         return [
-            'kode' => 'required|string|max:20|exists:tbl_pendaftaran_open_trip,kode',
+            // Kodenya boleh menunjuk open trip maupun sewa kendaraan. Dulu
+            // hanya tabel pendaftaran yang diperiksa, jadi penyewa kendaraan
+            // yang ingin membatalkan selalu ditolak "kode tidak ditemukan"
+            // padahal kodenya benar.
+            'kode' => ['required', 'string', 'max:20', fn ($atribut, $nilai, $gagal) => Pembatalan::milik($nilai)
+                ? null
+                : $gagal('Kode pesanan tidak ditemukan. Periksa kembali kode yang Anda terima saat memesan.')],
             'nama' => 'required|string|min:3|max:120',
             'whatsapp' => ['required', 'string', 'max:25', fn ($atribut, $nilai, $gagal) => NomorTelepon::sah($nilai)
                 ? null
@@ -66,7 +78,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
     protected function validationAttributes(): array
     {
         return [
-            'kode' => 'kode pendaftaran',
+            'kode' => 'kode pesanan',
             'jumlahDibatalkan' => 'jumlah peserta yang dibatalkan',
             'nomorRekening' => 'nomor rekening',
             'atasNama' => 'nama pemilik rekening',
@@ -74,17 +86,44 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
         ];
     }
 
-    protected function messages(): array
-    {
-        return [
-            'kode.exists' => 'Kode pendaftaran tidak ditemukan. Periksa kembali kode yang Anda terima saat mendaftar.',
-        ];
-    }
-
     /** Nomor dirapikan jadi 0812-3456-7890, apa pun cara pengguna menuliskannya. */
     public function updatedWhatsapp(): void
     {
         $this->whatsapp = NomorTelepon::rapi($this->whatsapp);
+    }
+
+    /**
+     * Begitu kodenya cocok, isian yang sudah kami ketahui diisikan sendiri.
+     *
+     * Orang yang sedang membatalkan biasanya sedang kesal atau terburu-buru —
+     * menyuruhnya mengetik ulang nama, nomor, dan email yang sudah ada di
+     * pesanannya hanya menambah peluang salah ketik, dan nomor yang salah
+     * ketik berarti perhitungan pengembaliannya tidak sampai ke siapa pun.
+     *
+     * Yang terisi tetap bisa diubah: rekening pengembalian kadang memang atas
+     * nama orang lain, dan nomor WhatsApp bisa saja sudah berganti.
+     */
+    public function updatedKode(): void
+    {
+        $pesanan = Pembatalan::milik($this->kode);
+
+        if (! $pesanan) {
+            return;
+        }
+
+        $this->nama = $this->nama ?: (string) $pesanan->nama;
+        $this->whatsapp = $this->whatsapp ?: NomorTelepon::rapi((string) $pesanan->whatsapp);
+        $this->email = $this->email ?: (string) $pesanan->email;
+
+        // Pemesan dan pemilik rekening hampir selalu orang yang sama; kalau
+        // tidak, tinggal diganti.
+        $this->atasNama = $this->atasNama ?: (string) $pesanan->nama;
+
+        // Sewa kendaraan dibatalkan utuh — tidak ada "dua dari lima peserta"
+        // pada satu unit mobil. Isiannya pun disembunyikan di layar.
+        $this->jumlahDibatalkan = $pesanan instanceof PenyewaanKendaraan
+            ? 1
+            : ($pesanan->jumlah_peserta ?: 1);
     }
 
     public function ajukan(): void
@@ -117,15 +156,24 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
             'atas_nama_rekening' => $this->atasNama,
         ]);
 
-        $rincian = [
+        $pesanan = $pembatalan->pesanan();
+        $sewa = $pesanan instanceof PenyewaanKendaraan;
+
+        $rincian = array_filter([
+            'Jenis pesanan' => $sewa ? 'Sewa Kendaraan' : 'Open Trip',
+            'Yang dibatalkan' => $sewa
+                ? ($pesanan->nama_kendaraan ?: 'Unit kendaraan')
+                : ($pesanan?->nama_paket ?: 'Open Trip'),
             'Pemohon' => $pembatalan->nama_pemohon,
             'WhatsApp' => $pembatalan->whatsapp,
             'Email' => $pembatalan->email,
             'Alasan' => $pembatalan->alasan_label,
-            'Peserta dibatalkan' => $pembatalan->jumlah_dibatalkan.' orang',
+            // Jumlah peserta hanya bermakna pada open trip; pada sewa kendaraan
+            // yang dibatalkan adalah unitnya, dan "1 orang" hanya membingungkan.
+            'Peserta dibatalkan' => $sewa ? null : $pembatalan->jumlah_dibatalkan.' orang',
             'Rekening pengembalian' => $pembatalan->bank.' · '.$pembatalan->nomor_rekening
                 .' a.n. '.$pembatalan->atas_nama_rekening,
-        ];
+        ]);
 
         // Tanda terima pengajuan — bukan tanda pengembalian dana. Capnya
         // "Diajukan" supaya tidak terbaca sebagai janji dana sudah dikirim.
@@ -164,12 +212,34 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
 
     public function with(): array
     {
-        $pendaftaran = filled($this->kode)
-            ? PendaftaranOpenTrip::with('paket')->where('kode', strtoupper(trim($this->kode)))->first()
-            : null;
+        $pesanan = Pembatalan::milik($this->kode);
+        $sewa = $pesanan instanceof PenyewaanKendaraan;
+
+        // Dua jenis pesanan diringkas jadi satu bentuk yang sama, supaya
+        // tampilannya tidak bercabang dua di layar. Yang berbeda hanya isi
+        // barisnya — unit dan jadwal ambil untuk sewa, trip dan tanggal
+        // berangkat untuk open trip.
+        $ringkas = match (true) {
+            ! $pesanan => [],
+            $sewa => [
+                ['Pemesan', $pesanan->nama],
+                ['Kendaraan', $pesanan->nama_kendaraan ?: 'Belum ditentukan'],
+                ['Mulai sewa', $pesanan->jadwal_mulai?->translatedFormat('j F Y, H:i') ?: 'Menyusul'],
+                ['Lama sewa', $pesanan->durasi_label],
+            ],
+            default => [
+                ['Pemesan', $pesanan->nama],
+                ['Trip', $pesanan->nama_paket ?: 'Belum ditentukan'],
+                ['Tanggal berangkat', $pesanan->paket?->jadwal_label
+                    ?: $pesanan->tanggal_berangkat?->translatedFormat('j F Y') ?: 'Menyusul'],
+                ['Jumlah peserta', $pesanan->jumlah_peserta.' orang'],
+            ],
+        };
 
         return [
-            'pendaftaran' => $pendaftaran,
+            'pesanan' => $pesanan,
+            'sewa' => $sewa,
+            'ringkas' => $ringkas,
             'daftarAlasan' => config('orcha.alasan_pembatalan'),
             'tanggaPengembalian' => config('orcha.pengembalian.tangga'),
             'prosesHari' => config('orcha.pengembalian.proses_hari_kerja'),
@@ -183,7 +253,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
 
 <div>
     <x-page-hero title="Pengajuan Pembatalan" eyebrow="Formulir Pembatalan"
-        subtitle="Ajukan pembatalan perjalanan di sini. Besaran pengembalian dana mengikuti jarak waktu pembatalan terhadap tanggal keberangkatan."
+        subtitle="Ajukan pembatalan open trip maupun sewa kendaraan di sini. Besaran pengembalian dana mengikuti jarak waktu pembatalan terhadap tanggal keberangkatan atau tanggal mulai sewa."
         image="images/pantai-pinggir-laut.jpg" posisi="center 60%" />
 
     <section class="bg-white section-orcha">
@@ -222,28 +292,32 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
 
                             <div>
                                 <h2 class="text-xl font-bold font-heading text-orcha-navy">Data Pemesanan</h2>
-                                <p class="mt-1 text-sm text-slate-500">Pembatalan hanya bisa diajukan oleh pemesan yang
-                                    terdaftar.</p>
+                                <p class="mt-1 text-sm text-slate-500">Berlaku untuk open trip maupun sewa kendaraan.
+                                    Pembatalan hanya bisa diajukan oleh pemesan yang terdaftar.</p>
                             </div>
 
                             <div>
-                                <label for="pb-kode" class="label-orcha">Kode pendaftaran <x-wajib /></label>
+                                <label for="pb-kode" class="label-orcha">Kode pesanan <x-wajib /></label>
                                 <input id="pb-kode" type="text" wire:model.live.debounce.500ms="kode" required
-                                    maxlength="20" placeholder="OT-1408-A7K3"
+                                    maxlength="20" placeholder="OT-1408-A7K3 atau SK-1608-ZGAN"
                                     class="uppercase isian-orcha @error('kode') isian-galat @enderror">
                                 @error('kode')
                                     <p class="galat-orcha">{{ $message }}</p>
                                 @enderror
+                                <p class="mt-2 text-xs text-slate-500">
+                                    Kode ada di email dan tanda terima yang Anda terima saat memesan — diawali
+                                    <strong>OT-</strong> untuk open trip, <strong>SK-</strong> untuk sewa kendaraan.
+                                </p>
 
-                                @if ($pendaftaran)
+                                @if ($pesanan)
                                     <div class="p-5 mt-3 rounded-2xl bg-orcha-foam/70">
                                         <p
                                             class="flex items-center gap-2 text-xs font-bold tracking-wider uppercase text-orcha-ocean">
                                             <x-heroicon-s-check-badge class="w-4 h-4" />
-                                            Pemesanan ditemukan
+                                            {{ $sewa ? 'Pesanan sewa ditemukan' : 'Pemesanan ditemukan' }}
                                         </p>
                                         <dl class="grid gap-4 mt-4 sm:grid-cols-2">
-                                            @foreach ([['Pemesan', $pendaftaran->nama], ['Trip', $pendaftaran->nama_paket ?: 'Belum ditentukan'], ['Tanggal berangkat', $pendaftaran->paket?->jadwal_label ?: $pendaftaran->tanggal_berangkat?->translatedFormat('j F Y') ?: 'Menyusul'], ['Jumlah peserta', $pendaftaran->jumlah_peserta . ' orang']] as [$label, $nilai])
+                                            @foreach ($ringkas as [$label, $nilai])
                                                 <div>
                                                     <dt
                                                         class="text-xs font-semibold tracking-wider uppercase text-slate-500">
@@ -252,6 +326,13 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
                                                 </div>
                                             @endforeach
                                         </dl>
+                                        {{-- Isian di bawah sudah terisi dari pesanan ini. Disebutkan
+                                             supaya pengguna tahu itu bukan tebakan sistem, dan tahu
+                                             bahwa ia boleh mengubahnya. --}}
+                                        <p class="mt-4 text-xs text-slate-500">
+                                            Data pemohon di bawah kami isikan dari pesanan ini. Silakan ubah bila
+                                            ada yang sudah berganti.
+                                        </p>
                                     </div>
                                 @elseif (filled($kode))
                                     <p class="mt-3 text-sm text-slate-500">Kode belum cocok. Periksa kembali huruf dan
@@ -291,16 +372,26 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
                                         <p class="galat-orcha">{{ $message }}</p>
                                     @enderror
                                 </div>
-                                <div>
-                                    <label for="pb-jumlah" class="label-orcha">Jumlah peserta yang dibatalkan
-                                        <x-wajib /></label>
-                                    <input id="pb-jumlah" type="number" min="1" max="60" required
-                                        wire:model="jumlahDibatalkan"
-                                        class="isian-orcha @error('jumlahDibatalkan') isian-galat @enderror">
-                                    @error('jumlahDibatalkan')
-                                        <p class="galat-orcha">{{ $message }}</p>
-                                    @enderror
-                                </div>
+                                {{-- Satu unit kendaraan tidak bisa dibatalkan sebagian —
+                                     tidak ada "dua dari lima peserta" pada satu mobil. Isiannya
+                                     disembunyikan supaya tidak ada yang perlu dijawab, bukan
+                                     ditampilkan terkunci. --}}
+                                @unless ($sewa)
+                                    <div>
+                                        <label for="pb-jumlah" class="label-orcha">Jumlah peserta yang dibatalkan
+                                            <x-wajib /></label>
+                                        <input id="pb-jumlah" type="number" min="1" max="60" required
+                                            wire:model="jumlahDibatalkan"
+                                            class="isian-orcha @error('jumlahDibatalkan') isian-galat @enderror">
+                                        @error('jumlahDibatalkan')
+                                            <p class="galat-orcha">{{ $message }}</p>
+                                        @enderror
+                                        <p class="mt-2 text-xs text-slate-500">
+                                            Terisi sesuai jumlah peserta pada pesanan Anda. Kurangi bila hanya
+                                            sebagian yang batal ikut.
+                                        </p>
+                                    </div>
+                                @endunless
                             </div>
 
                             <hr class="border-orcha-foam">
@@ -415,6 +506,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
                             </div>
                             <p class="mt-4 text-xs text-slate-500">
                                 Dihitung dari tanggal pengajuan diterima, bukan tanggal pengajuan lisan.
+                                Untuk sewa kendaraan, jaraknya dihitung ke tanggal mulai sewa.
                             </p>
                         </div>
 

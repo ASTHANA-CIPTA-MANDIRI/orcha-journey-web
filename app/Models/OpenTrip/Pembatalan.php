@@ -2,6 +2,7 @@
 
 namespace App\Models\OpenTrip;
 
+use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -36,6 +37,37 @@ class Pembatalan extends Model
     public function pendaftaran(): BelongsTo
     {
         return $this->belongsTo(PendaftaranOpenTrip::class, 'kode_pendaftaran', 'kode');
+    }
+
+    public function penyewaan(): BelongsTo
+    {
+        return $this->belongsTo(PenyewaanKendaraan::class, 'kode_pendaftaran', 'kode');
+    }
+
+    /**
+     * Pesanan yang dibatalkan — open trip atau sewa kendaraan.
+     *
+     * Kodenya sendiri yang menentukan: SK- untuk sewa kendaraan, sisanya open
+     * trip. Cara yang sama dipakai KonfirmasiPembayaran, karena keduanya
+     * memang menunjuk pesanan lewat kode yang diketik pelanggan.
+     */
+    public function pesanan(): PendaftaranOpenTrip|PenyewaanKendaraan|null
+    {
+        return self::milik($this->kode_pendaftaran);
+    }
+
+    /** Mencari pesanan dari kodenya saja, tanpa perlu ada baris pembatalan. */
+    public static function milik(?string $kode): PendaftaranOpenTrip|PenyewaanKendaraan|null
+    {
+        $kode = strtoupper(trim((string) $kode));
+
+        if (blank($kode)) {
+            return null;
+        }
+
+        return str_starts_with($kode, 'SK-')
+            ? PenyewaanKendaraan::with('kendaraan')->where('kode', $kode)->first()
+            : PendaftaranOpenTrip::with('paket')->where('kode', $kode)->first();
     }
 
     public function getAlasanLabelAttribute(): string

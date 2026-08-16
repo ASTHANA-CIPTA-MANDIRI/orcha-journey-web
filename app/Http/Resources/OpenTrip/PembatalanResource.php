@@ -15,6 +15,15 @@ class PembatalanResource extends JsonResource
         return [
             'id' => $this->id,
             'kode_pendaftaran' => $this->kode_pendaftaran,
+
+            // Jenisnya dibaca dari kodenya sendiri, tanpa query tambahan —
+            // daftar pembatalan bisa panjang, dan satu query per baris hanya
+            // untuk menampilkan satu kata tidak sebanding.
+            //
+            // Perlu disebut karena "1 peserta dibatalkan" pada sewa kendaraan
+            // membingungkan: yang dibatalkan unitnya, bukan orangnya.
+            'jenis' => str_starts_with((string) $this->kode_pendaftaran, 'SK-') ? 'sewa_kendaraan' : 'open_trip',
+            'jenis_label' => str_starts_with((string) $this->kode_pendaftaran, 'SK-') ? 'Sewa Kendaraan' : 'Open Trip',
             'nama_pemohon' => $this->nama_pemohon,
             'whatsapp' => $this->whatsapp,
             'email' => $this->email,
