@@ -339,3 +339,74 @@ test('total tagihan menjumlahkan sewa dengan seluruh denda', function () {
     expect($sewa->total_denda)->toBe(500000)
         ->and($sewa->total_tagihan)->toBe(1000000);
 });
+
+/* ------------- SURAT PEMESANAN & OTOMATISASI SERAH TERIMA ------------- */
+
+test('pemesanan sewa mengirim surat ke kantor dan penyewa', function () {
+    Illuminate\Support\Facades\Mail::fake();
+    config()->set('orcha.email_pemberitahuan', 'halo@orchajourney.com');
+
+    $mobil = buatMobil();
+
+    Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $mobil->uuid)
+        ->set('transmisi', 'Matic')
+        ->set('satuan', 'hari')
+        ->set('durasi', 2)
+        ->set('tanggalMulai', '2026-09-10')
+        ->set('jamMulai', '08:00')
+        ->set('denganSopir', 'ya')
+        ->set('nama', 'Budi Santoso')
+        ->set('whatsapp', '081234567890')
+        ->set('email', 'budi@contoh.test')
+        ->set('lokasiAntar', 'Bandara YIA')
+        ->set('lokasiKembali', 'Kantor Orcha')
+        ->set('setuju', true)
+        ->call('pesan')
+        ->assertHasNoErrors();
+
+    Illuminate\Support\Facades\Mail::assertSent(App\Mail\PemberitahuanFormulir::class,
+        fn ($surat) => $surat->hasTo('halo@orchajourney.com') && $surat->untukPelanggan === false);
+
+    Illuminate\Support\Facades\Mail::assertSent(App\Mail\PemberitahuanFormulir::class, function ($surat) {
+        if (! $surat->untukPelanggan) {
+            return false;
+        }
+
+        $isi = $surat->render();
+
+        return $surat->hasTo('budi@contoh.test')
+            // Jam pengembalian ikut disebut: itu yang dipakai menagih denda
+            && str_contains($isi, 'Ditunggu kembali')
+            && str_contains($isi, 'Kantor Orcha')
+            // Berkas rinciannya ikut terlampir
+            && count($surat->berkasPdf) === 1
+            && str_starts_with(reset($surat->berkasPdf), '%PDF-');
+    });
+});
+
+test('tanda terima pembayaran memuat posisi tagihan, bukan cuma nominalnya', function () {
+    $paket = App\Models\PaketWisata\TravelPackage::create([
+        'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip', 'price' => 1430000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+    ]);
+
+    $pendaftaran = App\Models\OpenTrip\PendaftaranOpenTrip::create([
+        'travel_package_id' => $paket->id, 'nama_paket' => $paket->name,
+        'nama' => 'Siti', 'whatsapp' => '0812', 'jumlah_peserta' => 2,
+    ]);
+
+    $tagihan = App\Support\TagihanPesanan::untuk($pendaftaran);
+
+    $html = view('pdf.kwitansi', [
+        'judul' => 'Tanda Terima Pembayaran', 'kode' => $pendaftaran->kode,
+        'rincian' => ['Nominal' => 'Rp 858.000'], 'catatan' => null,
+        'jumlah' => 'Rp 858.000', 'jumlahLabel' => 'Nominal dilaporkan',
+        'capStatus' => 'Menunggu Dicek', 'biaya' => [], 'tagihan' => $tagihan,
+    ])->render();
+
+    // Yang ingin diketahui pelanggan sesudah mentransfer adalah sisanya
+    expect($html)->toContain('Posisi Tagihan')
+        ->and($html)->toContain('Rp 2.860.000')
+        ->and($html)->toContain('Sisa pembayaran');
+});

@@ -958,3 +958,52 @@ test('pesanan yang sudah dibatalkan tidak dihidupkan lagi oleh pembayaran', func
     // boleh diam-diam menghidupkannya lagi
     expect($pendaftaran->fresh()->status)->toBe('batal');
 });
+
+test('serah terima memperbarui kondisi unit dan menutup sewanya', function () {
+    $mobil = Car::create([
+        'name' => 'Avanza Uji', 'brand' => 'Toyota', 'type' => 'mobil',
+        'transmission' => 'Matic', 'capacity' => 7, 'price_per_day' => 500000,
+        'is_available' => true, 'transmisi_tersedia' => ['Matic'],
+    ]);
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-11', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 500000, 'status' => 'berjalan',
+    ]);
+
+    $this->patchJson("/api/v1/penyewaan/{$sewa->id}/serah-terima", [
+        'dikembalikan_pada' => '2026-09-11 08:15',
+        'kondisi_awal' => ['bodi_depan' => 'baik', 'kaca' => 'baik'],
+        'kondisi_akhir' => ['bodi_depan' => 'lecet', 'kaca' => 'baik'],
+    ], kirim())->assertOk();
+
+    // Unit membawa keadaannya sendiri ke sewa berikutnya
+    expect($mobil->fresh()->kondisi_terkini)->toBe(['bodi_depan' => 'lecet', 'kaca' => 'baik'])
+        ->and($mobil->fresh()->kondisi_diperiksa_pada)->not->toBeNull()
+        // Status yang harus diingat sendiri adalah status yang paling sering tertinggal
+        ->and($sewa->fresh()->status)->toBe('selesai');
+});
+
+test('pesanan sewa yang dibatalkan tidak ikut ditutup jadi selesai', function () {
+    $mobil = Car::create([
+        'name' => 'Avanza Uji', 'brand' => 'Toyota', 'type' => 'mobil',
+        'transmission' => 'Matic', 'capacity' => 7, 'price_per_day' => 500000,
+        'is_available' => true, 'transmisi_tersedia' => ['Matic'],
+    ]);
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 500000, 'status' => 'batal',
+    ]);
+
+    $this->patchJson("/api/v1/penyewaan/{$sewa->id}/serah-terima", [
+        'dikembalikan_pada' => '2026-09-11 08:15',
+    ], kirim())->assertOk();
+
+    expect($sewa->fresh()->status)->toBe('batal');
+});

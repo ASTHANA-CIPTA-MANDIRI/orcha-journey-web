@@ -226,6 +226,12 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
         // Kwitansi PDF dilampirkan supaya ada berkas yang bisa disimpan dan
         // dicetak — capnya "Menunggu Dicek", bukan "Lunas", karena pada tahap
         // ini pembayarannya memang belum diperiksa tim.
+        // Posisi tagihan dihitung SESUDAH bukti ini tersimpan, jadi angka yang
+        // baru dikirim sudah ikut terhitung. Tanpa blok ini berkasnya hanya
+        // mengulang angka yang baru saja diketik pelanggan sendiri — padahal
+        // yang ingin ia tahu adalah sisanya.
+        $tagihan = TagihanPesanan::untuk($bayar->pesanan());
+
         $kwitansi = BerkasKwitansi::buat(
             'Tanda Terima Pembayaran',
             $bayar->kode,
@@ -234,6 +240,7 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
             $bayar->nominal_formatted,
             'Nominal dilaporkan',
             'Menunggu Dicek',
+            tagihan: $tagihan,
         );
 
         KirimPemberitahuan::kirim(

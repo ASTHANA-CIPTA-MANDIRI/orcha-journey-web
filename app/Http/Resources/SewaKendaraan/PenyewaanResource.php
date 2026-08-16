@@ -54,6 +54,9 @@ class PenyewaanResource extends JsonResource
             // Hanya bagian yang memburuk selama masa sewa — lecet lama tidak
             // ikut, dan itulah yang membedakan tagihan yang adil dari sengketa.
             'kerusakan_baru' => $this->kerusakan_baru,
+            // Kondisi terakhir unit yang tercatat, dipakai lemon mengisi kolom
+            // "saat diserahkan" tanpa admin mengetik ulang lecet lama.
+            'kondisi_unit_terkini' => $this->kendaraan?->kondisi_terkini ?? [],
 
             'estimasi_biaya' => $this->estimasi_biaya,
             'denda_keterlambatan' => $this->denda_keterlambatan,

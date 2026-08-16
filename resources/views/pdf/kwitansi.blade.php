@@ -24,6 +24,12 @@
     // Tabel biaya hanya dipakai berkas pendaftaran; tanda terima pembayaran
     // dan pembatalan memanggil tanpa itu.
     $biaya = $biaya ?? [];
+
+    // Posisi tagihan: dipakai tanda terima pembayaran. Pertanyaan pertama
+    // pelanggan sesudah mentransfer bukan "berapa yang saya kirim" — itu sudah
+    // ia tahu — melainkan "berarti sisa saya berapa". Tanpa blok ini, berkasnya
+    // hanya mengulang angka yang baru saja ia ketik sendiri.
+    $tagihan = $tagihan ?? [];
 @endphp
 
 <!DOCTYPE html>
@@ -259,6 +265,40 @@
                     </td>
                     <td align="right" valign="top" style="border-bottom:none;">
                         <span class="nilai">{{ $biaya['sisa_teks'] }}</span>
+                    </td>
+                </tr>
+            </table>
+        @endif
+
+        {{-- ============ POSISI TAGIHAN ============
+             Dipakai tanda terima pembayaran. Pertanyaan pertama pelanggan
+             sesudah mentransfer bukan "berapa yang saya kirim" — itu sudah ia
+             tahu — melainkan "berarti sisa saya berapa". Tanpa blok ini,
+             berkasnya hanya mengulang angka yang baru saja ia ketik sendiri. --}}
+        @if (! empty($tagihan))
+            <div style="margin-top:16px;">
+                <div class="bagian">Posisi Tagihan</div>
+                <div class="rule"></div>
+            </div>
+
+            <table width="100%" cellpadding="0" cellspacing="0" class="biaya" style="margin-top:7px;">
+                <tr>
+                    <td>Total tagihan</td>
+                    <td align="right"><span class="nilai">{{ $tagihan['total_teks'] }}</span></td>
+                </tr>
+                <tr>
+                    <td>
+                        Sudah dilaporkan masuk
+                        <div class="tempo">termasuk pembayaran ini, sebelum dicek tim</div>
+                    </td>
+                    <td align="right" valign="top">
+                        <span class="nilai" style="color:{{ $ocean }};">{{ $tagihan['sudah_teks'] }}</span>
+                    </td>
+                </tr>
+                <tr class="total">
+                    <td><span class="total-teks">{{ $tagihan['lunas'] ? 'Lunas' : 'Sisa pembayaran' }}</span></td>
+                    <td align="right">
+                        <span class="total-angka">{{ $tagihan['lunas'] ? 'Rp 0' : $tagihan['sisa_teks'] }}</span>
                     </td>
                 </tr>
             </table>

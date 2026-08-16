@@ -99,6 +99,22 @@ class PenyewaanController extends ApiController
 
         $penyewaan->update(array_filter($data, fn ($nilai) => $nilai !== null));
 
+        // Unit membawa keadaannya sendiri ke sewa berikutnya. Tanpa ini, admin
+        // mengetik ulang daftar lecet lama setiap kali unit disewakan — dan
+        // yang lupa diketik akan tertagih ke penyewa berikutnya.
+        if (filled($data['kondisi_akhir'] ?? null) && $penyewaan->kendaraan) {
+            $penyewaan->kendaraan->update([
+                'kondisi_terkini' => $data['kondisi_akhir'],
+                'kondisi_diperiksa_pada' => now(),
+            ]);
+        }
+
+        // Unit yang sudah kembali berarti sewanya selesai. Status yang harus
+        // diingat sendiri adalah status yang paling sering tertinggal.
+        if (filled($data['dikembalikan_pada'] ?? null) && ! in_array($penyewaan->status, ['selesai', 'batal'], true)) {
+            $penyewaan->update(['status' => 'selesai']);
+        }
+
         $this->catat($request, 'catat serah terima kendaraan', [
             'kode' => $penyewaan->kode,
             'dikembalikan' => $penyewaan->dikembalikan_pada?->toDateTimeString(),

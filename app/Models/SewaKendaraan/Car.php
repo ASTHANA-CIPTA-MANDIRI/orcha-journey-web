@@ -26,6 +26,8 @@ class Car extends Model
         'capacity',
         'image',
         'is_available',
+        'kondisi_terkini',
+        'kondisi_diperiksa_pada',
     ];
 
     protected $casts = [
@@ -35,6 +37,8 @@ class Car extends Model
         'harga_per_jam' => 'integer',
         'harga_12_jam' => 'integer',
         'harga_sopir' => 'integer',
+        'kondisi_terkini' => 'array',
+        'kondisi_diperiksa_pada' => 'datetime',
     ];
 
     protected static function booted(): void

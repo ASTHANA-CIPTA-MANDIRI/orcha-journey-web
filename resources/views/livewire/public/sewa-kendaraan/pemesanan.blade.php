@@ -2,7 +2,10 @@
 
 use App\Models\SewaKendaraan\Car;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
+use App\Support\BerkasKwitansi;
+use App\Support\KirimPemberitahuan;
 use App\Support\NomorTelepon;
+use App\Support\SalinanPelanggan;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -190,6 +193,57 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             'estimasi_biaya' => $mobil->estimasiBiaya($this->satuan, $this->durasi, $this->denganSopir === 'ya'),
             'catatan' => $this->catatan ?: null,
         ]);
+
+        // Formulir ini satu-satunya yang tidak pernah mengirim surat, sehingga
+        // penyewa tidak memegang bukti apa pun begitu halamannya ditutup —
+        // termasuk kode pesanan dan jam pengembaliannya. Padahal justru itu
+        // yang dipakai saat menagih denda keterlambatan.
+        $rincian = [
+            'Kendaraan' => $sewa->nama_kendaraan.' ('.$sewa->transmisi.')',
+            'Sopir' => $sewa->dengan_sopir ? 'Dengan sopir' : 'Lepas kunci',
+            'Mulai' => $sewa->jadwal_mulai
+                ? $sewa->jadwal_mulai->translatedFormat('l, j F Y').' pukul '.$sewa->jadwal_mulai->format('H:i')
+                : '—',
+            'Ditunggu kembali' => $selesai->translatedFormat('l, j F Y').' pukul '.$selesai->format('H:i'),
+            'Durasi' => $sewa->durasi_label,
+            'Lokasi pengantaran' => $sewa->lokasi_antar,
+            'Lokasi pengembalian' => $sewa->lokasi_kembali,
+            'Penyewa' => $sewa->nama,
+            'WhatsApp' => $sewa->whatsapp,
+        ];
+
+        $berkas = BerkasKwitansi::buat(
+            'Rincian Pemesanan Sewa Kendaraan',
+            $sewa->kode,
+            $rincian,
+            $sewa->catatan,
+            $sewa->estimasi_biaya ? 'Rp '.number_format($sewa->estimasi_biaya, 0, ',', '.') : null,
+            'Estimasi biaya sewa',
+            'Belum Dibayar',
+        );
+
+        KirimPemberitahuan::kirim(
+            'Pemesanan Sewa Kendaraan Baru',
+            $sewa->kode,
+            $rincian,
+            $sewa->catatan,
+            [],
+            $berkas ? [BerkasKwitansi::namaBerkas('rincian-sewa', $sewa->kode) => $berkas] : [],
+            pelanggan: new SalinanPelanggan(
+                email: $sewa->email,
+                judul: 'Pemesanan Sewa Kendaraan Sudah Kami Terima',
+                tautan: route('konfirmasi-pembayaran', ['kode' => $sewa->kode]),
+                labelTautan: 'Kirim Bukti Transfer',
+                langkah: "Simpan kode {$sewa->kode} — dipakai saat mengirim bukti transfer.\n\n"
+                    .'Unit ditunggu kembali '.$selesai->translatedFormat('l, j F Y').' pukul '
+                    .$selesai->format('H:i').' WIB di '.$sewa->lokasi_kembali.'. Ada tenggang '
+                    .config('orcha.denda_sewa.tenggang_menit').' menit; lewat dari itu dikenakan denda '
+                    .'keterlambatan '.config('orcha.denda_sewa.persen_tarif_harian_per_jam')
+                    .'% tarif harian per jam.'."\n\n"
+                    .'Biaya di lampiran masih perkiraan — BBM, tol, dan biaya lokasi dihitung terpisah, '
+                    .'dan tim kami mengabari angka pastinya lewat WhatsApp.',
+            ),
+        );
 
         $this->kodeTerkirim = $sewa->kode;
         $this->reset(['nama', 'whatsapp', 'email', 'catatan', 'lokasiAntar', 'lokasiKembali', 'setuju']);
