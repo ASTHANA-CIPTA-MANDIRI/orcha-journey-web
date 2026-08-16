@@ -1,11 +1,17 @@
-{{-- Kwitansi/tanda terima yang dilampirkan di surat pemberitahuan.
+{{-- Berkas resmi yang dilampirkan di surat pemberitahuan: tagihan
+     pendaftaran, tanda terima pembayaran, dan tanda terima pengajuan
+     pembatalan — ketiganya memakai kerangka ini.
 
      Dompdf tidak mengenal flexbox maupun grid, jadi tata letaknya memakai
-     tabel — sama seperti berkas surat. --}}
+     tabel. Yang juga perlu diingat: seluruh gaya harus menempel (inline) atau
+     berada di <style> dokumen ini sendiri, karena berkas ini dirender di
+     server tanpa aset Vite sama sekali. --}}
 @php
     $navy = '#0f2d4a';
     $ocean = '#1d6fa5';
+    $langit = '#7fb4d6';
     $emas = '#ffc74e';
+    $kabut = '#f4f8fb';
     $logo = public_path('orcha-logo-surat.png');
 
     // Stempel dan tanda tangan bersifat pilihan: begitu berkasnya ditaruh di
@@ -27,198 +33,299 @@
     <meta charset="utf-8">
     <title>{{ $judul }} — {{ $kode }}</title>
     <style>
-        @page { margin: 26px 30px; }
+        /* Ruang bawah dilebihkan untuk pita kaki yang dipasang mengambang. */
+        @page { margin: 0 0 54px; }
+
         /* Helvetica adalah huruf bawaan PDF: tidak ikut disisipkan ke berkasnya.
            Memakai DejaVu membuat berkas membengkak ~1 MB hanya untuk hurufnya,
-           padahal lampiran surat sebaiknya ringan. */
-        body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #334155; }
-        .kepala { background-color: {{ $navy }}; color: #fff; padding: 16px 18px; }
-        .merek { font-size: 15px; font-weight: bold; letter-spacing: .4px; }
+           padahal lampiran surat sebaiknya ringan. Hierarki dibangun lewat
+           ukuran, ketebalan, jarak huruf, dan warna — bukan lewat ragam huruf. */
+        body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #475569;
+               margin: 0; padding: 0; }
+
+        .isi { padding: 0 34px; }
+
+        /* ---------- kepala ---------- */
+        .pita-kepala { background-color: {{ $navy }}; padding: 18px 34px 16px; }
+        .merek { font-size: 16px; font-weight: bold; letter-spacing: .6px; color: #fff; }
         .merek span { color: {{ $emas }}; }
-        .slogan { font-size: 8px; color: #a9c9de; letter-spacing: 1.6px; text-transform: uppercase; }
-        .judul { font-size: 17px; font-weight: bold; color: {{ $navy }}; }
-        .kode { font-family: Courier, monospace; font-size: 13px; font-weight: bold; color: {{ $navy }}; }
-        .label { font-size: 8.5px; color: #8496a8; text-transform: uppercase; letter-spacing: .5px; }
+        .slogan { font-size: 7.5px; color: {{ $langit }}; letter-spacing: 2px;
+                  text-transform: uppercase; padding-top: 2px; }
+        .kontak { font-size: 8.5px; color: {{ $langit }}; line-height: 1.7; }
+        .garis-emas { height: 3px; background-color: {{ $emas }}; font-size: 0; line-height: 0; }
+
+        /* ---------- judul ---------- */
+        .jenis { font-size: 8.5px; letter-spacing: 2.4px; text-transform: uppercase;
+                 color: {{ $ocean }}; font-weight: bold; }
+        .judul { font-size: 21px; font-weight: bold; color: {{ $navy }}; padding-top: 3px; }
+        .terbit { font-size: 9px; color: #94a3b8; padding-top: 4px; }
+        .panel-nomor { background-color: {{ $kabut }}; border: 1px solid #dbe7f0; padding: 8px 14px; }
+        .kode { font-family: Courier, monospace; font-size: 13.5px; font-weight: bold;
+                color: {{ $navy }}; letter-spacing: .5px; }
+
+        /* ---------- label & nilai ---------- */
+        .label { font-size: 8px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
         .nilai { font-size: 11.5px; color: {{ $navy }}; font-weight: bold; }
-        .garis { border-bottom: 1px solid #e6edf3; }
-        .kotak-jumlah { background-color: #eef6fb; border: 1px solid #cfe4f2; padding: 12px 16px; }
-        .kaki { font-size: 8.5px; color: #94a3b8; line-height: 1.6; }
-        .cap { border: 2px solid {{ $ocean }}; color: {{ $ocean }}; font-size: 12px; font-weight: bold;
-               padding: 7px 16px; text-transform: uppercase; letter-spacing: 1px; }
+        .bagian { font-size: 8.5px; letter-spacing: 2px; text-transform: uppercase;
+                  color: {{ $ocean }}; font-weight: bold; }
+        .rule { height: 2px; width: 30px; background-color: {{ $emas }}; font-size: 0; line-height: 0;
+                margin-top: 5px; }
+
+        /* ---------- kotak jumlah ----------
+           Tulang emasnya dibuat dari sel tersendiri, bukan border-left:
+           dompdf memotong border pada tabel setinggi barisnya saja. */
+        .kotak-jumlah td { background-color: {{ $kabut }}; padding: 13px 18px; }
+        .kotak-jumlah td.tulang { background-color: {{ $emas }}; font-size: 0; line-height: 0; padding: 0; }
+        .angka-besar { font-size: 23px; font-weight: bold; color: {{ $navy }}; letter-spacing: -.3px; }
+        .cap { border: 2px solid {{ $ocean }}; color: {{ $ocean }}; font-size: 11px; font-weight: bold;
+               padding: 7px 15px; text-transform: uppercase; letter-spacing: 1.4px; }
+
+        /* ---------- baris rincian ---------- */
+        .baris td { padding: 8px 12px; }
+        .zebra { background-color: #fafcfd; }
+
+        /* ---------- biaya ---------- */
+        .biaya { border-collapse: collapse; }
+        .biaya td { padding: 9px 12px; border-bottom: 1px solid #e9eff5; }
+        .total td { background-color: {{ $navy }}; color: #fff; padding: 11px 12px; border-bottom: none; }
+        .total-teks { font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: {{ $langit }}; }
+        .total-angka { font-size: 17px; font-weight: bold; color: #fff; }
+        .tempo { font-size: 8.5px; color: #94a3b8; padding-top: 2px; }
+
+        /* ---------- kotak keterangan ---------- */
+        .kotak-catatan { background-color: {{ $kabut }}; border-left: 3px solid {{ $ocean }}; padding: 11px 15px; }
+        .kotak-bayar { border: 1px solid #dbe7f0; padding: 13px 16px; }
+
+        /* ---------- kaki ---------- */
+        .kaki { font-size: 8.5px; color: #94a3b8; line-height: 1.7; }
+        .pita-kaki { position: fixed; bottom: 0; left: 0; right: 0; background-color: {{ $navy }};
+                     padding: 9px 34px; font-size: 8px; color: {{ $langit }}; letter-spacing: .5px; }
     </style>
 </head>
 
 <body>
-    <table width="100%" cellpadding="0" cellspacing="0" class="kepala">
+
+    {{-- ============ KEPALA ============ --}}
+    <table width="100%" cellpadding="0" cellspacing="0" class="pita-kepala">
         <tr>
-            <td width="46" valign="middle">
-                <img src="{{ $logo }}" width="42" height="42" alt="">
+            <td width="50" valign="middle">
+                <img src="{{ $logo }}" width="44" height="44" alt="">
             </td>
             <td valign="middle">
                 <div class="merek">ORCHA <span>JOURNEY</span></div>
                 <div class="slogan">Teman Setia Perjalanan Anda</div>
             </td>
-            <td valign="middle" align="right" style="font-size:9px;color:#a9c9de;">
+            <td valign="middle" align="right" class="kontak">
                 {{ config('orcha.alamat') }}<br>
-                {{ config('orcha.email') }} · +{{ config('orcha.whatsapp') }}
+                {{ config('orcha.email') }} &middot; +{{ config('orcha.whatsapp') }}
             </td>
         </tr>
     </table>
+    <div class="garis-emas"></div>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px;">
-        <tr>
-            <td>
-                <div class="judul">{{ $judul }}</div>
-                <div style="font-size:9.5px;color:#64748b;margin-top:3px;">
-                    Diterbitkan {{ now()->translatedFormat('j F Y, H:i') }} WIB
-                </div>
-            </td>
-            <td align="right">
-                <div class="label">Nomor</div>
-                <div class="kode">{{ $kode }}</div>
-            </td>
-        </tr>
-    </table>
+    <div class="isi">
 
-    <div style="height:3px;width:52px;background-color:{{ $emas }};margin:14px 0 4px;"></div>
-
-    @if (! empty($jumlah))
-        <table width="100%" cellpadding="0" cellspacing="0" class="kotak-jumlah" style="margin-top:14px;">
+        {{-- ============ JUDUL & NOMOR ============
+             Nomornya dikotakkan tersendiri, bukan sekadar teks rata kanan:
+             itu keterangan pertama yang dicari orang saat menyusun berkas. --}}
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
             <tr>
-                <td>
-                    <div class="label">{{ $jumlahLabel ?? 'Jumlah diterima' }}</div>
-                    <div style="font-size:20px;font-weight:bold;color:{{ $navy }};margin-top:2px;">{{ $jumlah }}</div>
+                <td valign="top">
+                    <div class="jenis">Dokumen Resmi</div>
+                    <div class="judul">{{ $judul }}</div>
+                    <div class="terbit">Diterbitkan {{ now()->translatedFormat('j F Y, H:i') }} WIB</div>
                 </td>
-                <td align="right" valign="middle">
-                    <span class="cap">{{ $capStatus ?? 'Diterima' }}</span>
+                <td align="right" valign="top" width="34%">
+                    <table cellpadding="0" cellspacing="0" align="right" class="panel-nomor">
+                        <tr>
+                            <td align="right">
+                                <div class="label">Nomor</div>
+                                <div class="kode">{{ $kode }}</div>
+                            </td>
+                        </tr>
+                    </table>
                 </td>
             </tr>
         </table>
-    @endif
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;">
-        @foreach ($rincian as $label => $nilai)
-            @continue(blank($nilai))
-            <tr>
-                <td class="garis" width="38%" style="padding:9px 0;" valign="top">
-                    <span class="label">{{ $label }}</span>
-                </td>
-                <td class="garis" align="right" style="padding:9px 0;" valign="top">
-                    <span class="nilai">{!! nl2br(e($nilai)) !!}</span>
-                </td>
-            </tr>
-        @endforeach
-    </table>
+        {{-- ============ ANGKA UTAMA ============
+             Yang paling dicari mata lebih dulu: berapa, dan statusnya apa. --}}
+        @if (! empty($jumlah))
+            <table width="100%" cellpadding="0" cellspacing="0" class="kotak-jumlah" style="margin-top:20px;">
+                <tr>
+                    <td width="4" class="tulang">&nbsp;</td>
+                    <td valign="middle">
+                        <div class="label">{{ $jumlahLabel ?? 'Jumlah diterima' }}</div>
+                        <div class="angka-besar">{{ $jumlah }}</div>
+                    </td>
+                    <td align="right" valign="middle">
+                        <span class="cap">{{ $capStatus ?? 'Diterima' }}</span>
+                    </td>
+                </tr>
+            </table>
+        @endif
 
-    {{-- ============ RINCIAN BIAYA ============
-         Pertanyaan pertama pelanggan setelah mendaftar selalu sama: berapa
-         yang harus ditransfer sekarang, dan berapa sisanya. Angkanya dipecah
-         sampai terlihat asal-usulnya — harga satuan dikali jumlah orang —
-         supaya tidak ada yang merasa ditagih angka yang tiba-tiba muncul. --}}
-    @if (! empty($biaya))
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+        {{-- ============ RINCIAN ============
+             Berselang-seling supaya mata tidak melompat baris saat membaca
+             daftar panjang berisi nama peserta. --}}
+        <div style="margin-top:24px;">
+            <div class="bagian">Rincian</div>
+            <div class="rule"></div>
+        </div>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:7px;">
+            @foreach (collect($rincian)->filter(fn ($n) => filled($n)) as $label => $nilai)
+                <tr class="baris {{ $loop->index % 2 === 1 ? 'zebra' : '' }}">
+                    <td width="38%" valign="top"><span class="label">{{ $label }}</span></td>
+                    <td align="right" valign="top"><span class="nilai">{!! nl2br(e($nilai)) !!}</span></td>
+                </tr>
+            @endforeach
+        </table>
+
+        {{-- ============ RINCIAN BIAYA ============
+             Pertanyaan pertama pelanggan setelah mendaftar selalu sama: berapa
+             yang harus ditransfer sekarang, dan berapa sisanya. Angkanya
+             dipecah sampai terlihat asal-usulnya — harga satuan dikali jumlah
+             orang — supaya tidak ada yang merasa ditagih angka yang tiba-tiba
+             muncul. Barisnya berhenti di baris total berlatar gelap: satu
+             titik henti yang jelas sebelum masuk ke tenggat pembayaran. --}}
+        @if (! empty($biaya))
+            <div style="margin-top:22px;">
+                <div class="bagian">Rincian Biaya</div>
+                <div class="rule"></div>
+            </div>
+
+            <table width="100%" cellpadding="0" cellspacing="0" class="biaya" style="margin-top:7px;">
+                <tr>
+                    <td>Harga paket per orang</td>
+                    <td align="right"><span class="nilai">{{ $biaya['satuan_teks'] }}</span></td>
+                </tr>
+                <tr>
+                    <td>Jumlah peserta</td>
+                    <td align="right"><span class="nilai">&times; {{ $biaya['orang'] }} orang</span></td>
+                </tr>
+                <tr class="total">
+                    <td><span class="total-teks">Total biaya</span></td>
+                    <td align="right"><span class="total-angka">{{ $biaya['total_teks'] }}</span></td>
+                </tr>
+                <tr>
+                    <td style="padding-top:11px;">
+                        <strong style="color:{{ $ocean }};font-size:11.5px;">
+                            DP {{ $biaya['dp_persen'] }}% &mdash; dibayar sekarang
+                        </strong>
+                        <div class="tempo">paling lambat {{ $biaya['dp_batas_jam'] }} jam sejak pendaftaran</div>
+                    </td>
+                    <td align="right" valign="top" style="padding-top:11px;">
+                        <strong style="color:{{ $ocean }};font-size:14px;">{{ $biaya['dp_teks'] }}</strong>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="border-bottom:none;">
+                        Sisa pelunasan
+                        <div class="tempo">paling lambat H-{{ $biaya['pelunasan_hari'] }} sebelum berangkat</div>
+                    </td>
+                    <td align="right" valign="top" style="border-bottom:none;">
+                        <span class="nilai">{{ $biaya['sisa_teks'] }}</span>
+                    </td>
+                </tr>
+            </table>
+        @endif
+
+        @if (! empty($catatan))
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+                <tr>
+                    <td class="kotak-catatan">
+                        <div class="label" style="color:{{ $ocean }};">Catatan</div>
+                        <div style="font-size:10.5px;color:#475569;padding-top:3px;">{!! nl2br(e($catatan)) !!}</div>
+                    </td>
+                </tr>
+            </table>
+        @endif
+
+        {{-- ============ CARA PEMBAYARAN & TANDA TANGAN ============
+             Nomor rekeningnya sengaja tidak dicetak. Berkas seperti ini paling
+             gampang disalin penipu lalu diedarkan dengan rekening lain; yang
+             dicantumkan cukup nama penerima, karena nama itulah yang bisa
+             dicocokkan sendiri oleh pelanggan di ATM sebelum menekan kirim. --}}
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
             <tr>
-                <td colspan="2" style="padding-bottom:6px;">
-                    <span class="label" style="color:{{ $ocean }};letter-spacing:1.2px;">Rincian Biaya</span>
+                <td width="60%" valign="top">
+                    <table width="100%" cellpadding="0" cellspacing="0" class="kotak-bayar">
+                        <tr>
+                            <td>
+                                <div class="bagian" style="color:{{ $navy }};">
+                                    @if (! empty($biaya))
+                                        Cara Pembayaran
+                                    @else
+                                        Perlu Diperhatikan
+                                    @endif
+                                </div>
+                                <div style="font-size:10px;line-height:1.8;padding-top:6px;">
+                                    @if (! empty($biaya))
+                                        Hanya lewat <strong style="color:{{ $navy }};">transfer bank</strong>,
+                                        ke rekening atas nama<br>
+                                        <strong style="color:{{ $navy }};font-size:11.5px;letter-spacing:.3px;">
+                                            {{ config('orcha.pembayaran.atas_nama') }}
+                                        </strong><br>
+                                        <span style="color:#b91c1c;">Nama penerima selain itu bukan kami.</span><br>
+                                        Nomor rekeningnya dikirim tim kami lewat WhatsApp. Setelah transfer,
+                                        unggah buktinya lewat halaman Konfirmasi Pembayaran.
+                                    @else
+                                        Pembayaran hanya sah ke rekening atas nama<br>
+                                        <strong style="color:{{ $navy }};font-size:11.5px;letter-spacing:.3px;">
+                                            {{ config('orcha.pembayaran.atas_nama') }}
+                                        </strong><br>
+                                        <span style="color:#b91c1c;">Nama selain itu bukan kami.</span><br>
+                                        Simpan berkas ini sampai perjalanan selesai.
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
                 </td>
-            </tr>
-            <tr>
-                <td class="garis" style="padding:8px 0;">Harga paket per orang</td>
-                <td class="garis" align="right" style="padding:8px 0;">
-                    <span class="nilai">{{ $biaya['satuan_teks'] }}</span>
-                </td>
-            </tr>
-            <tr>
-                <td class="garis" style="padding:8px 0;">Jumlah peserta</td>
-                <td class="garis" align="right" style="padding:8px 0;">
-                    <span class="nilai">&times; {{ $biaya['orang'] }} orang</span>
-                </td>
-            </tr>
-            <tr>
-                <td style="padding:10px 0 4px;border-bottom:2px solid {{ $navy }};">
-                    <strong style="color:{{ $navy }};font-size:12px;">Total biaya</strong>
-                </td>
-                <td align="right" style="padding:10px 0 4px;border-bottom:2px solid {{ $navy }};">
-                    <strong style="color:{{ $navy }};font-size:15px;">{{ $biaya['total_teks'] }}</strong>
-                </td>
-            </tr>
-            <tr>
-                <td style="padding:9px 0 2px;">
-                    <strong style="color:{{ $ocean }};">DP {{ $biaya['dp_persen'] }}% — dibayar sekarang</strong>
-                    <div style="font-size:9px;color:#94a3b8;">
-                        paling lambat {{ $biaya['dp_batas_jam'] }} jam sejak pendaftaran
+
+                <td align="center" valign="top" style="font-size:9px;color:#94a3b8;padding-left:18px;">
+                    Hormat kami,
+
+                    {{-- Stempel dan tanda tangan ditumpuk: stempel jadi latar,
+                         tanda tangan di atasnya — seperti dokumen yang dicap lalu
+                         ditandatangani, bukan dua gambar berjajar. --}}
+                    <div style="position:relative;height:92px;margin-top:2px;">
+                        @if ($stempel)
+                            <img src="{{ $stempel }}" width="88" height="88" alt=""
+                                style="position:absolute;top:0;left:50%;margin-left:-44px;opacity:.85;">
+                        @else
+                            <img src="{{ $logo }}" width="44" height="44" alt=""
+                                style="position:absolute;top:22px;left:50%;margin-left:-22px;">
+                        @endif
+
+                        @if ($ttd)
+                            <img src="{{ $ttd }}" width="100" alt=""
+                                style="position:absolute;top:20px;left:50%;margin-left:-50px;">
+                        @endif
+                    </div>
+
+                    <div style="border-top:1px solid #cbd5e1;width:150px;margin:0 auto;padding-top:5px;">
+                        <strong style="color:{{ $navy }};font-size:10px;">Orcha Journey</strong><br>
+                        <span style="font-size:8px;">{{ config('orcha.pembayaran.atas_nama') }}</span>
                     </div>
                 </td>
-                <td align="right" valign="top" style="padding:9px 0 2px;">
-                    <strong style="color:{{ $ocean }};font-size:13px;">{{ $biaya['dp_teks'] }}</strong>
-                </td>
-            </tr>
-            <tr>
-                <td style="padding:6px 0;">
-                    Sisa pelunasan
-                    <div style="font-size:9px;color:#94a3b8;">
-                        paling lambat H-{{ $biaya['pelunasan_hari'] }} sebelum berangkat
-                    </div>
-                </td>
-                <td align="right" valign="top" style="padding:6px 0;">
-                    <span class="nilai">{{ $biaya['sisa_teks'] }}</span>
-                </td>
             </tr>
         </table>
-    @endif
 
-    @if (! empty($catatan))
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;">
-            <tr>
-                <td style="background-color:#f7fbfd;padding:11px 14px;border-left:3px solid {{ $ocean }};">
-                    <div class="label" style="color:{{ $ocean }};">Catatan</div>
-                    <div style="font-size:10.5px;color:#475569;margin-top:3px;">{!! nl2br(e($catatan)) !!}</div>
-                </td>
-            </tr>
-        </table>
-    @endif
-
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:26px;">
-        <tr>
-            <td class="kaki" width="62%" valign="top">
-                <strong style="color:{{ $navy }};">Perlu diperhatikan</strong><br>
-                Pembayaran hanya sah ke rekening atas nama
-                <strong>{{ config('orcha.pembayaran.atas_nama') }}</strong>.
-                Nama selain itu bukan kami.<br>
-                Simpan berkas ini sampai perjalanan selesai.
-            </td>
-            <td align="center" valign="top" style="font-size:9px;color:#94a3b8;">
-                Hormat kami,
-
-                {{-- Stempel dan tanda tangan ditumpuk: stempel jadi latar,
-                     tanda tangan di atasnya — seperti dokumen yang dicap lalu
-                     ditandatangani, bukan dua gambar berjajar. --}}
-                <div style="position:relative;height:96px;margin-top:2px;">
-                    @if ($stempel)
-                        <img src="{{ $stempel }}" width="92" height="92" alt=""
-                            style="position:absolute;top:0;left:50%;margin-left:-46px;opacity:.85;">
-                    @else
-                        <img src="{{ $logo }}" width="46" height="46" alt=""
-                            style="position:absolute;top:24px;left:50%;margin-left:-23px;">
-                    @endif
-
-                    @if ($ttd)
-                        <img src="{{ $ttd }}" width="104" alt=""
-                            style="position:absolute;top:22px;left:50%;margin-left:-52px;">
-                    @endif
-                </div>
-
-                <div style="border-top:1px solid #cbd5e1;width:130px;margin:0 auto;padding-top:4px;">
-                    <strong style="color:{{ $navy }};font-size:10px;">Orcha Journey</strong><br>
-                    <span style="font-size:8px;">{{ config('orcha.pembayaran.atas_nama') }}</span>
-                </div>
-            </td>
-        </tr>
-    </table>
-
-    <div style="margin-top:18px;padding-top:9px;border-top:1px solid #e6edf3;" class="kaki">
-        Berkas ini dibuat otomatis oleh sistem dan sah tanpa tanda tangan basah.
+        <div class="kaki" style="margin-top:16px;padding-top:9px;border-top:1px solid #e9eff5;">
+            Berkas ini dibuat otomatis oleh sistem dan sah tanpa tanda tangan basah.
+        </div>
     </div>
+
+    {{-- Pita kaki dipasang mengambang supaya tetap menempel di dasar halaman,
+         berapa pun panjang daftar pesertanya. --}}
+    <table width="100%" cellpadding="0" cellspacing="0" class="pita-kaki">
+        <tr>
+            <td>ORCHA JOURNEY &middot; YOGYAKARTA</td>
+            <td align="right">{{ $kode }}</td>
+        </tr>
+    </table>
 </body>
 
 </html>

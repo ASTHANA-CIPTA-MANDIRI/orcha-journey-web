@@ -237,7 +237,37 @@ test('halaman tagihan memuat asal-usul angkanya', function () {
         ->and($html)->toContain('Rp 2.002.000')
         // Jangan sampai terbaca sebagai bukti bayar
         ->and($html)->toContain('Belum Dibayar')
-        ->and($html)->toContain('H-5');
+        ->and($html)->toContain('H-5')
+        // Tagihan tanpa cara membayarnya belum selesai — dan nama penerima yang
+        // sah adalah satu-satunya hal yang bisa dicek sendiri pelanggan di ATM
+        ->and($html)->toContain('Cara Pembayaran')
+        ->and($html)->toContain('PT ASTHANA CIPTA MANDIRI')
+        // Nomor rekening sengaja tidak dicetak: berkas begini gampang disalin penipu
+        ->and($html)->not->toContain('Nomor rekening:');
+});
+
+test('berkas resmi memakai kerangka merek yang sama', function () {
+    $halaman = fn (array $biaya) => view('pdf.kwitansi', [
+        'judul' => 'Tanda Terima Pembayaran',
+        'kode' => 'OT-1508-ABCD',
+        'rincian' => ['Pemesan' => 'Siti Aminah'],
+        'catatan' => null,
+        'jumlah' => 'Rp 500.000',
+        'jumlahLabel' => 'Nominal dilaporkan',
+        'capStatus' => 'Menunggu Dicek',
+        'biaya' => $biaya,
+    ])->render();
+
+    $html = $halaman([]);
+
+    expect($html)->toContain('ORCHA <span>JOURNEY</span>')
+        ->and($html)->toContain('Teman Setia Perjalanan Anda')
+        // Logonya berkas setempat, bukan tautan http yang tak bisa dijangkau dompdf
+        ->and($html)->toContain('orcha-logo-surat.png')
+        ->and($html)->not->toContain('http://127.0.0.1')
+        // Tanpa biaya, panel tagihannya memang tidak tampil
+        ->and($html)->not->toContain('Rincian Biaya')
+        ->and($html)->toContain('Perlu Diperhatikan');
 });
 
 test('tanda terima pembayaran tetap tanpa tabel biaya', function () {
