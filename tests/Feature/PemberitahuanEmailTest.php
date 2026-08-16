@@ -154,6 +154,99 @@ test('pengajuan pembatalan mengirim surat dengan tanda terima pdf', function () 
     });
 });
 
+/* ---------------------------- RINCIAN BIAYA ----------------------------
+ *
+ * Yang dilampirkan di surat pendaftaran BUKAN kwitansi: pada tahap ini belum
+ * ada uang yang masuk. Yang dibutuhkan pelanggan justru tagihannya.
+ */
+
+test('hitungan biaya memecah harga satuan, dp, dan sisanya', function () {
+    $biaya = App\Support\RincianBiaya::untuk($this->paket, 3);
+
+    expect($biaya['satuan_teks'])->toBe('Rp 1.430.000')
+        ->and($biaya['orang'])->toBe(3)
+        ->and($biaya['total_teks'])->toBe('Rp 4.290.000')
+        ->and($biaya['dp_persen'])->toBe(30)
+        ->and($biaya['dp_teks'])->toBe('Rp 1.287.000')
+        ->and($biaya['sisa_teks'])->toBe('Rp 3.003.000')
+        // DP + sisa harus benar-benar kembali ke total, bukan sekadar mirip
+        ->and($biaya['dp'] + $biaya['sisa'])->toBe($biaya['total']);
+});
+
+test('study tour memakai persentase dp-nya sendiri', function () {
+    $this->paket->update(['category' => 'study_tour']);
+
+    expect(App\Support\RincianBiaya::untuk($this->paket->fresh(), 2)['dp_persen'])->toBe(25);
+});
+
+test('paket yang harganya belum diisi tidak dikarang angkanya', function () {
+    $this->paket->update(['price' => 0]);
+
+    expect(App\Support\RincianBiaya::untuk($this->paket->fresh(), 2))->toBe([]);
+});
+
+test('lampiran pendaftaran berisi tagihan, bukan kwitansi', function () {
+    Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $this->paket->uuid)
+        ->set('nama', 'Siti Aminah')
+        ->set('whatsapp', '081298765432')
+        ->set('email', 'siti@contoh.test')
+        ->set('jumlahPeserta', 2)
+        ->set('peserta', [
+            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja'],
+            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Surakarta'],
+        ])
+        ->set('setuju', true)
+        ->call('daftar')
+        ->assertHasNoErrors();
+
+    Mail::assertSent(PemberitahuanFormulir::class, function ($surat) {
+        $nama = array_key_first($surat->berkasPdf);
+        $isiSurat = $surat->render();
+
+        return str_contains($nama, 'RINCIAN-BIAYA')
+            && ! str_contains($nama, 'KWITANSI')
+            && str_starts_with($surat->berkasPdf[$nama], '%PDF-')
+            // Angkanya juga terbaca langsung di badan surat, tanpa membuka lampiran
+            && str_contains($isiSurat, 'Rp 2.860.000')   // total 2 × 1.430.000
+            && str_contains($isiSurat, 'Rp 858.000')     // DP 30%
+            && str_contains($isiSurat, 'Rp 2.002.000');  // sisa pelunasan
+    });
+});
+
+test('halaman tagihan memuat asal-usul angkanya', function () {
+    $biaya = App\Support\RincianBiaya::untuk($this->paket, 2);
+
+    $html = view('pdf.kwitansi', [
+        'judul' => 'Rincian Biaya Pendaftaran',
+        'kode' => 'OT-1508-ABCD',
+        'rincian' => ['Pemesan' => 'Siti Aminah'],
+        'catatan' => null,
+        'jumlah' => $biaya['dp_teks'],
+        'jumlahLabel' => 'Dibayar sekarang · DP 30%',
+        'capStatus' => 'Belum Dibayar',
+        'biaya' => $biaya,
+    ])->render();
+
+    expect($html)->toContain('Rincian Biaya')
+        // Harga satuan dikali jumlah orang — bukan angka yang tiba-tiba muncul
+        ->and($html)->toContain('Rp 1.430.000')
+        ->and($html)->toContain('&times; 2 orang')
+        ->and($html)->toContain('Rp 2.860.000')
+        ->and($html)->toContain('Rp 858.000')
+        ->and($html)->toContain('Rp 2.002.000')
+        // Jangan sampai terbaca sebagai bukti bayar
+        ->and($html)->toContain('Belum Dibayar')
+        ->and($html)->toContain('H-5');
+});
+
+test('tanda terima pembayaran tetap tanpa tabel biaya', function () {
+    $isi = App\Support\BerkasKwitansi::buat('Tanda Terima Pembayaran', 'OT-1508-ABCD', ['Pemesan' => 'Siti']);
+
+    expect($isi)->not->toBeNull()
+        ->and(substr($isi, 0, 5))->toBe('%PDF-');
+});
+
 /* -------------------- SALINAN UNTUK PELANGGAN --------------------
  *
  * Sebelum ini hanya kotak kantor yang menerima surat, sehingga pelanggan

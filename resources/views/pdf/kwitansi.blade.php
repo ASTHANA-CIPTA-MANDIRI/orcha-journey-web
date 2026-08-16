@@ -14,6 +14,10 @@
     // diterbitkan sistem, dan itu memang dinyatakan di bagian bawahnya.
     $stempel = file_exists(public_path('orcha-stempel.png')) ? public_path('orcha-stempel.png') : null;
     $ttd = file_exists(public_path('orcha-ttd.png')) ? public_path('orcha-ttd.png') : null;
+
+    // Tabel biaya hanya dipakai berkas pendaftaran; tanda terima pembayaran
+    // dan pembatalan memanggil tanpa itu.
+    $biaya = $biaya ?? [];
 @endphp
 
 <!DOCTYPE html>
@@ -105,6 +109,63 @@
             </tr>
         @endforeach
     </table>
+
+    {{-- ============ RINCIAN BIAYA ============
+         Pertanyaan pertama pelanggan setelah mendaftar selalu sama: berapa
+         yang harus ditransfer sekarang, dan berapa sisanya. Angkanya dipecah
+         sampai terlihat asal-usulnya — harga satuan dikali jumlah orang —
+         supaya tidak ada yang merasa ditagih angka yang tiba-tiba muncul. --}}
+    @if (! empty($biaya))
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+            <tr>
+                <td colspan="2" style="padding-bottom:6px;">
+                    <span class="label" style="color:{{ $ocean }};letter-spacing:1.2px;">Rincian Biaya</span>
+                </td>
+            </tr>
+            <tr>
+                <td class="garis" style="padding:8px 0;">Harga paket per orang</td>
+                <td class="garis" align="right" style="padding:8px 0;">
+                    <span class="nilai">{{ $biaya['satuan_teks'] }}</span>
+                </td>
+            </tr>
+            <tr>
+                <td class="garis" style="padding:8px 0;">Jumlah peserta</td>
+                <td class="garis" align="right" style="padding:8px 0;">
+                    <span class="nilai">&times; {{ $biaya['orang'] }} orang</span>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding:10px 0 4px;border-bottom:2px solid {{ $navy }};">
+                    <strong style="color:{{ $navy }};font-size:12px;">Total biaya</strong>
+                </td>
+                <td align="right" style="padding:10px 0 4px;border-bottom:2px solid {{ $navy }};">
+                    <strong style="color:{{ $navy }};font-size:15px;">{{ $biaya['total_teks'] }}</strong>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding:9px 0 2px;">
+                    <strong style="color:{{ $ocean }};">DP {{ $biaya['dp_persen'] }}% — dibayar sekarang</strong>
+                    <div style="font-size:9px;color:#94a3b8;">
+                        paling lambat {{ $biaya['dp_batas_jam'] }} jam sejak pendaftaran
+                    </div>
+                </td>
+                <td align="right" valign="top" style="padding:9px 0 2px;">
+                    <strong style="color:{{ $ocean }};font-size:13px;">{{ $biaya['dp_teks'] }}</strong>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding:6px 0;">
+                    Sisa pelunasan
+                    <div style="font-size:9px;color:#94a3b8;">
+                        paling lambat H-{{ $biaya['pelunasan_hari'] }} sebelum berangkat
+                    </div>
+                </td>
+                <td align="right" valign="top" style="padding:6px 0;">
+                    <span class="nilai">{{ $biaya['sisa_teks'] }}</span>
+                </td>
+            </tr>
+        </table>
+    @endif
 
     @if (! empty($catatan))
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;">

@@ -16,6 +16,7 @@ class BerkasKwitansi
 {
     /**
      * @param  array<string, string|null>  $rincian
+     * @param  array<string, mixed>  $biaya  hasil RincianBiaya::untuk(); kosong = tanpa tabel biaya
      * @return string|null isi berkas PDF, atau null bila gagal dibuat
      */
     public static function buat(
@@ -26,10 +27,11 @@ class BerkasKwitansi
         ?string $jumlah = null,
         ?string $jumlahLabel = null,
         ?string $capStatus = null,
+        array $biaya = [],
     ): ?string {
         try {
             return Pdf::loadView('pdf.kwitansi', compact(
-                'judul', 'kode', 'rincian', 'catatan', 'jumlah', 'jumlahLabel', 'capStatus'
+                'judul', 'kode', 'rincian', 'catatan', 'jumlah', 'jumlahLabel', 'capStatus', 'biaya'
             ))->setPaper('a4')->output();
         } catch (\Throwable $e) {
             Log::error('Kwitansi PDF gagal dibuat', [

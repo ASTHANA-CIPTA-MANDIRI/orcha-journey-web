@@ -5,6 +5,7 @@ use App\Models\PaketWisata\TravelPackage;
 use App\Support\BerkasKwitansi;
 use App\Support\KirimPemberitahuan;
 use App\Support\NomorTelepon;
+use App\Support\RincianBiaya;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -226,29 +227,49 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                 ->implode("\n"),
         ];
 
+        // Lampirannya bukan kwitansi — belum ada uang yang masuk pada tahap
+        // ini. Yang dibutuhkan pelanggan justru tagihannya: berapa DP yang
+        // harus ditransfer sekarang, dan berapa sisa pelunasannya.
+        $biaya = RincianBiaya::untuk($paket, (int) $pendaftaran->jumlah_peserta);
+
+        $berkas = BerkasKwitansi::buat(
+            'Rincian Biaya Pendaftaran',
+            $pendaftaran->kode,
+            $rincian,
+            $pendaftaran->catatan,
+            $biaya ? $biaya['dp_teks'] : null,
+            $biaya ? 'Dibayar sekarang · DP '.$biaya['dp_persen'].'%' : null,
+            'Belum Dibayar',
+            biaya: $biaya,
+        );
+
+        // Angka biaya ikut ditulis di badan surat supaya terbaca tanpa perlu
+        // membuka lampirannya lebih dulu.
+        $rincianSurat = $biaya ? array_merge($rincian, [
+            'Total biaya' => $biaya['total_teks'].' ('.$biaya['satuan_teks'].' × '.$biaya['orang'].' orang)',
+            'DP '.$biaya['dp_persen'].'% — bayar sekarang' => $biaya['dp_teks'],
+            'Sisa pelunasan' => $biaya['sisa_teks'].' — paling lambat H-'.$biaya['pelunasan_hari'],
+        ]) : $rincian;
+
         // Dikirim SETELAH tersimpan, dan kegagalannya tidak membatalkan apa pun.
         KirimPemberitahuan::kirim(
             'Pendaftaran Open Trip Baru',
             $pendaftaran->kode,
-            $rincian,
+            $rincianSurat,
             $pendaftaran->catatan,
             [],
-            ($bukti = BerkasKwitansi::buat(
-                'Bukti Pendaftaran Open Trip',
-                $pendaftaran->kode,
-                $rincian,
-                $pendaftaran->catatan,
-                $paket->price ? 'Rp '.number_format((float) $paket->price, 0, ',', '.').' / orang' : null,
-                'Harga paket',
-                'Terdaftar',
-            )) ? [BerkasKwitansi::namaBerkas('bukti-pendaftaran', $pendaftaran->kode) => $bukti] : [],
+            $berkas ? [BerkasKwitansi::namaBerkas('rincian-biaya', $pendaftaran->kode) => $berkas] : [],
             emailPelanggan: $pendaftaran->email,
             judulPelanggan: 'Pendaftaran Anda Sudah Kami Terima',
             langkahPelanggan: "Simpan kode {$pendaftaran->kode}. Kode inilah yang dipakai untuk mengirim bukti "
                 ."transfer, mengisi riwayat kesehatan tiap peserta, sampai mengajukan pembatalan.\n\n"
-                .'Berikutnya: transfer DP '.config('orcha.pembayaran.dp_persen').'% paling lambat '
-                .config('orcha.pembayaran.dp_batas_jam').' jam sejak pendaftaran ini, lalu unggah buktinya lewat '
-                .'halaman Konfirmasi Pembayaran. Tempat duduk baru terkunci setelah DP masuk.',
+                .($biaya
+                    ? 'Berikutnya: transfer DP '.$biaya['dp_persen'].'% sebesar '.$biaya['dp_teks'].' paling lambat '
+                        .$biaya['dp_batas_jam'].' jam sejak pendaftaran ini, lalu unggah buktinya lewat halaman '
+                        .'Konfirmasi Pembayaran. Sisanya '.$biaya['sisa_teks'].' dilunasi paling lambat H-'
+                        .$biaya['pelunasan_hari'].' sebelum berangkat. Rinciannya ada di lampiran surat ini.'
+                    : 'Berikutnya: tim kami menghitung biayanya lebih dulu, lalu mengabari Anda lewat WhatsApp.')
+                .' Tempat duduk baru terkunci setelah DP masuk.',
         );
 
         $this->kodeTerdaftar = $pendaftaran->kode;
