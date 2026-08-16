@@ -770,3 +770,73 @@ test('titik jemput tiap peserta ikut terbaca lewat api', function () {
         ->assertJsonPath('data.jemput_per_titik.Surakarta', ['Budi Santoso', 'Rina Wijaya'])
         ->assertJsonPath('data.jemput_per_titik.Jogja', ['Sari Dewi']);
 });
+
+/* ------------------- DETAIL PELANGGAN UNTUK LEMON -------------------
+ *
+ * Admin yang membuka satu pelanggan biasanya sedang menjawab satu
+ * pertanyaan lewat WhatsApp: sudah bayar berapa, siapa saja yang ikut,
+ * dan apakah ada pengajuan pembatalan. Ketiganya harus datang sekalian,
+ * supaya lemon tidak menggambar halaman dari tiga panggilan terpisah.
+ */
+
+test('detail pendaftaran memuat tagihan, pembayaran, dan pembatalan', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Banyuwangi',
+        'category' => 'open_trip',
+        'price' => 1430000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+    ]);
+
+    $pendaftaran = buatPendaftaran(['travel_package_id' => $paket->id]);
+
+    KonfirmasiPembayaran::create([
+        'kode' => $pendaftaran->kode,
+        'jenis' => 'dp',
+        'nominal' => 858000,
+        'tanggal_transfer' => now()->toDateString(),
+        'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Budi Santoso',
+        'status' => 'diterima',
+    ]);
+
+    Pembatalan::create([
+        'kode_pendaftaran' => $pendaftaran->kode,
+        'nama_pemohon' => 'Budi Santoso',
+        'whatsapp' => '081234567890',
+        'alasan' => 'kondisi_kesehatan',
+        'jumlah_dibatalkan' => 1,
+        'bank' => 'BCA',
+        'nomor_rekening' => '1234567890',
+        'atas_nama_rekening' => 'Budi Santoso',
+    ]);
+
+    $hasil = $this->getJson("/api/v1/pendaftaran/{$pendaftaran->id}", kirim())
+        ->assertOk()
+        ->json('data');
+
+    // 2 × 1.430.000 = 2.860.000; DP 858.000 sudah masuk
+    expect($hasil['tagihan']['total'])->toBe(2860000)
+        ->and($hasil['tagihan']['sudah'])->toBe(858000)
+        ->and($hasil['tagihan']['sisa'])->toBe(2002000)
+        ->and($hasil['tagihan']['lunas'])->toBeFalse()
+        ->and($hasil['pembayaran'])->toHaveCount(1)
+        ->and($hasil['pembayaran'][0]['nominal_formatted'])->toBe('Rp 858.000')
+        ->and($hasil['pembatalan']['jumlah_dibatalkan'])->toBe(1)
+        ->and($hasil['pembatalan']['rekening'])->toContain('1234567890');
+
+    // Riwayat kesehatan TIDAK ikut: jalurnya sendiri, dan tercatat
+    expect($hasil)->not->toHaveKey('riwayat_kesehatan');
+});
+
+test('detail pendaftaran tanpa pembayaran tetap utuh bentuknya', function () {
+    $pendaftaran = buatPendaftaran();
+
+    $hasil = $this->getJson("/api/v1/pendaftaran/{$pendaftaran->id}", kirim())
+        ->assertOk()
+        ->json('data');
+
+    expect($hasil['pembayaran'])->toBe([])
+        ->and($hasil['pembatalan'])->toBeNull()
+        // Paket belum berharga → tagihannya tidak dikarang
+        ->and($hasil['tagihan'])->toBe([]);
+});

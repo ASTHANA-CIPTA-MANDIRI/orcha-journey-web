@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api\OpenTrip;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\OpenTrip\PendaftaranResource;
+use App\Models\OpenTrip\KonfirmasiPembayaran;
+use App\Models\OpenTrip\Pembatalan;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Support\TagihanPesanan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -27,11 +30,59 @@ class PendaftaranController extends ApiController
         return $this->halaman($daftar, PendaftaranResource::class);
     }
 
+    /**
+     * Satu pendaftaran, selengkapnya.
+     *
+     * Admin yang membuka satu pelanggan biasanya sedang menjawab satu
+     * pertanyaan: sudah bayar berapa, siapa saja yang ikut, dan apakah ada
+     * pengajuan pembatalan. Ketiganya dikirim sekalian di sini supaya lemon
+     * tidak perlu memanggil tiga jalur untuk menggambar satu halaman.
+     *
+     * Riwayat kesehatan TETAP tidak ikut — jalurnya sendiri, dan setiap
+     * pembukaannya dicatat.
+     */
     public function show(PendaftaranOpenTrip $pendaftaran): JsonResponse
     {
-        return response()->json([
-            'data' => (new PendaftaranResource($pendaftaran->loadCount('riwayatKesehatan')))->resolve(),
-        ]);
+        $data = (new PendaftaranResource($pendaftaran->loadCount('riwayatKesehatan')))->resolve();
+
+        $data['tagihan'] = TagihanPesanan::untuk($pendaftaran);
+
+        $data['pembayaran'] = KonfirmasiPembayaran::where('kode', $pendaftaran->kode)
+            ->latest('id')
+            ->get()
+            ->map(fn ($bayar) => [
+                'id' => $bayar->id,
+                'jenis' => $bayar->jenis,
+                'jenis_label' => $bayar->jenis_label,
+                'nominal' => $bayar->nominal,
+                'nominal_formatted' => $bayar->nominal_formatted,
+                'tanggal_transfer' => $bayar->tanggal_transfer?->toDateString(),
+                'bank_pengirim' => $bayar->bank_pengirim,
+                'atas_nama_pengirim' => $bayar->atas_nama_pengirim,
+                'bukti' => $bayar->bukti,
+                'catatan' => $bayar->catatan,
+                'status' => $bayar->status,
+                'status_label' => $bayar->status_label,
+                'catatan_admin' => $bayar->catatan_admin,
+                'dibuat_pada' => $bayar->created_at?->toIso8601String(),
+            ])
+            ->all();
+
+        $pembatalan = Pembatalan::where('kode_pendaftaran', $pendaftaran->kode)->latest('id')->first();
+
+        $data['pembatalan'] = $pembatalan ? [
+            'id' => $pembatalan->id,
+            'nama_pemohon' => $pembatalan->nama_pemohon,
+            'alasan_label' => $pembatalan->alasan_label,
+            'penjelasan' => $pembatalan->penjelasan,
+            'jumlah_dibatalkan' => $pembatalan->jumlah_dibatalkan,
+            'rekening' => $pembatalan->bank.' · '.$pembatalan->nomor_rekening
+                .' a.n. '.$pembatalan->atas_nama_rekening,
+            'status' => $pembatalan->status,
+            'dibuat_pada' => $pembatalan->created_at?->toIso8601String(),
+        ] : null;
+
+        return response()->json(['data' => $data]);
     }
 
     /**
