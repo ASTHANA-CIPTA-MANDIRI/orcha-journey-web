@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\OpenTrip;
 
+use App\Support\TagihanPesanan;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -36,6 +37,12 @@ class PembayaranResource extends JsonResource
                 'nama' => $pesanan->nama,
                 'whatsapp' => $pesanan->whatsapp,
                 'keterangan' => $pesanan->nama_paket ?? $pesanan->nama_kendaraan ?? null,
+
+                // Sisa tagihannya ikut dikirim karena itulah yang ditanyakan
+                // pelanggan begitu buktinya diterima — "berarti kurang berapa
+                // lagi?". Tanpa ini admin harus membuka halaman pesanan dulu
+                // sebelum bisa menjawabnya.
+                'tagihan' => TagihanPesanan::untuk($pesanan, hanyaDiterima: true),
             ] : null,
 
             'dibuat_pada' => $this->created_at?->toIso8601String(),
