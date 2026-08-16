@@ -122,7 +122,7 @@
            putih di bawahnya dan berkasnya terlihat belum selesai. */
         .kaki-luar { position: fixed; bottom: -68px; left: 0; right: 0; }
         .kaki-emas { height: 2px; background-color: {{ $emas }}; font-size: 0; line-height: 0; }
-        .pita-kaki { background-color: {{ $navy }}; padding: 10px 34px 11px; }
+        .pita-kaki { background-color: {{ $navy }}; padding: 10px 34px 11px; table-layout: fixed; }
         .kaki-merek { font-size: 9.5px; font-weight: bold; color: #fff; letter-spacing: .8px; }
         .kaki-merek span { color: {{ $emas }}; }
         .kaki-slogan { font-size: 7px; color: {{ $langit }}; letter-spacing: 1.6px;
@@ -388,21 +388,32 @@
     <div class="kaki-luar">
         <div class="kaki-emas"></div>
 
+        {{-- Lebar ketiga kolomnya ditetapkan 30-40-30 dan tata letaknya dikunci.
+             Kalau lebarnya dibiarkan mengikuti isi, titik tengah kolom tengah
+             ikut bergeser mengikuti panjang nama merek di kiri dan nomor berkas
+             di kanan — teksnya "rata tengah" terhadap kolomnya sendiri, tetapi
+             miring terhadap halamannya. Dengan sisi kiri dan kanan sama lebar,
+             titik tengah kolom tengah jatuh persis di tengah kertas. --}}
         <table width="100%" cellpadding="0" cellspacing="0" class="pita-kaki">
             <tr>
-                <td width="34" valign="middle">
-                    <img src="{{ $logo }}" width="26" height="26" alt="">
+                <td width="30%" valign="middle">
+                    <table cellpadding="0" cellspacing="0">
+                        <tr>
+                            <td width="34" valign="middle">
+                                <img src="{{ $logo }}" width="26" height="26" alt="">
+                            </td>
+                            <td valign="middle" style="padding-left:9px;">
+                                <div class="kaki-merek">ORCHA <span>JOURNEY</span></div>
+                                {{-- Slogannya, bukan nama kota: kotanya sudah tersebut di
+                                     alamat pada kop, dan yang pantas mendampingi nama merek
+                                     di kaki halaman adalah janji layanannya. --}}
+                                <div class="kaki-slogan">{{ config('orcha.slogan') }}</div>
+                            </td>
+                        </tr>
+                    </table>
                 </td>
 
-                <td valign="middle" style="padding-left:9px;">
-                    <div class="kaki-merek">ORCHA <span>JOURNEY</span></div>
-                    {{-- Slogannya, bukan nama kota: kotanya sudah tersebut di alamat
-                         pada kop, dan yang pantas mendampingi nama merek di kaki
-                         halaman adalah janji layanannya. --}}
-                    <div class="kaki-slogan">{{ config('orcha.slogan') }}</div>
-                </td>
-
-                <td valign="middle" align="center" class="kaki-kontak">
+                <td width="40%" valign="middle" align="center" class="kaki-kontak">
                     {{ config('orcha.email') }} &middot; +{{ config('orcha.whatsapp') }}
                     &middot; {{ str_replace(['https://', 'http://'], '', config('app.url')) }}
                     {{-- Keterangan keabsahan ikut di pita, bukan berdiri sendiri di
@@ -411,7 +422,7 @@
                     <div class="kaki-sah">Dibuat otomatis oleh sistem &mdash; sah tanpa tanda tangan basah</div>
                 </td>
 
-                <td valign="middle" align="right">
+                <td width="30%" valign="middle" align="right">
                     <div class="kaki-nomor-label">Nomor Berkas</div>
                     <div class="kaki-nomor">{{ $kode }}</div>
                 </td>
