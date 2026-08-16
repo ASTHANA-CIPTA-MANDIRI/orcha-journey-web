@@ -7,6 +7,7 @@ use App\Support\GambarWebp;
 use App\Support\BerkasKwitansi;
 use App\Support\KirimPemberitahuan;
 use App\Support\SalinanPelanggan;
+use App\Support\TagihanPesanan;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -46,10 +47,25 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
 
     public bool $terkirim = false;
 
+    /**
+     * Nominal terakhir yang diisikan sistem.
+     *
+     * Dipakai membedakan angka usulan dari angka ketikan pelanggan: yang
+     * kedua tidak pernah ditimpa.
+     */
+    public ?int $nominalOtomatis = null;
+
+    /** Begitu pelanggan memilih jenisnya sendiri, sistem berhenti menebak. */
+    public bool $jenisDipilihSendiri = false;
+
     public function mount(): void
     {
         $this->kode = strtoupper(trim((string) request()->query('kode', '')));
         $this->tanggalTransfer = now()->toDateString();
+
+        // Tautan dari surat pendaftaran sudah membawa kodenya, jadi nominal
+        // dan jenisnya bisa langsung terisi sebelum halaman tampil.
+        $this->isikanNominal();
     }
 
     /**
@@ -97,6 +113,67 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
     public function updatedKode(): void
     {
         $this->kode = strtoupper(trim($this->kode));
+        $this->isikanNominal();
+    }
+
+    /** Ganti jenis pembayaran berarti angka yang ditagih ikut berbeda. */
+    public function updatedJenis(): void
+    {
+        $this->jenisDipilihSendiri = true;
+        $this->isikanNominal();
+    }
+
+    /**
+     * Mengisikan nominal dari tagihan pesanannya.
+     *
+     * Angka yang telanjur diketik pelanggan TIDAK ditimpa. Transfer nyata
+     * sering tidak bulat — dibulatkan sendiri oleh pengirim, atau dipotong
+     * biaya antarbank — dan isian yang berubah sendiri setelah diketik
+     * membuat orang berhenti mempercayai formulirnya.
+     */
+    private function isikanNominal(): void
+    {
+        $tagihan = TagihanPesanan::untuk($this->pesanan());
+
+        if ($tagihan === []) {
+            return;
+        }
+
+        // Kode baru dikenali: jenisnya ikut disesuaikan, selama pelanggan
+        // belum memilih sendiri.
+        if (! $this->jenisDipilihSendiri) {
+            $this->jenis = $tagihan['jenis_disarankan'];
+        }
+
+        $angka = TagihanPesanan::nominalUntukJenis($tagihan, $this->jenis);
+
+        if (! $angka) {
+            return;
+        }
+
+        $terisi = filled($this->nominal);
+        $masihSaran = (string) $this->nominal === (string) $this->nominalOtomatis;
+
+        if ($terisi && ! $masihSaran) {
+            return;
+        }
+
+        $this->nominal = (string) $angka;
+        $this->nominalTeks = number_format($angka, 0, ',', '.');
+        $this->nominalOtomatis = $angka;
+    }
+
+    private function pesanan(): PendaftaranOpenTrip|PenyewaanKendaraan|null
+    {
+        $kode = trim($this->kode);
+
+        if ($kode === '') {
+            return null;
+        }
+
+        return str_starts_with($kode, 'SK-')
+            ? PenyewaanKendaraan::where('kode', $kode)->first()
+            : PendaftaranOpenTrip::with('paket')->where('kode', $kode)->first();
     }
 
     /** Ketikan apa pun jadi angka polos, lalu ditampilkan kembali bertitik. */
@@ -190,18 +267,17 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
 
     public function kirimLagi(): void
     {
-        $this->reset(['terkirim', 'kode']);
+        $this->reset(['terkirim', 'kode', 'nominalOtomatis', 'jenisDipilihSendiri']);
         $this->tanggalTransfer = now()->toDateString();
     }
 
     public function with(): array
     {
-        $kode = trim($this->kode);
+        $pesanan = $this->pesanan();
 
         return [
-            'pesanan' => $kode === '' ? null : (str_starts_with($kode, 'SK-')
-                ? PenyewaanKendaraan::where('kode', $kode)->first()
-                : PendaftaranOpenTrip::where('kode', $kode)->first()),
+            'pesanan' => $pesanan,
+            'tagihan' => TagihanPesanan::untuk($pesanan),
             'pilihanJenis' => config('orcha.jenis_pembayaran'),
         ];
     }
@@ -276,6 +352,35 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
                                                 {{ $pesanan->nama_kendaraan }} · {{ $pesanan->durasi_label }}
                                             @endif
                                         </p>
+
+                                        {{-- ============ POSISI TAGIHAN ============
+                                             Angka yang perlu ditransfer diambilkan dari sini, bukan
+                                             dari ingatan pelanggan. Salah ketik satu digit membuat
+                                             pembayaran tidak cocok dengan mutasi rekening, dan
+                                             pekerjaannya berakhir di WhatsApp admin. --}}
+                                        @if ($tagihan)
+                                            <dl class="grid grid-cols-3 gap-3 pt-4 mt-4 border-t border-white/70">
+                                                @foreach ([['Total tagihan', $tagihan['total_teks'], 'text-orcha-navy'], ['Sudah dilaporkan', $tagihan['sudah_teks'], 'text-orcha-ocean'], ['Sisa', $tagihan['sisa_teks'], $tagihan['lunas'] ? 'text-emerald-600' : 'text-orcha-navy']] as [$label, $nilai, $warna])
+                                                    <div>
+                                                        <dt class="text-[0.68rem] font-semibold tracking-wide uppercase text-slate-500">
+                                                            {{ $label }}</dt>
+                                                        <dd class="text-sm font-bold {{ $warna }}">{{ $nilai }}</dd>
+                                                    </div>
+                                                @endforeach
+                                            </dl>
+
+                                            <p class="mt-3 text-sm {{ $tagihan['lunas'] ? 'text-emerald-700' : 'text-slate-600' }}">
+                                                @if ($tagihan['lunas'])
+                                                    Seluruh pembayaran Anda sudah tercatat. Bila ini transfer
+                                                    tambahan, isi nominalnya sendiri.
+                                                @elseif ($tagihan['sudah'] > 0)
+                                                    Uang muka sudah tercatat, jadi yang kami isikan sisanya.
+                                                @else
+                                                    Belum ada pembayaran masuk, jadi yang kami isikan uang muka
+                                                    {{ $tagihan['dp_persen'] }}%.
+                                                @endif
+                                            </p>
+                                        @endif
                                     </div>
                                 @elseif (strlen(trim($kode)) >= 6)
                                     <div class="p-4 mt-4 text-sm border rounded-2xl border-orcha-sun/50 bg-orcha-sun/10 text-slate-700">
@@ -291,7 +396,7 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
                                 <div class="grid gap-5 mt-4 sm:grid-cols-2">
                                     <div>
                                         <label for="kb-jenis" class="label-orcha">Jenis pembayaran <x-wajib /></label>
-                                        <select id="kb-jenis" required wire:model="jenis"
+                                        <select id="kb-jenis" required wire:model.live="jenis"
                                             class="isian-orcha @error('jenis') isian-galat @enderror">
                                             @foreach ($pilihanJenis as $kunci => $label)
                                                 <option value="{{ $kunci }}">{{ $label }}</option>
@@ -312,8 +417,14 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
                                                 placeholder="500.000"
                                                 class="isian-orcha orcha-uang !pl-12 @error('nominal') isian-galat @enderror">
                                         </div>
-                                        <p class="mt-1.5 text-sm text-slate-500">Tulis apa adanya sesuai yang tertera
-                                            di bukti transfer.</p>
+                                        <p class="mt-1.5 text-sm {{ $tagihan && $nominalOtomatis ? 'text-orcha-ocean' : 'text-slate-500' }}">
+                                            @if ($tagihan && $nominalOtomatis)
+                                                Terisi otomatis dari tagihan Anda — ubah bila nominal
+                                                transfernya berbeda.
+                                            @else
+                                                Tulis apa adanya sesuai yang tertera di bukti transfer.
+                                            @endif
+                                        </p>
                                         @error('nominal')
                                             <p class="galat-orcha">{{ $message }}</p>
                                         @enderror
