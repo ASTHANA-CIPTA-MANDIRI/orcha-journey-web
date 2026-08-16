@@ -115,7 +115,12 @@
            panjang daftar pesertanya, pitanya berada di tempat yang sama.
            Garis emas tipis di atasnya menutup halaman seperti kop menutup
            bagian atasnya — berkasnya jadi berbingkai, bukan menggantung. */
-        .kaki-luar { position: fixed; bottom: 0; left: 0; right: 0; }
+        /* Ruang bawah halaman dipakai isinya sebagai batas berhenti, tetapi
+           pitanya sendiri harus menempel ke tepi kertas. Karena dompdf
+           mengukur bottom dari tepi DALAM margin, offsetnya dibuat negatif
+           sebesar margin itu — kalau tidak, pitanya mengambang dengan pias
+           putih di bawahnya dan berkasnya terlihat belum selesai. */
+        .kaki-luar { position: fixed; bottom: -68px; left: 0; right: 0; }
         .kaki-emas { height: 2px; background-color: {{ $emas }}; font-size: 0; line-height: 0; }
         .pita-kaki { background-color: {{ $navy }}; padding: 10px 34px 11px; }
         .kaki-merek { font-size: 9.5px; font-weight: bold; color: #fff; letter-spacing: .8px; }
