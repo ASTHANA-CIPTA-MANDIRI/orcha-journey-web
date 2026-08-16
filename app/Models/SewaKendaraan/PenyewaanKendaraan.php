@@ -120,6 +120,44 @@ class PenyewaanKendaraan extends Model
         };
     }
 
+    /**
+     * Pemesanan lain yang memakai unit yang sama pada rentang waktu bertabrakan.
+     *
+     * Tanpa ini dua pelanggan bisa memesan satu mobil di tanggal yang sama, dan
+     * yang mengetahuinya adalah orang kedua — di pagi keberangkatan, saat
+     * unitnya sudah dibawa orang pertama. Itu bukan kekurangan data, itu
+     * pelanggan yang batal.
+     *
+     * Pesanan yang sudah batal tidak menghalangi, dan yang sudah selesai pun
+     * tidak: keduanya berarti unitnya bebas.
+     */
+    public static function bentrok(int $carId, Carbon $mulai, Carbon $selesai, ?int $kecuali = null)
+    {
+        return static::query()
+            ->where('car_id', $carId)
+            ->whereNotIn('status', ['batal', 'selesai'])
+            ->when($kecuali, fn ($q) => $q->whereKeyNot($kecuali))
+            ->get()
+            // Dibandingkan di PHP, bukan di SQL: tenggat selesainya bisa
+            // tersimpan di kolom atau dihitung dari durasi, dan aturan itu
+            // sudah ada di satu tempat — jadwal_selesai.
+            ->filter(function (self $lain) use ($mulai, $selesai) {
+                $lainMulai = $lain->jadwal_mulai;
+                $lainSelesai = $lain->jadwal_selesai;
+
+                if (! $lainMulai || ! $lainSelesai) {
+                    return false;
+                }
+
+                // Bertabrakan bila mulai sebelum yang lain selesai DAN selesai
+                // sesudah yang lain mulai. Bersentuhan tepat di ujung (satu
+                // selesai jam 08.00, satunya mulai jam 08.00) tidak dihitung
+                // bentrok — itu memang cara unit berpindah tangan.
+                return $mulai->lt($lainSelesai) && $selesai->gt($lainMulai);
+            })
+            ->values();
+    }
+
     public function getJadwalMulaiAttribute(): ?Carbon
     {
         return $this->tanggal_mulai

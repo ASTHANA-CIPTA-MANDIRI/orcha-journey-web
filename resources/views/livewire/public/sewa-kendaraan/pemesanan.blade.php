@@ -174,6 +174,25 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             $this->tanggalMulai, $this->jamMulai, $this->satuan, (int) $this->durasi
         );
 
+        // Unit yang sudah dipesan orang lain di rentang waktu yang sama ditolak
+        // di sini, bukan diketahui pagi keberangkatan saat mobilnya sudah
+        // dibawa orang pertama.
+        $bentrok = PenyewaanKendaraan::bentrok(
+            $mobil->id,
+            PenyewaanKendaraan::hitungSelesai($this->tanggalMulai, $this->jamMulai, $this->satuan, 0),
+            $selesai,
+        );
+
+        if ($bentrok->isNotEmpty()) {
+            $lain = $bentrok->first();
+
+            $this->addError('tanggalMulai', 'Unit ini sudah dipesan sampai '
+                .$lain->jadwal_selesai->translatedFormat('j F Y, H:i')
+                .'. Pilih tanggal lain, atau unit lain yang sejenis.');
+
+            return;
+        }
+
         $sewa = PenyewaanKendaraan::create([
             'car_id' => $mobil->id,
             'tanggal_selesai' => $selesai->toDateString(),

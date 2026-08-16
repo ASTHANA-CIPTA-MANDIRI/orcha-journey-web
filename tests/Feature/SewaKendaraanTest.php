@@ -516,3 +516,89 @@ test('unit yang kembali mengirim nota akhir ke penyewa', function () {
             && str_starts_with(reset($surat->berkasPdf), '%PDF-');
     });
 });
+
+test('unit yang sudah dipesan tidak bisa dipesan lagi di waktu bertabrakan', function () {
+    $mobil = buatMobil();
+
+    PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Penyewa Pertama',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 3,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-13', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 1050000, 'status' => 'dp_masuk',
+    ]);
+
+    // Orang kedua memesan unit yang sama, tanggalnya bersinggungan
+    Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $mobil->uuid)
+        ->set('transmisi', 'Matic')
+        ->set('satuan', 'hari')
+        ->set('durasi', 2)
+        ->set('tanggalMulai', '2026-09-12')
+        ->set('jamMulai', '08:00')
+        ->set('denganSopir', 'ya')
+        ->set('nama', 'Penyewa Kedua')
+        ->set('whatsapp', '081234567890')
+        ->set('email', 'kedua@contoh.test')
+        ->set('lokasiAntar', 'Bandara YIA')
+        ->set('lokasiKembali', 'Kantor Orcha')
+        ->set('setuju', true)
+        ->call('pesan')
+        ->assertHasErrors('tanggalMulai');
+
+    expect(PenyewaanKendaraan::count())->toBe(1);
+});
+
+test('unit bebas dipesan lagi tepat setelah yang sebelumnya selesai', function () {
+    $mobil = buatMobil();
+
+    PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Penyewa Pertama',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 2,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-12', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 700000, 'status' => 'dp_masuk',
+    ]);
+
+    // Mulai persis saat yang sebelumnya selesai — itu memang cara unit
+    // berpindah tangan, bukan tabrakan.
+    Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $mobil->uuid)
+        ->set('transmisi', 'Matic')
+        ->set('satuan', 'hari')
+        ->set('durasi', 1)
+        ->set('tanggalMulai', '2026-09-12')
+        ->set('jamMulai', '08:00')
+        ->set('denganSopir', 'ya')
+        ->set('nama', 'Penyewa Kedua')
+        ->set('whatsapp', '081234567890')
+        ->set('email', 'kedua@contoh.test')
+        ->set('lokasiAntar', 'Bandara YIA')
+        ->set('lokasiKembali', 'Kantor Orcha')
+        ->set('setuju', true)
+        ->call('pesan')
+        ->assertHasNoErrors();
+
+    expect(PenyewaanKendaraan::count())->toBe(2);
+});
+
+test('pesanan yang batal tidak menghalangi unitnya dipesan lagi', function () {
+    $mobil = buatMobil();
+
+    PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Batal',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 3,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-13', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 1050000, 'status' => 'batal',
+    ]);
+
+    expect(PenyewaanKendaraan::bentrok(
+        $mobil->id,
+        Carbon\Carbon::parse('2026-09-11 08:00'),
+        Carbon\Carbon::parse('2026-09-12 08:00'),
+    ))->toHaveCount(0);
+});

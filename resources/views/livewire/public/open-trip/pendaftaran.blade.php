@@ -274,6 +274,11 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                         .$biaya['dp_batas_jam'].' jam sejak pendaftaran ini, lalu unggah buktinya lewat halaman '
                         .'Konfirmasi Pembayaran. Sisanya '.$biaya['sisa_teks'].' dilunasi paling lambat H-'
                         .$biaya['pelunasan_hari'].' sebelum berangkat. Rinciannya ada di lampiran surat ini.'
+                        // Sebagian pelanggan lebih suka sekali bayar dan selesai. Tanpa
+                        // disebutkan, mereka mengira DP itu wajib lalu mentransfer dua
+                        // kali untuk sesuatu yang bisa sekali.
+                        .' Boleh juga langsung lunas '.$biaya['total_teks'].' sekaligus — '
+                        .'pilih jenis "Pelunasan" di formulirnya.'
                     : 'Berikutnya: tim kami menghitung biayanya lebih dulu, lalu mengabari Anda lewat WhatsApp.')
                 .' Tempat duduk baru terkunci setelah DP masuk.'
                 // Rombongan besar butuh pintunya sejak awal: tiap peserta mengisi

@@ -385,6 +385,14 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
                                                 @else
                                                     Belum ada pembayaran masuk, jadi yang kami isikan uang muka
                                                     {{ $tagihan['dp_persen'] }}%.
+                                                    {{-- Sebagian pelanggan lebih suka sekali bayar dan selesai.
+                                                         Tanpa keterangan ini mereka mengira DP itu wajib, lalu
+                                                         mentransfer dua kali untuk sesuatu yang bisa sekali. --}}
+                                                    <span class="font-semibold text-orcha-ocean">
+                                                        Mau langsung lunas? Pilih jenis
+                                                        <strong>Pelunasan</strong> — nominalnya berubah jadi
+                                                        {{ $tagihan['total_teks'] }}.
+                                                    </span>
                                                 @endif
                                             </p>
                                         @endif

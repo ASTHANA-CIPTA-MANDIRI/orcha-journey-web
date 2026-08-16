@@ -33,7 +33,7 @@ class KabarPembayaran
         [$judul, $langkah, $cap] = match ($bayar->status) {
             'diterima' => [
                 'Pembayaran Anda Sudah Diterima',
-                self::langkahDiterima($tagihan),
+                self::langkahDiterima($tagihan, $pesanan),
                 'Diterima',
             ],
             'ditolak' => [
@@ -90,16 +90,25 @@ class KabarPembayaran
         );
     }
 
-    private static function langkahDiterima(array $tagihan): string
+    private static function langkahDiterima(array $tagihan, PendaftaranOpenTrip|PenyewaanKendaraan|null $pesanan): string
     {
         if ($tagihan === []) {
             return 'Terima kasih, pembayaran Anda sudah kami terima dan tercatat.';
         }
 
-        return $tagihan['lunas']
-            ? 'Terima kasih, pembayaran Anda sudah lunas. Tidak ada sisa yang perlu dibayar lagi.'
-            : 'Terima kasih, pembayaran Anda sudah kami terima. Sisa yang perlu dilunasi '
-                .$tagihan['sisa_teks'].', paling lambat H-'.config('orcha.pembayaran.pelunasan_hari_sebelum')
-                .' sebelum berangkat.';
+        if ($tagihan['lunas']) {
+            return 'Terima kasih, pembayaran Anda sudah lunas. Tidak ada sisa yang perlu dibayar lagi.';
+        }
+
+        // Tenggat pelunasannya berbeda menurut jenis pesanan: open trip harus
+        // lunas beberapa hari sebelum berangkat, sedangkan sewa kendaraan
+        // dilunasi saat unitnya diambil. Kalimat "paling lambat H-5" pada sewa
+        // kendaraan menyesatkan — tidak ada H-5 di sana.
+        $tenggat = $pesanan instanceof PenyewaanKendaraan
+            ? config('orcha.pembayaran.pelunasan_sewa_kendaraan')
+            : 'paling lambat H-'.config('orcha.pembayaran.pelunasan_hari_sebelum').' sebelum berangkat';
+
+        return 'Terima kasih, pembayaran Anda sudah kami terima. Sisa yang perlu dilunasi '
+            .$tagihan['sisa_teks'].', '.$tenggat.'.';
     }
 }
