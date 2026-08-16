@@ -25,6 +25,7 @@ class PemberitahuanFormulir extends Mailable
      * @param  array<int, string>  $lampiran  jalur berkas di disk publik
      * @param  array<string, string>  $berkasPdf  nama berkas => isi PDF
      * @param  bool  $untukPelanggan  surat yang dibaca pelanggan, bukan kotak kantor
+     * @param  string|null  $tautan  tujuan tombol utama; kosong = tombol bawaan
      */
     public function __construct(
         public string $judul,
@@ -34,7 +35,28 @@ class PemberitahuanFormulir extends Mailable
         public array $lampiran = [],
         public array $berkasPdf = [],
         public bool $untukPelanggan = false,
+        public ?string $tautan = null,
+        public ?string $labelTautan = null,
     ) {}
+
+    /**
+     * Sebutan berkas lampiran, diambil dari nama berkasnya sendiri.
+     *
+     * Menyebut semuanya "kwitansi" pernah membuat surat pendaftaran mengaku
+     * melampirkan kwitansi padahal isinya tagihan — pelanggan bisa mengira
+     * pembayarannya sudah lunas.
+     */
+    public function labelLampiran(): string
+    {
+        $nama = (string) array_key_first($this->berkasPdf);
+
+        return match (true) {
+            str_contains($nama, 'RINCIAN-BIAYA') => 'Rincian biaya lengkap terlampir sebagai PDF',
+            str_contains($nama, 'TANDA-TERIMA') => 'Tanda terima terlampir sebagai PDF',
+            str_contains($nama, 'PEMBATALAN') => 'Tanda terima pengajuan terlampir sebagai PDF',
+            default => 'Berkasnya terlampir di surat ini',
+        };
+    }
 
     public function envelope(): Envelope
     {
@@ -52,7 +74,12 @@ class PemberitahuanFormulir extends Mailable
 
     public function content(): Content
     {
-        return new Content(view: 'emails.pemberitahuan');
+        // Sifat turunan dikirim lewat with(): tampilan surat hanya menerima
+        // properti publik, bukan metodenya.
+        return new Content(
+            view: 'emails.pemberitahuan',
+            with: ['labelLampiran' => $this->labelLampiran()],
+        );
     }
 
     public function attachments(): array

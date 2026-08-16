@@ -321,6 +321,53 @@ test('pendaftar ikut menerima salinan suratnya sendiri', function () {
     Mail::assertSentCount(2);
 });
 
+test('surat pendaftaran menyebut lampirannya sebagai tagihan, bukan kwitansi', function () {
+    Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $this->paket->uuid)
+        ->set('nama', 'Siti Aminah')
+        ->set('whatsapp', '081298765432')
+        ->set('email', 'siti@contoh.test')
+        ->set('jumlahPeserta', 2)
+        ->set('peserta', [
+            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja'],
+            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Surakarta'],
+        ])
+        ->set('setuju', true)
+        ->call('daftar')
+        ->assertHasNoErrors();
+
+    $kode = PendaftaranOpenTrip::firstOrFail()->kode;
+
+    Mail::assertSent(PemberitahuanFormulir::class, function ($surat) use ($kode) {
+        if (! $surat->untukPelanggan) {
+            return false;
+        }
+
+        $html = $surat->render();
+
+        return str_contains($html, 'Rincian biaya lengkap terlampir')
+            // Belum ada uang yang masuk — menyebutnya kwitansi membuat
+            // pelanggan mengira pembayarannya sudah lunas
+            && ! str_contains($html, 'Kwitansi PDF terlampir')
+            // Tombolnya menuju langkah berikutnya: mengirim bukti transfer
+            && str_contains($html, 'Kirim Bukti Transfer')
+            && str_contains($html, route('konfirmasi-pembayaran', ['kode' => $kode]))
+            // WhatsApp turun jadi tautan kedua, tidak hilang
+            && str_contains($html, 'api.whatsapp.com');
+    });
+});
+
+test('kontak resmi memakai alamat dan nomor yang berlaku', function () {
+    expect(config('orcha.email'))->toBe('halo@orchajourney.com')
+        ->and(config('orcha.whatsapp'))->toBe('62895630279695');
+
+    $surat = (new PemberitahuanFormulir('Uji', 'OT-0000-XXXX', ['Pemesan' => 'Siti']))->render();
+
+    expect($surat)->toContain('halo@orchajourney.com')
+        ->and($surat)->toContain('62895630279695')
+        ->and($surat)->not->toContain('info@orchajourney.com');
+});
+
 test('subjek surat pelanggan tidak memakai awalan kotak kantor', function () {
     $kantor = new PemberitahuanFormulir('Pendaftaran Open Trip Baru', 'OT-1508-ABCD', []);
     $pelanggan = new PemberitahuanFormulir('Pendaftaran Anda Sudah Kami Terima', 'OT-1508-ABCD', [], untukPelanggan: true);

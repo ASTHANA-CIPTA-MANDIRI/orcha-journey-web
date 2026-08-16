@@ -3,6 +3,7 @@
 use App\Models\OpenTrip\Pembatalan;
 use App\Support\BerkasKwitansi;
 use App\Support\KirimPemberitahuan;
+use App\Support\SalinanPelanggan;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Support\NomorTelepon;
 use Illuminate\Support\Facades\RateLimiter;
@@ -147,13 +148,15 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
             $tandaTerima
                 ? [BerkasKwitansi::namaBerkas('pengajuan-pembatalan', $pembatalan->kode_pendaftaran) => $tandaTerima]
                 : [],
-            emailPelanggan: $pembatalan->email,
-            judulPelanggan: 'Pengajuan Pembatalan Sudah Kami Terima',
-            langkahPelanggan: 'Pengajuan Anda tercatat. Tim kami menghitung besaran pengembalian sesuai kebijakan '
-                ."yang berlaku, lalu mengirim rinciannya lewat WhatsApp untuk Anda setujui.\n\n"
-                .'Dana dikirim paling lambat '.config('orcha.pengembalian.proses_hari_kerja').' hari kerja setelah '
-                .'perhitungan itu disetujui. Tanda terima terlampir adalah bukti pengajuan — bukan tanda dana '
-                .'sudah dikirim.',
+            pelanggan: new SalinanPelanggan(
+                email: $pembatalan->email,
+                judul: 'Pengajuan Pembatalan Sudah Kami Terima',
+                langkah: 'Pengajuan Anda tercatat. Tim kami menghitung besaran pengembalian sesuai kebijakan '
+                    ."yang berlaku, lalu mengirim rinciannya lewat WhatsApp untuk Anda setujui.\n\n"
+                    .'Dana dikirim paling lambat '.config('orcha.pengembalian.proses_hari_kerja').' hari kerja '
+                    .'setelah perhitungan itu disetujui. Tanda terima terlampir adalah bukti pengajuan — bukan '
+                    .'tanda dana sudah dikirim.',
+            ),
         );
 
         $this->terkirim = true;

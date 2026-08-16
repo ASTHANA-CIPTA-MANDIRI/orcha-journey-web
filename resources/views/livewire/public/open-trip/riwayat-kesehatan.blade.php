@@ -3,6 +3,7 @@
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\OpenTrip\RiwayatKesehatan;
 use App\Support\KirimPemberitahuan;
+use App\Support\SalinanPelanggan;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -209,15 +210,20 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
             ],
             'Rincian kesehatannya tidak disertakan di surat ini karena bersifat pribadi. '
                 .'Bukalah lewat dashboard Orcha.',
-            emailPelanggan: PendaftaranOpenTrip::where('kode', $this->kode)->value('email'),
-            judulPelanggan: 'Riwayat Kesehatan Sudah Kami Terima',
-            langkahPelanggan: "Data kesehatan atas nama {$this->namaPeserta} sudah tercatat untuk pendaftaran "
-                ."{$this->kode}.\n\n"
-                .'Bila masih ada peserta lain yang belum mengisi, formulirnya dibuka lagi dengan kode yang sama — '
-                .'satu formulir untuk tiap peserta.',
-            // Kontak darurat sengaja tidak diulang di salinan pelanggan: yang
-            // perlu memegangnya tim kami, bukan kotak masuk pelanggan.
-            rincianPelanggan: ['Peserta' => $this->namaPeserta],
+            pelanggan: new SalinanPelanggan(
+                email: PendaftaranOpenTrip::where('kode', $this->kode)->value('email'),
+                judul: 'Riwayat Kesehatan Sudah Kami Terima',
+                tautan: route('riwayat-kesehatan', ['kode' => $this->kode]),
+                labelTautan: 'Lihat Peserta yang Belum Mengisi',
+                langkah: "Data kesehatan atas nama {$this->namaPeserta} sudah tercatat untuk pendaftaran "
+                    ."{$this->kode}.\n\n"
+                    .'Peserta lain mengisi formulirnya masing-masing karena riwayat kesehatannya berbeda. '
+                    .'Halaman di atas menampilkan siapa saja yang belum mengisi, lengkap dengan tautan '
+                    .'pribadi yang tinggal dikirimkan lewat WhatsApp.',
+                // Kontak darurat sengaja tidak diulang di salinan pelanggan: yang
+                // perlu memegangnya tim kami, bukan kotak masuk pelanggan.
+                rincian: ['Peserta' => $this->namaPeserta],
+            ),
         );
 
         $this->namaTerkirim = $this->namaPeserta;

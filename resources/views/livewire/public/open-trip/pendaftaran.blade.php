@@ -5,6 +5,7 @@ use App\Models\PaketWisata\TravelPackage;
 use App\Support\BerkasKwitansi;
 use App\Support\KirimPemberitahuan;
 use App\Support\NomorTelepon;
+use App\Support\SalinanPelanggan;
 use App\Support\RincianBiaya;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
@@ -259,9 +260,14 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             $pendaftaran->catatan,
             [],
             $berkas ? [BerkasKwitansi::namaBerkas('rincian-biaya', $pendaftaran->kode) => $berkas] : [],
-            emailPelanggan: $pendaftaran->email,
-            judulPelanggan: 'Pendaftaran Anda Sudah Kami Terima',
-            langkahPelanggan: "Simpan kode {$pendaftaran->kode}. Kode inilah yang dipakai untuk mengirim bukti "
+            pelanggan: new SalinanPelanggan(
+                email: $pendaftaran->email,
+                judul: 'Pendaftaran Anda Sudah Kami Terima',
+                // Tombolnya langsung ke langkah berikutnya, bukan ke beranda:
+                // yang ditunggu sekarang adalah bukti transfernya.
+                tautan: route('konfirmasi-pembayaran', ['kode' => $pendaftaran->kode]),
+                labelTautan: 'Kirim Bukti Transfer',
+                langkah: "Simpan kode {$pendaftaran->kode}. Kode inilah yang dipakai untuk mengirim bukti "
                 ."transfer, mengisi riwayat kesehatan tiap peserta, sampai mengajukan pembatalan.\n\n"
                 .($biaya
                     ? 'Berikutnya: transfer DP '.$biaya['dp_persen'].'% sebesar '.$biaya['dp_teks'].' paling lambat '
@@ -280,6 +286,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                         .'yang tinggal Anda kirimkan ke masing-masing peserta.'
                     : "\n\nJangan lupa mengisi riwayat kesehatan di "
                         .route('riwayat-kesehatan', ['kode' => $pendaftaran->kode])),
+            ),
         );
 
         $this->kodeTerdaftar = $pendaftaran->kode;

@@ -32,7 +32,6 @@ class KirimPemberitahuan
      * @param  array<string, string|null>  $rincian
      * @param  array<int, string>  $lampiran
      * @param  array<string, string>  $berkasPdf
-     * @param  array<string, string|null>|null  $rincianPelanggan  bila salinan pelanggan perlu memuat lebih sedikit baris
      * @return bool berhasil-tidaknya surat ke kotak kantor
      */
     public static function kirim(
@@ -42,21 +41,13 @@ class KirimPemberitahuan
         ?string $catatan = null,
         array $lampiran = [],
         array $berkasPdf = [],
-        ?string $emailPelanggan = null,
-        ?string $judulPelanggan = null,
-        ?string $langkahPelanggan = null,
-        ?array $rincianPelanggan = null,
+        ?SalinanPelanggan $pelanggan = null,
     ): bool {
         $keKantor = self::keKantor($judul, $kode, $rincian, $catatan, $lampiran, $berkasPdf);
 
-        self::kePelanggan(
-            $emailPelanggan,
-            $judulPelanggan ?: $judul,
-            $kode,
-            $rincianPelanggan ?? $rincian,
-            $langkahPelanggan,
-            $berkasPdf,
-        );
+        if ($pelanggan) {
+            self::kePelanggan($pelanggan, $kode, $rincian, $berkasPdf);
+        }
 
         return $keKantor;
     }
@@ -91,17 +82,15 @@ class KirimPemberitahuan
      *
      * Bukti transfer dari disk sengaja TIDAK ikut dilampirkan: berkas itu
      * berasal dari pelanggan sendiri, jadi mengirimkannya balik hanya
-     * memperbesar surat. Yang ikut cuma kwitansi PDF yang kita buatkan.
+     * memperbesar surat. Yang ikut cuma berkas PDF yang kita terbitkan.
      *
      * @param  array<string, string|null>  $rincian
      * @param  array<string, string>  $berkasPdf
      */
     private static function kePelanggan(
-        ?string $email,
-        string $judul,
+        SalinanPelanggan $pelanggan,
         string $kode,
         array $rincian,
-        ?string $langkah,
         array $berkasPdf,
     ): bool {
         if (! config('orcha.email_salinan_pelanggan', true)) {
@@ -110,12 +99,20 @@ class KirimPemberitahuan
 
         // Alamat email di formulir kami memang boleh kosong — nomor WhatsApp
         // yang wajib. Salah ketik pun tidak perlu diributkan ke pelanggan.
-        if (blank($email) || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if (blank($pelanggan->email) || ! filter_var($pelanggan->email, FILTER_VALIDATE_EMAIL)) {
             return false;
         }
 
-        return self::coba($email, $judul, $kode, fn () => new PemberitahuanFormulir(
-            $judul, $kode, $rincian, $langkah, [], $berkasPdf, untukPelanggan: true
+        return self::coba($pelanggan->email, $pelanggan->judul, $kode, fn () => new PemberitahuanFormulir(
+            $pelanggan->judul,
+            $kode,
+            $pelanggan->rincian ?? $rincian,
+            $pelanggan->langkah,
+            [],
+            $berkasPdf,
+            untukPelanggan: true,
+            tautan: $pelanggan->tautan,
+            labelTautan: $pelanggan->labelTautan,
         ));
     }
 

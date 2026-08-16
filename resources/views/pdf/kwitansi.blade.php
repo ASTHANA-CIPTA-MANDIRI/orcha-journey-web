@@ -81,20 +81,31 @@
                padding: 7px 15px; text-transform: uppercase; letter-spacing: 1.4px; }
 
         /* ---------- baris rincian ---------- */
-        .baris td { padding: 8px 12px; }
+        .baris td { padding: 6px 12px; }
         .zebra { background-color: #fafcfd; }
 
         /* ---------- biaya ---------- */
         .biaya { border-collapse: collapse; }
-        .biaya td { padding: 9px 12px; border-bottom: 1px solid #e9eff5; }
-        .total td { background-color: {{ $navy }}; color: #fff; padding: 11px 12px; border-bottom: none; }
+        .biaya td { padding: 7px 12px; border-bottom: 1px solid #e9eff5; }
+        .total td { background-color: {{ $navy }}; color: #fff; padding: 9px 12px; border-bottom: none; }
         .total-teks { font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: {{ $langit }}; }
         .total-angka { font-size: 17px; font-weight: bold; color: #fff; }
         .tempo { font-size: 8.5px; color: #94a3b8; padding-top: 2px; }
 
         /* ---------- kotak keterangan ---------- */
         .kotak-catatan { background-color: {{ $kabut }}; border-left: 3px solid {{ $ocean }}; padding: 11px 15px; }
-        .kotak-bayar { border: 1px solid #dbe7f0; padding: 13px 16px; }
+        .kotak-bayar { border: 1px solid #dbe7f0; }
+        .kepala-bayar { background-color: {{ $navy }}; color: #fff; padding: 8px 16px;
+                        font-size: 8.5px; letter-spacing: 2px; text-transform: uppercase; font-weight: bold; }
+        .kotak-nama { background-color: {{ $kabut }}; border: 1px solid #cfe4f2; }
+        .kotak-nama td { padding: 9px 13px; }
+        .nama-penerima { font-size: 12.5px; font-weight: bold; color: {{ $navy }};
+                         letter-spacing: .4px; padding-top: 2px; }
+        .nomor-langkah { background-color: {{ $ocean }}; color: #fff; font-size: 8px; font-weight: bold;
+                         text-align: center; width: 14px; height: 14px; }
+        .kotak-awas { background-color: #fff5f5; }
+        .kotak-awas td { padding: 8px 12px; font-size: 9px; line-height: 1.55; color: #b91c1c;
+                         border-left: 3px solid #dc2626; }
 
         /* ---------- kaki ---------- */
         .kaki { font-size: 8.5px; color: #94a3b8; line-height: 1.7; }
@@ -128,7 +139,7 @@
         {{-- ============ JUDUL & NOMOR ============
              Nomornya dikotakkan tersendiri, bukan sekadar teks rata kanan:
              itu keterangan pertama yang dicari orang saat menyusun berkas. --}}
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;">
             <tr>
                 <td valign="top">
                     <div class="jenis">Dokumen Resmi</div>
@@ -151,7 +162,7 @@
         {{-- ============ ANGKA UTAMA ============
              Yang paling dicari mata lebih dulu: berapa, dan statusnya apa. --}}
         @if (! empty($jumlah))
-            <table width="100%" cellpadding="0" cellspacing="0" class="kotak-jumlah" style="margin-top:20px;">
+            <table width="100%" cellpadding="0" cellspacing="0" class="kotak-jumlah" style="margin-top:16px;">
                 <tr>
                     <td width="4" class="tulang">&nbsp;</td>
                     <td valign="middle">
@@ -168,7 +179,7 @@
         {{-- ============ RINCIAN ============
              Berselang-seling supaya mata tidak melompat baris saat membaca
              daftar panjang berisi nama peserta. --}}
-        <div style="margin-top:24px;">
+        <div style="margin-top:18px;">
             <div class="bagian">Rincian</div>
             <div class="rule"></div>
         </div>
@@ -190,7 +201,7 @@
              muncul. Barisnya berhenti di baris total berlatar gelap: satu
              titik henti yang jelas sebelum masuk ke tenggat pembayaran. --}}
         @if (! empty($biaya))
-            <div style="margin-top:22px;">
+            <div style="margin-top:16px;">
                 <div class="bagian">Rincian Biaya</div>
                 <div class="rule"></div>
             </div>
@@ -232,7 +243,7 @@
         @endif
 
         @if (! empty($catatan))
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px;">
                 <tr>
                     <td class="kotak-catatan">
                         <div class="label" style="color:{{ $ocean }};">Catatan</div>
@@ -247,38 +258,68 @@
              gampang disalin penipu lalu diedarkan dengan rekening lain; yang
              dicantumkan cukup nama penerima, karena nama itulah yang bisa
              dicocokkan sendiri oleh pelanggan di ATM sebelum menekan kirim. --}}
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;">
             <tr>
                 <td width="60%" valign="top">
                     <table width="100%" cellpadding="0" cellspacing="0" class="kotak-bayar">
                         <tr>
-                            <td>
-                                <div class="bagian" style="color:{{ $navy }};">
-                                    @if (! empty($biaya))
-                                        Cara Pembayaran
-                                    @else
-                                        Perlu Diperhatikan
-                                    @endif
-                                </div>
-                                <div style="font-size:10px;line-height:1.8;padding-top:6px;">
-                                    @if (! empty($biaya))
-                                        Hanya lewat <strong style="color:{{ $navy }};">transfer bank</strong>,
-                                        ke rekening atas nama<br>
-                                        <strong style="color:{{ $navy }};font-size:11.5px;letter-spacing:.3px;">
-                                            {{ config('orcha.pembayaran.atas_nama') }}
-                                        </strong><br>
-                                        <span style="color:#b91c1c;">Nama penerima selain itu bukan kami.</span><br>
-                                        Nomor rekeningnya dikirim tim kami lewat WhatsApp. Setelah transfer,
-                                        unggah buktinya lewat halaman Konfirmasi Pembayaran.
-                                    @else
-                                        Pembayaran hanya sah ke rekening atas nama<br>
-                                        <strong style="color:{{ $navy }};font-size:11.5px;letter-spacing:.3px;">
-                                            {{ config('orcha.pembayaran.atas_nama') }}
-                                        </strong><br>
-                                        <span style="color:#b91c1c;">Nama selain itu bukan kami.</span><br>
-                                        Simpan berkas ini sampai perjalanan selesai.
-                                    @endif
-                                </div>
+                            {{-- Judulnya duduk di pita biru tua, bukan sekadar teks kecil
+                                 di dalam kotak: bagian ini yang paling sering dibaca
+                                 ulang sebelum orang menekan kirim di aplikasi banknya. --}}
+                            <td class="kepala-bayar">
+                                {{ ! empty($biaya) ? 'Cara Pembayaran' : 'Perlu Diperhatikan' }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:14px 16px 15px;">
+
+                                {{-- Nama penerima ditaruh di kotaknya sendiri. Inilah
+                                     satu-satunya hal yang bisa dicocokkan pelanggan di
+                                     layar ATM sebelum uangnya berpindah, jadi tidak
+                                     boleh tenggelam di tengah paragraf. --}}
+                                <table width="100%" cellpadding="0" cellspacing="0" class="kotak-nama">
+                                    <tr>
+                                        <td>
+                                            <div class="label" style="color:{{ $ocean }};">
+                                                Satu-satunya nama penerima yang sah
+                                            </div>
+                                            <div class="nama-penerima">{{ config('orcha.pembayaran.atas_nama') }}</div>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:11px;">
+                                    @php
+                                        $langkah = ! empty($biaya)
+                                            ? [
+                                                'Transfer bank — tidak ada cara pembayaran lain.',
+                                                'Nomor rekening dikirim tim kami lewat WhatsApp.',
+                                                'Setelah transfer, unggah buktinya lewat halaman Konfirmasi Pembayaran.',
+                                            ]
+                                            : [
+                                                'Pembayaran hanya sah ke nama di atas.',
+                                                'Simpan berkas ini sampai perjalanan selesai.',
+                                            ];
+                                    @endphp
+
+                                    @foreach ($langkah as $urut => $satu)
+                                        <tr>
+                                            <td width="17" valign="top" class="nomor-langkah">{{ $urut + 1 }}</td>
+                                            <td valign="top" style="padding:0 0 6px 7px;font-size:10px;line-height:1.55;">
+                                                {{ $satu }}
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </table>
+
+                                <table width="100%" cellpadding="0" cellspacing="0" class="kotak-awas" style="margin-top:9px;">
+                                    <tr>
+                                        <td>
+                                            Nama penerima selain itu <strong>bukan kami</strong> — termasuk rekening
+                                            pribadi yang mengatasnamakan Orcha Journey.
+                                        </td>
+                                    </tr>
+                                </table>
                             </td>
                         </tr>
                     </table>
@@ -290,10 +331,10 @@
                     {{-- Stempel dan tanda tangan ditumpuk: stempel jadi latar,
                          tanda tangan di atasnya — seperti dokumen yang dicap lalu
                          ditandatangani, bukan dua gambar berjajar. --}}
-                    <div style="position:relative;height:92px;margin-top:2px;">
+                    <div style="position:relative;height:78px;margin-top:2px;">
                         @if ($stempel)
-                            <img src="{{ $stempel }}" width="88" height="88" alt=""
-                                style="position:absolute;top:0;left:50%;margin-left:-44px;opacity:.85;">
+                            <img src="{{ $stempel }}" width="74" height="74" alt=""
+                                style="position:absolute;top:0;left:50%;margin-left:-37px;opacity:.85;">
                         @else
                             <img src="{{ $logo }}" width="44" height="44" alt=""
                                 style="position:absolute;top:22px;left:50%;margin-left:-22px;">
@@ -313,7 +354,7 @@
             </tr>
         </table>
 
-        <div class="kaki" style="margin-top:16px;padding-top:9px;border-top:1px solid #e9eff5;">
+        <div class="kaki" style="margin-top:12px;padding-top:8px;border-top:1px solid #e9eff5;">
             Berkas ini dibuat otomatis oleh sistem dan sah tanpa tanda tangan basah.
         </div>
     </div>

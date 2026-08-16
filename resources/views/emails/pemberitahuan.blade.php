@@ -169,11 +169,12 @@
                                     style="background:#fffaf0;border:1px dashed #f0d9a8;border-radius:10px;">
                                     <tr>
                                         <td align="center" style="padding:13px 18px;">
+                                            {{-- Sebutannya mengikuti berkas yang benar-benar dilampirkan.
+                                                 Menyebut tagihan sebagai "kwitansi" membuat pelanggan
+                                                 mengira pembayarannya sudah lunas. --}}
                                             <span style="font-size:13px;color:#8a6410;">
                                                 📎
-                                                {{ $untukPelanggan
-                                                    ? 'Kwitansi PDF terlampir — simpan sebagai bukti Anda'
-                                                    : 'Berkas buktinya terlampir di surat ini' }}
+                                                {{ $untukPelanggan ? $labelLampiran : 'Berkas buktinya terlampir di surat ini' }}
                                             </span>
                                         </td>
                                     </tr>
@@ -213,24 +214,50 @@
                         </tr>
                     @endif
 
-                    {{-- ============ AJAKAN ============ --}}
+                    {{-- ============ AJAKAN ============
+                         Satu tombol utama sesuai langkah berikutnya — untuk surat
+                         pendaftaran, itu mengirim bukti transfer. WhatsApp turun jadi
+                         tautan kedua: penting, tetapi bukan yang perlu dikerjakan
+                         sekarang. Dua tombol setara justru membuat ragu. --}}
+                    @php
+                        $waPelanggan = 'https://api.whatsapp.com/send?phone=' . config('orcha.whatsapp')
+                            . '&text=' . rawurlencode('Halo Orcha Journey, saya ingin bertanya soal ' . $kode);
+
+                        $tombolTautan = $untukPelanggan ? ($tautan ?: $waPelanggan) : config('app.url');
+                        $tombolLabel = $untukPelanggan
+                            ? ($tautan ? ($labelTautan ?: 'Lanjutkan') : 'Tanya Lewat WhatsApp')
+                            : 'Buka Website Orcha';
+                    @endphp
+
                     <tr>
-                        <td align="center" style="padding:28px 32px 32px;">
+                        <td align="center" style="padding:28px 32px {{ $untukPelanggan && $tautan ? '10px' : '32px' }};">
                             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                                 <tr>
                                     <td
                                         style="background-image:linear-gradient(135deg,{{ $ocean }},{{ $navy }});background-color:{{ $ocean }};border-radius:999px;">
-                                        {{-- Pelanggan diarahkan ke WhatsApp: itu jalur yang benar-benar
-                                             dijawab tim, sedangkan surat ini tidak dibalas. --}}
-                                        <a href="{{ $untukPelanggan ? 'https://api.whatsapp.com/send?phone=' . config('orcha.whatsapp') . '&text=' . rawurlencode('Halo Orcha Journey, saya ingin bertanya soal ' . $kode) : config('app.url') }}"
+                                        <a href="{{ $tombolTautan }}"
                                             style="display:inline-block;padding:13px 32px;color:#ffffff;font-size:14px;font-weight:bold;text-decoration:none;letter-spacing:.3px;">
-                                            {{ $untukPelanggan ? 'Tanya Lewat WhatsApp' : 'Buka Website Orcha' }}
+                                            {{ $tombolLabel }}
                                         </a>
                                     </td>
                                 </tr>
                             </table>
                         </td>
                     </tr>
+
+                    @if ($untukPelanggan && $tautan)
+                        <tr>
+                            <td align="center" style="padding:0 32px 30px;">
+                                <p style="margin:0;font-size:12px;color:#94a3b8;">
+                                    Ada yang perlu ditanyakan?
+                                    <a href="{{ $waPelanggan }}"
+                                        style="color:{{ $ocean }};font-weight:bold;text-decoration:none;">
+                                        Hubungi kami lewat WhatsApp
+                                    </a>
+                                </p>
+                            </td>
+                        </tr>
+                    @endif
 
                     {{-- ============ KAKI ============ --}}
                     <tr>

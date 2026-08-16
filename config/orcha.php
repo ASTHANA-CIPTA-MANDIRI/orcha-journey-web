@@ -10,8 +10,8 @@ return [
     | dan blok kontak di footer landing page.
     |
     */
-    'whatsapp' => env('ORCHA_WHATSAPP', '6289509882219'),
-    'email' => env('ORCHA_EMAIL', 'info@orchajourney.com'),
+    'whatsapp' => env('ORCHA_WHATSAPP', '62895630279695'),
+    'email' => env('ORCHA_EMAIL', 'halo@orchajourney.com'),
     'instagram' => env('ORCHA_INSTAGRAM', 'orcha_journey'),
     'alamat' => env('ORCHA_ALAMAT', 'Perumahan GWI, Jl. Durian No. 115, Banguntapan, Bantul, Yogyakarta'),
 
