@@ -213,3 +213,50 @@ document.addEventListener("DOMContentLoaded", () => {
     initHeroParallax();
     initAnchorOffset();
 });
+
+/* ==========================================================
+   5. GAMBAR ULANG SETELAH LIVEWIRE MENYEGARKAN HALAMAN
+
+   .reveal bermula dari opacity 0 dan baru terlihat setelah skrip ini
+   menambahkan .is-visible. Livewire mengganti simpul DOM-nya saat komponen
+   digambar ulang — misalnya sesudah formulir kontak terkirim — dan simpul
+   yang baru datang tanpa .is-visible.
+
+   Pengamatnya sendiri sudah dilepas (unobserve) untuk simpul lama, jadi tidak
+   ada yang menyalakan simpul pengganti: isinya tetap ada dan tetap memakan
+   ruang, tetapi tidak pernah terlihat. Di layar hasilnya berupa bidang kosong
+   besar — persis yang terjadi pada halaman kontak sesudah pesan terkirim.
+
+   Karena itu pengamatnya dipasang ulang tiap kali Livewire selesai menggambar.
+   Memasang ulang pada elemen yang sudah terlihat tidak berbahaya: kalau sudah
+   ber-.is-visible ia dilewati, dan yang sedang di layar langsung menyala.
+========================================================== */
+function segarkanReveal() {
+    // Yang sedang berada di layar dinyalakan langsung, tidak lewat pengamat.
+    //
+    // Pengamat bekerja saat elemen MASUK viewport. Simpul pengganti yang lahir
+    // sudah berada di dalam viewport belum tentu memicunya, dan kalau itu
+    // terjadi elemennya tidak pernah menyala sama sekali — persoalan yang mau
+    // diperbaiki di sini justru terulang. Diuji di peramban: tanpa langkah ini
+    // kartunya tetap 0 dari 2 yang terlihat.
+    //
+    // Tanpa jeda transisi, supaya kartu yang sedang dibaca tidak berkedip.
+    document.querySelectorAll(".reveal:not(.is-visible)").forEach((el) => {
+        const kotak = el.getBoundingClientRect();
+
+        if (kotak.top < window.innerHeight && kotak.bottom > 0) {
+            el.style.transitionDelay = "0ms";
+            el.classList.add("is-visible");
+        }
+    });
+
+    // Sisanya — yang masih di bawah layar — diamati seperti biasa.
+    initReveal();
+}
+
+document.addEventListener("livewire:navigated", segarkanReveal);
+document.addEventListener("livewire:initialized", () => {
+    if (window.Livewire?.hook) {
+        window.Livewire.hook("morphed", segarkanReveal);
+    }
+});
