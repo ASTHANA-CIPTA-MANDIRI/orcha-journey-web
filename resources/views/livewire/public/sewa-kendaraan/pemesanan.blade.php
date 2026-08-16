@@ -414,7 +414,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                 <div>
                                     <label for="sk-tanggal" class="label-orcha">Tanggal mulai <x-wajib /></label>
                                     <input id="sk-tanggal" type="date" required min="{{ now()->toDateString() }}"
-                                        wire:model="tanggalMulai"
+                                        wire:model.live="tanggalMulai"
                                         class="isian-orcha @error('tanggalMulai') isian-galat @enderror">
                                     @error('tanggalMulai')
                                         <p class="galat-orcha">{{ $message }}</p>
@@ -422,7 +422,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                 </div>
                                 <div>
                                     <label for="sk-jam" class="label-orcha">Jam mulai <x-wajib /></label>
-                                    <input id="sk-jam" type="time" required wire:model="jamMulai"
+                                    <input id="sk-jam" type="time" required wire:model.live="jamMulai"
                                         class="isian-orcha @error('jamMulai') isian-galat @enderror">
                                     @error('jamMulai')
                                         <p class="galat-orcha">{{ $message }}</p>

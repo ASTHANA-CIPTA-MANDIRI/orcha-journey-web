@@ -53,9 +53,15 @@
 
     {{-- ============ PRELOADER ============ --}}
     <div id="preloader" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-orcha-navy">
+        {{-- Logonya sengaja TIDAK dipasang di sini.
+
+             Berkas gambar butuh permintaan tersendiri ke server. Saat muat
+             ulang paksa — cache kosong — gambar itu sempat tampil sendirian
+             beberapa saat sebelum skrip pemuatnya jalan, sehingga yang terlihat
+             adalah cap Orcha Journey dulu, baru layar pemuat. Yang tersisa di
+             sini hanya tulisan dan batang: keduanya tergambar seketika bersama
+             halamannya, tanpa menunggu apa pun. --}}
         <div class="flex flex-col items-center gap-6 preloader-content">
-            <img src="{{ asset('orcha-logo-only.png') }}" alt="Orcha Journey" width="72" height="72"
-                class="w-16 h-16 sm:w-20 sm:h-20 animate-pulse">
             <div class="flex items-baseline gap-1 font-heading tabular-nums">
                 <span id="preloader-percentage" class="text-4xl font-black text-white sm:text-5xl">0</span>
                 <span class="text-xl font-black sm:text-2xl text-orcha-sky">%</span>

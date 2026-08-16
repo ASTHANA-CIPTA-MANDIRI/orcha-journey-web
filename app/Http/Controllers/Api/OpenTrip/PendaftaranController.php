@@ -157,14 +157,38 @@ class PendaftaranController extends ApiController
                 ->implode("\n"),
         ];
 
+        // Cap dan angka besarnya mengikuti uang yang benar-benar masuk.
+        // Sebelumnya keduanya dipatok "Belum Dibayar", sehingga kwitansi yang
+        // diunduh admin tetap menyatakan belum dibayar padahal pembayarannya
+        // sudah diterima seminggu sebelumnya — dan itu berkas yang dipegang
+        // pelanggan.
+        $tagihan = TagihanPesanan::untuk($pendaftaran);
+
+        [$jumlah, $jumlahLabel, $cap] = match (true) {
+            $tagihan === [] => [
+                $biaya ? $biaya['dp_teks'] : null,
+                $biaya ? 'Dibayar sekarang · DP '.$biaya['dp_persen'].'%' : null,
+                'Belum Dibayar',
+            ],
+            $tagihan['lunas'] => [$tagihan['total_teks'], 'Sudah dibayar penuh', 'Lunas'],
+            $tagihan['sudah'] > 0 => [$tagihan['sisa_teks'], 'Sisa yang harus dibayar', 'Dibayar Sebagian'],
+            default => [$tagihan['dp_teks'], 'Dibayar sekarang · DP '.$tagihan['dp_persen'].'%', 'Belum Dibayar'],
+        };
+
+        // Yang sudah masuk ikut disebut di rinciannya, supaya pelanggan bisa
+        // mencocokkan sendiri tanpa bertanya.
+        if ($tagihan !== [] && $tagihan['sudah'] > 0) {
+            $rincian['Sudah dibayar'] = $tagihan['sudah_teks'];
+        }
+
         $isi = BerkasKwitansi::buat(
             'Rincian Biaya Pendaftaran',
             $pendaftaran->kode,
             $rincian,
             $pendaftaran->catatan,
-            $biaya ? $biaya['dp_teks'] : null,
-            $biaya ? 'Dibayar sekarang · DP '.$biaya['dp_persen'].'%' : null,
-            'Belum Dibayar',
+            $jumlah,
+            $jumlahLabel,
+            $cap,
             biaya: $biaya,
         );
 
