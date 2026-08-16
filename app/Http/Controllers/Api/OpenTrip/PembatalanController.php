@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\OpenTrip;
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\OpenTrip\PembatalanResource;
 use App\Models\OpenTrip\Pembatalan;
+use App\Support\SelaraskanPembatalan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -45,6 +46,11 @@ class PembatalanController extends ApiController
 
         $sebelum = $pembatalan->status;
         $pembatalan->update($data);
+
+        // Keputusannya dijalarkan ke pesanan dan bukti bayarnya. Tanpa ini
+        // admin mengubah tiga tempat sendiri, dan yang paling sering
+        // tertinggal adalah status pesanannya.
+        SelaraskanPembatalan::jalankan($pembatalan->fresh());
 
         $this->catat($request, 'ubah status pembatalan', [
             'kode_pendaftaran' => $pembatalan->kode_pendaftaran,
