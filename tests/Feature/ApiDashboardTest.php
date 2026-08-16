@@ -987,6 +987,99 @@ test('serah terima memperbarui kondisi unit dan menutup sewanya', function () {
         ->and($sewa->fresh()->status)->toBe('selesai');
 });
 
+test('kondisi saat unit diserahkan tidak tertimpa oleh pemeriksaan berikutnya', function () {
+    $mobil = Car::create([
+        'name' => 'Avanza Uji', 'brand' => 'Toyota', 'type' => 'mobil',
+        'transmission' => 'Matic', 'capacity' => 7, 'price_per_day' => 500000,
+        'is_available' => true, 'transmisi_tersedia' => ['Matic'],
+    ]);
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 500000, 'status' => 'berjalan',
+    ]);
+
+    $this->patchJson("/api/v1/penyewaan/{$sewa->id}/serah-terima", [
+        'kondisi_awal' => ['bodi_depan' => 'baik'],
+        'kondisi_akhir' => ['bodi_depan' => 'lecet'],
+        'denda_kerusakan' => 250000,
+    ], kirim())->assertOk();
+
+    // Lembarnya dibuka lagi. Kolom "saat diserahkan" kini terisi kondisi
+    // terkini unit — yang sudah termasuk lecet yang baru saja dicatat.
+    $this->patchJson("/api/v1/penyewaan/{$sewa->id}/serah-terima", [
+        'kondisi_awal' => ['bodi_depan' => 'lecet'],
+        'kondisi_akhir' => ['bodi_depan' => 'lecet'],
+    ], kirim())->assertOk();
+
+    // Kalau ini tertimpa, tidak ada lagi bukti bahwa unitnya tadinya mulus,
+    // dan usulan dendanya lenyap dari layar padahal sudah ditagihkan.
+    expect($sewa->fresh()->kondisi_awal)->toBe(['bodi_depan' => 'baik'])
+        ->and($sewa->fresh()->denda_kerusakan_usulan)->toBeGreaterThan(0);
+});
+
+test('rincian denda yang sudah ditetapkan tersimpan dan ikut di nota', function () {
+    $mobil = Car::create([
+        'name' => 'Avanza Uji', 'brand' => 'Toyota', 'type' => 'mobil',
+        'transmission' => 'Matic', 'capacity' => 7, 'price_per_day' => 500000,
+        'is_available' => true, 'transmisi_tersedia' => ['Matic'],
+    ]);
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 500000, 'status' => 'berjalan',
+    ]);
+
+    $this->patchJson("/api/v1/penyewaan/{$sewa->id}/serah-terima", [
+        'denda_kerusakan' => 450000,
+        'rincian_denda' => [
+            ['bagian' => 'Bodi depan & bemper', 'dari' => 'Baik', 'jadi' => 'Lecet', 'biaya' => 250000],
+            ['bagian' => 'Bodi samping kiri', 'dari' => 'Baik', 'jadi' => 'Lecet', 'biaya' => 200000],
+        ],
+    ], kirim())->assertOk();
+
+    expect($sewa->fresh()->rincian_denda)->toHaveCount(2);
+
+    // Nota harus tetap bisa menyebut bagian mana yang ditagih, walau
+    // perbandingan kondisinya sudah tidak menyisakan selisih apa pun.
+    $nota = App\Http\Controllers\Api\SewaKendaraan\PenyewaanController::notaSewa($sewa->fresh());
+    $baris = collect($nota['baris'])->firstWhere('label', 'Denda kerusakan');
+
+    expect($baris['keterangan'])->toContain('Bodi depan & bemper')
+        ->and($baris['keterangan'])->toContain('Bodi samping kiri');
+});
+
+test('berkas jaminan penyewa tersimpan dari medan bernama gambar', function () {
+    Storage::fake('public');
+
+    $mobil = Car::create([
+        'name' => 'Avanza Uji', 'brand' => 'Toyota', 'type' => 'mobil',
+        'transmission' => 'Matic', 'capacity' => 7, 'price_per_day' => 500000,
+        'is_available' => true, 'transmisi_tersedia' => ['Matic'],
+    ]);
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'email' => 'a@b.test', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 500000, 'status' => 'berjalan',
+    ]);
+
+    // Sisi admin selalu melampirkan berkasnya dengan nama medan "gambar",
+    // sama seperti unggahan foto paket dan armada. Endpoint ini sempat
+    // mencari nama lain, dan tiap unggahan ditolak "wajib diisi" padahal
+    // berkasnya terkirim — jadi nama medannya ikut diuji.
+    $this->post("/api/v1/penyewaan/{$sewa->id}/berkas-jaminan", [
+        'gambar' => UploadedFile::fake()->image('ktp.jpg'),
+    ], kirim())->assertOk();
+
+    expect($sewa->fresh()->berkas_jaminan)->toStartWith('/storage/jaminan/');
+});
+
 test('pesanan sewa yang dibatalkan tidak ikut ditutup jadi selesai', function () {
     $mobil = Car::create([
         'name' => 'Avanza Uji', 'brand' => 'Toyota', 'type' => 'mobil',

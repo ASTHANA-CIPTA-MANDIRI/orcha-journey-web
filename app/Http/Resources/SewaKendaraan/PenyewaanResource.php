@@ -42,6 +42,11 @@ class PenyewaanResource extends JsonResource
             'denda_keterlambatan_usulan' => $this->denda_keterlambatan_usulan,
             'denda_kerusakan_usulan' => $this->denda_kerusakan_usulan,
             'rincian_denda_kerusakan' => $this->rincian_denda_kerusakan,
+            // Yang di atas usulan, yang ini keputusan. Keduanya dikirim karena
+            // artinya berbeda: usulan hilang sendiri begitu kondisi unit
+            // diperbarui, sedangkan yang ditetapkan harus tetap bisa
+            // ditunjukkan selama tagihannya masih berlaku.
+            'rincian_denda' => $this->rincian_denda ?? [],
 
             // Serah terima
             'diserahkan_pada' => $this->diserahkan_pada?->toIso8601String(),

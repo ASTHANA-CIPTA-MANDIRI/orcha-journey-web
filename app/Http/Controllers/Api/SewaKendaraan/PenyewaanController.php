@@ -118,10 +118,14 @@ class PenyewaanController extends ApiController
      */
     public function berkasJaminan(PenyewaanKendaraan $penyewaan, Request $request): JsonResponse
     {
-        $request->validate(['berkas' => 'required|image|max:8192']);
+        // Medannya bernama "gambar", sama seperti unggahan foto paket dan
+        // armada. Sempat bernama "berkas" di sini saja, dan akibatnya setiap
+        // unggahan ditolak dengan "Kolom berkas wajib diisi" padahal berkasnya
+        // memang terkirim — hanya namanya yang tidak dicari.
+        $request->validate(['gambar' => 'required|image|max:8192']);
 
         $penyewaan->update([
-            'berkas_jaminan' => GambarWebp::simpan($request->file('berkas'), 'jaminan'),
+            'berkas_jaminan' => GambarWebp::simpan($request->file('gambar'), 'jaminan'),
         ]);
 
         $this->catat($request, 'unggah berkas jaminan penyewa', ['kode' => $penyewaan->kode]);
@@ -209,8 +213,13 @@ class PenyewaanController extends ApiController
             ['Denda keterlambatan', $penyewaan->denda_keterlambatan, $penyewaan->terlambat
                 ? floor($penyewaan->terlambat_menit / 60).' jam '.($penyewaan->terlambat_menit % 60).' menit lewat tenggat'
                 : null],
-            ['Denda kerusakan', $penyewaan->denda_kerusakan, collect($penyewaan->kerusakan_baru)
-                ->pluck('bagian')->implode(', ') ?: null],
+            // Bagian mana yang ditagih diambil dari rincian yang sudah
+            // ditetapkan admin lebih dulu. Perbandingan kondisi hanya dipakai
+            // bila belum ada ketetapan — sesudah unit diperiksa ulang,
+            // perbandingan itu kosong, dan kwitansi tanpa keterangan bagian
+            // adalah kwitansi yang tidak bisa dijelaskan ke penyewa.
+            ['Denda kerusakan', $penyewaan->denda_kerusakan, collect($penyewaan->rincian_denda ?: $penyewaan->kerusakan_baru)
+                ->pluck('bagian')->filter()->implode(', ') ?: null],
             ['Denda lain', $penyewaan->denda_lain, null],
         ] as [$label, $nilai, $keterangan]) {
             if ((int) $nilai <= 0) {
@@ -265,6 +274,14 @@ class PenyewaanController extends ApiController
             'denda_kerusakan' => 'nullable|integer|min:0',
             'denda_lain' => 'nullable|integer|min:0',
             'catatan_denda' => 'nullable|string|max:1000',
+            // Rincian yang DITETAPKAN admin, bukan usulan sistem. Disimpan
+            // supaya alasan tiap rupiah tetap bisa ditunjukkan setelah kondisi
+            // unit diperbarui — lihat catatan di bawah soal kondisi awal.
+            'rincian_denda' => 'nullable|array|max:30',
+            'rincian_denda.*.bagian' => 'required|string|max:100',
+            'rincian_denda.*.dari' => 'nullable|string|max:50',
+            'rincian_denda.*.jadi' => 'nullable|string|max:50',
+            'rincian_denda.*.biaya' => 'required|integer|min:0',
         ]);
 
         // Bagian yang tidak dikenal ditolak diam-diam, supaya perbandingan
@@ -273,6 +290,20 @@ class PenyewaanController extends ApiController
             if (isset($data[$kunci])) {
                 $data[$kunci] = array_intersect_key($data[$kunci], array_flip(explode(',', $bagian)));
             }
+        }
+
+        // Kondisi saat unit DISERAHKAN dibekukan begitu tercatat.
+        //
+        // Lembar serah terima mengisi kolom itu dari kondisi terkini unit bila
+        // masih kosong. Wajar untuk pengisian pertama — tapi bila lembarnya
+        // dibuka lagi setelah pemeriksaan, "kondisi terkini" sudah termasuk
+        // kerusakan yang baru saja dicatat, dan menyimpannya kembali membuat
+        // awal dan akhir jadi sama persis. Selisihnya hilang, usulan dendanya
+        // ikut hilang, dan tidak ada lagi bukti bahwa unit tadinya mulus.
+        //
+        // Yang sudah terjadi tidak boleh ditulis ulang oleh keadaan sesudahnya.
+        if (filled($penyewaan->kondisi_awal)) {
+            unset($data['kondisi_awal']);
         }
 
         $penyewaan->update(array_filter($data, fn ($nilai) => $nilai !== null));
