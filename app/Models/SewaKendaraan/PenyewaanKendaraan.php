@@ -286,6 +286,11 @@ class PenyewaanKendaraan extends Model
             }
 
             $baris[] = [
+                // Kuncinya ikut dikirim, bukan cuma namanya. Nama bagian
+                // mengandung spasi dan "&" ("Kaca & spion"), dan itu tidak bisa
+                // dipakai sebagai penunjuk isian di lemon — ketikan admin hilang
+                // begitu isiannya ditinggalkan.
+                'kunci' => $bagian,
                 'bagian' => config('orcha.pemeriksaan_kendaraan')[$bagian] ?? $bagian,
                 'dari' => config('orcha.kondisi_pemeriksaan')[$sebelum] ?? $sebelum,
                 'jadi' => config('orcha.kondisi_pemeriksaan')[$sesudah] ?? $sesudah,
