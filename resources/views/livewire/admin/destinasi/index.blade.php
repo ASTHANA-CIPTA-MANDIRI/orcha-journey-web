@@ -43,7 +43,22 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
     #[Rule(['othersPhoto.*' => 'image|max:2048'])]
     public $othersPhoto = [];
 
+    /**
+     * Gambar tambahan yang sudah tersimpan dan MASIH dipertahankan.
+     *
+     * Daftar ini yang menentukan isi kolom others_photo saat disimpan, bukan
+     * isi lama di basis data. Menghapus satu gambar berarti mengeluarkannya
+     * dari sini; berkasnya sendiri baru dihapus ketika perubahannya disimpan,
+     * supaya menutup modal tanpa menyimpan tidak meninggalkan gambar rusak.
+     */
     public $existingOthersPhoto = [];
+
+    /**
+     * Kartu destinasi di halaman publik hanya menampung tiga gambar tambahan.
+     * Angkanya dipakai untuk validasi DAN untuk tulisan sisa tempat, supaya
+     * label dan aturannya tidak pernah berbeda.
+     */
+    public const BATAS_SUB_GAMBAR = 3;
 
     public function openModal(): void
     {
@@ -77,7 +92,7 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
         $this->deskripsi = $destination->deskripsi ?? '';
         $this->totalVisitor = $destination->total_visitor;
         $this->existingMainPhoto = $destination->main_photo;
-        $this->existingOthersPhoto = $destination->others_photo;
+        $this->existingOthersPhoto = $destination->others_photo ?? [];
         $this->destinationId = $destination->id;
         $this->showModal = true;
     }
@@ -94,6 +109,39 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
         $this->othersPhoto = [];
         $this->existingOthersPhoto = [];
         $this->destinationId = null;
+    }
+
+    /**
+     * Mengeluarkan satu gambar tambahan yang sudah tersimpan.
+     *
+     * Berkasnya belum dihapus di sini. Kalau modalnya ditutup tanpa disimpan,
+     * tidak ada yang hilang; berkas yang benar-benar tidak dipakai lagi
+     * dibersihkan di save() dengan membandingkan daftar lama dan baru.
+     */
+    public function hapusSubGambar(int $urutan): void
+    {
+        unset($this->existingOthersPhoto[$urutan]);
+        $this->existingOthersPhoto = array_values($this->existingOthersPhoto);
+    }
+
+    /**
+     * Membatalkan satu berkas yang baru dipilih, sebelum tersimpan.
+     */
+    public function hapusUnggahan(int $urutan): void
+    {
+        unset($this->othersPhoto[$urutan]);
+        $this->othersPhoto = array_values($this->othersPhoto);
+    }
+
+    /**
+     * Sisa tempat gambar tambahan, dihitung dari yang dipertahankan DAN yang
+     * baru dipilih — bukan dari salah satunya saja.
+     */
+    public function sisaSlot(): int
+    {
+        return max(0, self::BATAS_SUB_GAMBAR
+            - count($this->existingOthersPhoto)
+            - count($this->othersPhoto ?: []));
     }
 
     public function delete(DestinationPopuler $destination): void
@@ -119,6 +167,20 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
     public function save(): void
     {
         $this->validate();
+
+        // Label "maksimal 3" sebelumnya hanya tulisan: lima gambar pun diterima.
+        // Batasnya dihitung dari total yang akan tersimpan, karena kalau hanya
+        // unggahan baru yang dihitung, dua kali unggah masing-masing dua berkas
+        // tetap lolos.
+        $total = count($this->existingOthersPhoto) + count($this->othersPhoto ?: []);
+
+        if ($total > self::BATAS_SUB_GAMBAR) {
+            $this->addError('othersPhoto', 'Gambar tambahan maksimal '
+                . self::BATAS_SUB_GAMBAR . '. Hapus dulu salah satu sebelum menambah.');
+
+            return;
+        }
+
         try {
             $dataToSave = [
                 'destination_name' => $this->destinationName,
@@ -137,22 +199,30 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
                 $dataToSave['main_photo'] = '/storage/' . $this->mainPhoto->store('destinasi_populer/utama', 'public');
             }
 
-            if (!empty($this->othersPhoto)) {
-                if ($this->isEdit && $destinationData->others_photo) {
-                    foreach ($destinationData->others_photo as $oldPhoto) {
-                        Storage::disk('public')->delete(str_replace('/storage/', '', $oldPhoto));
-                    }
+            // Gambar tambahan DITAMBAHKAN pada yang sudah ada, tidak menggantinya.
+            //
+            // Sebelumnya satu unggahan baru menghapus seluruh gambar lama:
+            // menambah gambar ketiga justru menyisakan satu. Yang tersimpan
+            // sekarang adalah gambar yang dipertahankan ditambah yang baru.
+            $tersimpan = array_values($this->existingOthersPhoto);
+
+            foreach ($this->othersPhoto ?: [] as $photo) {
+                $tersimpan[] = '/storage/' . $photo->store('destinasi_populer/tambahan', 'public');
+            }
+
+            if ($this->isEdit || $tersimpan) {
+                $dataToSave['others_photo'] = $tersimpan;
+
+                // Berkas yang benar-benar sudah tidak dirujuk lagi baru dibuang
+                // di sini, sesudah pengguna menyimpan keputusannya.
+                foreach (array_diff($destinationData->others_photo ?? [], $tersimpan) as $dibuang) {
+                    Storage::disk('public')->delete(str_replace('/storage/', '', $dibuang));
                 }
-                $paths = [];
-                foreach ($this->othersPhoto as $photo) {
-                    $paths[] = '/storage/' . $photo->store('destinasi_populer/tambahan', 'public');
-                }
-                $dataToSave['others_photo'] = $paths;
             }
 
             if ($this->isEdit) {
                 $destinationData->update($dataToSave);
-                $this->success('Berhasil tambah destinasi');
+                $this->success('Perubahan destinasi tersimpan');
             } else {
                 DestinationPopuler::create($dataToSave);
                 $this->success('Berhasil tambah destinasi');
@@ -160,7 +230,8 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
 
             $this->closeModal();
         } catch (Exception $e) {
-            dump($e->getMessage());
+            // dump() sebelumnya membocorkan isi pengecualian ke halaman admin.
+            report($e);
             $this->error('gagal menambah destinasi');
         }
     }
@@ -179,6 +250,8 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
     {
         return [
             'destinations' => DestinationPopuler::orderByDesc('total_visitor')->get(),
+            'sisaSlot' => $this->sisaSlot(),
+            'batasSubGambar' => self::BATAS_SUB_GAMBAR,
             'headers' => $this->headers(),
             'wilayahOptions' => collect(config('orcha.wilayah'))
                 ->map(fn ($label, $kunci) => ['id' => $kunci, 'name' => $label])
@@ -251,19 +324,76 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
             @endif
 
 
-            <x-mary-file label="Foto Tambahan (Maksimal 3)" wire:model="othersPhoto" multiple
-                accept="image/png, image/jpg, image/jpeg" />
+            {{-- Gambar tambahan.
 
-            <div class="flex gap-2 mt-2">
-                @if ($othersPhoto)
-                    @foreach ($othersPhoto as $photo)
-                        <img class="h-20 rounded-lg shadow-sm" src="{{ $photo->temporaryUrl() }}" alt="Preview Baru">
-                    @endforeach
-                @elseif($existingOthersPhoto)
-                    @foreach ($existingOthersPhoto as $oldPhoto)
-                        <img class="h-20 rounded-lg shadow-sm" src="{{ asset($oldPhoto) }}" alt="Foto Lama">
-                    @endforeach
+                 Sebelumnya yang lama dan yang baru saling menutupi: begitu ada
+                 berkas dipilih, gambar tersimpan hilang dari pandangan — dan
+                 memang ikut terhapus saat disimpan. Keduanya sekarang tampil
+                 berdampingan dengan penanda masing-masing, dan tiap gambar bisa
+                 dihapus sendiri tanpa mengunggah ulang yang lain. --}}
+            <div class="pt-2 space-y-3 border-t border-base-200">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-semibold">Gambar Tambahan</span>
+                    <span @class([
+                        'text-xs font-medium',
+                        'text-warning' => $sisaSlot === 0,
+                        'text-gray-500' => $sisaSlot > 0,
+                    ])>
+                        {{ $batasSubGambar - $sisaSlot }} dari {{ $batasSubGambar }} terpakai
+                    </span>
+                </div>
+
+                @if ($existingOthersPhoto || $othersPhoto)
+                    <div class="flex flex-wrap gap-3">
+                        @foreach ($existingOthersPhoto as $urutan => $oldPhoto)
+                            <div class="relative">
+                                <img class="object-cover w-28 h-20 border rounded-lg shadow-sm border-base-200"
+                                    src="{{ asset($oldPhoto) }}" alt="Gambar tersimpan">
+                                <button type="button" wire:click="hapusSubGambar({{ $urutan }})"
+                                    wire:loading.attr="disabled" wire:target="hapusSubGambar({{ $urutan }})"
+                                    title="Hapus gambar ini"
+                                    class="absolute flex items-center justify-center w-6 h-6 text-white rounded-full shadow -top-2 -right-2 bg-error hover:brightness-110">
+                                    <x-mary-icon name="o-x-mark" class="w-4 h-4" />
+                                </button>
+                            </div>
+                        @endforeach
+
+                        @foreach ($othersPhoto ?: [] as $urutan => $photo)
+                            <div class="relative">
+                                <img class="object-cover w-28 h-20 rounded-lg shadow-sm ring-2 ring-primary"
+                                    src="{{ $photo->temporaryUrl() }}" alt="Gambar baru">
+                                <span
+                                    class="absolute px-1.5 py-0.5 text-[10px] font-semibold text-white rounded bottom-1 left-1 bg-primary">
+                                    Baru
+                                </span>
+                                <button type="button" wire:click="hapusUnggahan({{ $urutan }})"
+                                    wire:loading.attr="disabled" wire:target="hapusUnggahan({{ $urutan }})"
+                                    title="Batalkan gambar ini"
+                                    class="absolute flex items-center justify-center w-6 h-6 text-white rounded-full shadow -top-2 -right-2 bg-error hover:brightness-110">
+                                    <x-mary-icon name="o-x-mark" class="w-4 h-4" />
+                                </button>
+                            </div>
+                        @endforeach
+                    </div>
                 @endif
+
+                @if ($sisaSlot > 0)
+                    <x-mary-file wire:model="othersPhoto" multiple accept="image/png, image/jpeg"
+                        hint="Bisa pilih beberapa sekaligus — sisa {{ $sisaSlot }} gambar lagi, maksimal 2 MB per gambar" />
+                @else
+                    <div class="flex items-start gap-2 p-3 text-xs rounded-lg bg-base-200 text-gray-600">
+                        <x-mary-icon name="o-information-circle" class="w-4 h-4 mt-px shrink-0" />
+                        <span>Sudah terisi {{ $batasSubGambar }} gambar. Hapus salah satu di atas bila ingin
+                            menggantinya.</span>
+                    </div>
+                @endif
+
+                @error('othersPhoto')
+                    <p class="text-xs text-error">{{ $message }}</p>
+                @enderror
+                @error('othersPhoto.*')
+                    <p class="text-xs text-error">{{ $message }}</p>
+                @enderror
             </div>
 
             <x-slot:actions>
