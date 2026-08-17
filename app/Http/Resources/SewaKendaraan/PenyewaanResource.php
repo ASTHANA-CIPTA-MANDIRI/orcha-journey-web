@@ -32,6 +32,7 @@ class PenyewaanResource extends JsonResource
             'dengan_sopir' => (bool) $this->dengan_sopir,
             'lokasi_antar' => $this->lokasi_antar,
             'lokasi_kembali' => $this->lokasi_kembali,
+            'tujuan' => $this->tujuan,
 
             // Kapan unit ditunggu kembali, dan apakah sudah lewat
             'tanggal_selesai' => $this->jadwal_selesai?->toDateString(),

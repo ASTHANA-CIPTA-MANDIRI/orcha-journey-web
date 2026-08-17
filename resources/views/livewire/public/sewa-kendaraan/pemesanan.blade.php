@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Validation\Rule;
 use App\Models\SewaKendaraan\Car;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\BerkasKwitansi;
@@ -36,6 +37,14 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
      * berangkat ke alamat yang salah.
      */
     public string $lokasiKembali = '';
+
+    /**
+     * Tujuan perjalanan — hanya untuk sewa bersopir.
+     *
+     * Sewa lepas kunci tidak punya tujuan yang dicatat: penyewa membawa unitnya
+     * ke mana pun ia perlu, dan menanyakannya hanya menambah isian tanpa guna.
+     */
+    public string $tujuan = '';
 
     public string $nama = '';
 
@@ -75,6 +84,18 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
     public function updatedUnit(): void
     {
         $this->sesuaikanPilihan();
+    }
+
+    /**
+     * Perjalanan ini memakai sopir kami.
+     *
+     * Penentunya moda pemesanan, bukan jenis unitnya: mobil yang disewa DENGAN
+     * sopir juga tidak diserahkan ke penyewa, jadi yang perlu diketahui tetap
+     * titik penjemputan dan tujuannya.
+     */
+    public function bersopir(): bool
+    {
+        return $this->denganSopir === 'ya';
     }
 
     private function sesuaikanPilihan(): void
@@ -124,7 +145,18 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             // Wajib: tanpa alamat yang jelas, unit tidak bisa diantar maupun
             // dijemput kembali.
             'lokasiAntar' => 'required|string|min:4|max:191',
-            'lokasiKembali' => 'required|string|min:4|max:191',
+            // Lokasi pengembalian hanya ditanyakan pada sewa lepas kunci. Pada
+            // sewa bersopir unitnya tidak diserahkan ke penyewa, jadi tidak ada
+            // yang mengembalikan apa pun — nilainya diisi dari titik penjemputan
+            // saat disimpan supaya catatan penyewaannya tetap utuh.
+            'lokasiKembali' => [
+                Rule::requiredIf(fn () => ! $this->bersopir()),
+                'nullable', 'string', 'min:4', 'max:191',
+            ],
+            'tujuan' => [
+                Rule::requiredIf(fn () => $this->bersopir()),
+                'nullable', 'string', 'min:3', 'max:191',
+            ],
             'nama' => 'required|string|min:3|max:120',
             'whatsapp' => ['required', 'string', 'max:25', fn ($atribut, $nilai, $gagal) => NomorTelepon::sah($nilai)
                 ? null
@@ -145,8 +177,12 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             'tanggalMulai' => 'tanggal mulai',
             'jamMulai' => 'jam mulai',
             'denganSopir' => 'kebutuhan sopir',
-            'lokasiAntar' => 'lokasi pengantaran unit',
+            // Sebutan medannya ikut berganti sesuai moda: pesan galat yang
+            // menyebut "lokasi pengantaran unit" pada sewa bus membingungkan,
+            // karena tidak ada unit yang diantar ke siapa pun.
+            'lokasiAntar' => $this->bersopir() ? 'titik penjemputan' : 'lokasi pengantaran unit',
             'lokasiKembali' => 'lokasi pengembalian unit',
+            'tujuan' => 'tujuan perjalanan',
             'setuju' => 'persetujuan ketentuan sewa',
         ];
     }
@@ -214,7 +250,12 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             'car_id' => $mobil->id,
             'tanggal_selesai' => $selesai->toDateString(),
             'jam_selesai' => $selesai->format('H:i'),
-            'lokasi_kembali' => $this->lokasiKembali,
+            // Diisi dari titik penjemputan hanya bila kosong, BUKAN ditimpa.
+            // Pada sewa bersopir isiannya memang tidak ditanyakan, jadi biasanya
+            // kosong — tetapi kalau ada nilai yang benar-benar diberikan,
+            // membuangnya berarti menghilangkan keterangan yang sengaja ditulis.
+            'lokasi_kembali' => $this->lokasiKembali ?: $this->lokasiAntar,
+            'tujuan' => $this->bersopir() ? $this->tujuan : null,
             'nama_kendaraan' => $mobil->name,
             'nama' => $this->nama,
             'whatsapp' => $this->whatsapp,
@@ -242,8 +283,18 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                 : '—',
             'Ditunggu kembali' => $selesai->translatedFormat('l, j F Y').' pukul '.$selesai->format('H:i'),
             'Durasi' => $sewa->durasi_label,
-            'Lokasi pengantaran' => $sewa->lokasi_antar,
-            'Lokasi pengembalian' => $sewa->lokasi_kembali,
+            // Sebutannya mengikuti moda sewanya. Kwitansi sewa bus yang menulis
+            // "Lokasi pengantaran unit" membingungkan penyewa maupun sopir:
+            // tidak ada unit yang diserahkan ke siapa pun.
+            ...($sewa->dengan_sopir
+                ? [
+                    'Titik penjemputan' => $sewa->lokasi_antar,
+                    'Tujuan' => $sewa->tujuan ?: '—',
+                ]
+                : [
+                    'Lokasi pengantaran' => $sewa->lokasi_antar,
+                    'Lokasi pengembalian' => $sewa->lokasi_kembali,
+                ]),
             'Penyewa' => $sewa->nama,
             'WhatsApp' => $sewa->whatsapp,
         ];
@@ -282,7 +333,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
         );
 
         $this->kodeTerkirim = $sewa->kode;
-        $this->reset(['nama', 'whatsapp', 'email', 'catatan', 'lokasiAntar', 'lokasiKembali', 'setuju']);
+        $this->reset(['nama', 'whatsapp', 'email', 'catatan', 'lokasiAntar', 'lokasiKembali', 'tujuan', 'setuju']);
     }
 
     public function pesanLagi(): void
@@ -319,6 +370,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             'satuanTersedia' => collect(config('orcha.satuan_sewa'))
                 ->filter(fn ($info, $kunci) => $mobil === null || $mobil->tarif($kunci) !== null),
             'estimasi' => $mobil?->estimasiBiaya($this->satuan, $this->durasi, $this->denganSopir === 'ya'),
+            'bersopir' => $this->bersopir(),
         ];
     }
 }; ?>
@@ -556,29 +608,60 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                 @enderror
                             </fieldset>
 
-                            {{-- Dua alamat, bukan satu: penyewa sering mengambil unit di
-                                 kantor lalu mengembalikannya di bandara. Kalau hanya satu
-                                 isian, sopir yang menjemput unit berangkat ke alamat yang
-                                 salah. --}}
+                            {{-- Dua isian yang berganti sesuai moda sewanya.
+
+                                 LEPAS KUNCI: unitnya diserahkan lalu diambil kembali, jadi
+                                 yang ditanyakan alamat antar dan alamat ambil. Dua alamat dan
+                                 bukan satu, karena penyewa sering mengambil unit di kantor lalu
+                                 mengembalikannya di bandara.
+
+                                 BERSOPIR: unitnya TIDAK diserahkan ke penyewa. Sopir kami yang
+                                 menjemput lalu mengantar, jadi yang perlu diketahui titik
+                                 penjemputan dan tujuannya. Menanyakan alamat serah unit pada
+                                 penyewa bus menghasilkan jawaban yang tidak dipakai siapa pun,
+                                 sementara tujuannya — yang menentukan lama jalan, BBM, dan
+                                 kesiapan sopir — tidak pernah tercatat sama sekali. --}}
                             <div class="grid gap-5 sm:grid-cols-2">
                                 <div>
-                                    <label for="sk-lokasi" class="label-orcha">Lokasi pengantaran unit <x-wajib /></label>
+                                    <label for="sk-lokasi" class="label-orcha">
+                                        {{ $bersopir ? 'Titik penjemputan' : 'Lokasi pengantaran unit' }}
+                                        <x-wajib />
+                                    </label>
                                     <input id="sk-lokasi" type="text" wire:model="lokasiAntar" required minlength="4" maxlength="191"
-                                        placeholder="Contoh: Bandara YIA, atau alamat lengkap"
+                                        placeholder="{{ $bersopir
+                                            ? 'Contoh: Hotel Malioboro, atau alamat lengkap'
+                                            : 'Contoh: Bandara YIA, atau alamat lengkap' }}"
                                         class="isian-orcha @error('lokasiAntar') isian-galat @enderror">
                                     @error('lokasiAntar')
                                         <p class="galat-orcha">{{ $message }}</p>
                                     @enderror
                                 </div>
-                                <div>
-                                    <label for="sk-lokasi-kembali" class="label-orcha">Lokasi pengembalian unit <x-wajib /></label>
-                                    <input id="sk-lokasi-kembali" type="text" wire:model="lokasiKembali" required minlength="4" maxlength="191"
-                                        placeholder="Boleh sama dengan lokasi pengantaran"
-                                        class="isian-orcha @error('lokasiKembali') isian-galat @enderror">
-                                    @error('lokasiKembali')
-                                        <p class="galat-orcha">{{ $message }}</p>
-                                    @enderror
-                                </div>
+
+                                @if ($bersopir)
+                                    <div>
+                                        <label for="sk-tujuan" class="label-orcha">Tujuan perjalanan <x-wajib /></label>
+                                        <input id="sk-tujuan" type="text" wire:model="tujuan" required minlength="3" maxlength="191"
+                                            placeholder="Contoh: Borobudur — Dieng, atau Bromo"
+                                            class="isian-orcha @error('tujuan') isian-galat @enderror">
+                                        @error('tujuan')
+                                            <p class="galat-orcha">{{ $message }}</p>
+                                        @enderror
+                                        <p class="mt-1 text-xs text-slate-500">
+                                            Sebutkan kota atau lokasi yang dituju. Rute lengkapnya
+                                            bisa ditulis di catatan.
+                                        </p>
+                                    </div>
+                                @else
+                                    <div>
+                                        <label for="sk-lokasi-kembali" class="label-orcha">Lokasi pengembalian unit <x-wajib /></label>
+                                        <input id="sk-lokasi-kembali" type="text" wire:model="lokasiKembali" required minlength="4" maxlength="191"
+                                            placeholder="Boleh sama dengan lokasi pengantaran"
+                                            class="isian-orcha @error('lokasiKembali') isian-galat @enderror">
+                                        @error('lokasiKembali')
+                                            <p class="galat-orcha">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                @endif
                             </div>
 
                             {{-- ============ TENGGAT PENGEMBALIAN ============

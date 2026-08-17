@@ -101,6 +101,7 @@ test('pemesanan sewa tersimpan lengkap dengan estimasi biaya', function () {
         ->set('whatsapp', '081234567890')
         ->set('email', 'budi@contoh.test')
         ->set('lokasiAntar', 'Bandara YIA')
+        ->set('tujuan', 'Borobudur')
         ->set('lokasiKembali', 'Kantor Orcha')
         ->set('setuju', true)
         ->call('pesan')
@@ -131,6 +132,7 @@ test('pemesanan menolak transmisi yang tidak tersedia pada unit', function () {
         ->set('whatsapp', '081234567890')
         ->set('email', 'budi@contoh.test')
         ->set('lokasiAntar', 'Bandara YIA')
+        ->set('tujuan', 'Borobudur')
         ->set('lokasiKembali', 'Kantor Orcha')
         ->set('setuju', true)
         ->call('pesan')
@@ -152,6 +154,7 @@ test('pemesanan menolak satuan yang tidak dijual unit itu', function () {
         ->set('whatsapp', '081234567890')
         ->set('email', 'budi@contoh.test')
         ->set('lokasiAntar', 'Bandara YIA')
+        ->set('tujuan', 'Borobudur')
         ->set('lokasiKembali', 'Kantor Orcha')
         ->set('setuju', true)
         ->call('pesan')
@@ -210,6 +213,7 @@ test('tenggat pengembalian dihitung dan disimpan saat memesan', function () {
         ->set('whatsapp', '081234567890')
         ->set('email', 'budi@contoh.test')
         ->set('lokasiAntar', 'Bandara YIA')
+        ->set('tujuan', 'Borobudur')
         ->set('lokasiKembali', 'Kantor Orcha')
         ->set('setuju', true)
         ->call('pesan')
@@ -239,7 +243,9 @@ test('email dan kedua lokasi wajib diisi', function () {
         ->set('whatsapp', '081234567890')
         ->set('setuju', true)
         ->call('pesan')
-        ->assertHasErrors(['email', 'lokasiAntar', 'lokasiKembali']);
+        // Pada sewa bersopir yang wajib adalah tujuannya, bukan lokasi
+        // pengembalian — unitnya tidak diserahkan ke penyewa.
+        ->assertHasErrors(['email', 'lokasiAntar', 'tujuan']);
 });
 
 test('durasi harian menghasilkan tenggat pada jam yang sama', function () {
@@ -360,6 +366,7 @@ test('pemesanan sewa mengirim surat ke kantor dan penyewa', function () {
         ->set('whatsapp', '081234567890')
         ->set('email', 'budi@contoh.test')
         ->set('lokasiAntar', 'Bandara YIA')
+        ->set('tujuan', 'Borobudur')
         ->set('lokasiKembali', 'Kantor Orcha')
         ->set('setuju', true)
         ->call('pesan')
@@ -542,6 +549,7 @@ test('unit yang sudah dipesan tidak bisa dipesan lagi di waktu bertabrakan', fun
         ->set('whatsapp', '081234567890')
         ->set('email', 'kedua@contoh.test')
         ->set('lokasiAntar', 'Bandara YIA')
+        ->set('tujuan', 'Borobudur')
         ->set('lokasiKembali', 'Kantor Orcha')
         ->set('setuju', true)
         ->call('pesan')
@@ -576,6 +584,7 @@ test('unit bebas dipesan lagi tepat setelah yang sebelumnya selesai', function (
         ->set('whatsapp', '081234567890')
         ->set('email', 'kedua@contoh.test')
         ->set('lokasiAntar', 'Bandara YIA')
+        ->set('tujuan', 'Borobudur')
         ->set('lokasiKembali', 'Kantor Orcha')
         ->set('setuju', true)
         ->call('pesan')

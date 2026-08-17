@@ -29,6 +29,7 @@ class PenyewaanKendaraan extends Model
         'dengan_sopir',
         'lokasi_antar',
         'lokasi_kembali',
+        'tujuan',
         'tanggal_selesai',
         'jam_selesai',
         'diserahkan_pada',
