@@ -41,6 +41,7 @@ class Car extends Model
         'termasuk_parkir',
         'biaya_parkir',
         'termasuk_sopir',
+        'harga_luar_kota',
     ];
 
     protected $casts = [
@@ -117,9 +118,9 @@ class Car extends Model
      * Perkiraan biaya sewa. Angka final tetap dikonfirmasi tim, karena BBM,
      * tol, dan biaya lokasi dihitung terpisah.
      */
-    public function estimasiBiaya(string $satuan, int $durasi, bool $denganSopir = false): ?int
+    public function estimasiBiaya(string $satuan, int $durasi, bool $denganSopir = false, bool $luarKota = false): ?int
     {
-        $tarif = $this->tarif($satuan);
+        $tarif = $luarKota ? $this->tarif_luar_kota : $this->tarif($satuan);
 
         if ($tarif === null || $durasi < 1) {
             return null;
@@ -334,6 +335,31 @@ class Car extends Model
         // mewajibkan salah satu dari kedua keadaan di atas. Kalimat ini untuk
         // unit lepas kunci yang memang tidak melayani sewa dengan sopir.
         return 'Tanpa sopir';
+    }
+
+    /**
+     * Tarif harian untuk perjalanan luar kota.
+     *
+     * Kosong berarti tidak dibedakan, jadi tarif dalam kotanya yang dipakai —
+     * bukan nol, dan bukan menolak pesanan. Sebagian unit memang tidak
+     * membedakan keduanya.
+     */
+    public function getTarifLuarKotaAttribute(): ?int
+    {
+        return $this->harga_luar_kota ?: $this->price_per_day;
+    }
+
+    public function getPunyaTarifLuarKotaAttribute(): bool
+    {
+        return (bool) $this->harga_luar_kota
+            && (int) $this->harga_luar_kota !== (int) $this->price_per_day;
+    }
+
+    public function getLuarKotaLabelAttribute(): string
+    {
+        return $this->punya_tarif_luar_kota
+            ? 'Luar kota '.$this->rupiah((int) $this->harga_luar_kota).'/hari'
+            : 'Luar kota tarifnya sama';
     }
 
     private function rupiah(int $angka): string

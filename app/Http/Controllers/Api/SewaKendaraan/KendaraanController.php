@@ -203,6 +203,8 @@ class KendaraanController extends ApiController
             'transmisi_tersedia' => 'required|array|min:1',
             'transmisi_tersedia.*' => 'in:Manual,Matic',
             'tarif_hari' => 'required|numeric|min:0',
+            // Hanya harian: sewa luar kota tidak dijual per jam atau paket 12 jam.
+            'tarif_luar_kota' => 'nullable|numeric|min:0',
             'tarif_jam' => 'nullable|numeric|min:0',
             'tarif_12jam' => 'nullable|numeric|min:0',
             'tarif_sopir' => 'nullable|numeric|min:0',
@@ -240,6 +242,7 @@ class KendaraanController extends ApiController
             // dan formulir lemon menandai unit besar sebagai false.
             'lepas_kunci' => (bool) ($data['lepas_kunci'] ?? true),
             'price_per_day' => $data['tarif_hari'],
+            'harga_luar_kota' => ($data['tarif_luar_kota'] ?? null) ?: null,
             // ?? mendahului ?: karena tarif opsional yang TIDAK dikirim sama
             // sekali tidak ada kuncinya di data tervalidasi — sebelumnya itu
             // membuat permintaan gagal dengan galat 500, bukan tersimpan tanpa

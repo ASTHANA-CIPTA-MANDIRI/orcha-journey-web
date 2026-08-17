@@ -30,6 +30,7 @@ class PenyewaanKendaraan extends Model
         'lokasi_antar',
         'lokasi_kembali',
         'tujuan',
+        'luar_kota',
         'tanggal_selesai',
         'jam_selesai',
         'diserahkan_pada',
@@ -66,6 +67,7 @@ class PenyewaanKendaraan extends Model
         'denda_keterlambatan' => 'integer',
         'denda_kerusakan' => 'integer',
         'denda_lain' => 'integer',
+        'luar_kota' => 'boolean',
     ];
 
     /**

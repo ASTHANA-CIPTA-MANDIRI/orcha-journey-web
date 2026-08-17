@@ -110,6 +110,14 @@
                 {{ $kendaraan->sopir_label }}
             </p>
 
+            {{-- Hanya disebut bila memang berbeda: menuliskan "luar kota tarifnya
+                 sama" di setiap kartu menambah baris tanpa menambah keterangan. --}}
+            @if ($kendaraan->punya_tarif_luar_kota)
+                <p class="font-semibold text-orcha-ocean">
+                    Luar kota {{ $rupiah($kendaraan->harga_luar_kota) }}/hari
+                </p>
+            @endif
+
             <p class="{{ collect($kendaraan->rincian_operasional)->contains('termasuk', true) ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
                 {{ $kendaraan->operasional_label }}
             </p>

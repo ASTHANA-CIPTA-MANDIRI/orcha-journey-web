@@ -39,6 +39,8 @@ class KendaraanResource extends JsonResource
             // pemesanan, dan admin menyebut hal yang sama.
             'termasuk_sopir' => (bool) $this->termasuk_sopir,
             'sopir_label' => $this->sopir_label,
+            'punya_tarif_luar_kota' => $this->punya_tarif_luar_kota,
+            'luar_kota_label' => $this->luar_kota_label,
             'operasional' => $this->rincian_operasional,
             'biaya_operasional_total' => $this->biaya_operasional_total,
             'operasional_label' => $this->operasional_label,
@@ -48,6 +50,7 @@ class KendaraanResource extends JsonResource
                 'jam' => $this->harga_per_jam,
                 '12jam' => $this->harga_12_jam,
                 'hari' => $this->price_per_day,
+                'luar_kota' => $this->harga_luar_kota,
                 'sopir_per_hari' => $this->harga_sopir,
             ],
             'gambar' => $this->image,

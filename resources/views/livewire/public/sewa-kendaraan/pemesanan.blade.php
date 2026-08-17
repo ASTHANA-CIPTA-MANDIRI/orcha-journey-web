@@ -46,6 +46,15 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
      */
     public string $tujuan = '';
 
+    /**
+     * Perjalanan keluar kota — tarifnya berbeda.
+     *
+     * Disimpan sebagai pilihan penyewa, BUKAN disimpulkan dari tulisan tujuannya.
+     * Menebak "luar kota" dari teks bebas seperti "Borobudur" berarti menagih
+     * lebih berdasarkan tebakan.
+     */
+    public bool $luarKota = false;
+
     public string $nama = '';
 
     public string $whatsapp = '';
@@ -98,6 +107,20 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
         return $this->denganSopir === 'ya';
     }
 
+    /**
+     * Luar kota hanya dijual harian.
+     *
+     * Perjalanan ke luar kota tidak selesai dalam dua belas jam, jadi satuannya
+     * dipaksa ke hari begitu pilihannya dinyalakan — bukan dibiarkan lalu ditolak
+     * validasi, karena penyewa tidak bisa menebak aturan yang tidak terlihat.
+     */
+    public function updatedLuarKota(): void
+    {
+        if ($this->luarKota) {
+            $this->satuan = 'hari';
+        }
+    }
+
     private function sesuaikanPilihan(): void
     {
         $mobil = $this->kendaraanTerpilih();
@@ -127,7 +150,11 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
         return [
             'unit' => 'required|exists:cars,uuid',
             'transmisi' => 'required|in:Manual,Matic',
-            'satuan' => 'required|in:' . implode(',', array_keys(config('orcha.satuan_sewa'))),
+            'luarKota' => 'boolean',
+            'satuan' => [
+                'required',
+                Rule::in($this->luarKota ? ['hari'] : array_keys(config('orcha.satuan_sewa'))),
+            ],
             'durasi' => 'required|integer|min:1|max:30',
             'tanggalMulai' => 'required|date|after_or_equal:today',
             'jamMulai' => 'required|date_format:H:i',
@@ -256,6 +283,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             // membuangnya berarti menghilangkan keterangan yang sengaja ditulis.
             'lokasi_kembali' => $this->lokasiKembali ?: $this->lokasiAntar,
             'tujuan' => $this->bersopir() ? $this->tujuan : null,
+            'luar_kota' => $this->luarKota,
             'nama_kendaraan' => $mobil->name,
             'nama' => $this->nama,
             'whatsapp' => $this->whatsapp,
@@ -267,7 +295,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             'jam_mulai' => $this->jamMulai,
             'dengan_sopir' => $this->denganSopir === 'ya',
             'lokasi_antar' => $this->lokasiAntar ?: null,
-            'estimasi_biaya' => $mobil->estimasiBiaya($this->satuan, $this->durasi, $this->denganSopir === 'ya'),
+            'estimasi_biaya' => $mobil->estimasiBiaya($this->satuan, $this->durasi, $this->denganSopir === 'ya', $this->luarKota),
             'catatan' => $this->catatan ?: null,
         ]);
 
@@ -283,6 +311,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                 : '—',
             'Ditunggu kembali' => $selesai->translatedFormat('l, j F Y').' pukul '.$selesai->format('H:i'),
             'Durasi' => $sewa->durasi_label,
+            'Wilayah' => $sewa->luar_kota ? 'Luar kota' : 'Dalam kota',
             // Sebutannya mengikuti moda sewanya. Kwitansi sewa bus yang menulis
             // "Lokasi pengantaran unit" membingungkan penyewa maupun sopir:
             // tidak ada unit yang diserahkan ke siapa pun.
@@ -333,7 +362,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
         );
 
         $this->kodeTerkirim = $sewa->kode;
-        $this->reset(['nama', 'whatsapp', 'email', 'catatan', 'lokasiAntar', 'lokasiKembali', 'tujuan', 'setuju']);
+        $this->reset(['nama', 'whatsapp', 'email', 'catatan', 'lokasiAntar', 'lokasiKembali', 'tujuan', 'luarKota', 'setuju']);
     }
 
     public function pesanLagi(): void
@@ -368,8 +397,12 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                 ? PenyewaanKendaraan::hitungSelesai($this->tanggalMulai, $this->jamMulai, $this->satuan, (int) $this->durasi)
                 : null,
             'satuanTersedia' => collect(config('orcha.satuan_sewa'))
-                ->filter(fn ($info, $kunci) => $mobil === null || $mobil->tarif($kunci) !== null),
-            'estimasi' => $mobil?->estimasiBiaya($this->satuan, $this->durasi, $this->denganSopir === 'ya'),
+                // Luar kota hanya harian; pilihan lain tidak ditampilkan sama
+                // sekali supaya tidak ada yang dipilih lalu ditolak.
+                ->filter(fn ($info, $kunci) => $this->luarKota
+                    ? $kunci === 'hari'
+                    : ($mobil === null || $mobil->tarif($kunci) !== null)),
+            'estimasi' => $mobil?->estimasiBiaya($this->satuan, $this->durasi, $this->denganSopir === 'ya', $this->luarKota),
             'bersopir' => $this->bersopir(),
         ];
     }
@@ -589,6 +622,40 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                     @enderror
                                 </div>
                             </div>
+
+                            {{-- Wilayah perjalanan menentukan tarifnya.
+
+                                 Dipilih penyewa, BUKAN disimpulkan dari tulisan tujuannya:
+                                 menebak "luar kota" dari teks bebas seperti "Borobudur" berarti
+                                 menagih lebih berdasarkan tebakan, dan tebakan yang salah soal
+                                 harga paling cepat merusak kepercayaan. --}}
+                            <fieldset>
+                                <legend class="label-orcha">Wilayah perjalanan <x-wajib /></legend>
+                                <div class="grid grid-cols-2 gap-2">
+                                    @foreach ([[false, 'Dalam kota'], [true, 'Luar kota']] as [$nilai, $label])
+                                        <label class="pilihan-centang">
+                                            <input type="radio" class="sr-only" value="{{ $nilai ? 1 : 0 }}"
+                                                wire:model.live="luarKota">
+                                            <span class="kotak" aria-hidden="true">
+                                                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                                                    stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M4 10.5 8 14.5 16 5.5" />
+                                                </svg>
+                                            </span>
+                                            <span>{{ $label }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+
+                                @if ($mobil)
+                                    <p class="mt-2 text-xs {{ $mobil->punya_tarif_luar_kota ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
+                                        {{ $mobil->luar_kota_label }}
+                                        @if ($luarKota)
+                                            · dihitung harian
+                                        @endif
+                                    </p>
+                                @endif
+                            </fieldset>
 
                             <fieldset>
                                 <legend class="label-orcha">Kebutuhan sopir <x-wajib /></legend>
