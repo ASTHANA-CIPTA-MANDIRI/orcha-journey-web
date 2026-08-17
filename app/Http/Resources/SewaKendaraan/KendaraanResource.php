@@ -27,6 +27,12 @@ class KendaraanResource extends JsonResource
             'jenis_label' => $this->type_label,
             'nopol' => $this->nopol,
             'kapasitas' => $this->capacity,
+            'lepas_kunci' => (bool) $this->lepas_kunci,
+            'lepas_kunci_label' => $this->lepas_kunci_label,
+            // Kursi penumpang dihitung di sini, sekali. Kalau tiap halaman
+            // menghitung sendiri "kapasitas dikurangi satu", suatu saat ada yang
+            // lupa dan menjanjikan satu kursi yang tidak ada.
+            'kursi_penumpang' => $this->kursi_penumpang,
             'transmisi_tersedia' => $this->transmisi_tersedia_list,
             'transmisi_label' => $this->transmisi_label,
             'tarif' => [

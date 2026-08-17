@@ -32,6 +32,7 @@ class Car extends Model
         'varian',
         'tahun',
         'cc',
+        'lepas_kunci',
     ];
 
     protected $casts = [
@@ -43,6 +44,7 @@ class Car extends Model
         'harga_sopir' => 'integer',
         'kondisi_terkini' => 'array',
         'kondisi_diperiksa_pada' => 'datetime',
+        'lepas_kunci' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -156,5 +158,32 @@ class Car extends Model
         return $this->cc
             ? $sebutan.' · '.number_format($this->cc, 0, ',', '.').' cc'
             : $sebutan;
+    }
+
+    /**
+     * Kursi yang benar-benar bisa dipakai penumpang.
+     *
+     * Unit yang selalu dengan sopir kehilangan satu kursi untuk sopirnya: HiAce
+     * 15 kursi berarti 14 penumpang. Selisih satu itu yang membuat rombongan
+     * lima belas orang dijanjikan muat lalu ternyata tidak — dan itu baru
+     * diketahui di hari keberangkatan.
+     *
+     * Unit lepas kunci memakai seluruh kursinya, karena yang menyetir adalah
+     * anggota rombongan itu sendiri.
+     */
+    public function getKursiPenumpangAttribute(): int
+    {
+        $kursi = (int) $this->capacity;
+
+        if ($this->lepas_kunci) {
+            return $kursi;
+        }
+
+        return max(1, $kursi - 1);
+    }
+
+    public function getLepasKunciLabelAttribute(): string
+    {
+        return $this->lepas_kunci ? 'Boleh lepas kunci' : 'Selalu dengan sopir';
     }
 }

@@ -146,6 +146,7 @@ class KendaraanController extends ApiController
             'jenis' => 'required|in:'.implode(',', array_keys(config('orcha.jenis_kendaraan'))),
             'nopol' => 'nullable|string|max:20',
             'kapasitas' => 'required|integer|min:1|max:80',
+            'lepas_kunci' => 'nullable|boolean',
             'transmisi_tersedia' => 'required|array|min:1',
             'transmisi_tersedia.*' => 'in:Manual,Matic',
             'tarif_hari' => 'required|numeric|min:0',
@@ -172,6 +173,9 @@ class KendaraanController extends ApiController
             'capacity' => $data['kapasitas'],
             'transmission' => $transmisi[0],
             'transmisi_tersedia' => $transmisi,
+            // Bawaannya true supaya mobil biasa tidak perlu disebut satu-satu,
+            // dan formulir lemon menandai unit besar sebagai false.
+            'lepas_kunci' => (bool) ($data['lepas_kunci'] ?? true),
             'price_per_day' => $data['tarif_hari'],
             // ?? mendahului ?: karena tarif opsional yang TIDAK dikirim sama
             // sekali tidak ada kuncinya di data tervalidasi — sebelumnya itu

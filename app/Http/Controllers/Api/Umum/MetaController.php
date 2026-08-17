@@ -81,6 +81,7 @@ class MetaController extends ApiController
                 'jenis_per_model' => KatalogKendaraan::jenis(),
                 'cc_per_model' => KatalogKendaraan::mesin(),
                 'varian_per_model' => KatalogKendaraan::varian(),
+                'lepas_kunci_per_model' => KatalogKendaraan::lepasKunci(),
                 'satuan_sewa' => config('orcha.satuan_sewa'),
                 'keperluan_kontak' => config('orcha.keperluan_kontak'),
                 'alasan_pembatalan' => config('orcha.alasan_pembatalan'),

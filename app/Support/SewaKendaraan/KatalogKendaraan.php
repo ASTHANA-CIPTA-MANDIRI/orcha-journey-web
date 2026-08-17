@@ -72,7 +72,9 @@ class KatalogKendaraan
         // 15 masuk kelas minibus — sesuai cara unit itu benar-benar disewakan.
         foreach ($katalog as $merek => $model) {
             foreach ($model as $nama => $isi) {
-                $katalog[$merek][$nama]['jenis'] = self::jenisDariKursi($isi['kursi']);
+                $jenis = self::jenisDariKursi($isi['kursi']);
+                $katalog[$merek][$nama]['jenis'] = $jenis;
+                $katalog[$merek][$nama]['lepas_kunci'] = self::lepasKunciDariJenis($jenis);
             }
         }
 
@@ -151,6 +153,33 @@ class KatalogKendaraan
         }
 
         return $hasil;
+    }
+
+    /**
+     * HiAce dan bus tidak dilepas tanpa sopir.
+     *
+     * Mengemudikannya butuh SIM dan kebiasaan yang tidak dimiliki penyewa umum,
+     * dan risikonya tidak sebanding. null bila jenisnya sendiri belum diketahui —
+     * menebak "boleh lepas kunci" untuk unit yang belum jelas jenisnya adalah
+     * menebak ke arah yang paling berisiko.
+     */
+    private static function lepasKunciDariJenis(?string $jenis): ?bool
+    {
+        if ($jenis === null) {
+            return null;
+        }
+
+        return ! in_array($jenis, ['hiace', 'bus'], true);
+    }
+
+    /**
+     * Saran boleh-tidaknya lepas kunci per model.
+     *
+     * @return array<string, array<string, bool>>
+     */
+    public static function lepasKunci(): array
+    {
+        return self::petaNilai('lepas_kunci');
     }
 
     private static function jenisDariKursi(?int $kursi): ?string

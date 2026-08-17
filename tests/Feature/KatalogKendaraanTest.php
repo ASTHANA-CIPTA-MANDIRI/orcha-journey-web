@@ -405,3 +405,86 @@ test('kendaraan bisa dibuat dengan hanya isian wajib', function () {
     expect($unit->harga_per_jam)->toBeNull()
         ->and($unit->price_per_day)->toBe(350000);
 });
+
+/* ------------------- LEPAS KUNCI & KURSI PENUMPANG ------------------- */
+
+test('unit besar disarankan tidak boleh lepas kunci', function () {
+    $lepas = KatalogKendaraan::lepasKunci();
+
+    // Mengemudikan HiAce dan bus butuh SIM dan kebiasaan yang tidak dimiliki
+    // penyewa umum; sistemnya harus tahu, bukan hanya pemiliknya.
+    expect($lepas['Toyota']['Avanza'])->toBeTrue()
+        ->and($lepas['Toyota']['HiAce Commuter'])->toBeFalse()
+        ->and($lepas['Mercedes-Benz']['Sprinter'])->toBeFalse()
+        ->and($lepas['Hino']['Bus RK'])->toBeFalse()
+        ->and($lepas['Golden Dragon']['Bus Pariwisata'])->toBeFalse();
+});
+
+test('kursi penumpang berkurang satu untuk unit yang selalu dengan sopir', function () {
+    $hiace = Car::create([
+        'name' => 'HiAce Commuter', 'brand' => 'Toyota', 'type' => 'hiace',
+        'transmission' => 'Manual', 'capacity' => 15, 'lepas_kunci' => false,
+        'price_per_day' => 1200000, 'is_available' => true, 'transmisi_tersedia' => ['Manual'],
+    ]);
+
+    // Selisih satu inilah yang membuat rombongan lima belas orang dijanjikan
+    // muat lalu ternyata tidak — dan itu baru diketahui di hari keberangkatan.
+    expect($hiace->kursi_penumpang)->toBe(14)
+        ->and($hiace->lepas_kunci_label)->toBe('Selalu dengan sopir');
+});
+
+test('unit lepas kunci memakai seluruh kursinya', function () {
+    $avanza = Car::create([
+        'name' => 'Avanza', 'brand' => 'Toyota', 'type' => 'mobil',
+        'transmission' => 'Matic', 'capacity' => 7, 'lepas_kunci' => true,
+        'price_per_day' => 400000, 'is_available' => true, 'transmisi_tersedia' => ['Matic'],
+    ]);
+
+    // Yang menyetir anggota rombongan itu sendiri, jadi tidak ada kursi terpakai
+    // orang luar.
+    expect($avanza->kursi_penumpang)->toBe(7)
+        ->and($avanza->lepas_kunci_label)->toBe('Boleh lepas kunci');
+});
+
+test('kursi penumpang tidak pernah nol', function () {
+    $pikap = Car::create([
+        'name' => 'Carry Pick Up', 'brand' => 'Suzuki', 'type' => 'mobil',
+        'transmission' => 'Manual', 'capacity' => 1, 'lepas_kunci' => false,
+        'price_per_day' => 200000, 'is_available' => true, 'transmisi_tersedia' => ['Manual'],
+    ]);
+
+    // Kapasitas 1 dengan sopir menghasilkan 0 bila dikurangi lugas — angka yang
+    // tidak berarti apa-apa dan hanya membingungkan.
+    expect($pikap->kursi_penumpang)->toBe(1);
+});
+
+test('lepas kunci tersimpan lewat API dan terkirim di resource', function () {
+    $this->postJson('/api/v1/kendaraan', [
+        'nama' => 'HiAce Commuter', 'merek' => 'Toyota', 'jenis' => 'hiace',
+        'kapasitas' => 15, 'lepas_kunci' => false, 'transmisi_tersedia' => ['Manual'],
+        'tarif_hari' => 1200000,
+    ], kepalaKatalog())->assertCreated();
+
+    $baris = $this->getJson('/api/v1/kendaraan', kepalaKatalog())->assertOk()->json('data.0');
+
+    expect($baris['lepas_kunci'])->toBeFalse()
+        ->and($baris['kapasitas'])->toBe(15)
+        ->and($baris['kursi_penumpang'])->toBe(14)
+        ->and($baris['lepas_kunci_label'])->toBe('Selalu dengan sopir');
+});
+
+test('lepas kunci bawaannya boleh, supaya mobil biasa tidak perlu disebut', function () {
+    $this->postJson('/api/v1/kendaraan', [
+        'nama' => 'Avanza', 'merek' => 'Toyota', 'jenis' => 'mobil',
+        'kapasitas' => 7, 'transmisi_tersedia' => ['Matic'], 'tarif_hari' => 400000,
+    ], kepalaKatalog())->assertCreated();
+
+    expect(Car::first()->lepas_kunci)->toBeTrue();
+});
+
+test('saran lepas kunci terkirim lewat rujukan', function () {
+    $data = $this->getJson('/api/v1/rujukan', kepalaKatalog())->assertOk()->json('data');
+
+    expect($data['lepas_kunci_per_model']['Toyota']['HiAce Commuter'])->toBeFalse()
+        ->and($data['lepas_kunci_per_model']['Toyota']['Avanza'])->toBeTrue();
+});
