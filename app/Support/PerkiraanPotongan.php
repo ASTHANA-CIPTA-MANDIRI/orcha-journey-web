@@ -34,8 +34,10 @@ class PerkiraanPotongan
      *     kembali_teks: string, lewat: bool
      * }|null
      */
-    public static function untuk(PendaftaranOpenTrip|PenyewaanKendaraan|null $pesanan): ?array
-    {
+    public static function untuk(
+        PendaftaranOpenTrip|PenyewaanKendaraan|null $pesanan,
+        ?int $potonganDitetapkan = null,
+    ): ?array {
         if (! $pesanan) {
             return null;
         }
@@ -63,10 +65,21 @@ class PerkiraanPotongan
         $baris = self::baris($sewa, $jamTersisa);
 
         $persen = (int) ($baris['persen'] ?? 100);
-        $potongan = min((int) round($total * $persen / 100), $dibayar);
+        $usulan = min((int) round($total * $persen / 100), $dibayar);
+
+        // Angka admin menang bila ada. Tetap dibatasi jumlah yang sudah
+        // dibayarkan: salah ketik satu nol pada isian tidak boleh berubah
+        // menjadi tagihan kepada orang yang sedang membatalkan.
+        $ditetapkan = $potonganDitetapkan !== null;
+        $potongan = $ditetapkan ? min(max(0, $potonganDitetapkan), $dibayar) : $usulan;
         $kembali = max(0, $dibayar - $potongan);
 
         return [
+            // Dua angka disimpan berdampingan supaya layar bisa menunjukkan
+            // keduanya: yang diusulkan kebijakan, dan yang diputuskan manusia.
+            'ditetapkan' => $ditetapkan,
+            'usulan' => $usulan,
+            'usulan_teks' => RincianBiaya::rupiah($usulan),
             'jenis' => $sewa ? 'sewa_kendaraan' : 'open_trip',
             'batas' => $baris['batas'] ?? '—',
             'persen' => $persen,

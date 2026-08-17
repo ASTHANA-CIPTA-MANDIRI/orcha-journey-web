@@ -42,6 +42,10 @@ class PembatalanController extends ApiController
         $data = $request->validate([
             'status' => 'required|in:'.implode(',', array_keys(config('orcha.status_pembatalan'))),
             'catatan_admin' => 'nullable|string|max:1000',
+            // Potongan yang ditetapkan admin. Boleh berbeda dari usulan
+            // sistem: ada biaya yang sudah terlanjur dibayarkan ke pihak
+            // ketiga, dan ada kelonggaran yang memang layak diberikan.
+            'potongan_ditetapkan' => 'nullable|integer|min:0',
         ]);
 
         $sebelum = $pembatalan->status;

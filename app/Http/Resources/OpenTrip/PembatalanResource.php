@@ -50,7 +50,8 @@ class PembatalanResource extends JsonResource
             // Tetap perkiraan: yang menetapkan tim, karena ada hal yang tidak
             // diketahui sistem (biaya yang sudah terlanjur dibayarkan ke pihak
             // ketiga, kesepakatan menjadwal ulang).
-            'perkiraan' => PerkiraanPotongan::untuk($this->pesanan()),
+            'perkiraan' => PerkiraanPotongan::untuk($this->pesanan(), $this->potongan_ditetapkan),
+            'potongan_ditetapkan' => $this->potongan_ditetapkan,
             'pendaftaran' => $this->whenLoaded('pendaftaran', fn () => [
                 'kode' => $this->pendaftaran?->kode,
                 'nama_paket' => $this->pendaftaran?->nama_paket,

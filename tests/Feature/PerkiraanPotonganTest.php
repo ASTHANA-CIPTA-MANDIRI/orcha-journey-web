@@ -134,6 +134,47 @@ test('waktu mulai yang sudah lewat dihitung sebagai tidak datang', function () {
         ->and($p['persen'])->toBe(100);
 });
 
+test('potongan yang ditetapkan admin menang atas usulan sistem', function () {
+    // Ada yang tidak diketahui sistem: tiket masuk yang sudah dibayarkan ke
+    // pihak ketiga, atau kelonggaran yang memang layak diberikan.
+    $trip = tripBerangkat(20);
+    bayar($trip->kode, 2000000);
+
+    $p = PerkiraanPotongan::untuk($trip->fresh(), potonganDitetapkan: 300000);
+
+    expect($p['ditetapkan'])->toBeTrue()
+        ->and($p['potongan'])->toBe(300000)
+        ->and($p['kembali'])->toBe(1700000)
+        // Usulannya tetap dibawa, supaya layar bisa menunjukkan keduanya
+        ->and($p['usulan'])->toBe(500000);
+});
+
+test('potongan yang ditetapkan tetap dibatasi jumlah yang sudah dibayar', function () {
+    // Salah ketik satu nol tidak boleh berubah menjadi tagihan kepada orang
+    // yang sedang membatalkan.
+    $trip = tripBerangkat(20);
+    bayar($trip->kode, 2000000);
+
+    $p = PerkiraanPotongan::untuk($trip->fresh(), potonganDitetapkan: 20000000);
+
+    expect($p['potongan'])->toBe(2000000)
+        ->and($p['kembali'])->toBe(0);
+});
+
+test('potongan nol yang disengaja tidak dianggap belum ditetapkan', function () {
+    // Membebaskan seluruh potongan adalah keputusan yang sah, dan berbeda
+    // artinya dengan "admin belum memutuskan apa pun".
+    $trip = tripBerangkat(3);
+    bayar($trip->kode, 2000000);
+
+    $p = PerkiraanPotongan::untuk($trip->fresh(), potonganDitetapkan: 0);
+
+    expect($p['ditetapkan'])->toBeTrue()
+        ->and($p['potongan'])->toBe(0)
+        ->and($p['kembali'])->toBe(2000000)
+        ->and($p['usulan'])->toBe(2000000);
+});
+
 test('tanpa tanggal mulai tidak ada perkiraan yang ditampilkan', function () {
     // Menebak angka pengembalian lebih buruk daripada tidak menampilkannya.
     $trip = PendaftaranOpenTrip::create([

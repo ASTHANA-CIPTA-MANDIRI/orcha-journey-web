@@ -28,10 +28,12 @@ class Pembatalan extends Model
         'atas_nama_rekening',
         'status',
         'catatan_admin',
+        'potongan_ditetapkan',
     ];
 
     protected $casts = [
         'jumlah_dibatalkan' => 'integer',
+        'potongan_ditetapkan' => 'integer',
     ];
 
     public function pendaftaran(): BelongsTo
