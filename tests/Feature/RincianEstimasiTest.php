@@ -119,3 +119,84 @@ test('penanda tarif pindah ke luar kota saat wilayahnya luar kota', function () 
 
     expect($teks)->toContain('Luar kota per hari Dipakai');
 });
+
+/* -------- SATUAN SEWA TIDAK BOLEH BERGESER SENDIRI -------- */
+
+test('satuan tetap tertandai terpilih setelah wilayah bolak-balik', function () {
+    $unit = unitRincian(['harga_luar_kota' => 700000]);
+
+    // Keluhannya: pilih luar kota lalu kembali ke dalam kota, dan "Satuan sewa"
+    // berubah sendiri jadi "Per jam" padahal harganya tetap harian.
+    //
+    // Penyebabnya bukan keadaan di server — satuannya memang tetap 'hari' —
+    // melainkan tampilannya. Daftar pilihan menyusut jadi satu saat luar kota
+    // lalu kembali jadi tiga; Livewire mencocokkan ulang <option> menurut
+    // URUTAN, jadi simpul "Per hari" dipakai ulang menjadi "Per jam", dan
+    // tanpa atribut selected di HTML peramban jatuh ke pilihan pertama.
+    //
+    // Yang dijaga di sini: HTML dari server menyebutkan sendiri mana yang
+    // terpilih, sehingga peramban tidak punya ruang untuk menebak.
+    $uji = Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $unit->uuid)
+        ->set('satuan', 'hari')
+        ->set('luarKota', true)
+        ->set('luarKota', false);
+
+    expect($uji->get('satuan'))->toBe('hari');
+
+    $html = $uji->html();
+    $pilihan = [];
+    preg_match_all('/<option[^>]*value="(jam|12jam|hari)"[^>]*>/', $html, $cocok);
+
+    foreach ($cocok[0] as $i => $tag) {
+        $pilihan[$cocok[1][$i]] = str_contains($tag, 'selected');
+    }
+
+    expect($pilihan)->toBe(['jam' => false, '12jam' => false, 'hari' => true]);
+});
+
+test('tiap pilihan satuan punya kunci sendiri', function () {
+    $unit = unitRincian(['harga_luar_kota' => 700000]);
+
+    // Kunci itu yang membuat Livewire mencocokkan pilihan menurut identitasnya,
+    // bukan menurut urutan — akar dari pergeseran di atas.
+    $html = Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $unit->uuid)
+        ->html();
+
+    expect($html)->toContain('wire:key="satuan-hari"');
+});
+
+test('pilihan wilayah dan sopir ikut ditandai di html', function () {
+    $unit = unitRincian(['harga_luar_kota' => 700000]);
+
+    // Sekelas dengan pergeseran satuan di atas: daftar pilihan sopir berganti
+    // bentuk mengikuti unitnya (label yang bisa diklik vs teks yang dimatikan),
+    // jadi keadaan terpilihnya tidak boleh hanya bergantung pada JavaScript.
+    //
+    // Diperiksa pada atributnya, bukan pada bentuk penulisan tagnya: urutan
+    // atribut dan pemenggalan barisnya berubah setiap kali markupnya dirapikan,
+    // dan uji yang merah karena itu tidak menemukan kesalahan apa pun.
+    $html = Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $unit->uuid)
+        ->set('luarKota', true)
+        ->set('denganSopir', 'tidak')
+        ->html();
+
+    $tertandai = function (string $model, string $nilai) use ($html) {
+        preg_match_all('/<input[^>]*>/', $html, $cocok);
+
+        foreach ($cocok[0] as $tag) {
+            if (str_contains($tag, $model) && str_contains($tag, 'value="'.$nilai.'"')) {
+                return str_contains($tag, 'checked');
+            }
+        }
+
+        return null;
+    };
+
+    expect($tertandai('wire:model.live="luarKota"', '1'))->toBeTrue()
+        ->and($tertandai('wire:model.live="luarKota"', '0'))->toBeFalse()
+        ->and($tertandai('wire:model.live="denganSopir"', 'tidak'))->toBeTrue()
+        ->and($tertandai('wire:model.live="denganSopir"', 'ya'))->toBeFalse();
+});

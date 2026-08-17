@@ -500,7 +500,8 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                     @foreach ($armada->groupBy('type') as $jenis => $daftar)
                                         <optgroup label="{{ config('orcha.jenis_kendaraan')[$jenis] ?? $jenis }}">
                                             @foreach ($daftar as $item)
-                                                <option value="{{ $item->uuid }}">
+                                                <option wire:key="unit-{{ $item->uuid }}" value="{{ $item->uuid }}"
+                                                    @selected($unit === $item->uuid)>
                                                     {{ $item->name }} · {{ $item->transmisi_label }} ·
                                                     {{ $rupiah($item->price_per_day) }}/hari
                                                 </option>
@@ -592,7 +593,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                             @foreach ($mobil->transmisi_tersedia_list as $pilihan)
                                                 <label class="pilihan-centang">
                                                     <input type="radio" class="sr-only" value="{{ $pilihan }}"
-                                                        wire:model="transmisi">
+                                                        wire:model="transmisi" @checked($transmisi === $pilihan)>
                                                     <span class="kotak" aria-hidden="true">
                                                         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor"
                                                             stroke-width="3.2" stroke-linecap="round"
@@ -634,10 +635,23 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                             <div class="grid gap-5 sm:grid-cols-2">
                                 <div>
                                     <label for="sk-satuan" class="label-orcha">Satuan sewa <x-wajib /></label>
+                                    {{-- wire:key dan selected, keduanya perlu.
+
+                                         Daftar ini MENYUSUT jadi satu pilihan saat wilayahnya
+                                         luar kota, lalu kembali jadi tiga. Tanpa kunci, Livewire
+                                         mencocokkan <option> menurut urutan: simpul "Per hari"
+                                         dipakai ulang menjadi "Per jam". Tanpa atribut selected,
+                                         peramban lalu menampilkan pilihan pertama — sehingga
+                                         satuannya terbaca "Per jam" padahal harganya tetap
+                                         dihitung harian, dan penyewa melihat dua hal yang saling
+                                         bertentangan pada layar yang sama. --}}
                                     <select id="sk-satuan" wire:model.live="satuan" required
                                         class="isian-orcha @error('satuan') isian-galat @enderror">
                                         @foreach ($satuanTersedia as $kunci => $info)
-                                            <option value="{{ $kunci }}">{{ $info['label'] }}</option>
+                                            <option wire:key="satuan-{{ $kunci }}" value="{{ $kunci }}"
+                                                @selected($satuan === $kunci)>
+                                                {{ $info['label'] }}
+                                            </option>
                                         @endforeach
                                     </select>
                                     @error('satuan')
@@ -709,7 +723,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                     @foreach ([[false, 'Dalam kota'], [true, 'Luar kota']] as [$nilai, $label])
                                         <label class="pilihan-centang">
                                             <input type="radio" class="sr-only" value="{{ $nilai ? 1 : 0 }}"
-                                                wire:model.live="luarKota">
+                                                wire:model.live="luarKota" @checked((bool) $luarKota === $nilai)>
                                             <span class="kotak" aria-hidden="true">
                                                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor"
                                                     stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
@@ -773,7 +787,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                         @else
                                             <label class="pilihan-centang">
                                                 <input type="radio" class="sr-only" value="{{ $nilai }}"
-                                                    wire:model.live="denganSopir">
+                                                    wire:model.live="denganSopir" @checked($denganSopir === $nilai)>
                                                 <span class="kotak" aria-hidden="true">
                                                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor"
                                                         stroke-width="3.2" stroke-linecap="round"
