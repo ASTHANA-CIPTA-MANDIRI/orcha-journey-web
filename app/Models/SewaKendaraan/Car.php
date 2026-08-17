@@ -2,6 +2,7 @@
 
 namespace App\Models\SewaKendaraan;
 
+use App\Support\SewaKendaraan\NomorPolisi;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -183,5 +184,18 @@ class Car extends Model
     public function getLepasKunciLabelAttribute(): string
     {
         return $this->lepas_kunci ? 'Boleh lepas kunci' : 'Selalu dengan sopir';
+    }
+
+    /**
+     * Nomor polisi selalu tersimpan kapital dan berspasi baku.
+     *
+     * Dipasang sebagai mutator, bukan dibersihkan di controller, supaya jalur
+     * mana pun ikut terkena — API, admin, seeder, maupun perbaikan lewat tinker.
+     * Membersihkan di satu controller saja berarti jalur lain tetap bisa
+     * memasukkan "ab-4169-te" dan pencarian nopol kembali tidak dapat diandalkan.
+     */
+    public function setNopolAttribute($nilai): void
+    {
+        $this->attributes['nopol'] = NomorPolisi::rapikan($nilai);
     }
 }

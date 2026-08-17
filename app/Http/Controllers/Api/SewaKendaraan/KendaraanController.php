@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ApiController;
 use App\Http\Controllers\Api\Concerns\MenyimpanGambar;
 use App\Http\Resources\SewaKendaraan\KendaraanResource;
 use App\Models\SewaKendaraan\Car;
+use App\Support\SewaKendaraan\NomorPolisi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -144,7 +145,11 @@ class KendaraanController extends ApiController
             'tahun' => 'nullable|integer|min:1980|max:'.(date('Y') + 1),
             'cc' => 'nullable|integer|min:500|max:20000',
             'jenis' => 'required|in:'.implode(',', array_keys(config('orcha.jenis_kendaraan'))),
-            'nopol' => 'nullable|string|max:20',
+            'nopol' => ['nullable', 'string', 'max:20', function ($atribut, $nilai, $gagal) {
+                if (! NomorPolisi::sah($nilai)) {
+                    $gagal('Nomor polisi belum benar. Contoh: AB 4169 TE.');
+                }
+            }],
             'kapasitas' => 'required|integer|min:1|max:80',
             'lepas_kunci' => 'nullable|boolean',
             'transmisi_tersedia' => 'required|array|min:1',
