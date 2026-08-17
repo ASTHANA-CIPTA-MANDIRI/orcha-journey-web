@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources\OpenTrip;
 
+use App\Models\OpenTrip\KonfirmasiPembayaran;
+use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\PerkiraanPotongan;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -55,7 +57,65 @@ class PembatalanResource extends JsonResource
                 'tanggal_berangkat' => $this->pendaftaran?->tanggal_berangkat?->toDateString(),
                 'jumlah_peserta' => $this->pendaftaran?->jumlah_peserta,
             ]),
+
+            // Pesanan yang dibatalkan, dalam satu bentuk untuk kedua jenisnya.
+            // Halaman detail perlu tahu siapa pemesannya dan apa yang batal —
+            // tanpa ini admin harus membuka halaman lain hanya untuk mencocokkan
+            // nama pemohon dengan nama pemesan.
+            'pesanan' => self::ringkasPesanan($this->pesanan()),
+
+            // Riwayat pembayarannya ikut, karena itulah dasar angka yang akan
+            // dikirim balik. Pengembalian yang dihitung tanpa melihat bukti
+            // yang masuk adalah pengembalian yang menunggu dipersoalkan.
+            'pembayaran' => KonfirmasiPembayaran::where('kode', $this->kode_pendaftaran)
+                ->latest('id')
+                ->get()
+                ->map(fn (KonfirmasiPembayaran $bayar) => [
+                    'id' => $bayar->id,
+                    'jenis_label' => $bayar->jenis_label,
+                    'nominal' => $bayar->nominal,
+                    'nominal_formatted' => $bayar->nominal_formatted,
+                    'tanggal_transfer' => $bayar->tanggal_transfer?->toDateString(),
+                    'bank_pengirim' => $bayar->bank_pengirim,
+                    'atas_nama_pengirim' => $bayar->atas_nama_pengirim,
+                    'bukti' => $bayar->bukti,
+                    'status' => $bayar->status,
+                    'status_label' => $bayar->status_label,
+                    'catatan_admin' => $bayar->catatan_admin,
+                ])->all(),
+
             'dibuat_pada' => $this->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Pesanan yang dibatalkan, diringkas jadi satu bentuk untuk kedua jenisnya.
+     *
+     * Yang berbeda hanya isi barisnya — unit dan jadwal ambil untuk sewa, paket
+     * dan tanggal berangkat untuk open trip. Tampilan di lemon tidak perlu
+     * bercabang dua hanya karena sumbernya dua tabel.
+     */
+    private static function ringkasPesanan($pesanan): ?array
+    {
+        if (! $pesanan) {
+            return null;
+        }
+
+        $sewa = $pesanan instanceof PenyewaanKendaraan;
+
+        return [
+            'jenis' => $sewa ? 'sewa_kendaraan' : 'open_trip',
+            'nama' => $pesanan->nama,
+            'whatsapp' => $pesanan->whatsapp,
+            'email' => $pesanan->email,
+            'status' => $pesanan->status,
+            'status_label' => $pesanan->status_label,
+            'keterangan' => $sewa ? $pesanan->nama_kendaraan : $pesanan->nama_paket,
+            'mulai' => $sewa
+                ? $pesanan->jadwal_mulai?->toIso8601String()
+                : $pesanan->tanggal_berangkat?->toIso8601String(),
+            'jumlah_peserta' => $sewa ? null : $pesanan->jumlah_peserta,
+            'durasi_label' => $sewa ? $pesanan->durasi_label : null,
         ];
     }
 }
