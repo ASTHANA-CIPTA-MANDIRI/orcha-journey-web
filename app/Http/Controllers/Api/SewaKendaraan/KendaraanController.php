@@ -23,6 +23,9 @@ class KendaraanController extends ApiController
     {
         $daftar = Car::query()
             ->withCount('penyewaan')
+            // Ringkasan jadwal per unit membaca penyewaannya; dimuat di muka
+            // supaya satu halaman daftar tidak menembak query per baris.
+            ->with('penyewaan')
             ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
                 fn ($sub) => $sub->where('name', 'like', "%{$cari}%")->orWhere('brand', 'like', "%{$cari}%")
             ))
@@ -36,7 +39,7 @@ class KendaraanController extends ApiController
     public function show(Car $kendaraan): JsonResponse
     {
         return response()->json([
-            'data' => (new KendaraanResource($kendaraan->loadCount('penyewaan')))->resolve(),
+            'data' => (new KendaraanResource($kendaraan->loadCount('penyewaan')->load('penyewaan')))->resolve(),
         ]);
     }
 

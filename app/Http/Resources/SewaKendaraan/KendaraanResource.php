@@ -32,6 +32,81 @@ class KendaraanResource extends JsonResource
             'gambar' => $this->image,
             'tersedia' => (bool) $this->is_available,
             'jumlah_penyewaan' => $this->whenCounted('penyewaan'),
+
+            // Keadaan fisik unit, hasil pemeriksaan serah terima terakhir.
+            //
+            // Selama ini dicatat rapi tiap unit kembali, lalu tidak pernah
+            // terbaca lagi — halaman armada hanya menampilkan tarif. Akibatnya
+            // unit yang kacanya retak bisa disewakan lagi tanpa ada yang tahu
+            // sampai penyewa berikutnya mengeluh.
+            'kondisi' => $this->ringkasKondisi(),
+
+            // Sedang dipakai atau tidak. Tanpa ini admin harus membuka daftar
+            // penyewaan untuk menjawab "unit ini bisa dipakai besok?".
+            'jadwal' => $this->ringkasJadwal(),
+        ];
+    }
+
+    /**
+     * @return array{diperiksa_pada: string|null, rusak: int, lecet: int, hilang: int, perlu_perhatian: bool}|null
+     */
+    private function ringkasKondisi(): ?array
+    {
+        $kondisi = $this->kondisi_terkini;
+
+        if (blank($kondisi)) {
+            return null;
+        }
+
+        $hitung = fn (string $nilai) => count(array_filter($kondisi, fn ($k) => $k === $nilai));
+
+        $rusak = $hitung('rusak');
+        $hilang = $hitung('hilang');
+        $lecet = $hitung('lecet');
+
+        return [
+            'diperiksa_pada' => $this->kondisi_diperiksa_pada?->toIso8601String(),
+            'rusak' => $rusak,
+            'lecet' => $lecet,
+            'hilang' => $hilang,
+            // Lecet tidak menghalangi unit disewakan; rusak dan hilang iya.
+            'perlu_perhatian' => ($rusak + $hilang) > 0,
+            'rincian' => collect($kondisi)
+                ->filter(fn ($nilai) => $nilai !== 'baik')
+                ->map(fn ($nilai, $bagian) => [
+                    'bagian' => config('orcha.pemeriksaan_kendaraan')[$bagian] ?? $bagian,
+                    'kondisi' => config('orcha.kondisi_pemeriksaan')[$nilai] ?? $nilai,
+                    'nilai' => $nilai,
+                ])->values()->all(),
+        ];
+    }
+
+    /**
+     * Penyewaan yang sedang berjalan dan yang paling dekat menyusul.
+     *
+     * Yang dijawab: "unit ini sekarang di mana, dan kapan bebas lagi" —
+     * pertanyaan yang muncul tiap kali ada calon penyewa menelepon.
+     */
+    private function ringkasJadwal(): array
+    {
+        $berjalan = $this->penyewaan()
+            ->whereIn('status', ['berjalan', 'dp_masuk', 'dikonfirmasi'])
+            ->get()
+            ->first(fn ($sewa) => $sewa->jadwal_mulai?->isPast() && ! $sewa->dikembalikan_pada);
+
+        $berikutnya = $this->penyewaan()
+            ->whereIn('status', ['baru', 'dikonfirmasi', 'dp_masuk'])
+            ->get()
+            ->filter(fn ($sewa) => $sewa->jadwal_mulai?->isFuture())
+            ->sortBy(fn ($sewa) => $sewa->jadwal_mulai)
+            ->first();
+
+        return [
+            'sedang_disewa' => (bool) $berjalan,
+            'kode_berjalan' => $berjalan?->kode,
+            'kembali_pada' => $berjalan?->jadwal_selesai?->toIso8601String(),
+            'kode_berikutnya' => $berikutnya?->kode,
+            'mulai_berikutnya' => $berikutnya?->jadwal_mulai?->toIso8601String(),
         ];
     }
 }
