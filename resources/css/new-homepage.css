@@ -646,6 +646,23 @@ input[type="radio"] {
         box-shadow 0.2s ease;
 }
 
+/* Isian yang satuannya ditulis di dalamnya ("30 hari", "2 × 12 jam").
+
+   Ruang di kanan harus dilebarkan supaya angkanya tidak masuk ke bawah tulisan
+   satuannya. Utilitas Tailwind (pr-16) TIDAK bisa dipakai di sini: .isian-orcha
+   memakai shorthand `padding` dan berada di berkas ini yang dimuat setelah
+   utilitas, sehingga kekhususannya sama dan yang belakangan menang. Terukur di
+   peramban: padding kanannya tetap 16px, dan angkanya bertumpuk.
+
+   Dua ukuran karena satuannya berbeda panjang. */
+.isian-satuan {
+    padding-right: 4.5rem;
+}
+
+.isian-satuan-lebar {
+    padding-right: 6.5rem;
+}
+
 .isian-orcha:focus {
     outline: none;
     border-color: var(--color-orcha-sky);

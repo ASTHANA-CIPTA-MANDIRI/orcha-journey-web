@@ -539,13 +539,31 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                 </div>
                                 <div>
                                     <label for="sk-durasi" class="label-orcha">Lama sewa <x-wajib /></label>
-                                    <input id="sk-durasi" type="number" min="1" max="30" required
-                                        wire:model.live="durasi"
-                                        class="isian-orcha @error('durasi') isian-galat @enderror">
-                                    <p class="mt-1 text-xs text-slate-500">
-                                        Dihitung dalam
-                                        {{ config('orcha.satuan_sewa')[$satuan]['satuan'] ?? 'hari' }}.
-                                    </p>
+
+                                    {{-- Satuannya ditulis DI DALAM isian, bukan sebagai
+                                         keterangan di bawahnya.
+
+                                         Angka tanpa satuan mudah salah baca: "2" pada paket 12
+                                         jam berarti 24 jam, bukan dua hari. Menaruhnya menempel
+                                         pada angkanya membuat keduanya terbaca sekaligus, dan
+                                         keterangan di bawah tidak perlu lagi mengulanginya.
+
+                                         Tombol naik-turun bawaan disembunyikan supaya tidak
+                                         bertumpuk dengan tulisan satuannya. --}}
+                                    @php
+                                        $satuanTeks = config('orcha.satuan_sewa')[$satuan]['satuan'] ?? 'hari';
+                                    @endphp
+
+                                    <div class="relative">
+                                        <input id="sk-durasi" type="number" min="1" max="30" required
+                                            wire:model.live="durasi"
+                                            class="isian-orcha [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none {{ $satuan === '12jam' ? 'isian-satuan-lebar' : 'isian-satuan' }} @error('durasi') isian-galat @enderror">
+                                        <span
+                                            class="absolute inset-y-0 right-0 flex items-center pr-4 text-sm font-semibold pointer-events-none text-slate-500">
+                                            {{ $satuanTeks }}
+                                        </span>
+                                    </div>
+
                                     @error('durasi')
                                         <p class="galat-orcha">{{ $message }}</p>
                                     @enderror

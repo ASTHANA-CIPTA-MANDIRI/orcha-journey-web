@@ -611,3 +611,35 @@ test('pesanan yang batal tidak menghalangi unitnya dipesan lagi', function () {
         Carbon\Carbon::parse('2026-09-12 08:00'),
     ))->toHaveCount(0);
 });
+
+test('satuan sewa tertulis di dalam isian lama sewa', function (string $satuan, string $sufiks, string $kelas) {
+    $mobil = Car::create([
+        'name' => 'HiAce Commuter', 'brand' => 'Toyota', 'type' => 'hiace',
+        'transmission' => 'Manual', 'transmisi_tersedia' => ['Manual'],
+        'capacity' => 14, 'lepas_kunci' => false, 'termasuk_sopir' => true,
+        'price_per_day' => 1200000, 'harga_per_jam' => 150000, 'harga_12_jam' => 800000,
+        'is_available' => true,
+    ]);
+
+    // Angka tanpa satuan mudah salah baca: "2" pada paket 12 jam berarti 24 jam,
+    // bukan dua hari.
+    $html = Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $mobil->uuid)
+        ->set('satuan', $satuan)
+        ->html();
+
+    $isian = substr($html, strpos($html, 'id="sk-durasi"'), 900);
+
+    expect($isian)->toContain($sufiks)
+        // Kelasnya menentukan lebar ruang di kanan. Utilitas Tailwind tidak bisa
+        // dipakai karena .isian-orcha memakai shorthand padding di berkas yang
+        // dimuat belakangan — terukur di peramban, padding kanannya tetap 16px
+        // dan angkanya bertumpuk dengan satuannya.
+        ->and($isian)->toContain($kelas)
+        // Keterangan lama tidak lagi mengulang hal yang sama.
+        ->and($html)->not->toContain('Dihitung dalam');
+})->with([
+    ['hari', 'hari', 'isian-satuan'],
+    ['jam', 'jam', 'isian-satuan'],
+    ['12jam', '× 12 jam', 'isian-satuan-lebar'],
+]);
