@@ -420,16 +420,18 @@ test('unit besar disarankan tidak boleh lepas kunci', function () {
         ->and($lepas['Golden Dragon']['Bus Pariwisata'])->toBeFalse();
 });
 
-test('kursi penumpang berkurang satu untuk unit yang selalu dengan sopir', function () {
+test('kapasitas menyimpan kursi penumpang, kursi total ditambah kembali', function () {
     $hiace = Car::create([
         'name' => 'HiAce Commuter', 'brand' => 'Toyota', 'type' => 'hiace',
-        'transmission' => 'Manual', 'capacity' => 15, 'lepas_kunci' => false,
+        'transmission' => 'Manual', 'capacity' => 14, 'lepas_kunci' => false,
         'price_per_day' => 1200000, 'is_available' => true, 'transmisi_tersedia' => ['Manual'],
     ]);
 
-    // Selisih satu inilah yang membuat rombongan lima belas orang dijanjikan
-    // muat lalu ternyata tidak — dan itu baru diketahui di hari keberangkatan.
-    expect($hiace->kursi_penumpang)->toBe(14)
+    // capacity berisi angka yang dipakai menjawab "muat berapa orang?" — itulah
+    // yang tertulis di penawaran. Spesifikasi pabriknya tetap bisa disebut lewat
+    // kursi_total, tanpa ada halaman yang perlu menghitung sendiri.
+    expect($hiace->capacity)->toBe(14)
+        ->and($hiace->kursi_total)->toBe(15)
         ->and($hiace->lepas_kunci_label)->toBe('Selalu dengan sopir');
 });
 
@@ -441,35 +443,33 @@ test('unit lepas kunci memakai seluruh kursinya', function () {
     ]);
 
     // Yang menyetir anggota rombongan itu sendiri, jadi tidak ada kursi terpakai
-    // orang luar.
-    expect($avanza->kursi_penumpang)->toBe(7)
+    // orang luar dan kursi totalnya sama dengan kapasitasnya.
+    expect($avanza->kursi_total)->toBe(7)
         ->and($avanza->lepas_kunci_label)->toBe('Boleh lepas kunci');
 });
 
-test('kursi penumpang tidak pernah nol', function () {
+test('pikap satu penumpang dengan sopir berarti dua kursi', function () {
     $pikap = Car::create([
         'name' => 'Carry Pick Up', 'brand' => 'Suzuki', 'type' => 'mobil',
         'transmission' => 'Manual', 'capacity' => 1, 'lepas_kunci' => false,
         'price_per_day' => 200000, 'is_available' => true, 'transmisi_tersedia' => ['Manual'],
     ]);
 
-    // Kapasitas 1 dengan sopir menghasilkan 0 bila dikurangi lugas — angka yang
-    // tidak berarti apa-apa dan hanya membingungkan.
-    expect($pikap->kursi_penumpang)->toBe(1);
+    expect($pikap->kursi_total)->toBe(2);
 });
 
 test('lepas kunci tersimpan lewat API dan terkirim di resource', function () {
     $this->postJson('/api/v1/kendaraan', [
         'nama' => 'HiAce Commuter', 'merek' => 'Toyota', 'jenis' => 'hiace',
-        'kapasitas' => 15, 'lepas_kunci' => false, 'transmisi_tersedia' => ['Manual'],
+        'kapasitas' => 14, 'lepas_kunci' => false, 'transmisi_tersedia' => ['Manual'],
         'tarif_hari' => 1200000,
     ], kepalaKatalog())->assertCreated();
 
     $baris = $this->getJson('/api/v1/kendaraan', kepalaKatalog())->assertOk()->json('data.0');
 
     expect($baris['lepas_kunci'])->toBeFalse()
-        ->and($baris['kapasitas'])->toBe(15)
-        ->and($baris['kursi_penumpang'])->toBe(14)
+        ->and($baris['kapasitas'])->toBe(14)
+        ->and($baris['kursi_total'])->toBe(15)
         ->and($baris['lepas_kunci_label'])->toBe('Selalu dengan sopir');
 });
 
@@ -487,4 +487,22 @@ test('saran lepas kunci terkirim lewat rujukan', function () {
 
     expect($data['lepas_kunci_per_model']['Toyota']['HiAce Commuter'])->toBeFalse()
         ->and($data['lepas_kunci_per_model']['Toyota']['Avanza'])->toBeTrue();
+});
+
+test('tipe tersedia untuk unit besar juga, bukan hanya mobil kecil', function () {
+    $varian = KatalogKendaraan::varian();
+
+    // Keluhan yang jelas: daftar tipe kosong justru untuk unit yang paling perlu
+    // dibedakan — HiAce dan bus dengan konfigurasi kursi berbeda.
+    expect($varian['Toyota']['HiAce Commuter'])->not->toBeEmpty()
+        ->and($varian['Hino']['Bus RK'])->toContain('Big Bus 59')
+        ->and($varian['Isuzu']['Elf Microbus'])->not->toBeEmpty()
+        ->and($varian['Hyundai']['Staria'])->not->toBeEmpty();
+});
+
+test('angka kursi di katalog adalah kursi total termasuk sopir', function () {
+    // Arti angka ini menentukan hitungan kapasitas di formulir, jadi dijaga uji:
+    // 15 adalah spesifikasi HiAce Commuter, dan penumpangnya 14.
+    expect(KatalogKendaraan::kapasitas()['Toyota']['HiAce Commuter'])->toBe(15)
+        ->and(KatalogKendaraan::kapasitas()['Toyota']['Avanza'])->toBe(7);
 });

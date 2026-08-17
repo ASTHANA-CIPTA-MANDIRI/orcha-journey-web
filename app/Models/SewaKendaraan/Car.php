@@ -161,25 +161,23 @@ class Car extends Model
     }
 
     /**
-     * Kursi yang benar-benar bisa dipakai penumpang.
+     * Kursi total unit, termasuk kursi sopir.
      *
-     * Unit yang selalu dengan sopir kehilangan satu kursi untuk sopirnya: HiAce
-     * 15 kursi berarti 14 penumpang. Selisih satu itu yang membuat rombongan
-     * lima belas orang dijanjikan muat lalu ternyata tidak — dan itu baru
-     * diketahui di hari keberangkatan.
+     * capacity menyimpan kursi PENUMPANG — angka yang dipakai menjawab "muat
+     * berapa orang?" dan yang tertulis di penawaran. Untuk unit yang selalu
+     * dengan sopir, kursi sopirnya ditambahkan kembali di sini supaya spesifikasi
+     * pabriknya tetap bisa disebut: "14 penumpang dari 15 kursi".
      *
-     * Unit lepas kunci memakai seluruh kursinya, karena yang menyetir adalah
-     * anggota rombongan itu sendiri.
+     * Sebelumnya kebalikannya — capacity menyimpan kursi total dan penumpang
+     * dihitung belakangan. Itu keliru arah: yang paling sering dibaca dan
+     * dijanjikan adalah jumlah penumpang, jadi itulah yang seharusnya tersimpan
+     * apa adanya, bukan yang harus dihitung ulang tiap kali dipakai.
      */
-    public function getKursiPenumpangAttribute(): int
+    public function getKursiTotalAttribute(): int
     {
         $kursi = (int) $this->capacity;
 
-        if ($this->lepas_kunci) {
-            return $kursi;
-        }
-
-        return max(1, $kursi - 1);
+        return $this->lepas_kunci ? $kursi : $kursi + 1;
     }
 
     public function getLepasKunciLabelAttribute(): string

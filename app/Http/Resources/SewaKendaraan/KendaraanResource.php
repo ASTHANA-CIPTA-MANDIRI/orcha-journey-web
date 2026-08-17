@@ -29,10 +29,11 @@ class KendaraanResource extends JsonResource
             'kapasitas' => $this->capacity,
             'lepas_kunci' => (bool) $this->lepas_kunci,
             'lepas_kunci_label' => $this->lepas_kunci_label,
-            // Kursi penumpang dihitung di sini, sekali. Kalau tiap halaman
-            // menghitung sendiri "kapasitas dikurangi satu", suatu saat ada yang
-            // lupa dan menjanjikan satu kursi yang tidak ada.
-            'kursi_penumpang' => $this->kursi_penumpang,
+            // kapasitas sudah berisi kursi PENUMPANG. kursi_total menambahkan
+            // kembali kursi sopir untuk unit yang selalu dengan sopir, supaya
+            // spesifikasi pabriknya tetap bisa disebut tanpa ada halaman yang
+            // perlu menghitung sendiri.
+            'kursi_total' => $this->kursi_total,
             'transmisi_tersedia' => $this->transmisi_tersedia_list,
             'transmisi_label' => $this->transmisi_label,
             'tarif' => [
