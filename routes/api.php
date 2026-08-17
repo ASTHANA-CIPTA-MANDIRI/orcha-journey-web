@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\OpenTrip\PembatalanController;
 use App\Http\Controllers\Api\OpenTrip\PembayaranController;
 use App\Http\Controllers\Api\OpenTrip\PendaftaranController;
 use App\Http\Controllers\Api\PaketWisata\PaketWisataController;
+use App\Http\Controllers\Api\SewaKendaraan\KatalogKendaraanController;
 use App\Http\Controllers\Api\SewaKendaraan\KendaraanController;
 use App\Http\Controllers\Api\SewaKendaraan\PenyewaanController;
 use App\Http\Controllers\Api\Umum\DashboardController;
@@ -68,6 +69,11 @@ Route::prefix('v1')
         // karena yang mencatatnya pemilik unit, bukan penyewa yang mengembalikan.
         Route::patch('/kendaraan/{kendaraan}/kondisi', [KendaraanController::class, 'ubahKondisi']);
         Route::delete('/kendaraan/{kendaraan}', [KendaraanController::class, 'destroy']);
+
+        // Katalog merek & model: tambahan admin sendiri. Menghapus entri di sini
+        // tidak menghapus kendaraan apa pun.
+        Route::post('/katalog-kendaraan', [KatalogKendaraanController::class, 'store']);
+        Route::delete('/katalog-kendaraan/{katalog}', [KatalogKendaraanController::class, 'destroy']);
 
         /* ------------------------------ KONTAK ------------------------------ */
         Route::get('/pesan', [PesanController::class, 'index']);

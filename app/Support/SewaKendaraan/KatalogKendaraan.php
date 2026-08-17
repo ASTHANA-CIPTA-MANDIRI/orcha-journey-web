@@ -3,6 +3,7 @@
 namespace App\Support\SewaKendaraan;
 
 use App\Models\SewaKendaraan\Car;
+use App\Models\SewaKendaraan\KatalogTambahan;
 
 /**
  * Pilihan merek dan model untuk formulir armada.
@@ -26,6 +27,10 @@ class KatalogKendaraan
     {
         $katalog = self::dariConfig();
 
+        foreach (self::dariTambahan() as $merek => $daftarModel) {
+            $katalog[$merek] = array_merge($katalog[$merek] ?? [], $daftarModel);
+        }
+
         foreach (self::dariArmada() as $merek => $daftarModel) {
             $katalog[$merek] = array_merge($katalog[$merek] ?? [], $daftarModel);
         }
@@ -39,6 +44,48 @@ class KatalogKendaraan
         ksort($katalog, SORT_NATURAL | SORT_FLAG_CASE);
 
         return $katalog;
+    }
+
+    /**
+     * Entri yang ditambahkan admin sendiri — satu-satunya yang boleh dihapus.
+     *
+     * Katalog bawaan ikut versi kode, dan merek yang terbaca dari armada tidak
+     * boleh dihapus karena unitnya benar-benar memakainya: menghapusnya hanya
+     * membuat daftar berbohong tentang isi armada sendiri.
+     *
+     * @return list<array{id: int, merek: string, model: string|null}>
+     */
+    public static function kustom(): array
+    {
+        return KatalogTambahan::query()
+            ->orderBy('merek')
+            ->orderByRaw('model is null desc')
+            ->orderBy('model')
+            ->get()
+            ->map(fn (KatalogTambahan $e) => [
+                'id' => $e->id,
+                'merek' => $e->merek,
+                'model' => $e->model,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private static function dariTambahan(): array
+    {
+        $hasil = [];
+
+        foreach (KatalogTambahan::all() as $entri) {
+            $hasil[$entri->merek] ??= [];
+
+            if ($entri->model !== null && $entri->model !== '') {
+                $hasil[$entri->merek][] = $entri->model;
+            }
+        }
+
+        return $hasil;
     }
 
     /**

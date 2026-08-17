@@ -1,0 +1,50 @@
+<?php
+
+namespace App\Models\SewaKendaraan;
+
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * Entri katalog kendaraan yang ditambahkan admin sendiri.
+ *
+ * Satu baris = satu entri yang bisa dihapus tersendiri: merek saja (model NULL)
+ * atau satu model di bawah merek tertentu.
+ */
+class KatalogTambahan extends Model
+{
+    protected $table = 'katalog_kendaraan_tambahan';
+
+    protected $fillable = ['merek', 'model'];
+
+    /**
+     * Menormalkan sebelum disimpan.
+     *
+     * Spasi berlebih dan huruf besar-kecil yang tidak seragam menghasilkan entri
+     * kembar yang tampak sama di daftar — " toyota " dan "Toyota" akan lolos
+     * batasan unik padahal maksudnya satu. Merek dirapikan huruf awalnya,
+     * modelnya dibiarkan apa adanya karena nama model memang mengandung huruf
+     * besar yang tidak beraturan ("MG ZS", "bZ4X", "Air ev").
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (self $entri) {
+            $entri->merek = self::rapikanMerek($entri->merek);
+            $entri->model = trim((string) $entri->model) ?: null;
+        });
+    }
+
+    public static function rapikanMerek(?string $merek): string
+    {
+        $merek = trim(preg_replace('/\s+/', ' ', (string) $merek));
+
+        // Merek yang sudah ada di katalog bawaan dipakai ejaannya, supaya
+        // "toyota" tidak menjadi merek kedua di samping "Toyota".
+        foreach (array_keys((array) config('orcha.katalog_kendaraan', [])) as $bawaan) {
+            if (mb_strtolower($bawaan) === mb_strtolower($merek)) {
+                return $bawaan;
+            }
+        }
+
+        return $merek;
+    }
+}

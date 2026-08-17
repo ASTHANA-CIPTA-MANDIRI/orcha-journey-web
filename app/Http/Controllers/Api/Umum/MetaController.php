@@ -72,6 +72,9 @@ class MetaController extends ApiController
                 // yang sudah dipakai armada sendiri supaya unit lama tidak
                 // kehilangan mereknya saat disunting.
                 'katalog_kendaraan' => KatalogKendaraan::pilihan(),
+                // Entri tambahan admin, beserta id-nya: hanya inilah yang boleh
+                // dihapus dari daftar pilihan di lemon.
+                'katalog_kustom' => KatalogKendaraan::kustom(),
                 'satuan_sewa' => config('orcha.satuan_sewa'),
                 'keperluan_kontak' => config('orcha.keperluan_kontak'),
                 'alasan_pembatalan' => config('orcha.alasan_pembatalan'),
