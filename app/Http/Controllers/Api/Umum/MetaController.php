@@ -82,6 +82,10 @@ class MetaController extends ApiController
                 'cc_per_model' => KatalogKendaraan::mesin(),
                 'varian_per_model' => KatalogKendaraan::varian(),
                 'lepas_kunci_per_model' => KatalogKendaraan::lepasKunci(),
+                // Pos biaya perjalanan: urutan dan labelnya menentukan isian di
+                // formulir armada lemon. Tanpa kunci ini daftarnya kosong dan
+                // isiannya tidak ter-render sama sekali.
+                'pos_operasional' => config('orcha.pos_operasional'),
                 'satuan_sewa' => config('orcha.satuan_sewa'),
                 'keperluan_kontak' => config('orcha.keperluan_kontak'),
                 'alasan_pembatalan' => config('orcha.alasan_pembatalan'),

@@ -596,3 +596,37 @@ test('entri kustom menyebut tingkatnya, supaya lemon tahu mana yang bisa dihapus
             'merek' => 'Esemka', 'model' => 'Bima 1.3', 'varian' => 'Deluxe',
         ]);
 });
+
+/* --------- KONTRAK RUJUKAN --------- */
+
+test('rujukan mengirim seluruh kunci yang dibaca formulir armada lemon', function () {
+    // Uji ini ada karena satu kunci pernah tertinggal: pos_operasional ditulis di
+    // config tetapi tidak pernah dikirim, jadi daftar pos di formulir kosong dan
+    // isian biayanya tidak ter-render sama sekali.
+    //
+    // Uji di lemon TIDAK menangkapnya — Http::fake di sana menyertakan kunci itu,
+    // sehingga yang teruji niat saya dan bukan kenyataan. Pemeriksaannya harus di
+    // sini, di sisi yang benar-benar mengirimkannya.
+    //
+    // Daftarnya dirawat tangan. Bila lemon membaca kunci baru, tambahkan di sini
+    // supaya kelalaian yang sama tertangkap uji, bukan oleh pemakai.
+    $data = $this->getJson('/api/v1/rujukan', kepalaKatalog())->assertOk()->json('data');
+
+    $dibutuhkan = [
+        'jenis_kendaraan', 'katalog_kendaraan', 'katalog_kustom',
+        'kapasitas_kendaraan', 'jenis_per_model', 'cc_per_model',
+        'varian_per_model', 'lepas_kunci_per_model', 'pos_operasional',
+        'pemeriksaan_kendaraan', 'kondisi_pemeriksaan',
+    ];
+
+    // toHaveKeys, bukan toHaveKey berulang: argumen kedua toHaveKey adalah nilai
+    // yang diharapkan, bukan pesan galat.
+    expect($data)->toHaveKeys($dibutuhkan);
+});
+
+test('pos operasional terkirim beserta urutan dan labelnya', function () {
+    $pos = $this->getJson('/api/v1/rujukan', kepalaKatalog())->assertOk()->json('data.pos_operasional');
+
+    // Urutannya ikut menentukan urutan baris di formulir, jadi diperiksa persis.
+    expect($pos)->toBe(['bbm' => 'BBM', 'tol' => 'Tol', 'parkir' => 'Parkir']);
+});
