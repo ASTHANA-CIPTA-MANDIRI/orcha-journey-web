@@ -304,8 +304,21 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
         // termasuk kode pesanan dan jam pengembaliannya. Padahal justru itu
         // yang dipakai saat menagih denda keterlambatan.
         $rincian = [
-            'Kendaraan' => $sewa->nama_kendaraan.' ('.$sewa->transmisi.')',
-            'Sopir' => $sewa->dengan_sopir ? 'Dengan sopir' : 'Lepas kunci',
+            // Sebutan lengkapnya, bukan nama model saja: surat yang hanya menulis
+            // "HiAce Commuter" tidak menyebut merek, tipe, tahun, maupun cc —
+            // padahal itu yang dipakai penyewa memastikan unit yang datang benar.
+            'Kendaraan' => $mobil->sebutan_lengkap.' ('.$sewa->transmisi.')',
+            // Jumlah penumpang, bukan jumlah kursi: angka inilah yang dipakai
+            // rombongan memastikan semua orang muat.
+            'Kapasitas' => $mobil->capacity.' penumpang'
+                .($mobil->kursi_total !== $mobil->capacity ? ' ('.$mobil->kursi_total.' kursi)' : ''),
+            'Sopir' => $sewa->dengan_sopir
+                ? $mobil->sopir_label
+                : 'Lepas kunci — penyewa menyetir sendiri',
+            // Pos yang ditanggung penyewa disebut terang-terangan. Tanpa ini
+            // surat tidak menyebut BBM, tol, dan parkir sama sekali, dan yang
+            // tidak tertulis di mana pun paling mudah dipersoalkan saat menagih.
+            'BBM, tol, parkir' => $mobil->operasional_label,
             'Mulai' => $sewa->jadwal_mulai
                 ? $sewa->jadwal_mulai->translatedFormat('l, j F Y').' pukul '.$sewa->jadwal_mulai->format('H:i')
                 : '—',

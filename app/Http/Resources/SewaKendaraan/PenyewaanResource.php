@@ -18,10 +18,22 @@ class PenyewaanResource extends JsonResource
             'nama' => $this->nama,
             'whatsapp' => $this->whatsapp,
             'email' => $this->email,
+            // Keterangan unitnya ikut dikirim supaya admin lemon melihat hal yang
+            // sama dengan yang tertulis di surat penyewa: sebutan lengkap,
+            // kapasitas, keterangan sopir, dan pos biaya yang termasuk. Tanpa itu
+            // admin membaca "HiAce Commuter" sementara penyewa memegang surat
+            // yang menyebut merek, tipe, tahun, dan siapa menanggung BBM.
             'kendaraan' => [
                 'id' => $this->car_id,
+                // nama_kendaraan disimpan pada penyewaannya sebagai jejak: unit
+                // boleh berganti nama, catatan penyewaan lama tidak ikut berubah.
                 'nama' => $this->nama_kendaraan,
                 'transmisi' => $this->transmisi,
+                'sebutan' => $this->kendaraan?->sebutan_lengkap,
+                'kapasitas' => $this->kendaraan?->capacity,
+                'kursi_total' => $this->kendaraan?->kursi_total,
+                'sopir_label' => $this->kendaraan?->sopir_label,
+                'operasional_label' => $this->kendaraan?->operasional_label,
             ],
             'satuan' => $this->satuan,
             'satuan_label' => $this->satuan_label,

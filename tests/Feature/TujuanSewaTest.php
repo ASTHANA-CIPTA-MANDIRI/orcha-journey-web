@@ -177,3 +177,51 @@ test('lokasi pengembalian yang benar-benar diberikan tidak ditimpa', function ()
 
     expect(PenyewaanKendaraan::first()->lokasi_kembali)->toBe('Bandara YIA');
 });
+
+/* -------- SUREL SELARAS DENGAN PUBLIK & ADMIN -------- */
+
+test('rincian surat menyebut sebutan lengkap unit, bukan nama model saja', function () {
+    $unit = unitSewa(['varian' => 'Standar', 'tahun' => 2023, 'cc' => 2500]);
+
+    kirimSewa(isiSewa($unit, ['tujuan' => 'Bromo']))->assertHasNoErrors();
+
+    // Surat yang hanya menulis "HiAce Commuter" tidak menyebut merek, tipe,
+    // tahun, maupun cc — padahal itu yang dipakai penyewa memastikan unit yang
+    // datang memang benar.
+    expect($unit->fresh()->sebutan_lengkap)
+        ->toBe('Toyota HiAce Commuter Standar 2023 · 2.500 cc');
+});
+
+test('keterangan unit ikut terkirim ke admin lewat resource', function () {
+    config()->set('orcha.api.kunci', 'kunci-rahasia-untuk-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    $unit = unitSewa([
+        'varian' => 'Standar', 'tahun' => 2023, 'cc' => 2500,
+        'termasuk_bbm' => true, 'biaya_bbm' => 200000,
+    ]);
+    kirimSewa(isiSewa($unit, ['tujuan' => 'Bromo']))->assertHasNoErrors();
+
+    $baris = $this->getJson('/api/v1/penyewaan', [
+        'X-Orcha-Key' => 'kunci-rahasia-untuk-uji',
+        'X-Orcha-Admin' => 'admin@phoenix.test', 'Accept' => 'application/json',
+    ])->assertOk()->json('data.0.kendaraan');
+
+    // Admin harus membaca hal yang sama dengan yang tertulis di surat penyewa.
+    expect($baris['sebutan'])->toBe('Toyota HiAce Commuter Standar 2023 · 2.500 cc')
+        ->and($baris['kapasitas'])->toBe(14)
+        ->and($baris['kursi_total'])->toBe(15)
+        ->and($baris['sopir_label'])->toBe('Harga sudah termasuk sopir')
+        ->and($baris['operasional_label'])->toContain('BBM termasuk');
+});
+
+test('nama kendaraan pada penyewaan tetap jejak, tidak ikut berubah', function () {
+    $unit = unitSewa();
+    kirimSewa(isiSewa($unit, ['tujuan' => 'Bromo']))->assertHasNoErrors();
+
+    $unit->update(['name' => 'HiAce Premio']);
+
+    // Unit boleh berganti nama; catatan penyewaan lama tidak ikut berubah,
+    // karena yang disewa saat itu memang unit dengan nama yang lama.
+    expect(PenyewaanKendaraan::first()->nama_kendaraan)->toBe('HiAce Commuter');
+});
