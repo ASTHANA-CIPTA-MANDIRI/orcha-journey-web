@@ -92,6 +92,13 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
         if ($mobil->tarif($this->satuan) === null) {
             $this->satuan = 'hari';
         }
+
+        // Unit yang tidak dilepas tanpa sopir memaksa pilihannya. Tanpa ini,
+        // berpindah dari mobil ke HiAce meninggalkan "lepas kunci" terpilih pada
+        // unit yang tidak melayaninya — dan perkiraan biayanya ikut salah.
+        if (! $mobil->lepas_kunci) {
+            $this->denganSopir = 'ya';
+        }
     }
 
     protected function rules(): array
@@ -103,7 +110,17 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             'durasi' => 'required|integer|min:1|max:30',
             'tanggalMulai' => 'required|date|after_or_equal:today',
             'jamMulai' => 'required|date_format:H:i',
-            'denganSopir' => 'required|in:ya,tidak',
+            // Menyembunyikan pilihannya di layar tidak cukup: permintaan yang
+            // dirakit tangan bisa mengirim "tidak" untuk bus. Aturan ini membaca
+            // penanda unitnya, bukan mengulang aturan "hanya mobil" — supaya
+            // keputusan admin di halaman armada benar-benar berlaku di sini.
+            'denganSopir' => ['required', 'in:ya,tidak', function ($atribut, $nilai, $gagal) {
+                $mobil = $this->kendaraanTerpilih();
+
+                if ($nilai === 'tidak' && $mobil && ! $mobil->lepas_kunci) {
+                    $gagal($mobil->type_label.' hanya disewakan bersama sopir kami.');
+                }
+            }],
             // Wajib: tanpa alamat yang jelas, unit tidak bisa diantar maupun
             // dijemput kembali.
             'lokasiAntar' => 'required|string|min:4|max:191',
@@ -507,7 +524,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                 <legend class="label-orcha">Kebutuhan sopir <x-wajib /></legend>
                                 <div class="grid grid-cols-2 gap-2">
                                     @foreach ([['ya', 'Dengan sopir'], ['tidak', 'Lepas kunci']] as [$nilai, $label])
-                                        @if ($nilai === 'tidak' && $mobil && $mobil->type !== 'mobil')
+                                        @if ($nilai === 'tidak' && $mobil && ! $mobil->lepas_kunci)
                                             <span class="pilihan-centang opacity-50 cursor-not-allowed">
                                                 <span class="kotak" aria-hidden="true"></span>
                                                 <span>{{ $label }}</span>
@@ -528,9 +545,11 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                         @endif
                                     @endforeach
                                 </div>
-                                @if ($mobil && $mobil->type !== 'mobil')
-                                    <p class="mt-2 text-xs text-slate-500">{{ $mobil->type_label }} hanya disewakan
-                                        bersama sopir kami.</p>
+                                @if ($mobil && ! $mobil->lepas_kunci)
+                                    <p class="mt-2 text-xs text-slate-500">
+                                        {{ $mobil->name }} hanya disewakan bersama sopir kami —
+                                        {{ $mobil->capacity }} penumpang dari {{ $mobil->kursi_total }} kursi.
+                                    </p>
                                 @endif
                                 @error('denganSopir')
                                     <p class="galat-orcha">{{ $message }}</p>

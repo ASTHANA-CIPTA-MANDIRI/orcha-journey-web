@@ -32,6 +32,15 @@
             {{ $kendaraan->type_label }}
         </span>
 
+        @unless ($kendaraan->lepas_kunci)
+            {{-- Disebut di kartunya, bukan hanya di formulir pemesanan: penyewa
+                 yang mencari unit lepas kunci berhak tahu sebelum mengisi apa pun. --}}
+            <span
+                class="absolute px-3 py-1 text-xs font-bold rounded-full bottom-3 left-3 bg-orcha-sun/90 text-orcha-navy backdrop-blur">
+                Selalu dengan sopir
+            </span>
+        @endunless
+
         {{-- Transmisi yang benar-benar tersedia, bukan sekadar transmisi satu unit --}}
         <span
             class="absolute px-3 py-1 text-xs font-bold rounded-full top-3 right-3 bg-orcha-navy/80 text-white backdrop-blur">
@@ -40,13 +49,31 @@
     </div>
 
     <div class="flex flex-col flex-1 p-5 sm:p-6">
-        <h3 class="text-lg font-bold font-heading text-orcha-navy">{{ $kendaraan->name }}</h3>
-        <p class="text-sm text-slate-500">{{ $kendaraan->brand }}</p>
+        <h3 class="text-lg font-bold font-heading text-orcha-navy">
+            {{ $kendaraan->name }}
+            @if ($kendaraan->varian)
+                <span class="font-semibold text-orcha-ocean">{{ $kendaraan->varian }}</span>
+            @endif
+        </h3>
+        {{-- Tipe, tahun, dan cc: yang ditanyakan penyewa sebelum memesan, dan
+             selama ini hanya ada di kepala pemilik. Bagian yang belum diketahui
+             dilewati supaya unit lama tetap terbaca wajar. --}}
+        <p class="text-sm text-slate-500">
+            {{ $kendaraan->brand }}
+            @if ($kendaraan->tahun) · {{ $kendaraan->tahun }} @endif
+            @if ($kendaraan->cc) · {{ number_format($kendaraan->cc, 0, ',', '.') }} cc @endif
+        </p>
 
         <div class="grid grid-cols-2 gap-3 py-4 mt-4 text-sm border-t border-b text-slate-600 border-orcha-foam">
             <span class="flex items-center gap-2">
                 <x-heroicon-o-user-group class="w-4 h-4 text-orcha-sun" />
-                {{ $kendaraan->capacity }} kursi
+                {{-- capacity berisi kursi PENUMPANG, jadi inilah angka yang boleh
+                     dijanjikan. Kursi totalnya disebut dalam tanda kurung hanya
+                     bila berbeda, yaitu saat satu kursi terpakai sopir. --}}
+                {{ $kendaraan->capacity }} penumpang
+                @unless ($kendaraan->lepas_kunci)
+                    <span class="text-xs text-slate-400">({{ $kendaraan->kursi_total }} kursi)</span>
+                @endunless
             </span>
             <span class="flex items-center gap-2">
                 <x-heroicon-o-cog-6-tooth class="w-4 h-4 text-orcha-sun" />
