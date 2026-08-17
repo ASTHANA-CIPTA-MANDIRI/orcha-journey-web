@@ -29,8 +29,11 @@ class PesanController extends ApiController
 
     public function show(PesanKontak $pesan): JsonResponse
     {
+        // Versi rinci: ikut membawa pesanan milik pengirim dan pesan-pesan
+        // sebelumnya. Query tambahannya hanya sepadan untuk satu pesan yang
+        // sedang dibuka, bukan untuk sepuluh baris daftar.
         return response()->json([
-            'data' => (new PesanResource($pesan))->resolve(),
+            'data' => PesanResource::rinci($pesan)->resolve(),
         ]);
     }
 
