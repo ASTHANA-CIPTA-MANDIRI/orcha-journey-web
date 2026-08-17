@@ -97,6 +97,24 @@ test('daftar pesan tetap ringan, tanpa pencarian pesanan per baris', function ()
         ->and($baris['nama'])->toBe('Budi Santoso');
 });
 
+test('jumlah pesan belum dibaca ikut dikirim, terlepas dari saringannya', function () {
+    kirimPesan();
+    kirimPesan(['nama' => 'Rina']);
+    kirimPesan(['nama' => 'Sudah dibaca', 'dibaca_pada' => now()]);
+
+    $semua = $this->getJson('/api/v1/pesan', kepalaPesan())->assertOk()->json('meta');
+
+    expect($semua['total'])->toBe(3)
+        ->and($semua['belum_dibaca'])->toBe(2);
+
+    // Angkanya tetap sama saat saringan "belum dibaca" sedang menyala —
+    // yang dihitung adalah keadaan kotak masuk, bukan isi halaman ini.
+    $tersaring = $this->getJson('/api/v1/pesan?belum_dibaca=1', kepalaPesan())->assertOk()->json('meta');
+
+    expect($tersaring['total'])->toBe(2)
+        ->and($tersaring['belum_dibaca'])->toBe(2);
+});
+
 test('pesan tanpa nomor maupun email tidak mengaitkan pesanan siapa pun', function () {
     $pesan = kirimPesan(['whatsapp' => '', 'email' => null]);
 

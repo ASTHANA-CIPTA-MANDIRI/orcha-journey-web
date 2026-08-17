@@ -24,7 +24,16 @@ class PesanController extends ApiController
             ->latest('id')
             ->paginate($this->perHalaman($request));
 
-        return $this->halaman($daftar, PesanResource::class);
+        $balasan = $this->halaman($daftar, PesanResource::class);
+
+        // Jumlah yang belum dibaca ikut dikirim, terlepas dari saringan yang
+        // sedang dipakai. Penyaring "belum dibaca" tanpa angka tidak memberi
+        // tahu apa pun sebelum ditekan — dan yang ingin diketahui admin justru
+        // sebelum menekannya: masih ada berapa yang menunggu.
+        $isi = $balasan->getData(true);
+        $isi['meta']['belum_dibaca'] = PesanKontak::belumDibaca()->count();
+
+        return response()->json($isi);
     }
 
     public function show(PesanKontak $pesan): JsonResponse
