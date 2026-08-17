@@ -45,6 +45,79 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Katalog Merek & Model Kendaraan (pasar Indonesia)
+    |--------------------------------------------------------------------------
+    |
+    | Dipakai dropdown "Merek" dan "Nama unit" di formulir armada, supaya admin
+    | memilih alih-alih mengetik. Mengetik bebas menghasilkan ejaan yang
+    | berbeda-beda untuk unit yang sama — "Avanza", "avanza", "All New Avanza",
+    | "Toyota Avanza" — dan penyaringan di halaman publik jadi tidak dapat
+    | diandalkan.
+    |
+    | Isinya ditulis di sini, BUKAN diambil dari API pihak ketiga. Sudah dicari
+    | dan diuji: tidak ada API JSON gratis yang memuat katalog merek + model
+    | pasar Indonesia. NOPOL API hanya mencari berdasarkan nomor polisi (SOAP,
+    | gratis 10 pencarian), dan vPIC milik NHTSA memang gratis tetapi berisi
+    | data registrasi Amerika — dari 58 model Toyota di sana, tidak satu pun
+    | Avanza, Rush, Calya, Innova, Agya, atau Veloz. Untuk armada sewa di
+    | Yogyakarta, daftar itu tidak berguna.
+    |
+    | Daftarnya sengaja dibatasi pada unit yang lazim disewakan: MPV, city car,
+    | SUV, minibus, dan bus. Bukan seluruh model yang pernah dijual di
+    | Indonesia — daftar yang terlalu panjang justru memperlambat memilih.
+    |
+    | Menambah unit di luar daftar ini tetap bisa: formulirnya menyediakan
+    | pilihan "isi manual", dan merek/model milik armada sendiri otomatis ikut
+    | tercantum lewat App\Support\SewaKendaraan\KatalogKendaraan.
+    |
+    */
+
+    'katalog_kendaraan' => [
+        'Toyota' => [
+            'Agya', 'Alphard', 'Avanza', 'Calya', 'Fortuner', 'HiAce Commuter',
+            'HiAce Premio', 'Innova Reborn', 'Innova Zenix', 'Rush', 'Sienta',
+            'Veloz', 'Vellfire', 'Yaris',
+        ],
+        'Daihatsu' => [
+            'Ayla', 'Gran Max', 'Luxio', 'Sigra', 'Terios', 'Xenia',
+        ],
+        'Honda' => [
+            'BR-V', 'Brio Satya', 'CR-V', 'City', 'HR-V', 'Jazz', 'Mobilio', 'WR-V',
+        ],
+        'Suzuki' => [
+            'APV', 'Baleno', 'Carry', 'Ertiga', 'Ignis', 'Jimny', 'XL7',
+        ],
+        'Mitsubishi' => [
+            'Colt Diesel', 'L300', 'Pajero Sport', 'Xpander', 'Xpander Cross',
+        ],
+        'Nissan' => [
+            'Grand Livina', 'Livina', 'Serena', 'Terra',
+        ],
+        'Hyundai' => [
+            'Creta', 'H-1', 'Palisade', 'Staria', 'Stargazer',
+        ],
+        'Wuling' => [
+            'Almaz', 'Alvez', 'Confero', 'Cortez',
+        ],
+        'Isuzu' => [
+            'Elf Microbus', 'MU-X', 'Traga',
+        ],
+        'Kia' => [
+            'Carnival', 'Seltos', 'Sonet',
+        ],
+        'Mazda' => [
+            'Biante', 'CX-3', 'CX-5',
+        ],
+        'Hino' => [
+            'Bus RK', 'Bus RN', 'Dutro',
+        ],
+        'Mercedes-Benz' => [
+            'Sprinter', 'Bus OH 1526',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Wilayah Destinasi
     |--------------------------------------------------------------------------
     |

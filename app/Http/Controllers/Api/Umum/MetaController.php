@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Umum;
 
 use App\Http\Controllers\Api\ApiController;
+use App\Support\SewaKendaraan\KatalogKendaraan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -67,6 +68,10 @@ class MetaController extends ApiController
                 'jenis_pembayaran' => config('orcha.jenis_pembayaran'),
                 'kategori_paket' => config('orcha.kategori_paket'),
                 'jenis_kendaraan' => config('orcha.jenis_kendaraan'),
+                // Merek & model untuk dropdown formulir armada, digabung dengan
+                // yang sudah dipakai armada sendiri supaya unit lama tidak
+                // kehilangan mereknya saat disunting.
+                'katalog_kendaraan' => KatalogKendaraan::pilihan(),
                 'satuan_sewa' => config('orcha.satuan_sewa'),
                 'keperluan_kontak' => config('orcha.keperluan_kontak'),
                 'alasan_pembatalan' => config('orcha.alasan_pembatalan'),
