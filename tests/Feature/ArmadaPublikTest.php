@@ -311,3 +311,35 @@ test('unit lepas kunci boleh tanpa keterangan sopir', function () {
         'X-Orcha-Admin' => 'admin@phoenix.test', 'Accept' => 'application/json',
     ])->assertCreated();
 });
+
+/* -------- TATA LETAK KARTU: TOMBOL SEBARIS -------- */
+
+test('blok tarif menyerap sisa ruang supaya tombol tiap kartu sebaris', function () {
+    // Kartu dalam satu baris grid selalu setinggi kartu tertinggi, tetapi isinya
+    // tidak sama panjang: ada unit dengan tiga satuan tarif, ada yang hanya
+    // harian. Tanpa satu elemen yang menyerap sisa ruang, tombol "Pesan Unit Ini"
+    // berhenti di ketinggian yang berbeda-beda dan deretannya terlihat berantakan
+    // — persis yang dikeluhkan. Karena mt-auto dipasang SEBELUM blok tarif,
+    // semua yang sesudahnya menempel ke dasar kartu.
+    $kartu = file_get_contents(base_path('resources/views/components/sewa-kendaraan/kartu.blade.php'));
+
+    expect($kartu)->toContain('mt-auto rounded-2xl')
+        ->and($kartu)->toContain('h-full');
+
+    // Tombolnya harus tetap elemen terakhir; menyisipkan apa pun sesudahnya
+    // membatalkan penjajaran itu.
+    $posisiTarif = strpos($kartu, 'mt-auto rounded-2xl');
+    $posisiTombol = strpos($kartu, 'Pesan Unit Ini');
+
+    expect($posisiTombol)->toBeGreaterThan($posisiTarif);
+});
+
+test('transmisi tidak ditulis dua kali di satu kartu', function () {
+    unitPublik(['transmisi_tersedia' => ['Manual']]);
+
+    // Dulu transmisi muncul sebagai label di atas foto DAN di baris spesifikasi.
+    // Keterangan yang sama dua kali membuat kartunya padat tanpa menambah apa pun.
+    $teks = preg_replace('/\s+/', ' ', strip_tags($this->get(route('sewa-kendaraan'))->assertOk()->getContent()));
+
+    expect(substr_count($teks, 'Manual'))->toBe(1);
+});

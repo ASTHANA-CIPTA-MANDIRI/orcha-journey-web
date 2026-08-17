@@ -143,7 +143,13 @@ test('pesanan dalam kota memakai tarif biasa', function () {
 test('kartu publik menyebut tarif luar kota hanya bila berbeda', function () {
     unitLuarKota();
 
-    $this->get(route('sewa-kendaraan'))->assertOk()->assertSee('Luar kota Rp 800.000/hari');
+    // Diperiksa pada teks yang terbaca, bukan pada penanda HTML-nya. Angkanya
+    // ditebalkan sehingga kalimatnya terpotong <b> di tengah — assertSee akan
+    // merah walaupun penyewa membaca kalimat yang persis sama. Yang dijanjikan
+    // ke penyewa kalimatnya, bukan cara menuliskannya.
+    $teks = preg_replace('/\s+/', ' ', strip_tags($this->get(route('sewa-kendaraan'))->assertOk()->getContent()));
+
+    expect($teks)->toContain('Luar kota Rp 800.000/hari');
 });
 
 test('kartu publik tidak menyebut apa pun bila tarifnya sama', function () {
