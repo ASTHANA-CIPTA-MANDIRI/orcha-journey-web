@@ -423,12 +423,9 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                     <p class="mt-1 text-xs {{ collect($mobil->rincian_operasional)->contains('termasuk', true) ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
                                         {{ $mobil->operasional_label }}
                                     </p>
-                                    @if ($mobil->harga_sopir)
-                                        <p class="pt-3 mt-3 text-xs border-t border-white/70 text-slate-600">
-                                            Sopir {{ $rupiah($mobil->harga_sopir) }}/hari. BBM, tol, parkir, dan tiket
-                                            masuk lokasi dihitung terpisah.
-                                        </p>
-                                    @endif
+                                    <p class="mt-1 text-xs {{ $mobil->termasuk_sopir ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
+                                        {{ $mobil->sopir_label }}
+                                    </p>
                                 </div>
                             @endif
 

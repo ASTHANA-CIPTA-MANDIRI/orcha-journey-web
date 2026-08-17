@@ -102,9 +102,13 @@
              unit all-in pun terbaca sebaliknya — penyewa bertanya ulang, atau
              mengira sudah termasuk padahal belum lalu berselisih saat membayar. --}}
         <div class="mt-2 space-y-1 text-xs">
-            @if ($kendaraan->harga_sopir)
-                <p class="text-slate-500">Sopir +{{ $rupiah($kendaraan->harga_sopir) }}/hari</p>
-            @endif
+            {{-- Keterangan sopir dibaca dari unitnya. Sebelumnya barisnya hanya
+                 tampil bila ada harga_sopir, jadi unit yang tarifnya SUDAH
+                 termasuk sopir tidak menyebut sopir sama sekali — pelanggan
+                 melihat angkanya tanpa tahu sopirnya sudah dibayar. --}}
+            <p class="{{ $kendaraan->termasuk_sopir ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
+                {{ $kendaraan->sopir_label }}
+            </p>
 
             <p class="{{ collect($kendaraan->rincian_operasional)->contains('termasuk', true) ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
                 {{ $kendaraan->operasional_label }}

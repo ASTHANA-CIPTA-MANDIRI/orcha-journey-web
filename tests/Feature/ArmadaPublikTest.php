@@ -237,3 +237,77 @@ test('halaman daftar mengakui sebagian unit all-in', function () {
     $this->get(route('sewa-kendaraan'))->assertOk()
         ->assertSee('Sebagian unit ditawarkan all-in');
 });
+
+/* -------- TARIF SUDAH TERMASUK SOPIR -------- */
+
+test('keterangan sopir menyebut tiga keadaan yang berbeda', function (array $ubah, string $harapan) {
+    unitPublik($ubah);
+
+    // Sebelumnya dua di antaranya dinyatakan dengan cara yang sama: harga_sopir
+    // kosong bisa berarti "sudah termasuk" atau "belum diisi".
+    $this->get(route('sewa-kendaraan'))->assertOk()->assertSee($harapan);
+})->with([
+    'sudah termasuk' => [['termasuk_sopir' => true, 'harga_sopir' => null], 'Harga sudah termasuk sopir'],
+    'tambahan' => [['termasuk_sopir' => false, 'harga_sopir' => 150000], 'Sopir +Rp 150.000/hari'],
+    'tidak tersedia' => [['termasuk_sopir' => false, 'harga_sopir' => null], 'Tanpa sopir'],
+]);
+
+test('tarif yang sudah termasuk sopir tidak ditagih dua kali', function () {
+    $unit = unitPublik([
+        'price_per_day' => 2500000, 'termasuk_sopir' => true, 'harga_sopir' => null,
+        'lepas_kunci' => false,
+    ]);
+
+    // 2 hari x 2.500.000, tanpa tambahan sopir walau penyewaannya pasti bersopir.
+    expect($unit->estimasiBiaya('hari', 2, true))->toBe(5_000_000)
+        ->and($unit->sopir_label)->toBe('Harga sudah termasuk sopir');
+});
+
+test('tarif sopir yang tertinggal tidak ditagihkan bila sudah termasuk', function () {
+    // Angka siluman: ikut ditagihkan begitu penandanya dimatikan, dan pemiliknya
+    // tidak ingat pernah mengisinya.
+    $unit = unitPublik([
+        'price_per_day' => 2500000, 'termasuk_sopir' => true, 'harga_sopir' => 150000,
+    ]);
+
+    expect($unit->estimasiBiaya('hari', 1, true))->toBe(2_500_000);
+});
+
+test('tarif sopir tidak tersimpan bila sudah termasuk', function () {
+    $this->postJson('/api/v1/kendaraan', [
+        'nama' => 'HiAce Commuter', 'merek' => 'Toyota', 'jenis' => 'hiace',
+        'kapasitas' => 14, 'lepas_kunci' => false, 'transmisi_tersedia' => ['Manual'],
+        'tarif_hari' => 2500000, 'termasuk_sopir' => true, 'tarif_sopir' => 150000,
+    ], [
+        'X-Orcha-Key' => config('orcha.api.kunci'),
+        'X-Orcha-Admin' => 'admin@phoenix.test', 'Accept' => 'application/json',
+    ])->assertCreated();
+
+    expect(Car::first()->harga_sopir)->toBeNull()
+        ->and(Car::first()->termasuk_sopir)->toBeTrue();
+});
+
+test('unit selalu dengan sopir wajib menyebut biaya sopirnya', function () {
+    // Tanpa keduanya, halaman publik menampilkan unit yang pasti bersopir tanpa
+    // keterangan biaya sopirnya sama sekali.
+    $this->postJson('/api/v1/kendaraan', [
+        'nama' => 'Bus RK', 'merek' => 'Hino', 'jenis' => 'bus',
+        'kapasitas' => 58, 'lepas_kunci' => false, 'transmisi_tersedia' => ['Manual'],
+        'tarif_hari' => 4000000,
+    ], [
+        'X-Orcha-Key' => config('orcha.api.kunci'),
+        'X-Orcha-Admin' => 'admin@phoenix.test', 'Accept' => 'application/json',
+    ])->assertStatus(422)->assertJsonValidationErrors('termasuk_sopir');
+});
+
+test('unit lepas kunci boleh tanpa keterangan sopir', function () {
+    // Mobil yang memang hanya disewakan lepas kunci tidak perlu menyebut sopir.
+    $this->postJson('/api/v1/kendaraan', [
+        'nama' => 'Avanza', 'merek' => 'Toyota', 'jenis' => 'mobil',
+        'kapasitas' => 7, 'lepas_kunci' => true, 'transmisi_tersedia' => ['Matic'],
+        'tarif_hari' => 400000,
+    ], [
+        'X-Orcha-Key' => config('orcha.api.kunci'),
+        'X-Orcha-Admin' => 'admin@phoenix.test', 'Accept' => 'application/json',
+    ])->assertCreated();
+});

@@ -37,6 +37,8 @@ class KendaraanResource extends JsonResource
             // Perincian per pos, beserta totalnya dan kalimat siap tampil.
             // Kalimatnya dirakit sekali di model supaya kartu publik, halaman
             // pemesanan, dan admin menyebut hal yang sama.
+            'termasuk_sopir' => (bool) $this->termasuk_sopir,
+            'sopir_label' => $this->sopir_label,
             'operasional' => $this->rincian_operasional,
             'biaya_operasional_total' => $this->biaya_operasional_total,
             'operasional_label' => $this->operasional_label,

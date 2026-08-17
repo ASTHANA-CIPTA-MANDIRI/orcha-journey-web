@@ -9,6 +9,7 @@ use App\Models\SewaKendaraan\Car;
 use App\Support\SewaKendaraan\NomorPolisi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Armada: dibaca dan ditulis dari dashboard lemon.
@@ -155,9 +156,33 @@ class KendaraanController extends ApiController
         return $hasil;
     }
 
+    /**
+     * Unit yang SELALU dengan sopir harus menyatakan biaya sopirnya.
+     *
+     * Salah satu dari dua: tarifnya sudah termasuk sopir, atau berapa
+     * tambahannya. Tanpa keduanya, halaman publik menampilkan unit yang pasti
+     * bersopir tanpa keterangan biaya sopirnya sama sekali.
+     *
+     * Diperiksa DI SINI, bukan sebagai aturan closure pada termasuk_sopir:
+     * Laravel melewatkan aturan non-implisit untuk medan yang tidak ada di
+     * permintaan, jadi closure di sana tidak pernah berjalan pada kasus yang
+     * paling perlu dijaga — ketika medannya memang tidak dikirim sama sekali.
+     */
+    private function periksaSopir(array $data): void
+    {
+        $selaluBersopir = ! ($data['lepas_kunci'] ?? true);
+
+        if ($selaluBersopir && ! ($data['termasuk_sopir'] ?? false) && ! ($data['tarif_sopir'] ?? null)) {
+            throw ValidationException::withMessages([
+                'termasuk_sopir' => 'Unit yang selalu dengan sopir harus menyebut tarif sopirnya, '
+                    .'atau ditandai tarifnya sudah termasuk sopir.',
+            ]);
+        }
+    }
+
     private function validasi(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'nama' => 'required|string|max:255',
             'merek' => 'required|string|max:100',
             'varian' => 'nullable|string|max:60',
@@ -174,6 +199,7 @@ class KendaraanController extends ApiController
             }],
             'kapasitas' => 'required|integer|min:1|max:80',
             'lepas_kunci' => 'nullable|boolean',
+            'termasuk_sopir' => 'nullable|boolean',
             'transmisi_tersedia' => 'required|array|min:1',
             'transmisi_tersedia.*' => 'in:Manual,Matic',
             'tarif_hari' => 'required|numeric|min:0',
@@ -189,6 +215,10 @@ class KendaraanController extends ApiController
             'tersedia' => 'nullable|boolean',
             'gambar' => 'nullable|image|max:4096',
         ]);
+
+        $this->periksaSopir($data);
+
+        return $data;
     }
 
     private function siapkan(array $data, Request $request, ?string $gambarLama = null): array
@@ -217,7 +247,12 @@ class KendaraanController extends ApiController
             // terlihat sampai ada pemanggil yang mengirim yang wajib saja.
             'harga_per_jam' => ($data['tarif_jam'] ?? null) ?: null,
             'harga_12_jam' => ($data['tarif_12jam'] ?? null) ?: null,
-            'harga_sopir' => ($data['tarif_sopir'] ?? null) ?: null,
+            'termasuk_sopir' => (bool) ($data['termasuk_sopir'] ?? false),
+            // Tarif sopir tidak disimpan bila sudah termasuk: angka yang
+            // tertinggal di sana ikut ditagihkan begitu penandanya dimatikan.
+            'harga_sopir' => ($data['termasuk_sopir'] ?? false)
+                ? null
+                : (($data['tarif_sopir'] ?? null) ?: null),
             ...$this->posOperasional($data),
             'is_available' => (bool) ($data['tersedia'] ?? true),
             'image' => $this->simpanGambar($request, 'cars', $gambarLama),

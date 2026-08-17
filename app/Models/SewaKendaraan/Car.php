@@ -40,6 +40,7 @@ class Car extends Model
         'biaya_tol',
         'termasuk_parkir',
         'biaya_parkir',
+        'termasuk_sopir',
     ];
 
     protected $casts = [
@@ -55,6 +56,7 @@ class Car extends Model
         'termasuk_bbm' => 'boolean',
         'termasuk_tol' => 'boolean',
         'termasuk_parkir' => 'boolean',
+        'termasuk_sopir' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -132,7 +134,10 @@ class Car extends Model
             default => 1,
         };
 
-        if ($denganSopir && $this->harga_sopir) {
+        // Tarif yang sudah termasuk sopir tidak ditambahi lagi. Menambahkannya
+        // berarti menagih sopir dua kali untuk unit yang harganya justru sudah
+        // dihitung bersama sopirnya.
+        if ($denganSopir && ! $this->termasuk_sopir && $this->harga_sopir) {
             $total += $this->harga_sopir * $hari;
         }
 
@@ -307,6 +312,28 @@ class Car extends Model
         return count($bagian) === 1
             ? $bagian[0].' dan '.$akhir
             : implode(', ', $bagian).', dan '.$akhir;
+    }
+
+    /**
+     * Keterangan soal sopir: sudah termasuk, tambahan, atau tidak tersedia.
+     *
+     * Tiga keadaan yang berbeda maknanya, dan sebelumnya dua di antaranya
+     * dinyatakan dengan cara yang sama — harga_sopir kosong.
+     */
+    public function getSopirLabelAttribute(): string
+    {
+        if ($this->termasuk_sopir) {
+            return 'Harga sudah termasuk sopir';
+        }
+
+        if ($this->harga_sopir) {
+            return 'Sopir +'.$this->rupiah($this->harga_sopir).'/hari';
+        }
+
+        // Unit yang selalu dengan sopir TIDAK boleh sampai di sini: validasinya
+        // mewajibkan salah satu dari kedua keadaan di atas. Kalimat ini untuk
+        // unit lepas kunci yang memang tidak melayani sewa dengan sopir.
+        return 'Tanpa sopir';
     }
 
     private function rupiah(int $angka): string

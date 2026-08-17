@@ -462,7 +462,9 @@ test('lepas kunci tersimpan lewat API dan terkirim di resource', function () {
     $this->postJson('/api/v1/kendaraan', [
         'nama' => 'HiAce Commuter', 'merek' => 'Toyota', 'jenis' => 'hiace',
         'kapasitas' => 14, 'lepas_kunci' => false, 'transmisi_tersedia' => ['Manual'],
-        'tarif_hari' => 1200000,
+        // Unit yang selalu dengan sopir wajib menyebut biaya sopirnya; di sini
+        // dipenuhi supaya yang diuji tetap soal lepas kunci dan kursinya.
+        'tarif_hari' => 1200000, 'termasuk_sopir' => true,
     ], kepalaKatalog())->assertCreated();
 
     $baris = $this->getJson('/api/v1/kendaraan', kepalaKatalog())->assertOk()->json('data.0');
