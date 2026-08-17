@@ -97,11 +97,19 @@
             @endforeach
         </dl>
 
-        @if ($kendaraan->harga_sopir)
-            <p class="mt-2 text-xs text-slate-500">
-                Sopir +{{ $rupiah($kendaraan->harga_sopir) }}/hari · belum termasuk BBM &amp; tol
+        {{-- Keterangan BBM/tol/parkir dibaca dari unitnya, bukan ditulis tetap.
+             Sebelumnya semua kartu menyatakan "belum termasuk BBM & tol", jadi
+             unit all-in pun terbaca sebaliknya — penyewa bertanya ulang, atau
+             mengira sudah termasuk padahal belum lalu berselisih saat membayar. --}}
+        <div class="mt-2 space-y-1 text-xs">
+            @if ($kendaraan->harga_sopir)
+                <p class="text-slate-500">Sopir +{{ $rupiah($kendaraan->harga_sopir) }}/hari</p>
+            @endif
+
+            <p class="{{ $kendaraan->termasuk_operasional ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
+                {{ $kendaraan->operasional_label }}
             </p>
-        @endif
+        </div>
 
         <a href="{{ route('sewa-kendaraan.pesan', ['unit' => $kendaraan->uuid]) }}"
             class="w-full mt-5 btn-orcha btn-orcha-primary !py-2.5 !text-sm">

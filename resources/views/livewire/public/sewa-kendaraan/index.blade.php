@@ -120,6 +120,16 @@ new #[Layout('components.layouts.guest')] #[Title('Sewa Kendaraan — Mobil, HiA
                             </li>
                         @endforeach
                     </ul>
+
+                    {{-- Daftar di atas berlaku umum, tetapi sebagian unit memang
+                         ditawarkan all-in. Tanpa catatan ini, halaman menyatakan
+                         hal yang bertentangan dengan kartu unitnya sendiri — dan
+                         yang benar adalah yang tertulis di kartu, karena itu
+                         dibaca dari datanya. --}}
+                    <p class="pt-3 mt-3 text-xs border-t text-slate-500 border-orcha-foam">
+                        Sebagian unit ditawarkan all-in. Keterangan BBM, tol, dan parkir untuk tiap
+                        unit tertulis di kartunya masing-masing.
+                    </p>
                 </div>
             </div>
 

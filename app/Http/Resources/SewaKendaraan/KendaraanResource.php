@@ -34,6 +34,9 @@ class KendaraanResource extends JsonResource
             // spesifikasi pabriknya tetap bisa disebut tanpa ada halaman yang
             // perlu menghitung sendiri.
             'kursi_total' => $this->kursi_total,
+            'termasuk_operasional' => (bool) $this->termasuk_operasional,
+            'biaya_operasional' => $this->biaya_operasional,
+            'operasional_label' => $this->operasional_label,
             'transmisi_tersedia' => $this->transmisi_tersedia_list,
             'transmisi_label' => $this->transmisi_label,
             'tarif' => [

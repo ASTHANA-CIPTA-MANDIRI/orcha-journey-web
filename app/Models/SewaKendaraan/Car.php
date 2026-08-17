@@ -34,6 +34,8 @@ class Car extends Model
         'tahun',
         'cc',
         'lepas_kunci',
+        'termasuk_operasional',
+        'biaya_operasional',
     ];
 
     protected $casts = [
@@ -46,6 +48,7 @@ class Car extends Model
         'kondisi_terkini' => 'array',
         'kondisi_diperiksa_pada' => 'datetime',
         'lepas_kunci' => 'boolean',
+        'termasuk_operasional' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -116,13 +119,23 @@ class Car extends Model
 
         $total = $tarif * $durasi;
 
+        // Sopir dan biaya operasional sama-sama dihitung harian; sewa per jam
+        // tetap terhitung satu hari kerja.
+        $hari = match ($satuan) {
+            'hari' => $durasi,
+            default => 1,
+        };
+
         if ($denganSopir && $this->harga_sopir) {
-            // Sopir dihitung harian; sewa per jam tetap terhitung satu hari kerja
-            $hari = match ($satuan) {
-                'hari' => $durasi,
-                default => 1,
-            };
             $total += $this->harga_sopir * $hari;
+        }
+
+        // Biaya paket all-in ikut dihitung karena penyewa memang akan
+        // membayarnya. Perkiraan yang melewatkannya menampilkan angka lebih
+        // rendah daripada yang ditagihkan — dan selisih itu baru ketahuan saat
+        // pembayaran.
+        if ($this->termasuk_operasional && $this->biaya_operasional) {
+            $total += $this->biaya_operasional * $hari;
         }
 
         return (int) $total;
@@ -197,5 +210,28 @@ class Car extends Model
     public function setNopolAttribute($nilai): void
     {
         $this->attributes['nopol'] = NomorPolisi::rapikan($nilai);
+    }
+
+    /**
+     * Keterangan singkat soal BBM, tol, dan parkir.
+     *
+     * Dirakit di satu tempat supaya kartu publik, halaman pemesanan, dan admin
+     * menyebutkan hal yang sama. Tiga keadaan yang berbeda maknanya: ditanggung
+     * penyewa, termasuk dengan tambahan biaya, atau termasuk tanpa tambahan.
+     */
+    public function getOperasionalLabelAttribute(): string
+    {
+        if (! $this->termasuk_operasional) {
+            return 'BBM, tol, dan parkir ditanggung penyewa';
+        }
+
+        return $this->biaya_operasional
+            ? 'BBM, tol, dan parkir termasuk (+'.$this->rupiah($this->biaya_operasional).'/hari)'
+            : 'BBM, tol, dan parkir sudah termasuk harga sewa';
+    }
+
+    private function rupiah(int $angka): string
+    {
+        return 'Rp '.number_format($angka, 0, ',', '.');
     }
 }

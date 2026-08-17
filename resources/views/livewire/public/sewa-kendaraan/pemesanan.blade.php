@@ -420,6 +420,9 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                             </div>
                                         @endforeach
                                     </dl>
+                                    <p class="mt-1 text-xs {{ $mobil->termasuk_operasional ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
+                                        {{ $mobil->operasional_label }}
+                                    </p>
                                     @if ($mobil->harga_sopir)
                                         <p class="pt-3 mt-3 text-xs border-t border-white/70 text-slate-600">
                                             Sopir {{ $rupiah($mobil->harga_sopir) }}/hari. BBM, tol, parkir, dan tiket

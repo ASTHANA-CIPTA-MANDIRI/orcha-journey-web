@@ -158,6 +158,8 @@ class KendaraanController extends ApiController
             'tarif_jam' => 'nullable|numeric|min:0',
             'tarif_12jam' => 'nullable|numeric|min:0',
             'tarif_sopir' => 'nullable|numeric|min:0',
+            'termasuk_operasional' => 'nullable|boolean',
+            'biaya_operasional' => 'nullable|numeric|min:0|max:100000000',
             'tersedia' => 'nullable|boolean',
             'gambar' => 'nullable|image|max:4096',
         ]);
@@ -190,6 +192,13 @@ class KendaraanController extends ApiController
             'harga_per_jam' => ($data['tarif_jam'] ?? null) ?: null,
             'harga_12_jam' => ($data['tarif_12jam'] ?? null) ?: null,
             'harga_sopir' => ($data['tarif_sopir'] ?? null) ?: null,
+            'termasuk_operasional' => (bool) ($data['termasuk_operasional'] ?? false),
+            // Nominal hanya disimpan bila paketnya memang termasuk. Menyimpan
+            // angka pada unit yang tidak all-in meninggalkan biaya siluman yang
+            // ikut terpakai begitu penandanya dinyalakan lagi.
+            'biaya_operasional' => ($data['termasuk_operasional'] ?? false)
+                ? (($data['biaya_operasional'] ?? null) ?: null)
+                : null,
             'is_available' => (bool) ($data['tersedia'] ?? true),
             'image' => $this->simpanGambar($request, 'cars', $gambarLama),
         ];
