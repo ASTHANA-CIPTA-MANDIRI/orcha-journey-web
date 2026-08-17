@@ -283,3 +283,125 @@ test('daftar model dan daftar kursi tidak mungkin berbeda isinya', function () {
         expect(array_keys($model))->each->toBeIn($pilihan[$merek]);
     }
 });
+
+/* -------------- JENIS, TIPE, TAHUN, CC -------------- */
+
+test('jenis disimpulkan dari jumlah kursi', function () {
+    $jenis = KatalogKendaraan::jenis();
+
+    // Batas 12 dipilih supaya MPV mewah berkursi 11 tetap terbaca mobil,
+    // sedangkan HiAce 14-15 masuk kelas minibus — sesuai cara unit itu benar-
+    // benar disewakan.
+    expect($jenis['Toyota']['Avanza'])->toBe('mobil')
+        ->and($jenis['Kia']['Carnival'])->toBe('mobil')
+        ->and($jenis['Toyota']['HiAce Premio'])->toBe('hiace')
+        ->and($jenis['Mercedes-Benz']['Sprinter'])->toBe('hiace')
+        ->and($jenis['Hino']['Bus RK'])->toBe('bus')
+        ->and($jenis['Golden Dragon']['Bus Pariwisata'])->toBe('bus');
+});
+
+test('jenis yang disimpulkan selalu kunci yang sah di config', function () {
+    $sah = array_keys(config('orcha.jenis_kendaraan'));
+
+    foreach (KatalogKendaraan::jenis() as $model) {
+        expect(array_values($model))->each->toBeIn($sah);
+    }
+});
+
+test('isi silinder dan tipe tersedia untuk model yang diketahui', function () {
+    expect(KatalogKendaraan::mesin()['Toyota']['Agya'])->toBe(1200)
+        ->and(KatalogKendaraan::varian()['Toyota']['Agya'])->toContain('GR Sport')
+        ->and(KatalogKendaraan::varian()['Mitsubishi']['Xpander'])->toContain('Ultimate');
+});
+
+test('model tanpa data cc tidak mengarang angkanya', function () {
+    // Menuliskan cc untuk 180 model berarti mengarang untuk sebagian besarnya.
+    expect(KatalogKendaraan::mesin()['Toyota'] ?? [])->not->toHaveKey('Sienta');
+});
+
+test('tipe yang dipakai unit di armada ikut jadi pilihan', function () {
+    Car::create([
+        'name' => 'Avanza', 'brand' => 'Toyota', 'varian' => 'Veloz Q', 'type' => 'mobil',
+        'transmission' => 'Matic', 'capacity' => 7, 'price_per_day' => 500000,
+        'is_available' => true, 'transmisi_tersedia' => ['Matic'],
+    ]);
+
+    // Tipe yang pernah ditulis sekali tidak perlu ditulis ulang untuk unit
+    // sejenis berikutnya.
+    expect(KatalogKendaraan::varian()['Toyota']['Avanza'])->toContain('Veloz Q')
+        ->and(KatalogKendaraan::varian()['Toyota']['Avanza'])->toContain('G');
+});
+
+test('cc dari armada menimpa angka bawaan, kosong tidak menghapusnya', function () {
+    Car::create([
+        'name' => 'Agya', 'brand' => 'Toyota', 'type' => 'mobil',
+        'transmission' => 'Manual', 'capacity' => 5, 'cc' => 1000,
+        'price_per_day' => 250000, 'is_available' => true, 'transmisi_tersedia' => ['Manual'],
+    ]);
+    Car::create([
+        'name' => 'Calya', 'brand' => 'Toyota', 'type' => 'mobil',
+        'transmission' => 'Manual', 'capacity' => 7, 'price_per_day' => 300000,
+        'is_available' => true, 'transmisi_tersedia' => ['Manual'],
+    ]);
+
+    expect(KatalogKendaraan::mesin()['Toyota']['Agya'])->toBe(1000)
+        ->and(KatalogKendaraan::mesin()['Toyota']['Calya'])->toBe(1200);
+});
+
+test('unit tersimpan lengkap dengan tipe, tahun, dan cc', function () {
+    $balasan = $this->postJson('/api/v1/kendaraan', [
+        'nama' => 'Agya', 'merek' => 'Toyota', 'varian' => 'G', 'tahun' => 2025, 'cc' => 1200,
+        'jenis' => 'mobil', 'kapasitas' => 5, 'transmisi_tersedia' => ['Matic'],
+        'tarif_hari' => 275000,
+    ], kepalaKatalog())->assertCreated();
+
+    $unit = Car::first();
+
+    expect($unit->varian)->toBe('G')
+        ->and($unit->tahun)->toBe(2025)
+        ->and($unit->cc)->toBe(1200)
+        // Sebutannya dirakit sekali di Orcha, supaya lemon dan halaman publik
+        // tidak masing-masing menyusun urutannya lalu berbeda.
+        ->and($unit->sebutan_lengkap)->toBe('Toyota Agya G 2025 · 1.200 cc');
+});
+
+test('tahun jauh di depan ditolak', function () {
+    // Salah ketik tahun tidak pernah kelihatan salah, jadi dijaga di validasi.
+    $this->postJson('/api/v1/kendaraan', [
+        'nama' => 'Agya', 'merek' => 'Toyota', 'tahun' => 2035,
+        'jenis' => 'mobil', 'kapasitas' => 5, 'transmisi_tersedia' => ['Matic'],
+        'tarif_hari' => 275000,
+    ], kepalaKatalog())->assertStatus(422);
+});
+
+test('unit lama tanpa tahun dan cc tetap terbaca wajar', function () {
+    $unit = Car::create([
+        'name' => 'Avanza', 'brand' => 'Toyota', 'type' => 'mobil',
+        'transmission' => 'Manual', 'capacity' => 7, 'price_per_day' => 400000,
+        'is_available' => true, 'transmisi_tersedia' => ['Manual'],
+    ]);
+
+    expect($unit->sebutan_lengkap)->toBe('Toyota Avanza');
+});
+
+test('rincian per model terkirim lewat rujukan', function () {
+    $data = $this->getJson('/api/v1/rujukan', kepalaKatalog())->assertOk()->json('data');
+
+    expect($data['jenis_per_model']['Toyota']['HiAce Commuter'])->toBe('hiace')
+        ->and($data['cc_per_model']['Toyota']['Agya'])->toBe(1200)
+        ->and($data['varian_per_model']['Toyota']['Agya'])->toContain('G');
+});
+
+test('kendaraan bisa dibuat dengan hanya isian wajib', function () {
+    // Tarif opsional yang tidak dikirim sama sekali sebelumnya membuat
+    // permintaan gagal 500, bukan tersimpan tanpa tarif jam.
+    $this->postJson('/api/v1/kendaraan', [
+        'nama' => 'Xenia', 'merek' => 'Daihatsu', 'jenis' => 'mobil',
+        'kapasitas' => 7, 'transmisi_tersedia' => ['Manual'], 'tarif_hari' => 350000,
+    ], kepalaKatalog())->assertCreated();
+
+    $unit = Car::first();
+
+    expect($unit->harga_per_jam)->toBeNull()
+        ->and($unit->price_per_day)->toBe(350000);
+});

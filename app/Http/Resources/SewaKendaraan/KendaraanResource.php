@@ -17,6 +17,12 @@ class KendaraanResource extends JsonResource
             'uuid' => $this->uuid,
             'nama' => $this->name,
             'merek' => $this->brand,
+            'varian' => $this->varian,
+            'tahun' => $this->tahun,
+            'cc' => $this->cc,
+            // Sebutan lengkap dirakit di sini, sekali, supaya lemon dan halaman
+            // publik tidak masing-masing menyusun urutannya sendiri lalu berbeda.
+            'sebutan' => $this->sebutan_lengkap,
             'jenis' => $this->type,
             'jenis_label' => $this->type_label,
             'nopol' => $this->nopol,

@@ -137,6 +137,12 @@ class KendaraanController extends ApiController
         return $request->validate([
             'nama' => 'required|string|max:255',
             'merek' => 'required|string|max:100',
+            'varian' => 'nullable|string|max:60',
+            // Batas tahun sengaja longgar ke belakang (Kijang Kapsul 1997 masih
+            // disewakan) tetapi hanya satu tahun ke depan: unit tahun 2035 pasti
+            // salah ketik, dan salah ketik tahun tidak pernah kelihatan salah.
+            'tahun' => 'nullable|integer|min:1980|max:'.(date('Y') + 1),
+            'cc' => 'nullable|integer|min:500|max:20000',
             'jenis' => 'required|in:'.implode(',', array_keys(config('orcha.jenis_kendaraan'))),
             'nopol' => 'nullable|string|max:20',
             'kapasitas' => 'required|integer|min:1|max:80',
@@ -158,15 +164,23 @@ class KendaraanController extends ApiController
         return [
             'name' => $data['nama'],
             'brand' => $data['merek'],
+            'varian' => trim((string) ($data['varian'] ?? '')) ?: null,
+            'tahun' => $data['tahun'] ?? null,
+            'cc' => $data['cc'] ?? null,
             'type' => $data['jenis'],
             'nopol' => $data['nopol'] ?? null,
             'capacity' => $data['kapasitas'],
             'transmission' => $transmisi[0],
             'transmisi_tersedia' => $transmisi,
             'price_per_day' => $data['tarif_hari'],
-            'harga_per_jam' => $data['tarif_jam'] ?: null,
-            'harga_12_jam' => $data['tarif_12jam'] ?: null,
-            'harga_sopir' => $data['tarif_sopir'] ?: null,
+            // ?? mendahului ?: karena tarif opsional yang TIDAK dikirim sama
+            // sekali tidak ada kuncinya di data tervalidasi — sebelumnya itu
+            // membuat permintaan gagal dengan galat 500, bukan tersimpan tanpa
+            // tarif jam. lemon selalu mengirim ketiganya, jadi tidak pernah
+            // terlihat sampai ada pemanggil yang mengirim yang wajib saja.
+            'harga_per_jam' => ($data['tarif_jam'] ?? null) ?: null,
+            'harga_12_jam' => ($data['tarif_12jam'] ?? null) ?: null,
+            'harga_sopir' => ($data['tarif_sopir'] ?? null) ?: null,
             'is_available' => (bool) ($data['tersedia'] ?? true),
             'image' => $this->simpanGambar($request, 'cars', $gambarLama),
         ];

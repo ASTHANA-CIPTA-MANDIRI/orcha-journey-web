@@ -29,6 +29,9 @@ class Car extends Model
         'kondisi_terkini',
         'kondisi_diperiksa_pada',
         'kondisi_catatan',
+        'varian',
+        'tahun',
+        'cc',
     ];
 
     protected $casts = [
@@ -130,5 +133,28 @@ class Car extends Model
     public function penyewaan(): HasMany
     {
         return $this->hasMany(PenyewaanKendaraan::class);
+    }
+
+    /**
+     * Sebutan lengkap unit: "Toyota Agya G 2025 · 1.200 cc".
+     *
+     * Dirakit dari kolom terpisah, bukan dibaca dari satu kolom nama yang sudah
+     * dijejali semuanya. Bagian yang belum diketahui dilewati, jadi unit lama
+     * yang tahun dan cc-nya kosong tetap terbaca wajar sebagai "Toyota Avanza".
+     */
+    public function getSebutanLengkapAttribute(): string
+    {
+        $bagian = array_filter([
+            trim((string) $this->brand),
+            trim((string) $this->name),
+            trim((string) $this->varian),
+            $this->tahun ? (string) $this->tahun : null,
+        ]);
+
+        $sebutan = implode(' ', $bagian);
+
+        return $this->cc
+            ? $sebutan.' · '.number_format($this->cc, 0, ',', '.').' cc'
+            : $sebutan;
     }
 }
