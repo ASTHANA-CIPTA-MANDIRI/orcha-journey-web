@@ -478,10 +478,18 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                 <input id="sk-situs" type="text" wire:model="situs" tabindex="-1" autocomplete="off">
                             </div>
 
-                            <div>
-                                <h2 class="text-xl font-bold font-heading text-orcha-navy">Pilih Kendaraan</h2>
-                                <p class="mt-1 text-sm text-slate-500">Tarif per jam, per 12 jam, dan per hari berbeda —
-                                    pilih yang paling sesuai kebutuhan.</p>
+                            {{-- Bagian formulir dinomori. Tiga judul tanpa nomor terbaca
+                                 sebagai tiga kotak yang berdiri sendiri, sehingga penyewa
+                                 tidak tahu ia sedang di bagian ke berapa dan berapa lagi
+                                 yang tersisa — pertanyaan pertama yang membuat orang
+                                 menutup formulir panjang. --}}
+                            <div class="flex items-start gap-3">
+                                <span class="langkah-orcha">1</span>
+                                <div>
+                                    <h2 class="text-xl font-bold font-heading text-orcha-navy">Pilih Kendaraan</h2>
+                                    <p class="mt-1 text-sm text-slate-500">Tarif per jam, per 12 jam, dan per hari
+                                        berbeda — pilih yang paling sesuai kebutuhan.</p>
+                                </div>
                             </div>
 
                             <div>
@@ -506,24 +514,72 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                             </div>
 
                             @if ($mobil)
+                                {{-- Daftar tarif, bukan tiga kolom sejajar.
+
+                                     Sebagai tiga kolom, satuan yang TIDAK dijual unit ini
+                                     ("Tidak tersedia") ditulis setebal harga yang sungguh
+                                     ada, dan tidak ada yang menunjukkan tarif mana yang
+                                     sedang dipakai untuk pesanan ini — penyewa melihat tiga
+                                     angka lalu menebak sendiri. --}}
                                 <div class="p-5 rounded-2xl bg-orcha-foam/70">
                                     <p class="text-xs font-bold tracking-wider uppercase text-orcha-ocean">Tarif unit
                                         ini</p>
-                                    <dl class="grid gap-3 mt-3 sm:grid-cols-3">
-                                        @foreach ([['Per jam', $mobil->harga_per_jam], ['Paket 12 jam', $mobil->harga_12_jam], ['Per hari', $mobil->price_per_day]] as [$label, $harga])
-                                            <div>
-                                                <dt class="text-xs text-slate-500">{{ $label }}</dt>
-                                                <dd class="font-bold text-orcha-navy tabular">
-                                                    {{ $harga ? $rupiah($harga) : 'Tidak tersedia' }}</dd>
+
+                                    @php
+                                        $barisTarif = [
+                                            ['jam', 'Per jam', $mobil->harga_per_jam],
+                                            ['12jam', 'Paket 12 jam', $mobil->harga_12_jam],
+                                            ['hari', 'Per hari', $mobil->price_per_day],
+                                        ];
+
+                                        if ($mobil->punya_tarif_luar_kota) {
+                                            $barisTarif[] = ['luar', 'Luar kota per hari', $mobil->harga_luar_kota];
+                                        }
+
+                                        // Tarif yang dipakai mengikuti pilihan wilayah lebih
+                                        // dulu: unit yang disewa ke luar kota selalu dihitung
+                                        // harian, satuan apa pun yang dipilih sebelumnya.
+                                        $tarifDipakai = $luarKota && $mobil->punya_tarif_luar_kota ? 'luar' : $satuan;
+                                    @endphp
+
+                                    <dl class="mt-3 space-y-1.5">
+                                        @foreach ($barisTarif as [$kunci, $label, $harga])
+                                            <div
+                                                class="flex items-baseline justify-between gap-3 text-sm {{ $kunci === $tarifDipakai ? 'font-semibold text-orcha-navy' : '' }}">
+                                                <dt class="flex items-center gap-2 {{ $kunci === $tarifDipakai ? '' : 'text-slate-500' }}">
+                                                    {{ $label }}
+                                                    @if ($kunci === $tarifDipakai)
+                                                        <span
+                                                            class="px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase rounded text-white bg-orcha-ocean">
+                                                            Dipakai
+                                                        </span>
+                                                    @endif
+                                                </dt>
+                                                <dd class="tabular {{ $harga ? ($kunci === $tarifDipakai ? 'font-black text-orcha-navy' : 'font-bold text-orcha-ocean') : 'text-slate-400' }}">
+                                                    {{ $harga ? $rupiah($harga) : 'Tidak dijual' }}
+                                                </dd>
                                             </div>
                                         @endforeach
                                     </dl>
-                                    <p class="mt-1 text-xs {{ collect($mobil->rincian_operasional)->contains('termasuk', true) ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
-                                        {{ $mobil->operasional_label }}
-                                    </p>
-                                    <p class="mt-1 text-xs {{ $mobil->termasuk_sopir ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
-                                        {{ $mobil->sopir_label }}
-                                    </p>
+
+                                    {{-- Keterangan sopir dan BBM jadi daftar berikon, bukan dua
+                                         kalimat biru bertumpuk yang terbaca seperti tautan. --}}
+                                    <ul class="pt-3 mt-3 space-y-1.5 text-xs border-t text-slate-500 border-white">
+                                        @foreach ([[collect($mobil->rincian_operasional)->contains('termasuk', true), $mobil->operasional_label], [$mobil->termasuk_sopir, $mobil->sopir_label]] as [$termasuk, $kalimat])
+                                            <li class="flex items-start gap-1.5">
+                                                @if ($termasuk)
+                                                    <x-heroicon-s-check-circle
+                                                        class="w-4 h-4 mt-px shrink-0 text-orcha-ocean" />
+                                                @else
+                                                    <x-heroicon-o-information-circle
+                                                        class="w-4 h-4 mt-px shrink-0 text-slate-300" />
+                                                @endif
+                                                <span class="{{ $termasuk ? 'font-semibold text-slate-600' : '' }}">
+                                                    {{ $kalimat }}
+                                                </span>
+                                            </li>
+                                        @endforeach
+                                    </ul>
                                 </div>
                             @endif
 
@@ -566,8 +622,13 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
 
                             <hr class="border-orcha-foam">
 
-                            <div>
-                                <h2 class="text-xl font-bold font-heading text-orcha-navy">Waktu Sewa</h2>
+                            <div class="flex items-start gap-3">
+                                <span class="langkah-orcha">2</span>
+                                <div>
+                                    <h2 class="text-xl font-bold font-heading text-orcha-navy">Waktu Sewa</h2>
+                                    <p class="mt-1 text-sm text-slate-500">Tanggal, lama pakai, wilayah perjalanan, dan
+                                        kebutuhan sopir.</p>
+                                </div>
                             </div>
 
                             <div class="grid gap-5 sm:grid-cols-2">
@@ -666,25 +727,38 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                      hanya menebak, dan selisih tarifnya baru dipersoalkan saat
                                      menagih. Kalimatnya diambil dari config supaya bisa diubah
                                      tanpa menyentuh berkas ini. --}}
-                                <p class="mt-2 text-xs text-slate-500">
-                                    {{ config('orcha.wilayah_sewa.dalam_kota') }}
-                                </p>
-
-                                @if ($mobil)
-                                    <p class="mt-1 text-xs {{ $mobil->punya_tarif_luar_kota ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
-                                        {{ $mobil->luar_kota_label }}
-                                        @if ($luarKota)
-                                            · dihitung harian
-                                        @endif
+                                {{-- Tiga keterangan disatukan ke dalam satu kotak. Sebagai tiga
+                                     baris lepas berwarna beda-beda, ketiganya terbaca seperti
+                                     tiga peringatan berturut-turut di bawah pilihan yang baru
+                                     saja dibuat — padahal isinya satu hal: apa batasnya, berapa
+                                     tarifnya, dan apa yang terjadi kalau salah pilih. --}}
+                                <div class="p-4 mt-3 space-y-2 text-xs rounded-2xl bg-orcha-foam/60 text-slate-500">
+                                    <p class="flex items-start gap-2">
+                                        <x-heroicon-o-map class="w-4 h-4 mt-px shrink-0 text-orcha-ocean" />
+                                        <span>{{ config('orcha.wilayah_sewa.dalam_kota') }}</span>
                                     </p>
-                                @endif
 
-                                {{-- Pilihan penyewa bukan keputusan akhir: pesanan ini masih
-                                     permintaan yang dikonfirmasi admin, jadi salah pilih tidak
-                                     berakhir sebagai tagihan yang mengejutkan. --}}
-                                <p class="mt-1 text-xs text-slate-400">
-                                    {{ config('orcha.wilayah_sewa.catatan') }}
-                                </p>
+                                    @if ($mobil)
+                                        <p class="flex items-start gap-2 {{ $mobil->punya_tarif_luar_kota ? 'font-semibold text-slate-600' : '' }}">
+                                            <x-heroicon-o-banknotes class="w-4 h-4 mt-px shrink-0 text-orcha-ocean" />
+                                            <span>
+                                                {{ $mobil->luar_kota_label }}
+                                                @if ($luarKota)
+                                                    · dihitung harian
+                                                @endif
+                                            </span>
+                                        </p>
+                                    @endif
+
+                                    {{-- Pilihan penyewa bukan keputusan akhir: pesanan ini masih
+                                         permintaan yang dikonfirmasi admin, jadi salah pilih tidak
+                                         berakhir sebagai tagihan yang mengejutkan. --}}
+                                    <p class="flex items-start gap-2">
+                                        <x-heroicon-o-chat-bubble-left-right
+                                            class="w-4 h-4 mt-px shrink-0 text-slate-400" />
+                                        <span>{{ config('orcha.wilayah_sewa.catatan') }}</span>
+                                    </p>
+                                </div>
                             </fieldset>
 
                             <fieldset>
@@ -804,8 +878,13 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
 
                             <hr class="border-orcha-foam">
 
-                            <div>
-                                <h2 class="text-xl font-bold font-heading text-orcha-navy">Data Penyewa</h2>
+                            <div class="flex items-start gap-3">
+                                <span class="langkah-orcha">3</span>
+                                <div>
+                                    <h2 class="text-xl font-bold font-heading text-orcha-navy">Data Penyewa</h2>
+                                    <p class="mt-1 text-sm text-slate-500">Nomor WhatsApp dipakai untuk mengirim
+                                        rincian biaya final.</p>
+                                </div>
                             </div>
 
                             <div class="grid gap-5 sm:grid-cols-2">
@@ -893,6 +972,45 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                     </p>
                                 @endif
                             </div>
+
+                            {{-- Perincian angkanya, bukan angka tunggal.
+
+                                 "Rp 1.800.000" tanpa penjelasan memancing pertanyaan yang
+                                 sama berulang kali lewat WhatsApp — kenapa segitu, sopirnya
+                                 sudah termasuk belum, BBM-nya dihitung tidak. Rinciannya
+                                 dijumlahkan di model dan totalnya diambil DARI jumlah itu,
+                                 jadi yang dibaca penyewa tidak mungkin berbeda dari yang
+                                 tersimpan. --}}
+                            @php
+                                $rincianEstimasi = $mobil
+                                    ? $mobil->rincianEstimasi($satuan, (int) $durasi, $denganSopir === 'ya', (bool) $luarKota)
+                                    : [];
+                            @endphp
+
+                            @if ($rincianEstimasi)
+                                <div class="px-6 pt-5 sm:px-7">
+                                    <dl class="space-y-2 text-sm">
+                                        @foreach ($rincianEstimasi as $pos)
+                                            <div class="flex items-baseline justify-between gap-3">
+                                                <dt class="text-slate-600">
+                                                    {{ $pos['label'] }}
+                                                    <span
+                                                        class="block text-xs text-slate-400 tabular">{{ $pos['keterangan'] }}</span>
+                                                </dt>
+                                                <dd class="font-semibold text-orcha-navy tabular">
+                                                    {{ $rupiah($pos['jumlah']) }}
+                                                </dd>
+                                            </div>
+                                        @endforeach
+
+                                        <div
+                                            class="flex items-baseline justify-between gap-3 pt-2 border-t border-orcha-foam">
+                                            <dt class="font-bold text-orcha-navy">Perkiraan total</dt>
+                                            <dd class="font-black text-orcha-navy tabular">{{ $rupiah($estimasi) }}</dd>
+                                        </div>
+                                    </dl>
+                                </div>
+                            @endif
 
                             <div class="p-6 text-xs sm:p-7 text-slate-500">
                                 <p>Angka di atas baru perkiraan. Biaya final dikonfirmasi tim kami setelah ketersediaan

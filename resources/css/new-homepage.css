@@ -663,6 +663,27 @@ input[type="radio"] {
     padding-right: 6.5rem;
 }
 
+/* Nomor langkah pada formulir pemesanan.
+
+   Ukurannya dikunci lewat width/height dan isinya ditengahkan dengan flex —
+   bukan lewat line-height. Angka satu digit dan dua digit punya tinggi kotak
+   baris yang berbeda, dan lingkaran yang mengandalkan line-height akan berhenti
+   bundar begitu nomornya berubah. */
+.langkah-orcha {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    background: var(--color-orcha-ocean);
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.9rem;
+    line-height: 1;
+}
+
 .isian-orcha:focus {
     outline: none;
     border-color: var(--color-orcha-sky);

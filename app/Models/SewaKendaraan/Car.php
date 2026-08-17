@@ -117,16 +117,43 @@ class Car extends Model
     /**
      * Perkiraan biaya sewa. Angka final tetap dikonfirmasi tim, karena BBM,
      * tol, dan biaya lokasi dihitung terpisah.
+     *
+     * Totalnya dijumlahkan DARI rinciannya, bukan dihitung ulang tersendiri.
+     * Dua hitungan sejajar untuk angka yang sama pasti berselisih suatu saat —
+     * dan yang dilihat penyewa adalah rinciannya, sementara yang tersimpan
+     * totalnya, jadi selisihnya baru ketahuan saat menagih.
      */
     public function estimasiBiaya(string $satuan, int $durasi, bool $denganSopir = false, bool $luarKota = false): ?int
+    {
+        $rincian = $this->rincianEstimasi($satuan, $durasi, $denganSopir, $luarKota);
+
+        if ($rincian === []) {
+            return null;
+        }
+
+        return (int) array_sum(array_column($rincian, 'jumlah'));
+    }
+
+    /**
+     * Perincian perkiraan biaya, baris demi baris.
+     *
+     * Angka tunggal tanpa perincian membuat penyewa bertanya "kok segitu?" —
+     * lalu menanyakannya lewat WhatsApp satu per satu. Tiap baris menyebut
+     * pengalinya sendiri, karena sopir dan biaya operasional dihitung HARIAN
+     * sementara tarifnya bisa per jam.
+     *
+     * Kosong berarti tidak bisa diperkirakan: satuan yang tidak dijual unit ini,
+     * atau lama sewa yang belum masuk akal.
+     *
+     * @return array<int, array{label: string, keterangan: string, jumlah: int}>
+     */
+    public function rincianEstimasi(string $satuan, int $durasi, bool $denganSopir = false, bool $luarKota = false): array
     {
         $tarif = $luarKota ? $this->tarif_luar_kota : $this->tarif($satuan);
 
         if ($tarif === null || $durasi < 1) {
-            return null;
+            return [];
         }
-
-        $total = $tarif * $durasi;
 
         // Sopir dan biaya operasional sama-sama dihitung harian; sewa per jam
         // tetap terhitung satu hari kerja.
@@ -135,20 +162,50 @@ class Car extends Model
             default => 1,
         };
 
+        $satuanKata = $luarKota
+            ? 'hari'
+            : (config("orcha.satuan_sewa.{$satuan}.satuan") ?? 'hari');
+
+        $rincian = [[
+            'label' => $luarKota ? 'Tarif luar kota' : 'Tarif sewa',
+            'keterangan' => $this->kali($tarif, $durasi, $satuanKata),
+            'jumlah' => (int) ($tarif * $durasi),
+        ]];
+
         // Tarif yang sudah termasuk sopir tidak ditambahi lagi. Menambahkannya
         // berarti menagih sopir dua kali untuk unit yang harganya justru sudah
         // dihitung bersama sopirnya.
         if ($denganSopir && ! $this->termasuk_sopir && $this->harga_sopir) {
-            $total += $this->harga_sopir * $hari;
+            $rincian[] = [
+                'label' => 'Sopir',
+                'keterangan' => $this->kali((int) $this->harga_sopir, $hari, 'hari'),
+                'jumlah' => (int) ($this->harga_sopir * $hari),
+            ];
         }
 
         // Biaya pos yang termasuk ikut dihitung karena penyewa memang akan
         // membayarnya. Perkiraan yang melewatkannya menampilkan angka lebih
         // rendah daripada yang ditagihkan — dan selisih itu baru ketahuan saat
-        // pembayaran.
-        $total += $this->biaya_operasional_total * $hari;
+        // pembayaran. Disebut nama posnya, bukan "biaya operasional": penyewa
+        // berhak tahu yang dibayarnya BBM atau parkir.
+        foreach ($this->rincian_operasional as $pos) {
+            if (! $pos['termasuk'] || $pos['biaya'] < 1) {
+                continue;
+            }
 
-        return (int) $total;
+            $rincian[] = [
+                'label' => $pos['label'],
+                'keterangan' => $this->kali((int) $pos['biaya'], $hari, 'hari'),
+                'jumlah' => (int) ($pos['biaya'] * $hari),
+            ];
+        }
+
+        return $rincian;
+    }
+
+    private function kali(int $satuanHarga, int $banyak, string $satuanKata): string
+    {
+        return 'Rp '.number_format($satuanHarga, 0, ',', '.')." × {$banyak} {$satuanKata}";
     }
 
     public function scopeOfType($query, ?string $type)
