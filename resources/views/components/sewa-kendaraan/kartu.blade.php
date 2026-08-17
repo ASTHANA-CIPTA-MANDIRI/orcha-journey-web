@@ -80,7 +80,15 @@
             @if ($kendaraan->cc) · {{ number_format($kendaraan->cc, 0, ',', '.') }} cc @endif
         </p>
 
-        <div class="flex flex-wrap mt-3 text-sm gap-x-4 gap-y-1 text-slate-600">
+        {{-- my-auto, bukan mt-auto di kotak tarif. Sisa ruang kartu — yang muncul
+             karena isi tiap unit tidak sama panjang — dibagi rata ke atas dan ke
+             bawah baris ini, jadi terbaca sebagai dua jarak napas, bukan satu
+             lubang menganga tepat di atas harga. Tombolnya tetap sebaris karena
+             seluruh sisa ruang tetap habis sebelum kotak tarif.
+
+             Penumpang di kiri, transmisi di kanan: tepi kanannya lurus dengan
+             angka harga di bawahnya. --}}
+        <div class="flex flex-wrap justify-between py-3 my-auto text-sm gap-x-4 gap-y-1 text-slate-600">
             <span class="inline-flex items-center gap-1.5">
                 <x-heroicon-o-user-group class="w-4 h-4 shrink-0 text-orcha-sun" />
                 {{-- capacity berisi kursi PENUMPANG, jadi inilah angka yang boleh
@@ -97,43 +105,54 @@
             </span>
         </div>
 
-        {{-- mt-auto di sini yang membuat tombol tiap kartu sebaris. Karena sisa
-             ruang diserap SEBELUM blok tarif, semua yang sesudahnya menempel ke
-             dasar kartu; selisih tinggi jatuh sebagai jarak di atas kotak tarif,
-             bukan sebagai lubang di antara tombol. --}}
-        <div class="p-4 mt-auto rounded-2xl bg-orcha-foam/70">
+        {{-- Kotak tarif dibaca sebagai daftar harga, bukan sebagai tumpukan
+             kalimat: keterangan rata kiri, angkanya rata KANAN. Semua nominal
+             jatuh di satu garis tegak — itu yang membuat kartunya terlihat
+             tertata, dan mata bisa membandingkan harga antar-baris tanpa
+             menyusurinya satu per satu. --}}
+        <div class="p-4 rounded-2xl bg-orcha-foam/70">
             {{-- Tarif harian dijadikan angka utama. Sebelumnya ketiga satuan
                  ditulis sederajat sebagai daftar, sehingga mata tidak menemukan
                  harga mana yang harus dibaca lebih dulu. --}}
-            <p class="text-xs font-semibold tracking-wide uppercase text-slate-500">Per hari (24 jam)</p>
-            <p class="text-2xl font-black leading-tight font-heading text-orcha-navy tabular">
-                {{ $rupiah($kendaraan->price_per_day) }}
-            </p>
+            <div class="flex items-baseline justify-between gap-2">
+                <span class="text-xs font-semibold tracking-wide uppercase text-slate-500">Per hari (24 jam)</span>
+                <span class="text-2xl font-black leading-none font-heading text-orcha-navy tabular">
+                    {{ $rupiah($kendaraan->price_per_day) }}
+                </span>
+            </div>
 
-            @if ($tarifLain->isNotEmpty())
-                <div class="flex flex-wrap gap-1.5 mt-2.5">
+            @if ($tarifLain->isNotEmpty() || $kendaraan->punya_tarif_luar_kota)
+                <div class="pt-2.5 mt-2.5 space-y-1.5 border-t border-white">
                     @foreach ($tarifLain as [$label, $harga])
-                        <span class="px-2 py-1 text-xs bg-white rounded-lg text-slate-600">
-                            {{ $label }}
-                            <b class="font-bold text-orcha-ocean tabular">{{ $rupiah($harga) }}</b>
-                        </span>
+                        <div class="flex items-baseline justify-between gap-2 text-xs">
+                            <span class="text-slate-500">{{ $label }}</span>
+                            <span class="font-bold text-orcha-ocean tabular">{{ $rupiah($harga) }}</span>
+                        </div>
                     @endforeach
-                </div>
-            @endif
 
-            {{-- Hanya disebut bila memang berbeda: menuliskan "luar kota tarifnya
-                 sama" di setiap kartu menambah baris tanpa menambah keterangan.
-                 Letaknya di dalam kotak tarif karena ia memang tarif, bukan
-                 catatan kaki. --}}
-            @if ($kendaraan->punya_tarif_luar_kota)
-                <p class="flex items-center gap-1.5 pt-2.5 mt-2.5 text-xs border-t text-slate-600 border-white">
-                    <x-heroicon-o-map-pin class="w-4 h-4 shrink-0 text-orcha-ocean" />
-                    Luar kota
-                    {{-- Angka dan satuannya satu elemen, bukan dua: sebagai dua
-                         anak flex keduanya terpisah jarak gap sehingga terbaca
-                         "Rp 2.000.000 / hari" dengan celah di tengah. --}}
-                    <span><b class="font-bold text-orcha-ocean tabular">{{ $rupiah($kendaraan->harga_luar_kota) }}</b>/hari</span>
-                </p>
+                    {{-- Hanya disebut bila memang berbeda: menuliskan "luar kota
+                         tarifnya sama" di setiap kartu menambah baris tanpa
+                         menambah keterangan. Letaknya di dalam kotak tarif karena
+                         ia memang tarif, bukan catatan kaki. --}}
+                    @if ($kendaraan->punya_tarif_luar_kota)
+                        <div class="flex items-baseline justify-between gap-2 text-xs">
+                            {{-- Satuan "per hari" ikut di sisi label, bukan
+                                 dilekatkan di belakang angkanya. Sebagai akhiran,
+                                 ia mendorong nominalnya ke kiri sehingga digit
+                                 baris ini tidak lagi lurus dengan harga di
+                                 atasnya — justru merusak barisan yang jadi
+                                 tujuan penataan ini. Luar kota memang hanya
+                                 dihitung harian, jadi satuannya tetap disebut. --}}
+                            <span class="inline-flex items-center gap-1 text-slate-500">
+                                <x-heroicon-o-map-pin class="w-3.5 h-3.5 shrink-0 text-orcha-ocean" />
+                                Luar kota per hari
+                            </span>
+                            <span class="font-bold text-orcha-ocean tabular">
+                                {{ $rupiah($kendaraan->harga_luar_kota) }}
+                            </span>
+                        </div>
+                    @endif
+                </div>
             @endif
         </div>
 

@@ -149,7 +149,9 @@ test('kartu publik menyebut tarif luar kota hanya bila berbeda', function () {
     // ke penyewa kalimatnya, bukan cara menuliskannya.
     $teks = preg_replace('/\s+/', ' ', strip_tags($this->get(route('sewa-kendaraan'))->assertOk()->getContent()));
 
-    expect($teks)->toContain('Luar kota Rp 800.000/hari');
+    // Satuannya di sisi label supaya digit nominalnya lurus dengan harga
+    // harian di atasnya.
+    expect($teks)->toContain('Luar kota per hari Rp 800.000');
 });
 
 test('kartu publik tidak menyebut apa pun bila tarifnya sama', function () {

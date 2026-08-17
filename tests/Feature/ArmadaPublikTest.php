@@ -319,19 +319,24 @@ test('blok tarif menyerap sisa ruang supaya tombol tiap kartu sebaris', function
     // tidak sama panjang: ada unit dengan tiga satuan tarif, ada yang hanya
     // harian. Tanpa satu elemen yang menyerap sisa ruang, tombol "Pesan Unit Ini"
     // berhenti di ketinggian yang berbeda-beda dan deretannya terlihat berantakan
-    // — persis yang dikeluhkan. Karena mt-auto dipasang SEBELUM blok tarif,
-    // semua yang sesudahnya menempel ke dasar kartu.
+    // — persis yang dikeluhkan. Sisa ruang diserap my-auto pada baris
+    // spesifikasi, jadi habis SEBELUM kotak tarif dan semua yang sesudahnya
+    // menempel ke dasar kartu. my-auto, bukan mt-auto: sisanya dibagi ke atas
+    // dan ke bawah supaya tidak menumpuk jadi satu celah di atas harga.
     $kartu = file_get_contents(base_path('resources/views/components/sewa-kendaraan/kartu.blade.php'));
 
-    expect($kartu)->toContain('mt-auto rounded-2xl')
+    expect($kartu)->toContain('my-auto')
         ->and($kartu)->toContain('h-full');
 
-    // Tombolnya harus tetap elemen terakhir; menyisipkan apa pun sesudahnya
+    // Urutannya yang menentukan: penyerap sisa ruang dulu, lalu kotak tarif,
+    // lalu tombol sebagai elemen terakhir. Menyisipkan apa pun sesudah tombol
     // membatalkan penjajaran itu.
-    $posisiTarif = strpos($kartu, 'mt-auto rounded-2xl');
+    $posisiPenyerap = strpos($kartu, 'my-auto');
+    $posisiTarif = strpos($kartu, 'rounded-2xl bg-orcha-foam');
     $posisiTombol = strpos($kartu, 'Pesan Unit Ini');
 
-    expect($posisiTombol)->toBeGreaterThan($posisiTarif);
+    expect($posisiTarif)->toBeGreaterThan($posisiPenyerap)
+        ->and($posisiTombol)->toBeGreaterThan($posisiTarif);
 });
 
 test('transmisi tidak ditulis dua kali di satu kartu', function () {
