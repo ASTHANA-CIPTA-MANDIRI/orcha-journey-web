@@ -34,8 +34,12 @@ class Car extends Model
         'tahun',
         'cc',
         'lepas_kunci',
-        'termasuk_operasional',
-        'biaya_operasional',
+        'termasuk_bbm',
+        'biaya_bbm',
+        'termasuk_tol',
+        'biaya_tol',
+        'termasuk_parkir',
+        'biaya_parkir',
     ];
 
     protected $casts = [
@@ -48,7 +52,9 @@ class Car extends Model
         'kondisi_terkini' => 'array',
         'kondisi_diperiksa_pada' => 'datetime',
         'lepas_kunci' => 'boolean',
-        'termasuk_operasional' => 'boolean',
+        'termasuk_bbm' => 'boolean',
+        'termasuk_tol' => 'boolean',
+        'termasuk_parkir' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -130,13 +136,11 @@ class Car extends Model
             $total += $this->harga_sopir * $hari;
         }
 
-        // Biaya paket all-in ikut dihitung karena penyewa memang akan
+        // Biaya pos yang termasuk ikut dihitung karena penyewa memang akan
         // membayarnya. Perkiraan yang melewatkannya menampilkan angka lebih
         // rendah daripada yang ditagihkan — dan selisih itu baru ketahuan saat
         // pembayaran.
-        if ($this->termasuk_operasional && $this->biaya_operasional) {
-            $total += $this->biaya_operasional * $hari;
-        }
+        $total += $this->biaya_operasional_total * $hari;
 
         return (int) $total;
     }
@@ -213,21 +217,96 @@ class Car extends Model
     }
 
     /**
-     * Keterangan singkat soal BBM, tol, dan parkir.
+     * Keadaan tiap pos biaya, urut sesuai config.
+     *
+     * @return array<string, array{label: string, termasuk: bool, biaya: int}>
+     */
+    public function getRincianOperasionalAttribute(): array
+    {
+        $hasil = [];
+
+        foreach ((array) config('orcha.pos_operasional', []) as $pos => $label) {
+            $hasil[$pos] = [
+                'label' => $label,
+                'termasuk' => (bool) $this->{"termasuk_{$pos}"},
+                'biaya' => (int) $this->{"biaya_{$pos}"},
+            ];
+        }
+
+        return $hasil;
+    }
+
+    /**
+     * Jumlah biaya harian dari pos yang termasuk saja.
+     *
+     * Biaya pada pos yang TIDAK termasuk diabaikan, bukan dijumlahkan. Angka yang
+     * tertinggal di sana bukan tagihan — pos itu ditanggung penyewa.
+     */
+    public function getBiayaOperasionalTotalAttribute(): int
+    {
+        return collect($this->rincian_operasional)
+            ->filter(fn ($pos) => $pos['termasuk'])
+            ->sum('biaya');
+    }
+
+    /**
+     * Keterangan yang menyebut pos mana termasuk dan mana tidak.
      *
      * Dirakit di satu tempat supaya kartu publik, halaman pemesanan, dan admin
-     * menyebutkan hal yang sama. Tiga keadaan yang berbeda maknanya: ditanggung
-     * penyewa, termasuk dengan tambahan biaya, atau termasuk tanpa tambahan.
+     * menyebutkan hal yang sama.
      */
     public function getOperasionalLabelAttribute(): string
     {
-        if (! $this->termasuk_operasional) {
-            return 'BBM, tol, dan parkir ditanggung penyewa';
+        $rincian = collect($this->rincian_operasional);
+        $termasuk = $rincian->filter(fn ($pos) => $pos['termasuk'])->pluck('label');
+        $ditanggung = $rincian->reject(fn ($pos) => $pos['termasuk'])->pluck('label');
+
+        if ($termasuk->isEmpty()) {
+            return self::awalKapital(self::rangkai($ditanggung->all()).' ditanggung penyewa');
         }
 
-        return $this->biaya_operasional
-            ? 'BBM, tol, dan parkir termasuk (+'.$this->rupiah($this->biaya_operasional).'/hari)'
-            : 'BBM, tol, dan parkir sudah termasuk harga sewa';
+        $total = $this->biaya_operasional_total;
+        $kalimat = self::awalKapital(self::rangkai($termasuk->all()).' termasuk'
+            .($total > 0 ? ' (+'.$this->rupiah($total).'/hari)' : ''));
+
+        // Pos yang ditanggung penyewa ikut disebut. Menyebut yang termasuk saja
+        // membuat sisanya harus disimpulkan sendiri, dan yang disimpulkan tidak
+        // bisa dijadikan pegangan saat menagih.
+        return $ditanggung->isEmpty()
+            ? $kalimat
+            : $kalimat.' · '.self::rangkai($ditanggung->all()).' ditanggung penyewa';
+    }
+
+    private static function awalKapital(string $kalimat): string
+    {
+        return mb_strtoupper(mb_substr($kalimat, 0, 1)).mb_substr($kalimat, 1);
+    }
+
+    /**
+     * Merangkai daftar dengan "dan" di penghubung terakhir: "BBM, tol, dan parkir".
+     *
+     * @param  list<string>  $bagian
+     */
+    private static function rangkai(array $bagian): string
+    {
+        // Label di config berhuruf besar karena dipakai sebagai label isian
+        // ("Tol", "Parkir"). Di tengah kalimat huruf besar itu salah, jadi
+        // dikecilkan — kecuali akronim seperti BBM, yang justru salah bila
+        // dikecilkan.
+        $bagian = array_map(
+            fn (string $kata) => $kata === mb_strtoupper($kata) ? $kata : mb_strtolower($kata),
+            $bagian,
+        );
+
+        if (count($bagian) <= 1) {
+            return $bagian[0] ?? '';
+        }
+
+        $akhir = array_pop($bagian);
+
+        return count($bagian) === 1
+            ? $bagian[0].' dan '.$akhir
+            : implode(', ', $bagian).', dan '.$akhir;
     }
 
     private function rupiah(int $angka): string

@@ -135,65 +135,98 @@ test('unit lama tanpa tahun dan cc tetap terbaca wajar di publik', function () {
     $this->get(route('sewa-kendaraan'))->assertOk()->assertSee('Toyota');
 });
 
-/* -------- BBM, TOL, PARKIR -------- */
+/* -------- BBM, TOL, PARKIR — TIGA POS TERPISAH -------- */
 
-test('kartu publik menyebut keadaan BBM tol parkir apa adanya', function (bool $termasuk, ?int $biaya, string $harapan) {
-    unitPublik(['termasuk_operasional' => $termasuk, 'biaya_operasional' => $biaya]);
+test('kartu publik menyebut pos mana termasuk dan mana ditanggung penyewa', function (array $pos, string $harapan) {
+    unitPublik($pos);
 
     $this->get(route('sewa-kendaraan'))->assertOk()->assertSee($harapan);
 })->with([
-    [false, null, 'BBM, tol, dan parkir ditanggung penyewa'],
-    [true, 250000, 'BBM, tol, dan parkir termasuk (+Rp 250.000/hari)'],
-    // Nol berarti termasuk tanpa tambahan — sah untuk unit yang tarifnya sudah
-    // dihitung all-in sejak awal.
-    [true, null, 'BBM, tol, dan parkir sudah termasuk harga sewa'],
+    'tidak ada yang termasuk' => [
+        [], 'BBM, tol, dan parkir ditanggung penyewa',
+    ],
+    'ketiganya termasuk' => [
+        ['termasuk_bbm' => true, 'biaya_bbm' => 200000,
+            'termasuk_tol' => true, 'biaya_tol' => 100000,
+            'termasuk_parkir' => true, 'biaya_parkir' => 50000],
+        'BBM, tol, dan parkir termasuk (+Rp 350.000/hari)',
+    ],
+    // Inti pemisahannya: keadaan ini tidak bisa dinyatakan sama sekali dengan
+    // satu penanda gabungan.
+    'sebagian termasuk' => [
+        ['termasuk_bbm' => true, 'biaya_bbm' => 200000,
+            'termasuk_tol' => true, 'biaya_tol' => 100000],
+        'BBM dan tol termasuk (+Rp 300.000/hari) · parkir ditanggung penyewa',
+    ],
+    'termasuk tanpa tambahan biaya' => [
+        ['termasuk_bbm' => true],
+        'BBM termasuk · tol dan parkir ditanggung penyewa',
+    ],
 ]);
 
-test('biaya all-in ikut dihitung di perkiraan biaya', function () {
+test('biaya tiap pos yang termasuk dijumlahkan ke perkiraan', function () {
     $unit = unitPublik([
         'price_per_day' => 500000, 'harga_sopir' => 150000,
-        'termasuk_operasional' => true, 'biaya_operasional' => 250000,
+        'termasuk_bbm' => true, 'biaya_bbm' => 200000,
+        'termasuk_tol' => true, 'biaya_tol' => 100000,
     ]);
 
-    // Perkiraan yang melewatkannya menampilkan angka lebih rendah daripada yang
-    // ditagihkan, dan selisihnya baru ketahuan saat pembayaran.
-    expect($unit->estimasiBiaya('hari', 2, true))->toBe(1_800_000)
-        ->and($unit->estimasiBiaya('hari', 2, false))->toBe(1_500_000);
+    // 2 hari: (500.000 + 150.000 + 200.000 + 100.000) x 2
+    expect($unit->biaya_operasional_total)->toBe(300000)
+        ->and($unit->estimasiBiaya('hari', 2, true))->toBe(1_900_000)
+        ->and($unit->estimasiBiaya('hari', 2, false))->toBe(1_600_000);
 });
 
-test('unit tanpa paket all-in tidak menambah apa pun ke perkiraan', function () {
+test('biaya pada pos yang tidak termasuk tidak ikut ditagihkan', function () {
+    // Angka yang tertinggal di sana bukan tagihan — pos itu ditanggung penyewa.
     $unit = unitPublik([
-        'price_per_day' => 500000, 'harga_sopir' => 150000,
-        'termasuk_operasional' => false, 'biaya_operasional' => null,
+        'price_per_day' => 500000,
+        'termasuk_bbm' => false, 'biaya_bbm' => 999999,
     ]);
 
-    expect($unit->estimasiBiaya('hari', 2, true))->toBe(1_300_000);
+    expect($unit->biaya_operasional_total)->toBe(0)
+        ->and($unit->estimasiBiaya('hari', 1, false))->toBe(500000);
 });
 
-test('sewa per jam menghitung biaya all-in satu hari kerja', function () {
+test('sewa per jam menghitung biaya pos satu hari kerja', function () {
     $unit = unitPublik([
         'harga_per_jam' => 60000, 'price_per_day' => 500000,
-        'termasuk_operasional' => true, 'biaya_operasional' => 200000,
+        'termasuk_bbm' => true, 'biaya_bbm' => 200000,
     ]);
 
-    // Mengikuti perlakuan sopir: satuan jam tetap satu hari kerja, karena BBM
-    // dan tol tidak dihitung per jam di praktiknya.
+    // Mengikuti perlakuan sopir: BBM dan tol tidak dihitung per jam di praktiknya.
     expect($unit->estimasiBiaya('jam', 5, false))->toBe(300000 + 200000);
 });
 
-test('nominal all-in tidak tersimpan bila paketnya tidak termasuk', function () {
-    // Angka siluman pada unit non-all-in akan ikut terpakai begitu penandanya
-    // dinyalakan lagi, dan pemiliknya tidak ingat pernah mengisinya.
+test('nominal pos tidak tersimpan bila posnya ditanggung penyewa', function () {
     $this->postJson('/api/v1/kendaraan', [
         'nama' => 'Avanza', 'merek' => 'Toyota', 'jenis' => 'mobil',
         'kapasitas' => 7, 'transmisi_tersedia' => ['Matic'], 'tarif_hari' => 400000,
-        'termasuk_operasional' => false, 'biaya_operasional' => 250000,
+        'termasuk_bbm' => true, 'biaya_bbm' => 200000,
+        'termasuk_tol' => false, 'biaya_tol' => 100000,
     ], [
         'X-Orcha-Key' => config('orcha.api.kunci'),
         'X-Orcha-Admin' => 'admin@phoenix.test', 'Accept' => 'application/json',
     ])->assertCreated();
 
-    expect(Car::first()->biaya_operasional)->toBeNull();
+    $unit = Car::first();
+
+    expect($unit->biaya_bbm)->toBe(200000)
+        ->and($unit->termasuk_tol)->toBeFalse()
+        ->and($unit->biaya_tol)->toBeNull();
+});
+
+test('perincian pos terkirim di resource', function () {
+    unitPublik(['termasuk_bbm' => true, 'biaya_bbm' => 200000]);
+
+    $baris = $this->getJson('/api/v1/kendaraan', [
+        'X-Orcha-Key' => config('orcha.api.kunci'),
+        'X-Orcha-Admin' => 'admin@phoenix.test', 'Accept' => 'application/json',
+    ])->assertOk()->json('data.0');
+
+    expect($baris['operasional']['bbm'])->toMatchArray(['label' => 'BBM', 'termasuk' => true, 'biaya' => 200000])
+        ->and($baris['operasional']['tol']['termasuk'])->toBeFalse()
+        ->and($baris['biaya_operasional_total'])->toBe(200000);
 });
 
 test('halaman daftar mengakui sebagian unit all-in', function () {

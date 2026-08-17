@@ -420,7 +420,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                             </div>
                                         @endforeach
                                     </dl>
-                                    <p class="mt-1 text-xs {{ $mobil->termasuk_operasional ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
+                                    <p class="mt-1 text-xs {{ collect($mobil->rincian_operasional)->contains('termasuk', true) ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
                                         {{ $mobil->operasional_label }}
                                     </p>
                                     @if ($mobil->harga_sopir)

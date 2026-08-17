@@ -34,8 +34,11 @@ class KendaraanResource extends JsonResource
             // spesifikasi pabriknya tetap bisa disebut tanpa ada halaman yang
             // perlu menghitung sendiri.
             'kursi_total' => $this->kursi_total,
-            'termasuk_operasional' => (bool) $this->termasuk_operasional,
-            'biaya_operasional' => $this->biaya_operasional,
+            // Perincian per pos, beserta totalnya dan kalimat siap tampil.
+            // Kalimatnya dirakit sekali di model supaya kartu publik, halaman
+            // pemesanan, dan admin menyebut hal yang sama.
+            'operasional' => $this->rincian_operasional,
+            'biaya_operasional_total' => $this->biaya_operasional_total,
             'operasional_label' => $this->operasional_label,
             'transmisi_tersedia' => $this->transmisi_tersedia_list,
             'transmisi_label' => $this->transmisi_label,

@@ -106,7 +106,7 @@
                 <p class="text-slate-500">Sopir +{{ $rupiah($kendaraan->harga_sopir) }}/hari</p>
             @endif
 
-            <p class="{{ $kendaraan->termasuk_operasional ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
+            <p class="{{ collect($kendaraan->rincian_operasional)->contains('termasuk', true) ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
                 {{ $kendaraan->operasional_label }}
             </p>
         </div>

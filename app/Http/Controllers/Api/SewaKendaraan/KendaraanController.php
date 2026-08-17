@@ -133,6 +133,28 @@ class KendaraanController extends ApiController
         return response()->json(['pesan' => 'Kendaraan dihapus.']);
     }
 
+    /**
+     * Penanda dan biaya tiap pos operasional.
+     *
+     * Nominal hanya disimpan bila posnya memang termasuk. Angka yang tertinggal
+     * pada pos yang ditanggung penyewa adalah biaya siluman: ia ikut terpakai
+     * begitu penandanya dinyalakan lagi, dan pemiliknya tidak ingat pernah
+     * mengisinya.
+     */
+    private function posOperasional(array $data): array
+    {
+        $hasil = [];
+
+        foreach (array_keys((array) config('orcha.pos_operasional', [])) as $pos) {
+            $termasuk = (bool) ($data["termasuk_{$pos}"] ?? false);
+
+            $hasil["termasuk_{$pos}"] = $termasuk;
+            $hasil["biaya_{$pos}"] = $termasuk ? (($data["biaya_{$pos}"] ?? null) ?: null) : null;
+        }
+
+        return $hasil;
+    }
+
     private function validasi(Request $request): array
     {
         return $request->validate([
@@ -158,8 +180,12 @@ class KendaraanController extends ApiController
             'tarif_jam' => 'nullable|numeric|min:0',
             'tarif_12jam' => 'nullable|numeric|min:0',
             'tarif_sopir' => 'nullable|numeric|min:0',
-            'termasuk_operasional' => 'nullable|boolean',
-            'biaya_operasional' => 'nullable|numeric|min:0|max:100000000',
+            'termasuk_bbm' => 'nullable|boolean',
+            'biaya_bbm' => 'nullable|numeric|min:0|max:100000000',
+            'termasuk_tol' => 'nullable|boolean',
+            'biaya_tol' => 'nullable|numeric|min:0|max:100000000',
+            'termasuk_parkir' => 'nullable|boolean',
+            'biaya_parkir' => 'nullable|numeric|min:0|max:100000000',
             'tersedia' => 'nullable|boolean',
             'gambar' => 'nullable|image|max:4096',
         ]);
@@ -192,13 +218,7 @@ class KendaraanController extends ApiController
             'harga_per_jam' => ($data['tarif_jam'] ?? null) ?: null,
             'harga_12_jam' => ($data['tarif_12jam'] ?? null) ?: null,
             'harga_sopir' => ($data['tarif_sopir'] ?? null) ?: null,
-            'termasuk_operasional' => (bool) ($data['termasuk_operasional'] ?? false),
-            // Nominal hanya disimpan bila paketnya memang termasuk. Menyimpan
-            // angka pada unit yang tidak all-in meninggalkan biaya siluman yang
-            // ikut terpakai begitu penandanya dinyalakan lagi.
-            'biaya_operasional' => ($data['termasuk_operasional'] ?? false)
-                ? (($data['biaya_operasional'] ?? null) ?: null)
-                : null,
+            ...$this->posOperasional($data),
             'is_available' => (bool) ($data['tersedia'] ?? true),
             'image' => $this->simpanGambar($request, 'cars', $gambarLama),
         ];

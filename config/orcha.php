@@ -327,6 +327,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Pos Biaya Operasional Sewa
+    |--------------------------------------------------------------------------
+    |
+    | BBM, tol, dan parkir: masing-masing bisa ditanggung penyewa atau termasuk
+    | dengan biayanya sendiri. Dipisah karena keadaannya memang berbeda — ada
+    | unit yang BBM-nya ditanggung pemilik tetapi tolnya tidak, dan parkir hampir
+    | selalu urusan tersendiri.
+    |
+    | Daftar ini satu sumber untuk urutan, label, dan nama kolomnya, dipakai
+    | formulir admin maupun keterangan di halaman publik. Menuliskan ketiganya
+    | berulang di tiap tempat berarti suatu saat ada yang tertinggal saat berubah.
+    |
+    */
+
+    'pos_operasional' => [
+        'bbm' => 'BBM',
+        'tol' => 'Tol',
+        'parkir' => 'Parkir',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Wilayah Destinasi
     |--------------------------------------------------------------------------
     |
