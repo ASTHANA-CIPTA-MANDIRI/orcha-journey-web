@@ -238,7 +238,7 @@ class KatalogKendaraan
      * boleh dihapus karena unitnya benar-benar memakainya: menghapusnya hanya
      * membuat daftar berbohong tentang isi armada sendiri.
      *
-     * @return list<array{id: int, merek: string, model: string|null}>
+     * @return list<array{id: int, merek: string, model: string|null, varian: string|null}>
      */
     public static function kustom(): array
     {
@@ -246,11 +246,14 @@ class KatalogKendaraan
             ->orderBy('merek')
             ->orderByRaw('model is null desc')
             ->orderBy('model')
+            ->orderByRaw('varian is null desc')
+            ->orderBy('varian')
             ->get()
             ->map(fn (KatalogTambahan $e) => [
                 'id' => $e->id,
                 'merek' => $e->merek,
                 'model' => $e->model,
+                'varian' => $e->varian,
             ])
             ->all();
     }
@@ -265,10 +268,18 @@ class KatalogKendaraan
         foreach (KatalogTambahan::all() as $entri) {
             $hasil[$entri->merek] ??= [];
 
-            if ($entri->model !== null && $entri->model !== '') {
-                $hasil[$entri->merek][$entri->model] = [
-                    'kursi' => null, 'jenis' => null, 'cc' => null, 'varian' => [],
-                ];
+            if ($entri->model === null || $entri->model === '') {
+                continue;
+            }
+
+            $hasil[$entri->merek][$entri->model] ??= [
+                'kursi' => null, 'jenis' => null, 'cc' => null, 'varian' => [],
+            ];
+
+            // Baris bertipe menambahkan tipenya pada modelnya, tanpa menghapus
+            // tipe bawaan model itu.
+            if ($entri->varian !== null && $entri->varian !== '') {
+                $hasil[$entri->merek][$entri->model]['varian'][] = $entri->varian;
             }
         }
 

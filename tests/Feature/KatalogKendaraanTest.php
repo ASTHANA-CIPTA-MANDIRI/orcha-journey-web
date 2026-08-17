@@ -506,3 +506,93 @@ test('angka kursi di katalog adalah kursi total termasuk sopir', function () {
     expect(KatalogKendaraan::kapasitas()['Toyota']['HiAce Commuter'])->toBe(15)
         ->and(KatalogKendaraan::kapasitas()['Toyota']['Avanza'])->toBe(7);
 });
+
+/* ---------------- TIPE TAMBAHAN ADMIN ---------------- */
+
+test('tipe yang ditulis admin masuk daftar tanpa menyimpan unit dulu', function () {
+    // Inti keluhannya: tipe manual sebelumnya hanya mengisi isian, dan baru
+    // terbaca sebagai pilihan SETELAH unitnya tersimpan — ditambah simpanan
+    // rujukan sepuluh menit yang membuatnya belum muncul juga.
+    $this->postJson('/api/v1/katalog-kendaraan', [
+        'merek' => 'Toyota', 'model' => 'HiAce Commuter', 'varian' => 'Kursi Kulit Premium',
+    ], kepalaKatalog())->assertCreated();
+
+    expect(KatalogKendaraan::varian()['Toyota']['HiAce Commuter'])
+        ->toContain('Kursi Kulit Premium')
+        ->and(Car::count())->toBe(0);
+});
+
+test('tipe tambahan tidak menghapus tipe bawaan modelnya', function () {
+    $this->postJson('/api/v1/katalog-kendaraan', [
+        'merek' => 'Toyota', 'model' => 'HiAce Commuter', 'varian' => 'Kursi Kulit Premium',
+    ], kepalaKatalog())->assertCreated();
+
+    $tipe = KatalogKendaraan::varian()['Toyota']['HiAce Commuter'];
+
+    expect($tipe)->toContain('Standar')
+        ->and($tipe)->toContain('Kursi Kulit Premium');
+});
+
+test('tipe tambahan bisa dihapus sendiri tanpa mengganggu modelnya', function () {
+    $balasan = $this->postJson('/api/v1/katalog-kendaraan', [
+        'merek' => 'Toyota', 'model' => 'Avanza', 'varian' => 'Veloz Q',
+    ], kepalaKatalog())->assertCreated();
+
+    $id = collect($balasan->json('data'))->firstWhere('varian', 'Veloz Q')['id'];
+
+    $this->deleteJson("/api/v1/katalog-kendaraan/{$id}", [], kepalaKatalog())->assertOk();
+
+    expect(KatalogKendaraan::varian()['Toyota']['Avanza'])->not->toContain('Veloz Q')
+        // Modelnya sendiri tidak ikut hilang: yang dihapus hanya barisan tipenya.
+        ->and(KatalogKendaraan::pilihan()['Toyota'])->toContain('Avanza');
+});
+
+test('tipe tanpa nama unit ditolak', function () {
+    // Tipe harus menempel pada modelnya; tanpa itu barisnya yatim dan tidak
+    // pernah terbaca sebagai pilihan.
+    $this->postJson('/api/v1/katalog-kendaraan', [
+        'merek' => 'Toyota', 'varian' => 'Veloz Q',
+    ], kepalaKatalog())->assertStatus(422);
+});
+
+test('tipe yang sama tidak tercatat dua kali', function () {
+    foreach ([1, 2] as $ke) {
+        $this->postJson('/api/v1/katalog-kendaraan', [
+            'merek' => 'Toyota', 'model' => 'Avanza', 'varian' => 'Veloz Q',
+        ], kepalaKatalog())->assertStatus($ke === 1 ? 201 : 200);
+    }
+
+    expect(collect(KatalogKendaraan::kustom())->where('varian', 'Veloz Q'))->toHaveCount(1);
+});
+
+test('tipe yang sudah ada di katalog bawaan tidak ditambahkan lagi', function () {
+    $this->postJson('/api/v1/katalog-kendaraan', [
+        'merek' => 'Toyota', 'model' => 'Avanza', 'varian' => 'G',
+    ], kepalaKatalog())->assertOk();
+
+    expect(KatalogKendaraan::kustom())->toBeEmpty();
+});
+
+test('tipe sama boleh dipakai model berbeda', function () {
+    // "Standar" wajar ada di HiAce maupun Elf; batasan uniknya per model,
+    // bukan per tipe.
+    $this->postJson('/api/v1/katalog-kendaraan',
+        ['merek' => 'Toyota', 'model' => 'Avanza', 'varian' => 'Kursi Kulit'], kepalaKatalog())->assertCreated();
+    $this->postJson('/api/v1/katalog-kendaraan',
+        ['merek' => 'Toyota', 'model' => 'Calya', 'varian' => 'Kursi Kulit'], kepalaKatalog())->assertCreated();
+
+    expect(KatalogKendaraan::kustom())->toHaveCount(2);
+});
+
+test('entri kustom menyebut tingkatnya, supaya lemon tahu mana yang bisa dihapus', function () {
+    KatalogTambahan::create(['merek' => 'Esemka']);
+    KatalogTambahan::create(['merek' => 'Esemka', 'model' => 'Bima 1.3']);
+    KatalogTambahan::create(['merek' => 'Esemka', 'model' => 'Bima 1.3', 'varian' => 'Deluxe']);
+
+    $kustom = collect(KatalogKendaraan::kustom());
+
+    expect($kustom)->toHaveCount(3)
+        ->and($kustom->firstWhere('varian', 'Deluxe'))->toMatchArray([
+            'merek' => 'Esemka', 'model' => 'Bima 1.3', 'varian' => 'Deluxe',
+        ]);
+});

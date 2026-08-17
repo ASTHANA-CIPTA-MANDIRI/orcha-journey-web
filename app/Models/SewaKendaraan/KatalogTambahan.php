@@ -7,14 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Entri katalog kendaraan yang ditambahkan admin sendiri.
  *
- * Satu baris = satu entri yang bisa dihapus tersendiri: merek saja (model NULL)
- * atau satu model di bawah merek tertentu.
+ * Satu baris = satu entri yang bisa dihapus tersendiri, pada tiga tingkat:
+ * merek saja, satu model di bawah merek, atau satu tipe di bawah model.
  */
 class KatalogTambahan extends Model
 {
     protected $table = 'katalog_kendaraan_tambahan';
 
-    protected $fillable = ['merek', 'model'];
+    protected $fillable = ['merek', 'model', 'varian'];
 
     /**
      * Menormalkan sebelum disimpan.
@@ -30,6 +30,7 @@ class KatalogTambahan extends Model
         static::saving(function (self $entri) {
             $entri->merek = self::rapikanMerek($entri->merek);
             $entri->model = trim((string) $entri->model) ?: null;
+            $entri->varian = trim(preg_replace('/\s+/', ' ', (string) $entri->varian)) ?: null;
         });
     }
 

@@ -23,30 +23,37 @@ class KatalogKendaraanController extends ApiController
         $data = $request->validate([
             'merek' => ['required', 'string', 'max:100'],
             'model' => ['nullable', 'string', 'max:120'],
-        ], [], ['merek' => 'merek', 'model' => 'nama unit']);
+            'varian' => ['nullable', 'string', 'max:60'],
+        ], [], ['merek' => 'merek', 'model' => 'nama unit', 'varian' => 'tipe']);
 
         $merek = KatalogTambahan::rapikanMerek($data['merek']);
         $model = trim((string) ($data['model'] ?? '')) ?: null;
+        $varian = trim((string) ($data['varian'] ?? '')) ?: null;
+
+        // Tipe tanpa model tidak berarti apa-apa: ia harus menempel pada modelnya.
+        if ($varian !== null && $model === null) {
+            return response()->json([
+                'pesan' => 'Tipe harus disertai nama unitnya.',
+            ], 422);
+        }
 
         // Yang sudah ada — baik di katalog bawaan, di tambahan sebelumnya,
         // maupun terbaca dari armada — tidak ditambahkan lagi. Dianggap berhasil
         // supaya admin tidak dihadapkan pada galat untuk sesuatu yang justru
         // sudah sesuai keinginannya.
-        if ($this->sudahAda($merek, $model)) {
+        $sebutan = trim($merek.' '.$model.' '.$varian);
+
+        if ($this->sudahAda($merek, $model, $varian)) {
             return response()->json([
-                'pesan' => $model === null
-                    ? "Merek {$merek} sudah ada di daftar."
-                    : "{$merek} {$model} sudah ada di daftar.",
+                'pesan' => ($model === null ? "Merek {$merek}" : $sebutan).' sudah ada di daftar.',
                 'data' => KatalogKendaraan::kustom(),
             ]);
         }
 
-        KatalogTambahan::create(['merek' => $merek, 'model' => $model]);
+        KatalogTambahan::create(['merek' => $merek, 'model' => $model, 'varian' => $varian]);
 
         return response()->json([
-            'pesan' => $model === null
-                ? "Merek {$merek} ditambahkan ke daftar."
-                : "{$merek} {$model} ditambahkan ke daftar.",
+            'pesan' => ($model === null ? "Merek {$merek}" : $sebutan).' ditambahkan ke daftar.',
             'data' => KatalogKendaraan::kustom(),
         ], 201);
     }
@@ -63,7 +70,7 @@ class KatalogKendaraanController extends ApiController
     {
         $sebutan = $katalog->model === null
             ? "Merek {$katalog->merek}"
-            : "{$katalog->merek} {$katalog->model}";
+            : trim("{$katalog->merek} {$katalog->model} {$katalog->varian}");
 
         $katalog->delete();
 
@@ -73,8 +80,12 @@ class KatalogKendaraanController extends ApiController
         ]);
     }
 
-    private function sudahAda(string $merek, ?string $model): bool
+    private function sudahAda(string $merek, ?string $model, ?string $varian = null): bool
     {
+        if ($varian !== null) {
+            return in_array($varian, KatalogKendaraan::varian()[$merek][$model] ?? [], true);
+        }
+
         $katalog = KatalogKendaraan::pilihan();
 
         if ($model === null) {
