@@ -74,45 +74,101 @@ return [
 
     'katalog_kendaraan' => [
         'Toyota' => [
-            'Agya', 'Alphard', 'Avanza', 'Calya', 'Fortuner', 'HiAce Commuter',
-            'HiAce Premio', 'Innova Reborn', 'Innova Zenix', 'Rush', 'Sienta',
-            'Veloz', 'Vellfire', 'Yaris',
+            'Agya', 'Alphard', 'Avanza', 'Calya', 'Camry', 'C-HR', 'Corolla Altis',
+            'Corolla Cross', 'Fortuner', 'HiAce Commuter', 'HiAce Premio', 'Hilux',
+            'Innova Reborn', 'Innova Venturer', 'Innova Zenix', 'Kijang Kapsul',
+            'Land Cruiser', 'Raize', 'Rush', 'Sienta', 'Vellfire', 'Veloz', 'Voxy', 'Yaris',
+            'Yaris Cross',
         ],
         'Daihatsu' => [
-            'Ayla', 'Gran Max', 'Luxio', 'Sigra', 'Terios', 'Xenia',
+            'Ayla', 'Gran Max Blind Van', 'Gran Max Minibus', 'Gran Max Pick Up',
+            'Luxio', 'Rocky', 'Sigra', 'Sirion', 'Terios', 'Xenia',
         ],
         'Honda' => [
-            'BR-V', 'Brio Satya', 'CR-V', 'City', 'HR-V', 'Jazz', 'Mobilio', 'WR-V',
+            'BR-V', 'Brio RS', 'Brio Satya', 'CR-V', 'City', 'City Hatchback',
+            'Civic', 'Freed', 'HR-V', 'Jazz', 'Mobilio', 'Odyssey', 'WR-V',
         ],
         'Suzuki' => [
-            'APV', 'Baleno', 'Carry', 'Ertiga', 'Ignis', 'Jimny', 'XL7',
+            'APV Arena', 'APV Luxury', 'Baleno', 'Carry Pick Up', 'Ertiga',
+            'Ertiga Hybrid', 'Grand Vitara', 'Ignis', 'Jimny', 'Karimun Wagon R',
+            'S-Presso', 'XL7',
         ],
         'Mitsubishi' => [
-            'Colt Diesel', 'L300', 'Pajero Sport', 'Xpander', 'Xpander Cross',
+            'Colt Diesel', 'Fuso Canter', 'L300', 'Mirage', 'Outlander PHEV',
+            'Pajero Sport', 'Triton', 'Xforce', 'Xpander', 'Xpander Cross',
         ],
         'Nissan' => [
-            'Grand Livina', 'Livina', 'Serena', 'Terra',
+            'Almera', 'Evalia', 'Grand Livina', 'Kicks', 'Livina', 'Magnite',
+            'Navara', 'Serena', 'Terra', 'X-Trail',
         ],
         'Hyundai' => [
-            'Creta', 'H-1', 'Palisade', 'Staria', 'Stargazer',
+            'Creta', 'H-1', 'Ioniq 5', 'Ioniq 6', 'Palisade', 'Santa Fe',
+            'Stargazer', 'Stargazer X', 'Staria', 'Tucson',
         ],
         'Wuling' => [
-            'Almaz', 'Alvez', 'Confero', 'Cortez',
+            'Air ev', 'Almaz', 'Almaz RS', 'Alvez', 'Binguo EV', 'Confero',
+            'Confero S', 'Cortez', 'Cortez CT', 'Formo',
         ],
         'Isuzu' => [
-            'Elf Microbus', 'MU-X', 'Traga',
+            'Elf Microbus', 'Elf NLR', 'Elf NMR', 'MU-X', 'Panther', 'Traga',
         ],
         'Kia' => [
-            'Carnival', 'Seltos', 'Sonet',
+            'Carens', 'Carnival', 'Grand Sedona', 'Picanto', 'Rio', 'Seltos',
+            'Sonet', 'Sportage',
         ],
         'Mazda' => [
-            'Biante', 'CX-3', 'CX-5',
+            'Biante', 'CX-3', 'CX-30', 'CX-5', 'CX-60', 'CX-8', 'Mazda2', 'Mazda6',
         ],
-        'Hino' => [
-            'Bus RK', 'Bus RN', 'Dutro',
+        'Chery' => [
+            'Omoda 5', 'Tiggo 5X', 'Tiggo 7 Pro', 'Tiggo 8 Pro', 'Tiggo Cross',
+        ],
+        'BYD' => [
+            'Atto 3', 'Dolphin', 'M6', 'Seal', 'Sealion 6',
+        ],
+        'MG' => [
+            'HS', 'MG 4 EV', 'MG 5 GT', 'MG ZS', 'VS HEV',
+        ],
+        'DFSK' => [
+            'Gelora E', 'Glory 560', 'Super Cab',
+        ],
+        'Volkswagen' => [
+            'Caravelle', 'Polo', 'Tiguan', 'Transporter',
         ],
         'Mercedes-Benz' => [
-            'Sprinter', 'Bus OH 1526',
+            'Bus OH 1526', 'Bus OH 1626', 'E-Class', 'S-Class', 'Sprinter', 'Vito',
+        ],
+        'BMW' => [
+            'Seri 3', 'Seri 5', 'Seri 7', 'X1', 'X3', 'X5',
+        ],
+        'Lexus' => [
+            'LM 350', 'RX 300', 'UX 300e',
+        ],
+        'Hino' => [
+            'Bus RK', 'Bus RN', 'Dutro', 'Ranger',
+        ],
+        'Golden Dragon' => [
+            'Bus Pariwisata', 'Minibus',
+        ],
+        'Zhongtong' => [
+            'Bus Pariwisata',
+        ],
+        'Scania' => [
+            'Bus K360', 'Bus K410',
+        ],
+        'Ford' => [
+            'Everest', 'Ranger',
+        ],
+        'Chevrolet' => [
+            'Captiva', 'Spin', 'Trax',
+        ],
+        'Datsun' => [
+            'Cross', 'GO+ Panca',
+        ],
+        'Peugeot' => [
+            '3008', '5008',
+        ],
+        'Renault' => [
+            'Kwid', 'Triber',
         ],
     ],
 

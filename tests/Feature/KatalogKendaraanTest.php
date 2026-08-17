@@ -25,7 +25,9 @@ test('katalog memuat merek dan model pasar Indonesia', function () {
     // Model yang benar-benar disewakan di Indonesia. API kendaraan gratis yang
     // ada (vPIC, CarAPI) berisi data pasar Amerika dan tidak memuat satu pun
     // dari ini — itu sebabnya katalognya ditulis sendiri.
-    expect($katalog)->toHaveKeys(['Toyota', 'Daihatsu', 'Suzuki', 'Mitsubishi'])
+    expect(count($katalog))->toBeGreaterThanOrEqual(25)
+        ->and(array_sum(array_map('count', $katalog)))->toBeGreaterThanOrEqual(150)
+        ->and($katalog)->toHaveKeys(['Toyota', 'Daihatsu', 'Suzuki', 'Mitsubishi', 'Wuling', 'Chery'])
         ->and($katalog['Toyota'])->toContain('Avanza')
         ->and($katalog['Toyota'])->toContain('HiAce Commuter')
         ->and($katalog['Suzuki'])->toContain('Ertiga')
@@ -33,15 +35,19 @@ test('katalog memuat merek dan model pasar Indonesia', function () {
 });
 
 test('merek dan model milik armada sendiri ikut tercantum', function () {
-    unitKatalog('Chery', 'Tiggo 8 Pro');
+    // Esemka sengaja dipilih karena TIDAK ada di katalog config — merek yang
+    // sudah tercantum di sana tidak membuktikan apa pun tentang penggabungan.
+    expect(config('orcha.katalog_kendaraan'))->not->toHaveKey('Esemka');
+
+    unitKatalog('Esemka', 'Bima 1.3');
 
     $katalog = KatalogKendaraan::pilihan();
 
-    // Tanpa ini, mengubah unit Chery akan menghadapkan admin pada dropdown yang
+    // Tanpa ini, mengubah unit Esemka akan menghadapkan admin pada daftar yang
     // tidak memuat mereknya sendiri — dan satu-satunya pilihan yang tersisa
     // adalah mengubahnya jadi merek lain.
-    expect($katalog)->toHaveKey('Chery')
-        ->and($katalog['Chery'])->toBe(['Tiggo 8 Pro']);
+    expect($katalog)->toHaveKey('Esemka')
+        ->and($katalog['Esemka'])->toBe(['Bima 1.3']);
 });
 
 test('model armada digabung ke merek yang sudah ada di katalog, bukan menggantinya', function () {
