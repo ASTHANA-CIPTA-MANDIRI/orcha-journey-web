@@ -647,14 +647,31 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                     @endforeach
                                 </div>
 
+                                {{-- Batasannya WAJIB tertulis di sini.
+
+                                     Penyewa yang memilih wilayahnya sendiri tanpa tahu batasnya
+                                     hanya menebak, dan selisih tarifnya baru dipersoalkan saat
+                                     menagih. Kalimatnya diambil dari config supaya bisa diubah
+                                     tanpa menyentuh berkas ini. --}}
+                                <p class="mt-2 text-xs text-slate-500">
+                                    {{ config('orcha.wilayah_sewa.dalam_kota') }}
+                                </p>
+
                                 @if ($mobil)
-                                    <p class="mt-2 text-xs {{ $mobil->punya_tarif_luar_kota ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
+                                    <p class="mt-1 text-xs {{ $mobil->punya_tarif_luar_kota ? 'font-semibold text-orcha-ocean' : 'text-slate-500' }}">
                                         {{ $mobil->luar_kota_label }}
                                         @if ($luarKota)
                                             · dihitung harian
                                         @endif
                                     </p>
                                 @endif
+
+                                {{-- Pilihan penyewa bukan keputusan akhir: pesanan ini masih
+                                     permintaan yang dikonfirmasi admin, jadi salah pilih tidak
+                                     berakhir sebagai tagihan yang mengejutkan. --}}
+                                <p class="mt-1 text-xs text-slate-400">
+                                    {{ config('orcha.wilayah_sewa.catatan') }}
+                                </p>
                             </fieldset>
 
                             <fieldset>

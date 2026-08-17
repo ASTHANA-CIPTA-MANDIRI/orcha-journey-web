@@ -172,3 +172,27 @@ test('tarif luar kota tersimpan lewat API dan terkirim di resource', function ()
         ->and($baris['tarif']['luar_kota'])->toBe(5500000)
         ->and($baris['punya_tarif_luar_kota'])->toBeTrue();
 });
+
+test('formulir menyebut batas wilayah supaya penyewa tidak menebak', function () {
+    $unit = unitLuarKota();
+
+    // Penyewa memilih wilayahnya sendiri. Tanpa batasan yang tertulis, penyewa
+    // yang hendak ke Borobudur tidak punya cara tahu harus memilih yang mana —
+    // dan selisih tarifnya baru dipersoalkan saat menagih.
+    Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $unit->uuid)
+        ->assertSee('Wilayah perjalanan')
+        ->assertSee(config('orcha.wilayah_sewa.dalam_kota'))
+        ->assertSee(config('orcha.wilayah_sewa.catatan'));
+});
+
+test('batas wilayah diambil dari config, bukan ditulis di berkas tampilan', function () {
+    $unit = unitLuarKota();
+
+    // Supaya aturannya bisa diubah tanpa menyentuh blade.
+    config()->set('orcha.wilayah_sewa.dalam_kota', 'Dalam kota hanya Kota Yogyakarta.');
+
+    Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $unit->uuid)
+        ->assertSee('Dalam kota hanya Kota Yogyakarta.');
+});

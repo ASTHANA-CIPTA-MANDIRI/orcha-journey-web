@@ -327,6 +327,31 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Batas Wilayah Sewa
+    |--------------------------------------------------------------------------
+    |
+    | Menentukan apa yang dihitung "dalam kota" — dan karenanya tarif mana yang
+    | berlaku. Wajib ditulis di formulir, karena penyewa memilih sendiri
+    | wilayahnya: tanpa batasan yang jelas, penyewa yang hendak ke Borobudur
+    | tidak punya cara tahu harus memilih yang mana, dan selisih tarifnya baru
+    | dipersoalkan saat menagih.
+    |
+    | NILAI DI BAWAH INI ADALAH DUGAAN yang lazim untuk agen di Yogyakarta —
+    | seluruh DIY dihitung dalam kota. Sesuaikan dengan aturan yang benar-benar
+    | kalian pakai; ini satu-satunya tempat yang perlu diubah, dan kalimatnya
+    | langsung tampil di halaman pemesanan.
+    |
+    */
+
+    'wilayah_sewa' => [
+        'dalam_kota' => 'Dalam kota mencakup Kota Yogyakarta, Sleman, Bantul, '
+            .'Kulon Progo, dan Gunungkidul. Tujuan di luar itu dihitung luar kota.',
+        'catatan' => 'Bila ragu, pilih yang paling mendekati — kami mengabari '
+            .'lewat WhatsApp bila wilayahnya perlu disesuaikan sebelum tarifnya dikunci.',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Pos Biaya Operasional Sewa
     |--------------------------------------------------------------------------
     |
