@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\SewaKendaraan\Car;
+use App\Models\SewaKendaraan\KatalogTambahan;
 use App\Support\SewaKendaraan\KatalogKendaraan;
 
 const KUNCI_KATALOG = 'kunci-rahasia-untuk-uji';
@@ -217,4 +218,68 @@ test('katalog kustom terkirim lewat rujukan', function () {
     expect($data['katalog_kustom'])->toHaveCount(1)
         ->and($data['katalog_kustom'][0]['merek'])->toBe('Neta')
         ->and($data['katalog_kendaraan']['Neta'])->toBe(['V']);
+});
+
+/* ---------------------- KAPASITAS SEMI OTOMATIS ---------------------- */
+
+test('kursi per model tersedia untuk mengisi kapasitas otomatis', function () {
+    $kursi = KatalogKendaraan::kapasitas();
+
+    // Angka yang membedakan: MPV 7, HiAce 15, bus besar 59. Kalau ini keliru,
+    // kapasitas terisi otomatis dengan angka yang salah dan cenderung tidak
+    // diperiksa lagi karena isiannya sudah terlihat penuh.
+    expect($kursi['Toyota']['Avanza'])->toBe(7)
+        ->and($kursi['Toyota']['HiAce Commuter'])->toBe(15)
+        ->and($kursi['Hino']['Bus RK'])->toBe(59)
+        ->and($kursi['Daihatsu']['Gran Max Pick Up'])->toBe(2);
+});
+
+test('kapasitas dari armada menimpa angka bawaan', function () {
+    // Avanza yang dipasangi 6 kursi di armada tidak seharusnya terus menawarkan 7.
+    Car::create([
+        'name' => 'Avanza', 'brand' => 'Toyota', 'type' => 'mobil',
+        'transmission' => 'Manual', 'capacity' => 6, 'price_per_day' => 400000,
+        'is_available' => true, 'transmisi_tersedia' => ['Manual'],
+    ]);
+
+    expect(KatalogKendaraan::kapasitas()['Toyota']['Avanza'])->toBe(6);
+});
+
+test('model tambahan admin tidak mengarang kapasitas', function () {
+    KatalogTambahan::create(['merek' => 'Esemka', 'model' => 'Bima 1.3']);
+
+    $kursi = KatalogKendaraan::kapasitas();
+
+    // Belum ada angka yang bisa dipertanggungjawabkan, jadi tidak disertakan:
+    // isian kapasitas dibiarkan apa adanya, bukan diisi angka karangan.
+    expect($kursi['Esemka'] ?? [])->not->toHaveKey('Bima 1.3')
+        ->and(KatalogKendaraan::pilihan()['Esemka'])->toBe(['Bima 1.3']);
+});
+
+test('kapasitas kosong di armada tidak menghapus angka bawaan', function () {
+    Car::create([
+        'name' => 'Avanza', 'brand' => 'Toyota', 'type' => 'mobil',
+        'transmission' => 'Manual', 'capacity' => 0, 'price_per_day' => 400000,
+        'is_available' => true, 'transmisi_tersedia' => ['Manual'],
+    ]);
+
+    expect(KatalogKendaraan::kapasitas()['Toyota']['Avanza'])->toBe(7);
+});
+
+test('kapasitas terkirim lewat rujukan', function () {
+    $data = $this->getJson('/api/v1/rujukan', kepalaKatalog())->assertOk()->json('data');
+
+    expect($data['kapasitas_kendaraan']['Suzuki']['Ertiga'])->toBe(7)
+        ->and($data['katalog_kendaraan']['Suzuki'])->toContain('Ertiga');
+});
+
+test('daftar model dan daftar kursi tidak mungkin berbeda isinya', function () {
+    // Keduanya berasal dari satu struktur, jadi tidak ada model yang tercantum
+    // di daftar pilihan tapi hilang dari daftar kursi karena lupa disalin.
+    $pilihan = KatalogKendaraan::pilihan();
+    $kursi = KatalogKendaraan::kapasitas();
+
+    foreach ($kursi as $merek => $model) {
+        expect(array_keys($model))->each->toBeIn($pilihan[$merek]);
+    }
 });

@@ -75,6 +75,8 @@ class MetaController extends ApiController
                 // Entri tambahan admin, beserta id-nya: hanya inilah yang boleh
                 // dihapus dari daftar pilihan di lemon.
                 'katalog_kustom' => KatalogKendaraan::kustom(),
+                // Kursi per model: mengisi kapasitas otomatis saat model dipilih.
+                'kapasitas_kendaraan' => KatalogKendaraan::kapasitas(),
                 'satuan_sewa' => config('orcha.satuan_sewa'),
                 'keperluan_kontak' => config('orcha.keperluan_kontak'),
                 'alasan_pembatalan' => config('orcha.alasan_pembatalan'),

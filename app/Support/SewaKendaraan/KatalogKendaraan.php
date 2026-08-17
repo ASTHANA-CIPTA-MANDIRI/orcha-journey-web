@@ -21,24 +21,70 @@ use App\Models\SewaKendaraan\KatalogTambahan;
 class KatalogKendaraan
 {
     /**
-     * @return array<string, list<string>> merek => daftar model
+     * Daftar nama model per merek, untuk daftar pilihan.
+     *
+     * @return array<string, list<string>>
      */
     public static function pilihan(): array
     {
+        $hasil = [];
+
+        foreach (self::gabungan() as $merek => $model) {
+            $nama = array_keys($model);
+            sort($nama, SORT_NATURAL | SORT_FLAG_CASE);
+            $hasil[$merek] = $nama;
+        }
+
+        return $hasil;
+    }
+
+    /**
+     * Jumlah kursi per model, untuk mengisi kapasitas secara otomatis.
+     *
+     * Model yang kursinya belum dipastikan tidak disertakan — lebih baik isian
+     * kapasitas dibiarkan kosong daripada diisi angka yang belum tentu benar,
+     * karena angka yang sudah tertulis cenderung tidak diperiksa lagi.
+     *
+     * @return array<string, array<string, int>>
+     */
+    public static function kapasitas(): array
+    {
+        $hasil = [];
+
+        foreach (self::gabungan() as $merek => $model) {
+            $terisi = array_filter($model, fn ($kursi) => is_int($kursi) && $kursi > 0);
+
+            if ($terisi !== []) {
+                $hasil[$merek] = $terisi;
+            }
+        }
+
+        return $hasil;
+    }
+
+    /**
+     * Katalog bawaan + tambahan admin + yang terbaca dari armada.
+     *
+     * Urutannya menentukan: kursi dari armada MENIMPA bawaan, karena unit nyata
+     * lebih berhak daripada angka rujukan. Avanza yang dipasangi 6 kursi di
+     * armada tidak seharusnya terus menawarkan 7.
+     *
+     * @return array<string, array<string, int|null>>
+     */
+    private static function gabungan(): array
+    {
         $katalog = self::dariConfig();
 
-        foreach (self::dariTambahan() as $merek => $daftarModel) {
-            $katalog[$merek] = array_merge($katalog[$merek] ?? [], $daftarModel);
-        }
+        foreach ([self::dariTambahan(), self::dariArmada()] as $sumber) {
+            foreach ($sumber as $merek => $model) {
+                $katalog[$merek] ??= [];
 
-        foreach (self::dariArmada() as $merek => $daftarModel) {
-            $katalog[$merek] = array_merge($katalog[$merek] ?? [], $daftarModel);
-        }
-
-        foreach ($katalog as $merek => $daftarModel) {
-            $bersih = array_values(array_unique($daftarModel));
-            sort($bersih, SORT_NATURAL | SORT_FLAG_CASE);
-            $katalog[$merek] = $bersih;
+                foreach ($model as $nama => $kursi) {
+                    // Kursi kosong dari sumber berikutnya tidak menghapus angka
+                    // yang sudah diketahui.
+                    $katalog[$merek][$nama] = $kursi ?? ($katalog[$merek][$nama] ?? null);
+                }
+            }
         }
 
         ksort($katalog, SORT_NATURAL | SORT_FLAG_CASE);
@@ -71,7 +117,7 @@ class KatalogKendaraan
     }
 
     /**
-     * @return array<string, list<string>>
+     * @return array<string, array<string, null>>
      */
     private static function dariTambahan(): array
     {
@@ -81,7 +127,7 @@ class KatalogKendaraan
             $hasil[$entri->merek] ??= [];
 
             if ($entri->model !== null && $entri->model !== '') {
-                $hasil[$entri->merek][] = $entri->model;
+                $hasil[$entri->merek][$entri->model] = null;
             }
         }
 
@@ -89,42 +135,47 @@ class KatalogKendaraan
     }
 
     /**
-     * @return array<string, list<string>>
+     * @return array<string, array<string, int|null>>
      */
     private static function dariConfig(): array
     {
         $hasil = [];
 
-        foreach ((array) config('orcha.katalog_kendaraan', []) as $merek => $daftarModel) {
+        foreach ((array) config('orcha.katalog_kendaraan', []) as $merek => $model) {
             $merek = trim((string) $merek);
 
             if ($merek === '') {
                 continue;
             }
 
-            $hasil[$merek] = array_values(array_filter(
-                array_map(fn ($model) => trim((string) $model), (array) $daftarModel),
-                fn ($model) => $model !== '',
-            ));
+            $hasil[$merek] = [];
+
+            foreach ((array) $model as $nama => $kursi) {
+                $nama = trim((string) $nama);
+
+                if ($nama !== '') {
+                    $hasil[$merek][$nama] = is_numeric($kursi) ? (int) $kursi : null;
+                }
+            }
         }
 
         return $hasil;
     }
 
     /**
-     * Merek dan model yang sudah tercatat di armada.
+     * Merek, model, dan kapasitas yang sudah tercatat di armada.
      *
      * Dibaca lewat satu query berisi nilai unik saja, bukan seluruh baris:
      * daftar ini ikut dikirim pada setiap permintaan rujukan.
      *
-     * @return array<string, list<string>>
+     * @return array<string, array<string, int|null>>
      */
     private static function dariArmada(): array
     {
         $hasil = [];
 
         Car::query()
-            ->select('brand', 'name')
+            ->select('brand', 'name', 'capacity')
             ->distinct()
             ->get()
             ->each(function (Car $mobil) use (&$hasil) {
@@ -138,7 +189,8 @@ class KatalogKendaraan
                 $hasil[$merek] ??= [];
 
                 if ($nama !== '') {
-                    $hasil[$merek][] = $nama;
+                    $kursi = (int) $mobil->capacity;
+                    $hasil[$merek][$nama] = $kursi > 0 ? $kursi : null;
                 }
             });
 
