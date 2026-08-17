@@ -36,6 +36,51 @@ class KendaraanController extends ApiController
         return $this->halaman($daftar, KendaraanResource::class);
     }
 
+    /**
+     * Mencatat kondisi unit di luar serah terima — biasanya sesudah perbaikan.
+     *
+     * Selama ini kondisi hanya bisa berubah saat penyewa mengembalikan unitnya.
+     * Setelah pemilik membawa mobilnya ke bengkel dan kacanya diganti, tidak
+     * ada tempat untuk menyatakan unit itu sudah baik lagi: ia terus terbaca
+     * "rusak" sampai ada penyewa berikutnya yang mengembalikannya — dan selama
+     * itu pula halaman armada menyuruh admin memperbaiki yang sudah diperbaiki.
+     *
+     * Catatan pentingnya: ini TIDAK menghapus jejak kerusakan sebelumnya.
+     * Denda dan rincian kerusakan tersimpan pada penyewaannya masing-masing,
+     * bukan pada unitnya. Yang diubah di sini hanya "keadaan unit sekarang".
+     */
+    public function ubahKondisi(Car $kendaraan, Request $request): JsonResponse
+    {
+        $bagian = array_keys(config('orcha.pemeriksaan_kendaraan'));
+        $kondisi = implode(',', array_keys(config('orcha.kondisi_pemeriksaan')));
+
+        $data = $request->validate([
+            'kondisi' => 'required|array',
+            'kondisi.*' => 'in:'.$kondisi,
+            'catatan' => 'nullable|string|max:500',
+        ]);
+
+        // Bagian yang tidak dikenal ditolak diam-diam, supaya perbandingan
+        // kondisi pada serah terima berikutnya tetap memakai daftar yang sama.
+        $bersih = array_intersect_key($data['kondisi'], array_flip($bagian));
+
+        $kendaraan->update([
+            'kondisi_terkini' => $bersih,
+            'kondisi_diperiksa_pada' => now(),
+            'kondisi_catatan' => $data['catatan'] ?? null,
+        ]);
+
+        $this->catat($request, 'catat kondisi kendaraan', [
+            'unit' => $kendaraan->name,
+            'catatan' => $data['catatan'] ?? null,
+        ]);
+
+        return response()->json([
+            'data' => (new KendaraanResource($kendaraan->fresh()->loadCount('penyewaan')->load('penyewaan')))->resolve(),
+            'pesan' => 'Kondisi unit tersimpan.',
+        ]);
+    }
+
     public function show(Car $kendaraan): JsonResponse
     {
         return response()->json([

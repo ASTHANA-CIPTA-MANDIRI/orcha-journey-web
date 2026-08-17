@@ -64,6 +64,9 @@ Route::prefix('v1')
         Route::get('/kendaraan/{kendaraan}', [KendaraanController::class, 'show']);
         Route::post('/kendaraan', [KendaraanController::class, 'store']);
         Route::match(['put', 'post'], '/kendaraan/{kendaraan}', [KendaraanController::class, 'update']);
+        // Pemeriksaan mandiri sesudah perbaikan — terpisah dari serah terima,
+        // karena yang mencatatnya pemilik unit, bukan penyewa yang mengembalikan.
+        Route::patch('/kendaraan/{kendaraan}/kondisi', [KendaraanController::class, 'ubahKondisi']);
         Route::delete('/kendaraan/{kendaraan}', [KendaraanController::class, 'destroy']);
 
         /* ------------------------------ KONTAK ------------------------------ */

@@ -102,6 +102,72 @@ test('penyewaan berikutnya ikut disebut walau unitnya sedang bebas', function ()
         ->and($baris['jadwal']['kode_berikutnya'])->toStartWith('SK-');
 });
 
+test('pemilik bisa mencatat kondisi sesudah unitnya diperbaiki', function () {
+    $mobil = unitArmada([
+        'kondisi_terkini' => ['kaca' => 'rusak', 'bodi_depan' => 'lecet'],
+        'kondisi_diperiksa_pada' => now()->subWeek(),
+    ]);
+
+    // Tanpa jalur ini, unit yang kacanya sudah diganti tetap terbaca "rusak"
+    // sampai ada penyewa berikutnya yang mengembalikannya — dan selama itu
+    // halaman armada menyuruh admin memperbaiki yang sudah diperbaiki.
+    $this->patchJson("/api/v1/kendaraan/{$mobil->id}/kondisi", [
+        'kondisi' => ['kaca' => 'baik', 'bodi_depan' => 'lecet'],
+        'catatan' => 'Kaca diganti 17 Agustus di bengkel Slamet.',
+    ], kepalaArmada())->assertOk();
+
+    $baru = $mobil->fresh();
+
+    expect($baru->kondisi_terkini['kaca'])->toBe('baik')
+        ->and($baru->kondisi_catatan)->toContain('bengkel Slamet')
+        // Waktunya ikut diperbarui: yang dibaca berikutnya adalah pemeriksaan ini
+        ->and($baru->kondisi_diperiksa_pada->isToday())->toBeTrue();
+
+    $baris = $this->getJson('/api/v1/kendaraan', kepalaArmada())->assertOk()->json('data.0');
+
+    expect($baris['kondisi']['perlu_perhatian'])->toBeFalse()
+        ->and($baris['kondisi']['lecet'])->toBe(1);
+});
+
+test('mencatat perbaikan tidak menghapus jejak denda penyewaan sebelumnya', function () {
+    $mobil = unitArmada(['kondisi_terkini' => ['kaca' => 'rusak']]);
+
+    $sewa = sewaUnit($mobil, [
+        'status' => 'selesai', 'denda_kerusakan' => 900000,
+        'rincian_denda' => [['bagian' => 'Kaca & spion', 'biaya' => 900000]],
+        'dikembalikan_pada' => now()->subDay(),
+    ]);
+
+    $this->patchJson("/api/v1/kendaraan/{$mobil->id}/kondisi", [
+        'kondisi' => ['kaca' => 'baik'],
+    ], kepalaArmada())->assertOk();
+
+    // Denda melekat pada penyewaannya, bukan pada unitnya. Memperbaiki mobil
+    // tidak boleh menghapus catatan siapa yang merusakkannya.
+    expect($sewa->fresh()->denda_kerusakan)->toBe(900000)
+        ->and($sewa->fresh()->rincian_denda)->toHaveCount(1);
+});
+
+test('bagian yang tidak dikenal diabaikan, bukan ikut tersimpan', function () {
+    $mobil = unitArmada();
+
+    $this->patchJson("/api/v1/kendaraan/{$mobil->id}/kondisi", [
+        'kondisi' => ['kaca' => 'baik', 'kursi_pijat' => 'baik'],
+    ], kepalaArmada())->assertOk();
+
+    // Daftar bagian harus tetap sama dengan yang dipakai serah terima, supaya
+    // perbandingan kondisi berikutnya tidak membandingkan hal yang berbeda.
+    expect($mobil->fresh()->kondisi_terkini)->toBe(['kaca' => 'baik']);
+});
+
+test('nilai kondisi di luar daftar ditolak', function () {
+    $mobil = unitArmada();
+
+    $this->patchJson("/api/v1/kendaraan/{$mobil->id}/kondisi", [
+        'kondisi' => ['kaca' => 'agak retak sedikit'],
+    ], kepalaArmada())->assertStatus(422);
+});
+
 test('penyewaan yang sudah selesai tidak lagi menahan unitnya', function () {
     $mobil = unitArmada();
     sewaUnit($mobil, [

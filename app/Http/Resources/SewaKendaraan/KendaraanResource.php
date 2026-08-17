@@ -40,6 +40,9 @@ class KendaraanResource extends JsonResource
             // unit yang kacanya retak bisa disewakan lagi tanpa ada yang tahu
             // sampai penyewa berikutnya mengeluh.
             'kondisi' => $this->ringkasKondisi(),
+            // Bentuk mentahnya (bagian => nilai) dipakai formulir armada untuk
+            // mengisikan pilihan per bagian saat pemilik mencatat perbaikan.
+            'kondisi_terkini' => $this->kondisi_terkini ?: (object) [],
 
             // Sedang dipakai atau tidak. Tanpa ini admin harus membuka daftar
             // penyewaan untuk menjawab "unit ini bisa dipakai besok?".
@@ -66,6 +69,7 @@ class KendaraanResource extends JsonResource
 
         return [
             'diperiksa_pada' => $this->kondisi_diperiksa_pada?->toIso8601String(),
+            'catatan' => $this->kondisi_catatan,
             'rusak' => $rusak,
             'lecet' => $lecet,
             'hilang' => $hilang,

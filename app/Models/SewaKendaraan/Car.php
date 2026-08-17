@@ -28,6 +28,7 @@ class Car extends Model
         'is_available',
         'kondisi_terkini',
         'kondisi_diperiksa_pada',
+        'kondisi_catatan',
     ];
 
     protected $casts = [
