@@ -85,6 +85,8 @@ class Car extends Model
             if (blank($mobil->transmisi_tersedia)) {
                 $mobil->transmisi_tersedia = [$mobil->transmission];
             }
+
+            $mobil->warisiAturanLuarKota();
         });
     }
 
@@ -303,6 +305,47 @@ class Car extends Model
     }
 
     /**
+     * Aturan luar kota yang TIDAK disebut mengikuti aturan dalam kota.
+     *
+     * Kolom luar_* punya nilai bawaan false/null di basis data. Untuk unit yang
+     * dibuat tanpa menyebutnya — seeder, tinker, atau pemanggil lama — bawaan
+     * itu berarti "di luar kota semuanya ditanggung penyewa", pernyataan yang
+     * tidak pernah dimaksudkan siapa pun dan berbeda dari unit yang sama di
+     * dalam kota.
+     *
+     * Aturan yang sama sudah berlaku di controller API dan pada migrasi yang
+     * menyalin data lama. Dipasang di sini supaya JALUR MANA PUN ikut terkena,
+     * bukan hanya jalur yang kebetulan diingat.
+     */
+    private function warisiAturanLuarKota(): void
+    {
+        $tersedia = $this->getAttributes();
+
+        $penanda = ['termasuk_sopir'];
+        $nominal = ['harga_sopir'];
+
+        foreach (array_keys((array) config('orcha.pos_operasional', [])) as $pos) {
+            $penanda[] = "termasuk_{$pos}";
+            $nominal[] = "biaya_{$pos}";
+        }
+
+        // Penanda tidak boleh null di basis data, dan nilai dalam kotanya
+        // sendiri bisa belum terisi — unit yang dibuat tanpa menyebut satu pun
+        // pos biaya. Bawaannya false: tidak termasuk.
+        foreach ($penanda as $medan) {
+            if (! array_key_exists("luar_{$medan}", $tersedia)) {
+                $this->{"luar_{$medan}"} = (bool) ($this->{$medan} ?? false);
+            }
+        }
+
+        foreach ($nominal as $medan) {
+            if (! array_key_exists("luar_{$medan}", $tersedia)) {
+                $this->{"luar_{$medan}"} = $this->{$medan} ?? null;
+            }
+        }
+    }
+
+    /**
      * Nama kolom untuk wilayah yang diminta.
      *
      * Kolom tanpa awalan berarti dalam kota; yang berawalan "luar_" untuk
@@ -407,27 +450,45 @@ class Car extends Model
     }
 
     /**
-     * Ringkasan sebaris aturan luar kota, untuk kartu di daftar armada.
+     * Ringkasan sebaris aturan biaya satu wilayah, untuk kartu daftar armada.
      *
      * Kalimat panjang milik operasionalLabel() terlalu berat untuk kartu yang
-     * sudah memuat tarif dan spesifikasi. Yang disebut di sini hanya apa yang
-     * TERMASUK — itu yang membedakannya dari keadaan biasa dan itu yang membuat
-     * penyewa membuka halaman pemesanan.
+     * sudah memuat tarif dan spesifikasi. Yang disebut di sini apa yang
+     * TERMASUK — itu yang membedakan satu unit dari keadaan biasa. Tarif sopir
+     * yang dihitung terpisah tetap disebut nominalnya: itu tambahan yang paling
+     * besar, dan menyembunyikannya di balik kata "ditanggung penyewa" membuat
+     * penyewa menghitung terlalu murah.
      */
-    public function getRingkasanLuarKotaAttribute(): string
+    public function ringkasanWilayah(bool $luarKota = false): string
     {
-        $termasuk = collect($this->rincianOperasional(true))
+        $termasuk = collect($this->rincianOperasional($luarKota))
             ->filter(fn ($pos) => $pos['termasuk'])
             ->pluck('label')
             ->all();
 
-        if ($this->termasukSopir(true)) {
+        if ($this->termasukSopir($luarKota)) {
             $termasuk[] = 'sopir';
         }
 
-        return $termasuk === []
-            ? 'Luar kota: semuanya ditanggung penyewa'
-            : 'Luar kota: '.self::rangkai($termasuk).' termasuk';
+        $kalimat = $termasuk === []
+            ? 'semuanya ditanggung penyewa'
+            : self::rangkai($termasuk).' termasuk';
+
+        if (! $this->termasukSopir($luarKota) && $this->hargaSopir($luarKota)) {
+            $kalimat .= ' · sopir +'.$this->rupiah($this->hargaSopir($luarKota)).'/hari';
+        }
+
+        return $kalimat;
+    }
+
+    public function getRingkasanDalamKotaAttribute(): string
+    {
+        return $this->ringkasanWilayah(false);
+    }
+
+    public function getRingkasanLuarKotaAttribute(): string
+    {
+        return $this->ringkasanWilayah(true);
     }
 
     private static function awalKapital(string $kalimat): string

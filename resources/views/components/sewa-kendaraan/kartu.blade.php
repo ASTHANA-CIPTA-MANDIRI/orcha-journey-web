@@ -164,39 +164,53 @@
              Ditampilkan sebagai daftar berikon, bukan kalimat berwarna. Kalimat
              biru bertumpuk terbaca seperti tautan yang bisa diklik; ikon centang
              menyampaikan "termasuk" tanpa perlu mewarnai seluruh barisnya. --}}
-        <ul class="mt-4 space-y-1.5 text-xs text-slate-500">
-            <li class="flex items-start gap-1.5">
-                @if ($kendaraan->termasuk_sopir)
-                    <x-heroicon-s-check-circle class="w-4 h-4 mt-px shrink-0 text-orcha-ocean" />
-                @else
-                    <x-heroicon-o-user class="w-4 h-4 mt-px shrink-0 text-slate-300" />
-                @endif
-                <span class="{{ $kendaraan->termasuk_sopir ? 'font-semibold text-slate-600' : '' }}">
-                    {{ $kendaraan->sopir_label }}
-                </span>
-            </li>
-            <li class="flex items-start gap-1.5">
-                @if ($operasionalTermasuk)
-                    <x-heroicon-s-check-circle class="w-4 h-4 mt-px shrink-0 text-orcha-ocean" />
-                @else
-                    <x-heroicon-o-banknotes class="w-4 h-4 mt-px shrink-0 text-slate-300" />
-                @endif
-                <span class="{{ $operasionalTermasuk ? 'font-semibold text-slate-600' : '' }}">
-                    {{ $kendaraan->operasional_label }}
-                </span>
-            </li>
+        {{-- Aturan biaya: berlabel wilayah HANYA bila memang berbeda.
 
-            {{-- Aturan luar kota disebut HANYA bila memang berbeda. Unit yang
-                 aturannya sama di kedua wilayah tidak perlu dua kalimat yang
-                 isinya sama; yang berbeda justru wajib disebut, karena dua baris
-                 di atas hanya berlaku untuk dalam kota. --}}
-            @if ($kendaraan->beda_aturan_luar_kota)
+             Sebelumnya dua kalimat tanpa wilayah lalu satu baris "Luar kota: …"
+             di bawahnya. Penyewa tidak punya cara tahu bahwa dua kalimat pertama
+             ternyata hanya berlaku dalam kota — ia membaca ketiganya sebagai satu
+             daftar yang saling bertentangan.
+
+             Bila aturannya sama di kedua wilayah, labelnya justru mengganggu:
+             menuliskan "dalam kota" dan "luar kota" untuk hal yang tidak berbeda
+             menyuruh penyewa mencari perbedaan yang tidak ada. --}}
+        @if ($kendaraan->beda_aturan_luar_kota)
+            <ul class="mt-4 space-y-2 text-xs text-slate-500">
+                @foreach ([['Dalam kota', $kendaraan->ringkasan_dalam_kota, 'o-building-office-2'], ['Luar kota', $kendaraan->ringkasan_luar_kota, 'o-map-pin']] as [$wilayah, $ringkasan, $ikon])
+                    <li class="flex items-start gap-1.5">
+                        <x-dynamic-component :component="'heroicon-' . $ikon"
+                            class="w-4 h-4 mt-px shrink-0 text-orcha-sun" />
+                        <span>
+                            <b class="font-bold text-slate-600">{{ $wilayah }}</b>
+                            — {{ $ringkasan }}
+                        </span>
+                    </li>
+                @endforeach
+            </ul>
+        @else
+            <ul class="mt-4 space-y-1.5 text-xs text-slate-500">
                 <li class="flex items-start gap-1.5">
-                    <x-heroicon-o-map-pin class="w-4 h-4 mt-px shrink-0 text-orcha-sun" />
-                    <span class="font-semibold text-slate-600">{{ $kendaraan->ringkasan_luar_kota }}</span>
+                    @if ($kendaraan->termasuk_sopir)
+                        <x-heroicon-s-check-circle class="w-4 h-4 mt-px shrink-0 text-orcha-ocean" />
+                    @else
+                        <x-heroicon-o-user class="w-4 h-4 mt-px shrink-0 text-slate-300" />
+                    @endif
+                    <span class="{{ $kendaraan->termasuk_sopir ? 'font-semibold text-slate-600' : '' }}">
+                        {{ $kendaraan->sopir_label }}
+                    </span>
                 </li>
-            @endif
-        </ul>
+                <li class="flex items-start gap-1.5">
+                    @if ($operasionalTermasuk)
+                        <x-heroicon-s-check-circle class="w-4 h-4 mt-px shrink-0 text-orcha-ocean" />
+                    @else
+                        <x-heroicon-o-banknotes class="w-4 h-4 mt-px shrink-0 text-slate-300" />
+                    @endif
+                    <span class="{{ $operasionalTermasuk ? 'font-semibold text-slate-600' : '' }}">
+                        {{ $kendaraan->operasional_label }}
+                    </span>
+                </li>
+            </ul>
+        @endif
 
         <a href="{{ route('sewa-kendaraan.pesan', ['unit' => $kendaraan->uuid]) }}"
             class="w-full mt-4 btn-orcha btn-orcha-primary !py-2.5 !text-sm">

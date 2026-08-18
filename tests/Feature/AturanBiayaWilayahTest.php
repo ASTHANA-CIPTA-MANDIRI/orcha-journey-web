@@ -83,21 +83,33 @@ test('unit yang aturannya sama di dua wilayah tidak ditandai berbeda', function 
 
 /* -------- KARTU PUBLIK -------- */
 
-test('kartu menyebut aturan luar kota hanya bila berbeda', function () {
+test('kartu memberi label wilayah pada aturan yang berbeda', function () {
     unitDuaWilayah();
 
-    $this->get(route('sewa-kendaraan'))->assertOk()
-        ->assertSee('Luar kota: BBM dan sopir termasuk');
+    // Tanpa label, penyewa tidak punya cara tahu bahwa keterangan pertama
+    // ternyata hanya berlaku dalam kota — ia membaca keduanya sebagai satu
+    // daftar yang saling bertentangan.
+    $teks = preg_replace('/\s+/', ' ', strip_tags(
+        $this->get(route('sewa-kendaraan'))->assertOk()->getContent()
+    ));
+
+    expect($teks)->toContain('Dalam kota — semuanya ditanggung penyewa · sopir +Rp 200.000/hari')
+        ->and($teks)->toContain('Luar kota — BBM dan sopir termasuk');
 });
 
-test('kartu tidak mengulang aturan yang sama untuk dua wilayah', function () {
+test('kartu tidak memberi label bila kedua wilayah sama', function () {
     unitDuaWilayah([
         'luar_termasuk_sopir' => false, 'luar_harga_sopir' => 200000,
         'luar_termasuk_bbm' => false, 'luar_biaya_bbm' => null,
     ]);
 
-    // Dua kalimat yang isinya sama hanya memanjangkan kartu.
-    $this->get(route('sewa-kendaraan'))->assertOk()->assertDontSee('Luar kota:');
+    // Menuliskan "dalam kota" dan "luar kota" untuk hal yang tidak berbeda
+    // menyuruh penyewa mencari perbedaan yang tidak ada.
+    $this->get(route('sewa-kendaraan'))->assertOk()
+        ->assertDontSee('Dalam kota —')
+        ->assertDontSee('Luar kota —')
+        // Keterangannya tetap ada, hanya tanpa label wilayah.
+        ->assertSee('Sopir +Rp 200.000/hari');
 });
 
 /* -------- HALAMAN PEMESANAN -------- */
