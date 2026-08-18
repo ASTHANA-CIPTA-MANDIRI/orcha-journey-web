@@ -649,7 +649,14 @@ h6,
     bottom: 24%;
     width: min(24vw, 124px);
     transform-origin: 50% 100%;
-    animation: preloader-melompat 7s cubic-bezier(.4, 0, .5, 1) infinite;
+    /* 2,6 detik, dan lompatannya dimulai pada 0,2 detik pertama.
+
+       Sebelumnya siklusnya 7 detik dengan lompatan baru dimulai di 58% —
+       detik ke-4,06 — padahal layar muat ini hidup 1,2 sampai 2 detik saja
+       (MIN_DISPLAY_MS di new-homepage.js). Akibatnya orcanya praktis TIDAK
+       PERNAH sempat muncul: gerak yang dirancang untuk layar yang menetap,
+       dipasang di layar yang justru berumur pendek. */
+    animation: preloader-melompat 2.6s cubic-bezier(.4, 0, .5, 1) infinite;
     pointer-events: none;
     filter: drop-shadow(0 6px 16px rgba(0, 18, 32, .55));
 }
@@ -671,28 +678,32 @@ h6,
    di bawah daripada di atas: lompatan tanpa jeda terbaca gelisah, sedangkan
    jeda membuat kemunculannya jadi kejutan kecil. */
 @keyframes preloader-melompat {
-    0%, 58% {
+    0% {
         transform: translate(-92%, 70%) rotate(-18deg);
         opacity: 0;
     }
-    64% {
-        transform: translate(-78%, 24%) rotate(-8deg);
+    8% {
+        transform: translate(-80%, 26%) rotate(-8deg);
         opacity: 1;
     }
-    /* Puncaknya harus MELEWATI garis air. Sebelumnya hanya naik 26% dari
-       tinggi badannya sendiri — sekitar 32px — sementara jarak ke cakrawala
-       jauh lebih besar, jadi orcanya tidak pernah benar-benar keluar dan
-       terbaca berenang di permukaan, bukan melompat. */
-    76% {
+    /* Puncaknya harus MELEWATI garis air. Naik seperempat tinggi badannya
+       saja membuat orcanya terbaca berenang di permukaan, bukan melompat. */
+    30% {
         transform: translate(-50%, -96%) rotate(6deg);
         opacity: 1;
     }
-    88% {
+    52% {
         transform: translate(-20%, 8%) rotate(30deg);
         opacity: 1;
     }
-    96%, 100% {
+    62% {
         transform: translate(-6%, 70%) rotate(40deg);
+        opacity: 0;
+    }
+    /* Jeda menyelam sampai putaran berikutnya: lompatan tanpa jeda terbaca
+       gelisah. Jedanya sekarang sekitar satu detik, bukan empat. */
+    100% {
+        transform: translate(-92%, 70%) rotate(-18deg);
         opacity: 0;
     }
 }
