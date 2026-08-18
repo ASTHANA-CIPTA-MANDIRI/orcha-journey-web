@@ -414,10 +414,14 @@ h6,
 /* Seluruh isi layar pemuat digerakkan SATU angka: --maju, 0 sampai 1, yang
    ditulis skrip dari nilai progres yang sama dengan angka persennya.
 
-   Sengaja satu sumber. Kalau batang, pesawat, dan fajarnya masing-masing
-   dianimasikan sendiri, ketiganya akan berselisih di jaringan lambat —
-   pesawatnya sampai di ujung sementara angkanya masih 70%, dan yang terbaca
-   bukan kemajuan melainkan hiasan yang kebetulan bergerak. */
+   Sengaja satu sumber. Kalau angka, batang, dan isian hurufnya masing-masing
+   dianimasikan sendiri, ketiganya akan berselisih di jaringan lambat — batangnya
+   penuh sementara angkanya masih 70%, dan yang terbaca bukan kemajuan melainkan
+   hiasan yang kebetulan bergerak.
+
+   Tidak ada transition di sifat mana pun yang turun dari --maju: GSAP sudah
+   menulisnya tiap bingkai, dan menaruh peredam CSS di atasnya berarti dua
+   peredam bertumpuk — nilainya dikejar-kejar dan geraknya justru tersendat. */
 #preloader {
     --maju: 0;
     will-change: transform;
@@ -429,334 +433,156 @@ h6,
     display: none;
 }
 
-/* Fajar yang terbit seiring muatannya: mulai tenggelam di bawah bingkai, naik
-   dan menghangat sampai penuh. */
-.preloader-fajar {
+/* Dua gumpalan cahaya yang hanyut. Satu-satunya gerak yang tidak menyatakan
+   kemajuan — tugasnya menjaga layar ini tidak terlihat membeku. */
+.preloader-kabut {
     position: absolute;
-    left: 50%;
-    /* Duduk PERSIS di garis cakrawala (tinggi .preloader-ombak), supaya
-       cahayanya terbaca terbit dari balik laut — bukan mengambang di tengah
-       layar seperti noda. */
-    bottom: 32%;
-    width: min(170vw, 1100px);
-    aspect-ratio: 2.2 / 1;
-    transform: translate(-50%, calc(52% - var(--maju) * 30%));
-    /* Tanpa transition. --maju sudah ditulis GSAP tiap bingkai; menambah
-       transisi CSS di atasnya berarti dua peredam bertumpuk — nilainya
-       dikejar-kejar dan geraknya justru tersendat, bukan makin halus. */
-    /* Berhenti pada warna yang SAMA dengan alfa nol, bukan pada `transparent`.
-       `transparent` itu hitam beralfa nol, jadi gradasinya diam-diam menggelap
-       ke arah tepi — dan batas kotaknya jadi terbaca sebagai persegi samar di
-       sekeliling cahayanya. Terlihat jelas di layar tinggi. */
-    /* farthest-side, bukan jangkauan bawaan (farthest-corner).
-
-       Dengan bawaan, 100% gradasi diukur ke SUDUT terjauh — sehingga di tepi
-       kiri-kanan kotak warnanya belum sempat habis, dan batas kotak itu
-       terbaca sebagai persegi samar. Terukur: lompatan warna mendadak tepat di
-       piksel tepi kotaknya.
-
-       Dengan farthest-side, elipsnya menyentuh sisi kotak pada 100%, jadi
-       setiap titik DI tepi sudah beralfa nol.
-
-       Berhentinya juga pada warna yang sama beralfa nol, bukan `transparent` —
-       `transparent` itu hitam beralfa nol, dan gradasinya diam-diam menggelap
-       ke arah tepi. */
+    inset: -20%;
     background:
-        radial-gradient(ellipse farthest-side at 50% 100%,
-            rgba(255, 199, 78, calc(0.30 + var(--maju) * 0.34)) 0%,
-            rgba(255, 167, 64, 0.16) 34%,
-            rgba(26, 176, 226, 0.08) 68%,
-            rgba(26, 176, 226, 0) 100%);
+        radial-gradient(ellipse farthest-side at 22% 28%,
+            rgba(26, 176, 226, calc(0.16 + var(--maju) * 0.16)) 0%,
+            rgba(26, 176, 226, 0) 100%),
+        radial-gradient(ellipse farthest-side at 78% 72%,
+            rgba(255, 199, 78, calc(0.10 + var(--maju) * 0.20)) 0%,
+            rgba(255, 199, 78, 0) 100%);
+    filter: blur(10px);
+    animation: preloader-hanyut 14s ease-in-out infinite alternate;
     pointer-events: none;
 }
 
-/* Lautnya, dengan tepi atas setipis rambut. Garis itu yang membuat bidang
-   gelap di bawah terbaca sebagai air berbatas cakrawala, bukan sekadar gradasi
-   yang menggelap. */
-.preloader-ombak {
+@keyframes preloader-hanyut {
+    from { transform: translate3d(-3%, -2%, 0) scale(1); }
+    to { transform: translate3d(3%, 2%, 0) scale(1.08); }
+}
+
+/* Garis tegak setipis rambut — memberi bidang ini rasa terukur, seperti kisi
+   rancangan, tanpa menambah apa pun yang harus dibaca. */
+.preloader-kisi {
     position: absolute;
-    inset-inline: 0;
-    bottom: 0;
-    height: 32%;
-    background: linear-gradient(to top,
-        rgba(0, 80, 132, calc(0.60 + var(--maju) * 0.22)),
-        rgba(0, 80, 132, 0) 88%);
-    border-top: 1px solid rgba(232, 247, 253, calc(0.07 + var(--maju) * 0.11));
+    inset: 0;
+    background-image: repeating-linear-gradient(to right,
+        rgba(232, 247, 253, .05) 0 1px,
+        transparent 1px 12.5%);
+    /* Dipudarkan di tepi atas dan bawah supaya kisinya tidak berhenti mendadak
+       di batas layar. */
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent);
     pointer-events: none;
 }
 
+/* Tata letak sudut, bukan tumpukan di tengah: merek di atas, angka dan
+   keterangan di dasar. Bidang tengah sengaja dibiarkan lapang — itu yang
+   membuatnya terbaca modern, bukan penuh. */
 .preloader-content {
     position: relative;
-    gap: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    padding: clamp(1.5rem, 5vw, 3.5rem);
 }
 
-.preloader-rute {
-    position: relative;
-    width: min(70vw, 260px);
+.preloader-merek {
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .42em;
+    text-transform: uppercase;
+    color: rgba(232, 247, 253, .5);
 }
 
-.preloader-rute svg {
-    width: 100%;
-    height: auto;
-    display: block;
-    overflow: visible;
+.preloader-bawah {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
 }
 
-/* Jalur yang belum ditempuh: putus-putus, seperti rute di peta. */
-.preloader-rute .jalur {
-    stroke: rgba(232, 247, 253, .22);
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-dasharray: .012 .022;
-}
-
-/* Jalur yang sudah ditempuh, digambar mengikuti --maju.
-
-   pathLength="1" di markah membuat panjang kurvanya dianggap satu satuan,
-   sehingga offset-nya cukup (1 - maju): tidak ada panjang kurva yang perlu
-   diukur lalu dituliskan sebagai angka tetap — angka yang akan langsung salah
-   begitu lengkungnya diubah sedikit saja. */
-.preloader-rute .jalur-maju {
-    stroke: var(--color-orcha-sun);
-    stroke-width: 2.5;
-    stroke-linecap: round;
-    stroke-dasharray: 1;
-    stroke-dashoffset: calc(1 - var(--maju));
-    filter: drop-shadow(0 0 6px rgba(255, 199, 78, .55));
-}
-
-/* Pesawatnya menyusuri KURVA YANG SAMA, bukan garis lurus khayalan di
-   atasnya: offset-path memakai definisi 'd' yang persis sama dengan jalurnya,
-   jadi keduanya tidak mungkin berpisah. */
-/* Pesawatnya menyusuri KURVA YANG SAMA dengan jalurnya — offset-path memakai
-   definisi 'd' yang persis sama, jadi keduanya tidak mungkin berpisah. */
-.preloader-pesawat {
-    color: #fff;
-    offset-path: path("M8 58 C 70 8, 190 8, 252 58");
-    offset-distance: calc(var(--maju) * 100%);
-    offset-rotate: auto;
-    filter: drop-shadow(0 1px 3px rgba(0, 18, 32, .8));
-}
-
+/* Angkanya sendiri yang jadi takaran: warnanya dipotong bentuk huruf, dan
+   batas isinya naik mengikuti --maju. Bagian yang belum terisi tetap terbaca
+   samar, jadi angkanya utuh sejak awal — bukan muncul sepotong-sepotong. */
 .preloader-angka {
     display: flex;
     align-items: baseline;
-    gap: .15rem;
-    color: #fff;
-    font-size: clamp(2.25rem, 6vw, 3rem);
+    font-family: var(--font-heading, inherit);
+    font-size: clamp(4.5rem, 17vw, 13rem);
     font-weight: 900;
-    line-height: 1;
+    line-height: .82;
+    letter-spacing: -.04em;
+    /* Warnanya dipotong bentuk huruf, dan batas isinya naik mengikuti --maju.
+       Bagian yang belum terisi tetap terbaca samar, jadi angkanya utuh sejak
+       0% — bukan muncul sepotong-sepotong.
+
+       Isian ini PENANDA, bukan takaran presisi: gradasinya membentang setinggi
+       kotak elemen, sedangkan glifnya menjulur sedikit keluar kotak karena
+       line-height .82, jadi batas isinya tidak persis di persentase yang
+       sama. Dicoba dipatok ke tinggi huruf dengan background-size .72em, dan
+       hasilnya lebih buruk — isinya jadi pita di tengah angka, karena letak
+       garis dasar font ini tidak sama dengan yang saya andaikan. Angka
+       persisnya toh tertulis sebagai angka, tepat di situ. */
+    background-image: linear-gradient(to top,
+        #ffc74e 0%,
+        #1ab0e2 calc(var(--maju) * 100%),
+        rgba(232, 247, 253, .16) calc(var(--maju) * 100%),
+        rgba(232, 247, 253, .16) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
 }
 
 .preloader-angka .persen {
-    color: var(--color-orcha-sky);
-    font-size: .5em;
-    font-weight: 900;
+    font-size: .3em;
+    letter-spacing: 0;
+    margin-left: .1em;
+}
+
+/* Di layar sempit keduanya ditumpuk. Berdampingan, keterangannya terdorong
+   keluar layar oleh angka yang lebarnya hampir seluruh bidang — terukur pada
+   390px: yang terbaca cuma "ME" dan "PERJALA". */
+@media (max-width: 640px) {
+    .preloader-bawah {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: .9rem;
+    }
+
+    .preloader-tulisan {
+        text-align: left;
+        margin: 0;
+    }
 }
 
 .preloader-tulisan {
-    font-size: .65rem;
+    margin: 0 0 .6rem;
+    text-align: right;
+    font-size: .7rem;
     font-weight: 600;
-    letter-spacing: .3em;
+    letter-spacing: .28em;
+    line-height: 1.9;
     text-transform: uppercase;
-    color: rgba(232, 247, 253, .55);
+    color: rgba(232, 247, 253, .45);
 }
 
-@media (min-width: 640px) {
-    .preloader-tulisan { font-size: .72rem; }
-}
-
-/* Gerak yang tidak menerangkan apa pun dimatikan bagi yang memintanya; angka,
-   jalur, dan pesawatnya TETAP bergerak — itu isi informasinya, bukan hiasan. */
-/* ---- Langit malam yang berangsur jadi pagi ---------------------------- */
-
-/* Bintangnya gradasi, bukan berkas gambar: tergambar seketika, dan titiknya
-   ditulis tetap supaya susunannya tidak berubah tiap muat — bintang yang
-   melompat-lompat justru menarik perhatian ke tempat yang salah. */
-.preloader-bintang {
+/* Batang setipis rambut di dasar layar, selebar penuh. Mengulang angka yang
+   sama untuk yang hanya melirik. */
+.preloader-garis {
     position: absolute;
     inset-inline: 0;
-    top: 0;
-    height: 72%;
-    opacity: calc(0.75 - var(--maju) * 0.7);
-    background-repeat: no-repeat;
-    background-image:
-        radial-gradient(1.6px 1.6px at 12% 18%, rgba(255, 255, 255, .85), transparent 60%),
-        radial-gradient(1.2px 1.2px at 27% 42%, rgba(255, 255, 255, .55), transparent 60%),
-        radial-gradient(1.8px 1.8px at 38% 12%, rgba(232, 247, 253, .8), transparent 60%),
-        radial-gradient(1.1px 1.1px at 52% 30%, rgba(255, 255, 255, .5), transparent 60%),
-        radial-gradient(1.5px 1.5px at 64% 8%, rgba(255, 255, 255, .75), transparent 60%),
-        radial-gradient(1.2px 1.2px at 73% 36%, rgba(232, 247, 253, .6), transparent 60%),
-        radial-gradient(1.7px 1.7px at 86% 22%, rgba(255, 255, 255, .8), transparent 60%),
-        radial-gradient(1.1px 1.1px at 94% 48%, rgba(255, 255, 255, .45), transparent 60%),
-        radial-gradient(1.3px 1.3px at 6% 55%, rgba(255, 255, 255, .5), transparent 60%),
-        radial-gradient(1.4px 1.4px at 45% 58%, rgba(232, 247, 253, .45), transparent 60%);
-    animation: preloader-kelip 4.5s ease-in-out infinite;
-    pointer-events: none;
-}
-
-@keyframes preloader-kelip {
-    0%, 100% { filter: brightness(1); }
-    50% { filter: brightness(1.45); }
-}
-
-/* Pantulan matahari di air — melebar dan menghangat seiring mataharinya naik.
-   Inilah yang membuat bidang bawah terbaca sebagai air, bukan bidang gelap. */
-.preloader-kilau {
-    position: absolute;
-    left: 50%;
     bottom: 0;
-    width: calc(24% + var(--maju) * 30%);
-    height: 32%;
-    transform: translateX(-50%);
-    /* Radial dari titik terbit di cakrawala, bukan gradasi tegak.
-
-       Gradasi tegak hanya memudar ke atas-bawah; tepi kiri-kanannya berhenti
-       mendadak di batas kotak, dan kilaunya terbaca sebagai persegi terang di
-       air — terlihat jelas begitu dipotret. Radial memudar ke segala arah,
-       jadi tidak ada tepi yang tersisa untuk terlihat. */
-    background: radial-gradient(ellipse farthest-side at 50% 0%,
-        rgba(255, 214, 130, calc(0.12 + var(--maju) * 0.24)) 0%,
-        rgba(255, 199, 78, calc(0.05 + var(--maju) * 0.12)) 45%,
-        rgba(255, 199, 78, 0) 100%);
-    filter: blur(10px);
-    pointer-events: none;
+    height: 2px;
+    background: rgba(232, 247, 253, .1);
 }
 
-/* ---- Orca yang menyembul ---------------------------------------------- */
-
-/* Geraknya ATMOSFER, bukan kemajuan — sama seperti bintang yang berkelip.
-   Kemajuan sudah dibawa satu benda saja, pesawat di rutenya; benda kedua yang
-   ikut bergerak seolah-olah maju hanya membuat layar ini punya dua jawaban
-   untuk satu pertanyaan. */
-/* Melompat DI DEPAN cahaya matahari, bukan di langit gelap di atasnya.
-
-   Siluet gelap hanya terbaca kalau ada yang terang di belakangnya; ditaruh di
-   langit malam, orcanya menghilang sama sekali — dan yang tersisa cuma bayangan
-   samar yang menabrak tulisan. Di depan fajar, bentuknya tegas. */
-.preloader-orca {
-    position: absolute;
-    /* Di kanan blok tulisan, bukan di belakangnya. Di tengah, puncak
-       lompatannya menimpa "Menyiapkan perjalanan Anda" — dan tulisan yang
-       tertimpa gambar terbaca sebagai tata letak yang rusak, bukan sebagai
-       kedalaman. */
-    /* min() menjaga jaraknya dari tepi kanan. Jaraknya besar bukan karena
-       lebar orcanya, melainkan karena fase menyelamnya berputar 40 derajat —
-       dan kotak sejajar-sumbu sebuah benda yang diputar jauh lebih lebar
-       daripada bendanya sendiri. Terukur: dengan jarak 7,5rem ia masih
-       melewati tepi 24px di layar 500px. */
-    left: min(80%, calc(100% - 10.5rem));
-    bottom: 24%;
-    width: min(24vw, 124px);
-    transform-origin: 50% 100%;
-    /* 2,6 detik, dan lompatannya dimulai pada 0,2 detik pertama.
-
-       Sebelumnya siklusnya 7 detik dengan lompatan baru dimulai di 58% —
-       detik ke-4,06 — padahal layar muat ini hidup 1,2 sampai 2 detik saja
-       (MIN_DISPLAY_MS di new-homepage.js). Akibatnya orcanya praktis TIDAK
-       PERNAH sempat muncul: gerak yang dirancang untuk layar yang menetap,
-       dipasang di layar yang justru berumur pendek. */
-    animation: preloader-melompat 2.6s cubic-bezier(.4, 0, .5, 1) infinite;
-    pointer-events: none;
-    filter: drop-shadow(0 6px 16px rgba(0, 18, 32, .55));
-}
-
-.preloader-orca svg {
-    width: 100%;
-    height: auto;
+.preloader-garis > span {
     display: block;
+    height: 100%;
+    transform: scaleX(var(--maju));
+    transform-origin: left center;
+    background: linear-gradient(to right, #1ab0e2, #ffc74e);
+    box-shadow: 0 0 14px rgba(26, 176, 226, .55);
 }
 
-.preloader-orca .badan { fill: #04131f; }
-.preloader-orca .perut { fill: rgba(232, 247, 253, .82); }
-.preloader-orca .bercak { fill: rgba(255, 255, 255, .92); }
-
-/* Muncul dari balik garis air, melengkung, lalu menyelam kembali. Diam lebih
-   lama di bawah daripada di atas: lompatan yang terus-menerus terbaca gelisah,
-   sedangkan jeda membuat kemunculannya jadi kejutan kecil. */
-/* Menyembul dari balik air, melengkung, lalu menyelam kembali. Diam lebih lama
-   di bawah daripada di atas: lompatan tanpa jeda terbaca gelisah, sedangkan
-   jeda membuat kemunculannya jadi kejutan kecil. */
-@keyframes preloader-melompat {
-    0% {
-        transform: translate(-92%, 70%) rotate(-18deg);
-        opacity: 0;
-    }
-    8% {
-        transform: translate(-80%, 26%) rotate(-8deg);
-        opacity: 1;
-    }
-    /* Puncaknya harus MELEWATI garis air. Naik seperempat tinggi badannya
-       saja membuat orcanya terbaca berenang di permukaan, bukan melompat. */
-    30% {
-        transform: translate(-50%, -96%) rotate(6deg);
-        opacity: 1;
-    }
-    52% {
-        transform: translate(-20%, 8%) rotate(30deg);
-        opacity: 1;
-    }
-    62% {
-        transform: translate(-6%, 70%) rotate(40deg);
-        opacity: 0;
-    }
-    /* Jeda menyelam sampai putaran berikutnya: lompatan tanpa jeda terbaca
-       gelisah. Jedanya sekarang sekitar satu detik, bukan empat. */
-    100% {
-        transform: translate(-92%, 70%) rotate(-18deg);
-        opacity: 0;
-    }
-}
-
-/* Sudut yang diredupkan; mata jatuh ke tengah tanpa disuruh. */
-.preloader-vignet {
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse farthest-side at 50% 45%,
-        rgba(0, 18, 32, 0) 40%,
-        rgba(0, 18, 32, .55) 100%);
-    pointer-events: none;
-}
-
-/* Ekor cahaya di belakang pesawat: potongan pendek dari jalur yang sama,
-   digeser mengikuti --maju. Panjangnya tetap, jadi ia terbaca sebagai jejak
-   yang mengikuti, bukan sebagai jalur kedua. */
-.preloader-rute .jalur-ekor {
-    stroke: #fff;
-    stroke-width: 3;
-    stroke-linecap: round;
-    stroke-dasharray: .06 1;
-    stroke-dashoffset: calc(0.06 - var(--maju));
-    opacity: .5;
-    filter: blur(2px);
-}
-
-/* Pesawatnya mengambang tipis — cukup untuk membuat layar ini tidak pernah
-   terlihat membeku ketika muatannya tersendat, tetapi tidak sampai melepas
-   pesawatnya dari garis. */
-.preloader-pesawat {
-    animation: preloader-mengambang 2.8s ease-in-out infinite;
-}
-
-@keyframes preloader-mengambang {
-    0%, 100% { translate: 0 0; }
-    50% { translate: 0 -1.6px; }
-}
-
-/* Gerak yang tidak menerangkan apa pun dimatikan bagi yang memintanya; angka,
-   jalur, pesawat, dan fajarnya TETAP bergerak — itu isi informasinya, bukan
-   hiasan. */
 @media (prefers-reduced-motion: reduce) {
-    .preloader-bintang,
-    .preloader-pesawat {
-        animation: none;
-    }
-
-    /* Orcanya disembunyikan, bukan dibekukan di tengah lompatan — paus yang
-       menggantung diam di udara terbaca seperti tampilan yang rusak. */
-    .preloader-orca {
-        display: none;
-    }
+    .preloader-kabut { animation: none; }
 }
 
 /* ==========================================================

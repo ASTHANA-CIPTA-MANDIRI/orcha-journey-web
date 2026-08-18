@@ -58,7 +58,7 @@ function initPreloader() {
         // Keluarnya dibaca sebagai "berangkat", bukan sebagai panel yang
         // hilang: pesawat dan jalurnya meluncur ke depan lebih dulu, isinya
         // menepi, baru layarnya terangkat.
-        const rute = preloader.querySelector(".preloader-rute");
+        const garis = preloader.querySelector(".preloader-garis");
 
         gsap.timeline({
             defaults: { ease: "power3.inOut" },
@@ -67,9 +67,9 @@ function initPreloader() {
                 ScrollTrigger.refresh();
             },
         })
-            .to(rute, { xPercent: 18, opacity: 0, duration: 0.5, ease: "power2.in" }, 0)
-            .to(contentEl, { opacity: 0, y: -24, duration: 0.45, ease: "power2.in" }, 0.12)
-            .to(preloader, { yPercent: -100, duration: 1, ease: "power4.inOut" }, 0.3);
+            .to(contentEl, { opacity: 0, y: -18, duration: 0.4, ease: "power2.in" }, 0)
+            .to(garis, { opacity: 0, duration: 0.3, ease: "power2.in" }, 0.15)
+            .to(preloader, { yPercent: -100, duration: 0.95, ease: "power4.inOut" }, 0.25);
     };
 
     const animateTo = (target, duration) => {

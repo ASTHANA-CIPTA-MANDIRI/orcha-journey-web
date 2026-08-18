@@ -52,97 +52,40 @@
 <body class="antialiased text-slate-700 bg-white overflow-x-hidden">
 
     {{-- ============ PRELOADER ============ --}}
-    <div id="preloader" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-orcha-navy">
+    <div id="preloader" class="fixed inset-0 z-[9999] bg-orcha-navy">
         {{-- Tidak ada satu pun berkas gambar di sini, dan itu disengaja.
 
-             Gambar butuh permintaan tersendiri ke server. Saat muat ulang paksa
-             — cache kosong — gambar itu sempat tampil sendirian beberapa saat
-             sebelum skrip pemuatnya jalan, sehingga yang terlihat cap Orcha
-             Journey dulu, baru layar pemuat. Semua yang ada di bawah ini
-             tergambar seketika bersama halamannya: teks, SVG sebaris, dan
-             gradasi. --}}
+             Gambar butuh permintaan tersendiri ke server. Pada layar MUAT itu
+             jalan buntu: berkasnya sendiri harus tiba lebih dulu, padahal
+             kedatangan berkas-berkas itulah yang sedang ditunggu. Semua yang
+             ada di bawah ini tergambar seketika bersama halamannya — teks,
+             gradasi, dan garis. --}}
 
-        {{-- Fajar yang ikut terbit seiring muatannya. Naik dari bawah bingkai
-             mengikuti --maju, jadi geraknya menerangkan kemajuan, bukan sekadar
-             hiasan yang berdenyut sendiri. --}}
-        {{-- Malam yang berangsur jadi fajar. Bintangnya memudar seiring
-             mataharinya naik, jadi pergantian waktunya sendiri yang
-             menceritakan kemajuan — bukan hanya angkanya. --}}
-        <div class="preloader-bintang" aria-hidden="true"></div>
-        <div class="preloader-fajar" aria-hidden="true"></div>
-        <div class="preloader-ombak" aria-hidden="true"></div>
-        <div class="preloader-kilau" aria-hidden="true"></div>
+        {{-- Dua gumpalan cahaya yang hanyut pelan. Satu-satunya gerak yang
+             tidak menyatakan kemajuan; tugasnya menjaga layar ini tidak
+             terlihat membeku ketika muatannya tersendat. --}}
+        <div class="preloader-kabut" aria-hidden="true"></div>
+        <div class="preloader-kisi" aria-hidden="true"></div>
 
-        {{-- Orca yang menyembul dari balik cakrawala.
+        <div class="preloader-content">
+            <span class="preloader-merek">Orcha Journey</span>
 
-             Lambang Orcha Journey sendiri: paus melompat di atas ombak,
-             matahari, dan pesawat kecil. Layar ini sudah punya tiga yang
-             terakhir; orcanya yang kurang.
+            <div class="preloader-bawah">
+                {{-- Angkanya TERISI dari bawah seiring muatannya: warnanya
+                     dipotong huruf, jadi digitnya sendiri yang jadi takarannya.
+                     Batang di dasar layar mengulang hal yang sama untuk yang
+                     melihat sekilas. --}}
+                <div class="preloader-angka">
+                    <span id="preloader-percentage">0</span><span class="persen">%</span>
+                </div>
 
-             Digambar SVG sebaris, bukan gambar bergerak berkas terpisah. Berkas
-             gambar untuk layar MUAT itu jalan buntu: ia sendiri harus diunduh
-             lebih dulu, padahal justru unduhan itulah yang sedang ditunggu —
-             jadi pada muat ulang paksa layarnya kosong sampai berkasnya
-             sampai. --}}
-        <div class="preloader-orca" aria-hidden="true">
-            {{-- Disusun dari bentuk dasar, bukan satu jalur bebas: badan,
-                 sirip punggung, ekor, dan bercak putih masing-masing bisa
-                 ditimbang sendiri. Sebagai satu jalur, siluetnya terbaca
-                 sebagai baji gelap tanpa rupa. --}}
-            <svg viewBox="0 0 120 70">
-                <g transform="rotate(-24 60 38)">
-                    {{-- Ekor: dua bilah, di ujung belakang. --}}
-                    <path class="badan" d="M10 38c-5-9-8-13-9-16 6 2 11 6 15 10Zm0 0c-5 9-8 13-9 16 6-2 11-6 15-10Z" />
-                    {{-- Sirip punggung. --}}
-                    <path class="badan" d="M58 27c2-9 6-15 11-18-1 6-1 12 0 18Z" />
-                    {{-- Sirip dada. --}}
-                    <path class="badan" d="M56 46c-5 5-8 10-9 15 6-3 11-8 14-13Z" />
-                    {{-- Badan. --}}
-                    <ellipse class="badan" cx="62" cy="38" rx="49" ry="11" />
-                    {{-- Perut terang, seperti orca sungguhan — tanpa ini
-                         siluetnya bisa jadi ikan apa saja. --}}
-                    <path class="perut" d="M92 45c-14 4-33 5-49 3 15 4 35 4 49-3Z" />
-                    <ellipse class="bercak" cx="96" cy="33" rx="6" ry="3" />
-                </g>
-            </svg>
-        </div>
-        <div class="preloader-vignet" aria-hidden="true"></div>
-
-        <div class="flex flex-col items-center preloader-content">
-            {{-- Rute perjalanan: garis putus-putus seperti di peta, digambar
-                 dari kiri ke kanan sementara pesawatnya menyusuri lengkung yang
-                 sama persis.
-
-                 pathLength="1" membuat panjang jalurnya dianggap 1 satuan, jadi
-                 dash-offset-nya cukup (1 - maju) — tanpa perlu mengukur panjang
-                 kurva dan menuliskan angkanya di sini. --}}
-            <div class="preloader-rute">
-                <svg viewBox="0 0 260 72" fill="none" aria-hidden="true">
-                    <path class="jalur" pathLength="1" d="M8 58 C 70 8, 190 8, 252 58" />
-                    <path class="jalur-maju" pathLength="1" d="M8 58 C 70 8, 190 8, 252 58" />
-
-                    {{-- Pesawatnya DI DALAM svg, bukan elemen terpisah di
-                         atasnya. Di dalam sini koordinatnya ikut viewBox, jadi
-                         ia menyusut bersama jalurnya di layar sempit dengan
-                         sendirinya; di luar, posisinya tetap dalam piksel layar
-                         dan melenceng dari garis begitu lebarnya berubah. --}}
-                    {{-- Ekor cahaya: jalur yang sama, digambar hanya sepotong
-                         tepat di belakang pesawatnya. --}}
-                    <path class="jalur-ekor" pathLength="1" d="M8 58 C 70 8, 190 8, 252 58" />
-
-                    <g class="preloader-pesawat">
-                        <path fill="currentColor" transform="translate(-7.5 -7.5) scale(.62)"
-                            d="M21.4 11.1 3.9 3.5c-.6-.3-1.2.3-1 .9l1.9 5.6c.1.3.3.5.6.5l6.9.9c.3 0 .3.4 0 .5l-6.9.9c-.3 0-.5.2-.6.5l-1.9 5.6c-.2.6.4 1.2 1 .9l17.5-7.6c.6-.2.6-1 0-1.2z" />
-                    </g>
-                </svg>
+                <p class="preloader-tulisan">
+                    Menyiapkan<br>perjalanan Anda
+                </p>
             </div>
-
-            <div class="preloader-angka font-heading tabular-nums">
-                <span id="preloader-percentage">0</span><span class="persen">%</span>
-            </div>
-
-            <p class="preloader-tulisan">Menyiapkan perjalanan Anda</p>
         </div>
+
+        <div class="preloader-garis" aria-hidden="true"><span></span></div>
     </div>
 
     {{-- ============ NAVBAR ============ --}}
