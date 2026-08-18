@@ -295,7 +295,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             'jam_mulai' => $this->jamMulai,
             'dengan_sopir' => $this->denganSopir === 'ya',
             'lokasi_antar' => $this->lokasiAntar ?: null,
-            'estimasi_biaya' => $mobil->estimasiBiaya($this->satuan, $this->durasi, $this->denganSopir === 'ya', $this->luarKota),
+            'estimasi_biaya' => $mobil->estimasiBiaya($this->satuan, (int) $this->durasi, $this->denganSopir === 'ya', $this->luarKota),
             'catatan' => $this->catatan ?: null,
         ]);
 
@@ -420,7 +420,12 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                 ->filter(fn ($info, $kunci) => $this->luarKota
                     ? $kunci === 'hari'
                     : ($mobil === null || $mobil->tarif($kunci) !== null)),
-            'estimasi' => $mobil?->estimasiBiaya($this->satuan, $this->durasi, $this->denganSopir === 'ya', $this->luarKota),
+            // (int) wajib di sini. Penyewa yang mau mengganti "1" menjadi "2"
+            // menghapus dulu isinya, dan pada saat itu durasinya berupa teks
+            // kosong — PHP menolak "" untuk parameter int, jadi halamannya galat
+            // 500 tepat saat penyewa sedang mengetik. Nol menghasilkan perkiraan
+            // kosong, yang memang jawaban yang benar: belum bisa dihitung.
+            'estimasi' => $mobil?->estimasiBiaya($this->satuan, (int) $this->durasi, $this->denganSopir === 'ya', $this->luarKota),
             'bersopir' => $this->bersopir(),
         ];
     }

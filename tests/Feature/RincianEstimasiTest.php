@@ -200,3 +200,20 @@ test('pilihan wilayah dan sopir ikut ditandai di html', function () {
         ->and($tertandai('wire:model.live="denganSopir"', 'tidak'))->toBeTrue()
         ->and($tertandai('wire:model.live="denganSopir"', 'ya'))->toBeFalse();
 });
+
+/* -------- LAMA SEWA DIKOSONGKAN -------- */
+
+test('mengosongkan lama sewa tidak meruntuhkan halaman', function () {
+    $unit = unitRincian();
+
+    // Penyewa yang mau mengganti "1" menjadi "2" menghapus dulu isinya. Pada
+    // saat itu durasinya berupa teks kosong, dan estimasiBiaya() menuntut int —
+    // PHP menolak "" untuk int, jadi halamannya galat 500 tepat saat penyewa
+    // sedang mengetik. Yang benar: perkiraannya belum bisa dihitung, bukan
+    // halamannya runtuh.
+    Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $unit->uuid)
+        ->set('durasi', '')
+        ->assertOk()
+        ->assertHasNoErrors();
+});
