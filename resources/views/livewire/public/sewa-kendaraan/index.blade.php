@@ -51,7 +51,8 @@ new #[Layout('components.layouts.guest')] #[Title('Sewa Kendaraan — Mobil, HiA
 @endphp
 
 <div>
-    <x-page-hero :title="$judul" eyebrow="Sewa Kendaraan" :subtitle="$keterangan" image="images/kendaraan.jpg" />
+    <x-page-hero :title="$judul" eyebrow="Sewa Kendaraan" :subtitle="$keterangan"
+        image="images/HERO/sewa-kendaraan.jpg" posisi="center bottom" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">

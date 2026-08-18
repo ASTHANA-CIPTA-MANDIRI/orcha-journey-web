@@ -35,13 +35,49 @@ test('kepala halaman memakai aksen kaligrafi', function () {
         ->assertSee('aksen-orcha', false);
 });
 
-test('hero sewa kendaraan memakai foto kendaraan', function () {
-    expect(file_exists(public_path('images/kendaraan.jpg')))->toBeTrue();
+test('hero sewa kendaraan memakai foto armada sendiri', function () {
+    $berkas = public_path('images/HERO/sewa-kendaraan.jpg');
 
-    // Ukurannya sudah dipangkas untuk web, bukan berkas mentah 24 MB
-    expect(filesize(public_path('images/kendaraan.jpg')))->toBeLessThan(1_000_000);
+    expect(file_exists($berkas))->toBeTrue();
 
     $this->get(route('sewa-kendaraan'))
         ->assertOk()
-        ->assertSee('images/kendaraan.jpg', false);
+        ->assertSee('images/HERO/sewa-kendaraan.jpg', false);
+});
+
+test('tidak ada hero yang dikirim mentah ke pengunjung', function () {
+    // Batas ini sudah ada sebelumnya, hanya untuk satu berkas — dan begitu
+    // hero lain ditambahkan, batasnya tidak ikut berlaku. Terbukti: tiga hero
+    // baru masuk sebagai PNG 2,2-2,4 MB, dan yang menahannya cuma kebetulan
+    // salah satunya dipakai halaman yang sudah diuji.
+    //
+    // Hero dimuat SETIAP halaman itu dibuka, sebelum apa pun terlihat. Dua
+    // megabita di sana bukan soal ruang simpan, melainkan detik-detik pertama
+    // pengunjung menunggu layar kosong.
+    // Yang diperiksa berkas yang BENAR-BENAR DIRUJUK tampilan, bukan seluruh
+    // isi foldernya. Berkas asli boleh saja tersimpan di sana; yang tidak
+    // pernah diminta peramban tidak membebani siapa pun, dan memaksanya ikut
+    // kecil hanya akan membuat penjagaan ini dilangkahi.
+    $dirujuk = [];
+
+    foreach (\Illuminate\Support\Facades\File::allFiles(resource_path('views')) as $tampilan) {
+        preg_match_all('#images/HERO/[\w.-]+#', $tampilan->getContents(), $cocok);
+        $dirujuk = array_merge($dirujuk, $cocok[0]);
+    }
+
+    expect($dirujuk)->not->toBeEmpty();
+
+    $berat = [];
+
+    foreach (array_unique($dirujuk) as $jalur) {
+        $berkas = public_path($jalur);
+
+        expect(file_exists($berkas))->toBeTrue("Hero {$jalur} dirujuk tampilan tetapi berkasnya tidak ada.");
+
+        if (filesize($berkas) >= 1_000_000) {
+            $berat[] = $jalur.' ('.round(filesize($berkas) / 1_048_576, 1).' MB)';
+        }
+    }
+
+    expect($berat)->toBe([]);
 });

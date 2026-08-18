@@ -58,7 +58,7 @@ new #[Layout('components.layouts.guest')] #[Title('Tentang Kami — Orcha Journe
 <div>
     <x-page-hero title="Tentang Kami" eyebrow="Kenali Orcha Journey"
         subtitle="{{ config('orcha.slogan') }} Kami mengurus perjalanan dari rencana sampai pulang, supaya Anda tinggal menikmatinya."
-        image="images/HERO/tentang-kami.png" posisi="center 62%" />
+        image="images/HERO/tentang-kami.jpg" posisi="center 62%" />
 
     {{-- Cerita --}}
     <section class="bg-white section-orcha">
