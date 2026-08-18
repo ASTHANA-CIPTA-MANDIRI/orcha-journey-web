@@ -326,3 +326,30 @@ test('rujukan mengirim daftar provinsi beserta wilayahnya', function () {
         ->assertJsonPath('data.provinsi_wilayah.Jawa Timur', 'jawa')
         ->assertJsonPath('data.provinsi_wilayah.Papua Pegunungan', 'papua');
 });
+
+test('daftar untuk admin lemon mengirim yang terbaru lebih dulu', function () {
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    // Diurutkan menurut abjad, destinasi yang baru saja ditambahkan admin bisa
+    // mendarat di halaman mana pun — padahal yang pertama diperiksa orang
+    // selalu yang baru saja dikerjakannya.
+    // Namanya dipilih supaya kedua urutan BERBEDA jawabannya. Kalau yang baru
+    // kebetulan juga lebih awal menurut abjad, uji ini hijau baik sebelum
+    // maupun sesudah perubahan — dan tidak membuktikan apa pun.
+    $lama = DestinationPopuler::create([
+        'destination_name' => 'Ambon', 'wilayah' => 'maluku', 'provinsi' => 'Maluku',
+    ]);
+    $lama->forceFill(['created_at' => now()->subMonth()])->save();
+
+    $baru = DestinationPopuler::create([
+        'destination_name' => 'Zamrud', 'wilayah' => 'sumatera', 'provinsi' => 'Riau',
+    ]);
+
+    $nama = collect($this->getJson('/api/v1/destinasi', [
+        'X-Orcha-Key' => 'kunci-uji',
+        'X-Orcha-Admin' => 'admin@phoenix.test',
+    ])->assertOk()->json('data'))->pluck('nama')->all();
+
+    expect($nama)->toBe(['Zamrud', 'Ambon']);
+});

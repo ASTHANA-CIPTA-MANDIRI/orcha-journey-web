@@ -86,3 +86,37 @@ test('seeder mengisi destinasi dari berbagai wilayah Indonesia', function () {
     expect(DestinationPopuler::count())->toBeGreaterThanOrEqual(20)
         ->and($wilayah)->toContain('sumatera', 'jawa', 'bali', 'nusa_tenggara', 'kalimantan', 'sulawesi', 'maluku', 'papua');
 });
+
+test('destinasi terbaru tampil lebih dulu di halaman publik', function () {
+    // Ramai belum tentu baru. Diurutkan menurut jumlah pengunjung, destinasi
+    // yang baru saja ditambahkan admin bisa mendarat di halaman terakhir dan
+    // praktis tidak pernah terlihat — padahal justru itu yang layak dikabarkan.
+    $lama = buatDestinasi('Raja Ampat', 'papua', 'Papua Barat Daya', 48000);
+    $lama->forceFill(['created_at' => now()->subMonth()])->save();
+
+    $baru = buatDestinasi('Pantai Ujung Gelam', 'jawa', 'Jawa Tengah', 120);
+
+    $urutan = Livewire\Volt\Volt::test('public.destinasi.index')
+        ->viewData('destinations')
+        ->pluck('destination_name')
+        ->all();
+
+    expect($urutan)->toBe([$baru->destination_name, $lama->destination_name]);
+});
+
+test('destinasi yang tercatat pada detik yang sama tetap berurutan tetap', function () {
+    // Dua puluh satu destinasi bawaan tercatat pada detik yang sama. Tanpa
+    // pemutus, urutannya berubah-ubah tanpa ada yang berubah.
+    $waktu = now()->subDay();
+
+    foreach (['Danau Toba', 'Bunaken', 'Wakatobi'] as $nama) {
+        buatDestinasi($nama, 'jawa', 'Jawa Tengah')
+            ->forceFill(['created_at' => $waktu])->save();
+    }
+
+    $sekali = fn () => Livewire\Volt\Volt::test('public.destinasi.index')
+        ->viewData('destinations')->pluck('id')->all();
+
+    expect($sekali())->toBe($sekali())
+        ->and($sekali())->toBe(DestinationPopuler::orderByDesc('id')->pluck('id')->all());
+});

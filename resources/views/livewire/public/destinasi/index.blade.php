@@ -56,7 +56,12 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                 ->when($this->search, fn ($q) => $q->where(fn ($sub) => $sub->where('destination_name', 'like', "%{$this->search}%")
                     ->orWhere('provinsi', 'like', "%{$this->search}%")))
                 ->diWilayah($this->wilayah ?: null)
-                ->orderByDesc('total_visitor')
+                // Yang baru ditambahkan di atas — halaman ini ikut jadi kabar
+                // "ada apa yang baru", bukan daftar yang sama setiap kali
+                // dibuka. Jumlah pengunjungnya tetap tampil di tiap kartu,
+                // jadi yang hilang urutannya saja, bukan keterangannya.
+                ->latest()
+                ->latest('id')
                 ->paginate(9),
             // Dicari terpisah dari daftar: destinasi yang dibuka lewat tautan
             // belum tentu ada di halaman yang sedang tampil, apalagi saat

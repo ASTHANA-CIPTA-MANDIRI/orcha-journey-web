@@ -38,7 +38,16 @@ class EtalaseController extends ApiController
         return response()->json([
             'data' => DestinationPopuler::query()
                 ->when($request->string('wilayah')->toString(), fn ($q, $wilayah) => $q->where('wilayah', $wilayah))
-                ->orderBy('destination_name')
+                // Yang baru dicatat di atas. Diurutkan menurut abjad, destinasi
+                // yang baru saja ditambahkan admin bisa mendarat di halaman
+                // mana pun — dan yang pertama diperiksa orang selalu yang baru
+                // saja dikerjakannya.
+                //
+                // id sebagai pemutus: dua puluh satu destinasi bawaan tercatat
+                // pada detik yang sama, dan urutan tanpa pemutus berarti urutan
+                // yang berubah-ubah tanpa sebab.
+                ->latest()
+                ->latest('id')
                 ->get()
                 ->map(fn ($destinasi) => $this->bentukDestinasi($destinasi))
                 ->all(),
