@@ -29,8 +29,26 @@ abstract class ApiController extends Controller
      */
     protected function halaman(LengthAwarePaginator $paginator, string $resource): JsonResponse
     {
+        return $this->halamanDipeta(
+            $paginator,
+            fn () => $resource::collection($paginator->getCollection())->resolve(),
+        );
+    }
+
+    /**
+     * Sama, untuk daftar yang barisnya dirakit tanpa kelas Resource.
+     *
+     * Bentuk meta-nya ditulis SEKALI di sini. Menyalinnya ke controller yang
+     * kebetulan memakai pemeta sendiri berarti dua bentuk sejajar untuk hal
+     * yang sama — dan penomoran halaman di lemon membaca meta itu apa adanya,
+     * jadi selisih sekecil apa pun langsung terasa di layar admin.
+     *
+     * @param  callable(): array<int, mixed>  $petakan
+     */
+    protected function halamanDipeta(LengthAwarePaginator $paginator, callable $petakan): JsonResponse
+    {
         return response()->json([
-            'data' => $resource::collection($paginator->getCollection())->resolve(),
+            'data' => $petakan(),
             'meta' => [
                 'halaman' => $paginator->currentPage(),
                 'per_halaman' => $paginator->perPage(),

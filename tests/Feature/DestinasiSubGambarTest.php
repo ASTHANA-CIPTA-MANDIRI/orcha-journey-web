@@ -353,3 +353,35 @@ test('daftar untuk admin lemon mengirim yang terbaru lebih dulu', function () {
 
     expect($nama)->toBe(['Zamrud', 'Ambon']);
 });
+
+test('daftar destinasi dipenggal per halaman dan bisa dicari', function () {
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    foreach (range(1, 12) as $urut) {
+        DestinationPopuler::create([
+            'destination_name' => 'Pulau Nomor '.$urut, 'wilayah' => 'jawa',
+            'provinsi' => 'Jawa Tengah', 'daerah' => 'Karimunjawa',
+        ]);
+    }
+
+    $kepala = ['X-Orcha-Key' => 'kunci-uji', 'X-Orcha-Admin' => 'admin@phoenix.test'];
+
+    $halaman = $this->getJson('/api/v1/destinasi?per_halaman=9', $kepala)->assertOk();
+
+    expect($halaman->json('data'))->toHaveCount(9)
+        ->and($halaman->json('meta.total'))->toBe(12)
+        ->and($halaman->json('meta.halaman_terakhir'))->toBe(2);
+
+    // Pencariannya di sini, bukan di lemon: penyaring di sana hanya melihat
+    // sembilan baris yang kebetulan sedang tampil, sehingga destinasi yang
+    // dicari admin akan "tidak ditemukan" padahal ada di halaman lain.
+    $cari = $this->getJson('/api/v1/destinasi?cari='.urlencode('Nomor 12'), $kepala)->assertOk();
+
+    expect($cari->json('meta.total'))->toBe(1)
+        ->and($cari->json('data.0.nama'))->toBe('Pulau Nomor 12');
+
+    // Daerah ikut dicari — "Karimunjawa" bukan nama satu pun destinasinya.
+    expect($this->getJson('/api/v1/destinasi?cari=Karimunjawa', $kepala)->assertOk()->json('meta.total'))
+        ->toBe(12);
+});

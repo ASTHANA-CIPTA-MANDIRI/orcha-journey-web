@@ -35,23 +35,38 @@ class EtalaseController extends ApiController
 
     public function destinasi(Request $request): JsonResponse
     {
-        return response()->json([
-            'data' => DestinationPopuler::query()
-                ->when($request->string('wilayah')->toString(), fn ($q, $wilayah) => $q->where('wilayah', $wilayah))
-                // Yang baru dicatat di atas. Diurutkan menurut abjad, destinasi
-                // yang baru saja ditambahkan admin bisa mendarat di halaman
-                // mana pun — dan yang pertama diperiksa orang selalu yang baru
-                // saja dikerjakannya.
-                //
-                // id sebagai pemutus: dua puluh satu destinasi bawaan tercatat
-                // pada detik yang sama, dan urutan tanpa pemutus berarti urutan
-                // yang berubah-ubah tanpa sebab.
-                ->latest()
-                ->latest('id')
-                ->get()
+        $daftar = DestinationPopuler::query()
+            ->when($request->string('wilayah')->toString(), fn ($q, $wilayah) => $q->where('wilayah', $wilayah))
+            // Pencariannya di sini, bukan di lemon. Selama seluruh isi tabel
+            // dikirim sekaligus, menyaringnya di sana sama saja hasilnya;
+            // begitu daftarnya dipenggal per halaman, penyaring di sana hanya
+            // melihat sembilan baris yang kebetulan sedang tampil — dan
+            // destinasi yang dicari admin akan "tidak ditemukan" padahal ada.
+            ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
+                fn ($sub) => $sub->where('destination_name', 'like', "%{$cari}%")
+                    ->orWhere('provinsi', 'like', "%{$cari}%")
+                    ->orWhere('daerah', 'like', "%{$cari}%")
+            ))
+            // Yang baru dicatat di atas. Diurutkan menurut abjad, destinasi
+            // yang baru saja ditambahkan admin bisa mendarat di halaman mana
+            // pun — dan yang pertama diperiksa orang selalu yang baru saja
+            // dikerjakannya.
+            //
+            // id sebagai pemutus: dua puluh satu destinasi bawaan tercatat pada
+            // detik yang sama, dan urutan tanpa pemutus berarti urutan yang
+            // berubah-ubah tanpa sebab. Pada daftar berhalaman akibatnya lebih
+            // buruk daripada sekadar acak: baris yang sama bisa muncul di dua
+            // halaman sekaligus sementara yang lain tidak muncul di mana pun.
+            ->latest()
+            ->latest('id')
+            ->paginate($this->perHalaman($request));
+
+        return $this->halamanDipeta(
+            $daftar,
+            fn () => $daftar->getCollection()
                 ->map(fn ($destinasi) => $this->bentukDestinasi($destinasi))
                 ->all(),
-        ]);
+        );
     }
 
     /**
