@@ -312,13 +312,18 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             // rombongan memastikan semua orang muat.
             'Kapasitas' => $mobil->capacity.' penumpang'
                 .($mobil->kursi_total !== $mobil->capacity ? ' ('.$mobil->kursi_total.' kursi)' : ''),
+            // Aturan sopir dan pos biaya dibaca menurut WILAYAH pesanannya.
+            // Unit yang dalam kota diserahkan apa adanya bisa ditawarkan
+            // sepaket bersama sopir dan BBM untuk perjalanan luar kota; surat
+            // yang menyalin aturan dalam kota untuk pesanan luar kota
+            // menjanjikan hal yang tidak berlaku.
             'Sopir' => $sewa->dengan_sopir
-                ? $mobil->sopir_label
+                ? $mobil->sopirLabel($sewa->luar_kota)
                 : 'Lepas kunci — penyewa menyetir sendiri',
             // Pos yang ditanggung penyewa disebut terang-terangan. Tanpa ini
             // surat tidak menyebut BBM, tol, dan parkir sama sekali, dan yang
             // tidak tertulis di mana pun paling mudah dipersoalkan saat menagih.
-            'BBM, tol, parkir' => $mobil->operasional_label,
+            'BBM, tol, parkir' => $mobil->operasionalLabel($sewa->luar_kota),
             'Mulai' => $sewa->jadwal_mulai
                 ? $sewa->jadwal_mulai->translatedFormat('l, j F Y').' pukul '.$sewa->jadwal_mulai->format('H:i')
                 : '—',
@@ -566,7 +571,11 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                     {{-- Keterangan sopir dan BBM jadi daftar berikon, bukan dua
                                          kalimat biru bertumpuk yang terbaca seperti tautan. --}}
                                     <ul class="pt-3 mt-3 space-y-1.5 text-xs border-t text-slate-500 border-white">
-                                        @foreach ([[collect($mobil->rincian_operasional)->contains('termasuk', true), $mobil->operasional_label], [$mobil->termasuk_sopir, $mobil->sopir_label]] as [$termasuk, $kalimat])
+                                        {{-- Keterangan mengikuti wilayah yang sedang dipilih.
+                                             Menampilkan aturan dalam kota pada pesanan luar kota
+                                             berarti menjanjikan hal yang tidak berlaku — dan itu
+                                             baru ketahuan saat menagih. --}}
+                                        @foreach ([[collect($mobil->rincianOperasional((bool) $luarKota))->contains('termasuk', true), $mobil->operasionalLabel((bool) $luarKota)], [$mobil->termasukSopir((bool) $luarKota), $mobil->sopirLabel((bool) $luarKota)]] as [$termasuk, $kalimat])
                                             <li class="flex items-start gap-1.5">
                                                 @if ($termasuk)
                                                     <x-heroicon-s-check-circle

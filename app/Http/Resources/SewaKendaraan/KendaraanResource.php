@@ -44,6 +44,19 @@ class KendaraanResource extends JsonResource
             'operasional' => $this->rincian_operasional,
             'biaya_operasional_total' => $this->biaya_operasional_total,
             'operasional_label' => $this->operasional_label,
+            // Aturan biaya untuk perjalanan LUAR kota, terpisah dari yang di
+            // atas. Dikirim utuh — termasuk kalimat siap tampilnya — supaya
+            // admin, kartu publik, dan surat pemesanan menyebut hal yang sama
+            // untuk kedua wilayah, bukan hanya untuk dalam kota.
+            'luar_kota' => [
+                'operasional' => $this->rincianOperasional(true),
+                'biaya_operasional_total' => $this->biayaOperasionalTotal(true),
+                'operasional_label' => $this->operasionalLabel(true),
+                'termasuk_sopir' => $this->termasukSopir(true),
+                'harga_sopir' => $this->hargaSopir(true),
+                'sopir_label' => $this->sopirLabel(true),
+            ],
+            'beda_aturan_luar_kota' => $this->beda_aturan_luar_kota,
             'transmisi_tersedia' => $this->transmisi_tersedia_list,
             'transmisi_label' => $this->transmisi_label,
             'tarif' => [

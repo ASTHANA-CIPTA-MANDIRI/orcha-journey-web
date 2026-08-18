@@ -185,6 +185,17 @@
                     {{ $kendaraan->operasional_label }}
                 </span>
             </li>
+
+            {{-- Aturan luar kota disebut HANYA bila memang berbeda. Unit yang
+                 aturannya sama di kedua wilayah tidak perlu dua kalimat yang
+                 isinya sama; yang berbeda justru wajib disebut, karena dua baris
+                 di atas hanya berlaku untuk dalam kota. --}}
+            @if ($kendaraan->beda_aturan_luar_kota)
+                <li class="flex items-start gap-1.5">
+                    <x-heroicon-o-map-pin class="w-4 h-4 mt-px shrink-0 text-orcha-sun" />
+                    <span class="font-semibold text-slate-600">{{ $kendaraan->ringkasan_luar_kota }}</span>
+                </li>
+            @endif
         </ul>
 
         <a href="{{ route('sewa-kendaraan.pesan', ['unit' => $kendaraan->uuid]) }}"

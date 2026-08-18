@@ -42,6 +42,16 @@ class Car extends Model
         'biaya_parkir',
         'termasuk_sopir',
         'harga_luar_kota',
+        // Aturan biaya untuk perjalanan luar kota. Kolom tanpa awalan "luar_"
+        // di atas berarti dalam kota.
+        'luar_termasuk_bbm',
+        'luar_biaya_bbm',
+        'luar_termasuk_tol',
+        'luar_biaya_tol',
+        'luar_termasuk_parkir',
+        'luar_biaya_parkir',
+        'luar_termasuk_sopir',
+        'luar_harga_sopir',
     ];
 
     protected $casts = [
@@ -58,6 +68,11 @@ class Car extends Model
         'termasuk_tol' => 'boolean',
         'termasuk_parkir' => 'boolean',
         'termasuk_sopir' => 'boolean',
+        'luar_termasuk_bbm' => 'boolean',
+        'luar_termasuk_tol' => 'boolean',
+        'luar_termasuk_parkir' => 'boolean',
+        'luar_termasuk_sopir' => 'boolean',
+        'luar_harga_sopir' => 'integer',
     ];
 
     protected static function booted(): void
@@ -172,14 +187,22 @@ class Car extends Model
             'jumlah' => (int) ($tarif * $durasi),
         ]];
 
+        // Aturan sopir dan pos biaya dibaca menurut WILAYAHNYA. Unit yang dalam
+        // kota diserahkan apa adanya bisa ditawarkan sepaket bersama sopir dan
+        // BBM untuk perjalanan luar kota — dan sebaliknya. Membaca aturan dalam
+        // kota untuk pesanan luar kota menghasilkan perkiraan yang tidak pernah
+        // cocok dengan tagihannya.
+        $sopirTermasuk = $this->termasukSopir($luarKota);
+        $tarifSopir = $this->hargaSopir($luarKota);
+
         // Tarif yang sudah termasuk sopir tidak ditambahi lagi. Menambahkannya
         // berarti menagih sopir dua kali untuk unit yang harganya justru sudah
         // dihitung bersama sopirnya.
-        if ($denganSopir && ! $this->termasuk_sopir && $this->harga_sopir) {
+        if ($denganSopir && ! $sopirTermasuk && $tarifSopir) {
             $rincian[] = [
                 'label' => 'Sopir',
-                'keterangan' => $this->kali((int) $this->harga_sopir, $hari, 'hari'),
-                'jumlah' => (int) ($this->harga_sopir * $hari),
+                'keterangan' => $this->kali($tarifSopir, $hari, 'hari'),
+                'jumlah' => $tarifSopir * $hari,
             ];
         }
 
@@ -188,7 +211,7 @@ class Car extends Model
         // rendah daripada yang ditagihkan — dan selisih itu baru ketahuan saat
         // pembayaran. Disebut nama posnya, bukan "biaya operasional": penyewa
         // berhak tahu yang dibayarnya BBM atau parkir.
-        foreach ($this->rincian_operasional as $pos) {
+        foreach ($this->rincianOperasional($luarKota) as $pos) {
             if (! $pos['termasuk'] || $pos['biaya'] < 1) {
                 continue;
             }
@@ -280,23 +303,56 @@ class Car extends Model
     }
 
     /**
+     * Nama kolom untuk wilayah yang diminta.
+     *
+     * Kolom tanpa awalan berarti dalam kota; yang berawalan "luar_" untuk
+     * perjalanan luar kota. Dipusatkan di sini supaya tidak ada satu pun tempat
+     * yang membaca kolom dalam kota padahal pesanannya ke luar kota — kesalahan
+     * yang tidak terlihat sampai tagihannya berselisih.
+     */
+    private function medan(string $nama, bool $luarKota): string
+    {
+        return $luarKota ? "luar_{$nama}" : $nama;
+    }
+
+    /**
      * Keadaan tiap pos biaya, urut sesuai config.
      *
      * @return array<string, array{label: string, termasuk: bool, biaya: int}>
      */
-    public function getRincianOperasionalAttribute(): array
+    public function rincianOperasional(bool $luarKota = false): array
     {
         $hasil = [];
 
         foreach ((array) config('orcha.pos_operasional', []) as $pos => $label) {
             $hasil[$pos] = [
                 'label' => $label,
-                'termasuk' => (bool) $this->{"termasuk_{$pos}"},
-                'biaya' => (int) $this->{"biaya_{$pos}"},
+                'termasuk' => (bool) $this->{$this->medan("termasuk_{$pos}", $luarKota)},
+                'biaya' => (int) $this->{$this->medan("biaya_{$pos}", $luarKota)},
             ];
         }
 
         return $hasil;
+    }
+
+    /** Aksesor lama tetap berarti DALAM kota. */
+    public function getRincianOperasionalAttribute(): array
+    {
+        return $this->rincianOperasional(false);
+    }
+
+    /**
+     * Apakah aturan biayanya memang berbeda antara dalam dan luar kota.
+     *
+     * Dipakai untuk memutuskan perlu-tidaknya menyebut keduanya. Menuliskan dua
+     * kalimat yang isinya sama hanya memanjangkan halaman tanpa menambah
+     * keterangan.
+     */
+    public function getBedaAturanLuarKotaAttribute(): bool
+    {
+        return $this->rincianOperasional(true) !== $this->rincianOperasional(false)
+            || $this->termasukSopir(true) !== $this->termasukSopir(false)
+            || $this->hargaSopir(true) !== $this->hargaSopir(false);
     }
 
     /**
@@ -305,11 +361,16 @@ class Car extends Model
      * Biaya pada pos yang TIDAK termasuk diabaikan, bukan dijumlahkan. Angka yang
      * tertinggal di sana bukan tagihan — pos itu ditanggung penyewa.
      */
-    public function getBiayaOperasionalTotalAttribute(): int
+    public function biayaOperasionalTotal(bool $luarKota = false): int
     {
-        return collect($this->rincian_operasional)
+        return collect($this->rincianOperasional($luarKota))
             ->filter(fn ($pos) => $pos['termasuk'])
             ->sum('biaya');
+    }
+
+    public function getBiayaOperasionalTotalAttribute(): int
+    {
+        return $this->biayaOperasionalTotal(false);
     }
 
     /**
@@ -318,9 +379,9 @@ class Car extends Model
      * Dirakit di satu tempat supaya kartu publik, halaman pemesanan, dan admin
      * menyebutkan hal yang sama.
      */
-    public function getOperasionalLabelAttribute(): string
+    public function operasionalLabel(bool $luarKota = false): string
     {
-        $rincian = collect($this->rincian_operasional);
+        $rincian = collect($this->rincianOperasional($luarKota));
         $termasuk = $rincian->filter(fn ($pos) => $pos['termasuk'])->pluck('label');
         $ditanggung = $rincian->reject(fn ($pos) => $pos['termasuk'])->pluck('label');
 
@@ -328,7 +389,7 @@ class Car extends Model
             return self::awalKapital(self::rangkai($ditanggung->all()).' ditanggung penyewa');
         }
 
-        $total = $this->biaya_operasional_total;
+        $total = $this->biayaOperasionalTotal($luarKota);
         $kalimat = self::awalKapital(self::rangkai($termasuk->all()).' termasuk'
             .($total > 0 ? ' (+'.$this->rupiah($total).'/hari)' : ''));
 
@@ -338,6 +399,35 @@ class Car extends Model
         return $ditanggung->isEmpty()
             ? $kalimat
             : $kalimat.' · '.self::rangkai($ditanggung->all()).' ditanggung penyewa';
+    }
+
+    public function getOperasionalLabelAttribute(): string
+    {
+        return $this->operasionalLabel(false);
+    }
+
+    /**
+     * Ringkasan sebaris aturan luar kota, untuk kartu di daftar armada.
+     *
+     * Kalimat panjang milik operasionalLabel() terlalu berat untuk kartu yang
+     * sudah memuat tarif dan spesifikasi. Yang disebut di sini hanya apa yang
+     * TERMASUK — itu yang membedakannya dari keadaan biasa dan itu yang membuat
+     * penyewa membuka halaman pemesanan.
+     */
+    public function getRingkasanLuarKotaAttribute(): string
+    {
+        $termasuk = collect($this->rincianOperasional(true))
+            ->filter(fn ($pos) => $pos['termasuk'])
+            ->pluck('label')
+            ->all();
+
+        if ($this->termasukSopir(true)) {
+            $termasuk[] = 'sopir';
+        }
+
+        return $termasuk === []
+            ? 'Luar kota: semuanya ditanggung penyewa'
+            : 'Luar kota: '.self::rangkai($termasuk).' termasuk';
     }
 
     private static function awalKapital(string $kalimat): string
@@ -378,20 +468,37 @@ class Car extends Model
      * Tiga keadaan yang berbeda maknanya, dan sebelumnya dua di antaranya
      * dinyatakan dengan cara yang sama — harga_sopir kosong.
      */
-    public function getSopirLabelAttribute(): string
+    public function termasukSopir(bool $luarKota = false): bool
     {
-        if ($this->termasuk_sopir) {
+        return (bool) $this->{$this->medan('termasuk_sopir', $luarKota)};
+    }
+
+    public function hargaSopir(bool $luarKota = false): ?int
+    {
+        $nilai = $this->{$this->medan('harga_sopir', $luarKota)};
+
+        return $nilai === null ? null : (int) $nilai;
+    }
+
+    public function sopirLabel(bool $luarKota = false): string
+    {
+        if ($this->termasukSopir($luarKota)) {
             return 'Harga sudah termasuk sopir';
         }
 
-        if ($this->harga_sopir) {
-            return 'Sopir +'.$this->rupiah($this->harga_sopir).'/hari';
+        if ($this->hargaSopir($luarKota)) {
+            return 'Sopir +'.$this->rupiah($this->hargaSopir($luarKota)).'/hari';
         }
 
         // Unit yang selalu dengan sopir TIDAK boleh sampai di sini: validasinya
         // mewajibkan salah satu dari kedua keadaan di atas. Kalimat ini untuk
         // unit lepas kunci yang memang tidak melayani sewa dengan sopir.
         return 'Tanpa sopir';
+    }
+
+    public function getSopirLabelAttribute(): string
+    {
+        return $this->sopirLabel(false);
     }
 
     /**

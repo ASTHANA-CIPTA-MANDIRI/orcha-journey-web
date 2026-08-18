@@ -154,12 +154,17 @@ test('kartu publik menyebut tarif luar kota hanya bila berbeda', function () {
     expect($teks)->toContain('Luar kota per hari Rp 800.000');
 });
 
-test('kartu publik tidak menyebut apa pun bila tarifnya sama', function () {
+test('kartu publik tidak menyebut tarif luar kota bila tarifnya sama', function () {
     unitLuarKota(['harga_luar_kota' => null]);
 
     // Menuliskan "luar kota tarifnya sama" di setiap kartu menambah baris tanpa
     // menambah keterangan.
-    $this->get(route('sewa-kendaraan'))->assertOk()->assertDontSee('Luar kota');
+    //
+    // Yang dilarang BARIS TARIFNYA, bukan kata "luar kota" di mana pun. Kartu
+    // yang sama juga menyebut aturan biaya luar kota ketika BBM atau sopirnya
+    // memang berbeda di sana — keterangan lain, yang tidak ada hubungannya
+    // dengan sama-tidaknya tarif.
+    $this->get(route('sewa-kendaraan'))->assertOk()->assertDontSee('Luar kota per hari');
 });
 
 test('tarif luar kota tersimpan lewat API dan terkirim di resource', function () {
