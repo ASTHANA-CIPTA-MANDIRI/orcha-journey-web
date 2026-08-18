@@ -89,7 +89,7 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
 <div>
     <x-page-hero title="Destinasi Populer" eyebrow="Seluruh Indonesia"
         subtitle="Dari Pulau Weh sampai Raja Ampat. Tempat-tempat yang paling sering diminta pelanggan kami, lengkap dengan jumlah pengunjung yang sudah kami antar."
-        image="images/pantai-atas.jpg" />
+        image="images/HERO/destinasi.jpg" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">
