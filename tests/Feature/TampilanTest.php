@@ -45,39 +45,50 @@ test('hero sewa kendaraan memakai foto armada sendiri', function () {
         ->assertSee('images/HERO/sewa-kendaraan.jpg', false);
 });
 
-test('tidak ada hero yang dikirim mentah ke pengunjung', function () {
-    // Batas ini sudah ada sebelumnya, hanya untuk satu berkas — dan begitu
-    // hero lain ditambahkan, batasnya tidak ikut berlaku. Terbukti: tiga hero
-    // baru masuk sebagai PNG 2,2-2,4 MB, dan yang menahannya cuma kebetulan
-    // salah satunya dipakai halaman yang sudah diuji.
+test('setiap hero yang dirujuk tampilan ada berkasnya dan tidak dikirim mentah', function () {
+    // Dua hal sekaligus, dan keduanya sudah pernah terjadi:
     //
-    // Hero dimuat SETIAP halaman itu dibuka, sebelum apa pun terlihat. Dua
-    // megabita di sana bukan soal ruang simpan, melainkan detik-detik pertama
-    // pengunjung menunggu layar kosong.
-    // Yang diperiksa berkas yang BENAR-BENAR DIRUJUK tampilan, bukan seluruh
-    // isi foldernya. Berkas asli boleh saja tersimpan di sana; yang tidak
-    // pernah diminta peramban tidak membebani siapa pun, dan memaksanya ikut
-    // kecil hanya akan membuat penjagaan ini dilangkahi.
+    // 1. hero masuk sebagai PNG 2,2 MB. Batas satu megabita sebenarnya sudah
+    //    ada, tetapi hanya menyebut SATU nama berkas — jadi begitu hero lain
+    //    ditambahkan, batasnya tidak ikut berlaku dan tiga berkas besar lolos
+    //    berturut-turut;
+    // 2. berkas hero terhapus dari cakram sementara tampilan masih
+    //    menunjuknya. Halamannya tetap terbuka — tidak ada galat sama sekali —
+    //    hanya kepala halamannya kosong, dan itu baru ketahuan kalau ada yang
+    //    membuka halaman itu.
+    //
+    // Karena itu yang diperiksa bukan daftar nama, melainkan setiap jalur
+    // gambar yang benar-benar tertulis di tampilan.
     $dirujuk = [];
 
     foreach (\Illuminate\Support\Facades\File::allFiles(resource_path('views')) as $tampilan) {
-        preg_match_all('#images/HERO/[\w.-]+#', $tampilan->getContents(), $cocok);
-        $dirujuk = array_merge($dirujuk, $cocok[0]);
+        preg_match_all('/image="([^"{$]+)"/', $tampilan->getContents(), $cocok);
+        $dirujuk = array_merge($dirujuk, $cocok[1]);
     }
+
+    // Jalur yang dirakit Blade ({{ ... }}, $variabel) sengaja dilewati: isinya
+    // baru diketahui saat halaman dibuka.
+    $dirujuk = array_unique($dirujuk);
 
     expect($dirujuk)->not->toBeEmpty();
 
+    $hilang = [];
     $berat = [];
 
-    foreach (array_unique($dirujuk) as $jalur) {
+    foreach ($dirujuk as $jalur) {
         $berkas = public_path($jalur);
 
-        expect(file_exists($berkas))->toBeTrue("Hero {$jalur} dirujuk tampilan tetapi berkasnya tidak ada.");
+        if (! file_exists($berkas)) {
+            $hilang[] = $jalur;
+
+            continue;
+        }
 
         if (filesize($berkas) >= 1_000_000) {
             $berat[] = $jalur.' ('.round(filesize($berkas) / 1_048_576, 1).' MB)';
         }
     }
 
-    expect($berat)->toBe([]);
+    expect($hilang)->toBe([])
+        ->and($berat)->toBe([]);
 });
