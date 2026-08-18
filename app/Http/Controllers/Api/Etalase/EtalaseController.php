@@ -8,7 +8,9 @@ use App\Models\Etalase\DestinationPopuler;
 use App\Models\Etalase\Partner;
 use App\Models\Etalase\Testimoni;
 use Illuminate\Http\JsonResponse;
+use App\Support\GambarWebp;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Etalase pelengkap website: destinasi populer, testimoni, dan partner.
@@ -21,6 +23,15 @@ class EtalaseController extends ApiController
     use MenyimpanGambar;
 
     /* ----------------------------- DESTINASI ----------------------------- */
+
+    /**
+     * Kartu destinasi di halaman publik hanya menampung tiga gambar tambahan.
+     *
+     * Angkanya dipakai untuk validasi DAN dikirim ke admin lemon supaya tulisan
+     * "sisa sekian" di sana tidak pernah berbeda dari aturan yang sebenarnya
+     * berlaku di sini.
+     */
+    public const BATAS_SUB_FOTO = 3;
 
     public function destinasi(Request $request): JsonResponse
     {
@@ -38,6 +49,11 @@ class EtalaseController extends ApiController
                     'deskripsi' => $destinasi->deskripsi,
                     'total_pengunjung' => $destinasi->total_visitor,
                     'foto' => $destinasi->main_photo,
+                    // Gambar tambahan ikut dikirim: kartu destinasi di halaman
+                    // publik menampilkannya, jadi admin harus bisa melihat dan
+                    // mengubahnya dari sini — bukan hanya dari admin bawaan.
+                    'sub_foto' => array_values($destinasi->others_photo ?? []),
+                    'batas_sub_foto' => self::BATAS_SUB_FOTO,
                 ])
                 ->all(),
         ]);
@@ -58,7 +74,7 @@ class EtalaseController extends ApiController
     {
         $data = $this->validasiDestinasi($request);
 
-        $destinasi->update($this->siapkanDestinasi($data, $request, $destinasi->main_photo));
+        $destinasi->update($this->siapkanDestinasi($data, $request, $destinasi));
 
         $this->catat($request, 'ubah destinasi', ['nama' => $destinasi->destination_name]);
 
@@ -68,6 +84,14 @@ class EtalaseController extends ApiController
     public function hapusDestinasi(DestinationPopuler $destinasi, Request $request): JsonResponse
     {
         $this->hapusGambar($destinasi->main_photo);
+
+        // Gambar tambahan ikut dibuang. Sebelumnya hanya foto utama yang
+        // dihapus, jadi tiap destinasi yang dihapus meninggalkan berkas yang
+        // tidak dirujuk siapa pun di penyimpanan.
+        foreach ($destinasi->others_photo ?? [] as $tambahan) {
+            $this->hapusGambar($tambahan);
+        }
+
         $destinasi->delete();
 
         $this->catat($request, 'hapus destinasi', ['nama' => $destinasi->destination_name]);
@@ -84,10 +108,18 @@ class EtalaseController extends ApiController
             'deskripsi' => 'nullable|string|max:1000',
             'total_pengunjung' => 'nullable|integer|min:0',
             'gambar' => 'nullable|image|max:4096',
+            // Gambar tambahan: yang BARU diunggah, dan yang lama dipertahankan.
+            // Keduanya dikirim terpisah karena yang menentukan isi akhir kolom
+            // adalah daftar yang dipertahankan — bukan isi lama di basis data.
+            // Tanpa itu, menghapus satu gambar mustahil dinyatakan.
+            'sub_foto' => 'nullable|array',
+            'sub_foto.*' => 'image|max:2048',
+            'sub_foto_tetap' => 'nullable|array',
+            'sub_foto_tetap.*' => 'string|max:255',
         ]);
     }
 
-    private function siapkanDestinasi(array $data, Request $request, ?string $fotoLama = null): array
+    private function siapkanDestinasi(array $data, Request $request, ?DestinationPopuler $lama = null): array
     {
         return [
             'destination_name' => $data['nama'],
@@ -95,8 +127,58 @@ class EtalaseController extends ApiController
             'provinsi' => $data['provinsi'] ?? null,
             'deskripsi' => $data['deskripsi'] ?? null,
             'total_visitor' => $data['total_pengunjung'] ?? 0,
-            'main_photo' => $this->simpanGambar($request, 'destinasi', $fotoLama),
+            'main_photo' => $this->simpanGambar($request, 'destinasi', $lama?->main_photo),
+            'others_photo' => $this->subFotoDestinasi($data, $request, $lama),
         ];
+    }
+
+    /**
+     * Gambar tambahan yang tersimpan sesudah perubahan ini.
+     *
+     * Yang menentukan isinya adalah daftar yang DIPERTAHANKAN, bukan isi lama
+     * di basis data: hanya dengan begitu menghapus satu gambar bisa dinyatakan.
+     * Unggahan baru DITAMBAHKAN, tidak menggantikan — sebelum aturan ini ada di
+     * admin bawaan, menambah gambar ketiga justru menyisakan satu.
+     *
+     * Berkas yang tidak lagi dirujuk baru dihapus di sini, sesudah admin benar-
+     * benar menyimpan keputusannya.
+     *
+     * @return list<string>
+     */
+    private function subFotoDestinasi(array $data, Request $request, ?DestinationPopuler $lama): array
+    {
+        $sebelumnya = array_values($lama?->others_photo ?? []);
+
+        // Permintaan yang tidak menyebut gambar tambahan sama sekali TIDAK
+        // menghapusnya. Pemanggil lama hanya mengirim medan yang dikenalnya,
+        // dan menganggap diamnya sebagai "hapus semua" akan membuang gambar
+        // yang tidak pernah diminta dibuang siapa pun.
+        if (! $request->has('sub_foto_tetap') && ! $request->hasFile('sub_foto')) {
+            return $sebelumnya;
+        }
+
+        // Hanya jalur yang memang milik destinasi ini yang boleh dipertahankan.
+        // Tanpa saringan ini, permintaan yang dirakit tangan bisa menautkan
+        // berkas milik destinasi lain — dan menghapus salah satunya kemudian
+        // ikut merusak yang satunya.
+        $tetap = array_values(array_intersect($data['sub_foto_tetap'] ?? [], $sebelumnya));
+
+        foreach ($request->file('sub_foto', []) as $berkas) {
+            $tetap[] = GambarWebp::simpan($berkas, 'destinasi/tambahan');
+        }
+
+        if (count($tetap) > self::BATAS_SUB_FOTO) {
+            throw ValidationException::withMessages([
+                'sub_foto' => 'Gambar tambahan maksimal '.self::BATAS_SUB_FOTO
+                    .'. Hapus dulu salah satu sebelum menambah.',
+            ]);
+        }
+
+        foreach (array_diff($sebelumnya, $tetap) as $dibuang) {
+            $this->hapusGambar($dibuang);
+        }
+
+        return $tetap;
     }
 
     /* ----------------------------- TESTIMONI ----------------------------- */

@@ -160,3 +160,116 @@ test('sisa tempat ikut berkurang oleh gambar yang baru dipilih', function () {
     $formulir->call('hapusUnggahan', 0);
     expect($formulir->viewData('sisaSlot'))->toBe(2);
 });
+
+/* -------- LEWAT API, UNTUK ADMIN LEMON -------- */
+
+function kirimDestinasi(array $isi, string $metode = 'post', ?int $id = null)
+{
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    $alamat = '/api/v1/destinasi'.($id ? "/{$id}" : '');
+
+    return test()->call($metode, $alamat, array_merge([
+        'nama' => 'Bromo', 'wilayah' => 'jawa',
+    ], $isi), [], [], [
+        'HTTP_X_ORCHA_KEY' => 'kunci-uji',
+        'HTTP_X_ORCHA_ADMIN' => 'admin@phoenix.test',
+        'HTTP_ACCEPT' => 'application/json',
+    ]);
+}
+
+test('daftar destinasi mengirim gambar tambahannya', function () {
+    destinasiBerkas(['/storage/destinasi_populer/tambahan/a.jpg']);
+
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    // Tanpa ini admin lemon tidak punya sumber data untuk menampilkannya —
+    // gambar tambahan hanya bisa diurus dari admin bawaan Orcha.
+    $baris = $this->getJson('/api/v1/destinasi', [
+        'X-Orcha-Key' => 'kunci-uji',
+        'X-Orcha-Admin' => 'admin@phoenix.test',
+    ])->assertOk()->json('data.0');
+
+    expect($baris['sub_foto'])->toBe(['/storage/destinasi_populer/tambahan/a.jpg'])
+        ->and($baris['batas_sub_foto'])->toBe(3);
+});
+
+test('unggahan baru ditambahkan, bukan menggantikan yang lama', function () {
+    Storage::fake('public');
+    $destinasi = destinasiBerkas(['/storage/destinasi_populer/tambahan/lama.jpg']);
+
+    kirimDestinasi([
+        'sub_foto_tetap' => ['/storage/destinasi_populer/tambahan/lama.jpg'],
+        'sub_foto' => [berkasGambar('baru.jpg')],
+    ], 'post', $destinasi->id)->assertOk();
+
+    expect($destinasi->fresh()->others_photo)->toHaveCount(2);
+});
+
+test('gambar yang tidak dipertahankan dihapus saat disimpan', function () {
+    Storage::fake('public');
+    $destinasi = destinasiBerkas([
+        '/storage/destinasi_populer/tambahan/satu.jpg',
+        '/storage/destinasi_populer/tambahan/dua.jpg',
+    ]);
+    Storage::disk('public')->put('destinasi_populer/tambahan/satu.jpg', 'x');
+
+    kirimDestinasi([
+        'sub_foto_tetap' => ['/storage/destinasi_populer/tambahan/dua.jpg'],
+    ], 'post', $destinasi->id)->assertOk();
+
+    expect($destinasi->fresh()->others_photo)->toBe(['/storage/destinasi_populer/tambahan/dua.jpg'])
+        ->and(Storage::disk('public')->exists('destinasi_populer/tambahan/satu.jpg'))->toBeFalse();
+});
+
+test('permintaan yang tidak menyebut gambar tambahan tidak menghapusnya', function () {
+    $destinasi = destinasiBerkas(['/storage/destinasi_populer/tambahan/a.jpg']);
+
+    // Pemanggil lama hanya mengirim medan yang dikenalnya. Menganggap diamnya
+    // sebagai "hapus semua" membuang gambar yang tidak pernah diminta dibuang.
+    kirimDestinasi(['deskripsi' => 'Diperbarui'], 'post', $destinasi->id)->assertOk();
+
+    expect($destinasi->fresh()->others_photo)->toBe(['/storage/destinasi_populer/tambahan/a.jpg']);
+});
+
+test('batas tiga gambar berlaku juga lewat api', function () {
+    Storage::fake('public');
+    $destinasi = destinasiBerkas([
+        '/storage/destinasi_populer/tambahan/satu.jpg',
+        '/storage/destinasi_populer/tambahan/dua.jpg',
+    ]);
+
+    kirimDestinasi([
+        'sub_foto_tetap' => [
+            '/storage/destinasi_populer/tambahan/satu.jpg',
+            '/storage/destinasi_populer/tambahan/dua.jpg',
+        ],
+        'sub_foto' => [berkasGambar('tiga.jpg'), berkasGambar('empat.jpg')],
+    ], 'post', $destinasi->id)->assertStatus(422)->assertJsonValidationErrors('sub_foto');
+});
+
+test('jalur milik destinasi lain tidak bisa diklaim', function () {
+    Storage::fake('public');
+    destinasiBerkas(['/storage/destinasi_populer/tambahan/milik-lain.jpg']);
+    $destinasi = destinasiBerkas([]);
+
+    // Permintaan yang dirakit tangan bisa menautkan berkas milik destinasi lain,
+    // dan menghapus salah satunya kemudian ikut merusak yang satunya.
+    kirimDestinasi([
+        'sub_foto_tetap' => ['/storage/destinasi_populer/tambahan/milik-lain.jpg'],
+    ], 'post', $destinasi->id)->assertOk();
+
+    expect($destinasi->fresh()->others_photo)->toBe([]);
+});
+
+test('menghapus destinasi ikut membuang gambar tambahannya', function () {
+    Storage::fake('public');
+    $destinasi = destinasiBerkas(['/storage/destinasi_populer/tambahan/ikut.jpg']);
+    Storage::disk('public')->put('destinasi_populer/tambahan/ikut.jpg', 'x');
+
+    kirimDestinasi([], 'delete', $destinasi->id)->assertOk();
+
+    expect(Storage::disk('public')->exists('destinasi_populer/tambahan/ikut.jpg'))->toBeFalse();
+});
