@@ -1157,6 +1157,20 @@ return [
         'pengenal' => env('ORCHA_PETA_PENGENAL', 'OrchaJourney/1.0 (admin@orchajourney.com)'),
     ],
 
+    /*
+     * Ensiklopedia — sumber kedua untuk lokasi destinasi.
+     *
+     * Peta unggul pada koordinat, ensiklopedia unggul pada nama yang dikenal
+     * orang. Pulau Menjangan Kecil contohnya: peta hanya tahu ia di Jepara,
+     * karena batas Kecamatan Karimunjawa memang belum ada di OpenStreetMap,
+     * sedangkan ensiklopedia menyebut Karimunjawa apa adanya — dan
+     * "Karimunjawa" itulah yang dicari pengunjung, bukan "Jepara".
+     */
+    'ensiklopedia' => [
+        'aktif' => env('ORCHA_ENSIKLOPEDIA_AKTIF', true),
+        'alamat' => env('ORCHA_ENSIKLOPEDIA_ALAMAT', 'https://id.wikipedia.org/w/api.php'),
+    ],
+
     'api' => [
         'kunci' => env('ORCHA_API_KEY'),
         'ip_diizinkan' => array_filter(array_map('trim', explode(',', (string) env('ORCHA_API_IP', '')))),

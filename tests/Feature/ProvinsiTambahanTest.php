@@ -660,3 +660,116 @@ test('potongan huruf tidak dianggap cocok dengan destinasi yang tersimpan', func
 
     cariLokasi('Bromo')->assertOk()->assertJsonPath('data.provinsi', 'Jawa Timur');
 });
+
+/* -------- DAERAH SEBAGAIMANA ORANG MENYEBUTNYA -------- */
+
+function fakeEnsiklopedia(array $halaman, ?array $peta = null): void
+{
+    config()->set('orcha.ensiklopedia.aktif', true);
+
+    \Illuminate\Support\Facades\Http::fake([
+        '*wikipedia*' => \Illuminate\Support\Facades\Http::response(['query' => ['pages' => $halaman]]),
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response($peta ?? []),
+    ]);
+}
+
+test('daerah diambil dari kecamatan yang dikenal, bukan berhenti di kabupaten', function () {
+    // Batas Kecamatan Karimunjawa tidak ada di OpenStreetMap — hierarkinya
+    // melompat dari pulau langsung ke Jepara. Padahal "Karimunjawa" itulah
+    // yang dicari pengunjung.
+    fakeEnsiklopedia([
+        '2' => [
+            'title' => 'Pulau Menjangan Kecil',
+            'extract' => 'Pulau Menjangan Kecil adalah salah satu pulau yang terletak di bagian '
+                .'selatan Kepulauan Karimunjawa, Indonesia. Pulau ini secara administratif termasuk '
+                .'ke dalam daerah Desa Karimunjawa, Kecamatan Karimunjawa, Kabupaten Jepara, '
+                .'Provinsi Jawa Tengah.',
+        ],
+    ], peta: [['name' => 'Pulau Menjangan Kecil', 'address' => ['state' => 'Jawa Tengah', 'county' => 'Jepara']]]);
+
+    cariLokasi('Pulau Menjangan Kecil')->assertOk()
+        ->assertJsonPath('data.daerah', 'Karimunjawa')
+        ->assertJsonPath('data.provinsi', 'Jawa Tengah')
+        ->assertJsonPath('data.wilayah', 'jawa')
+        ->assertJsonPath('data.sumber', 'ensiklopedia');
+});
+
+test('artikel yang judulnya hanya mirip tidak dipakai', function () {
+    // Pencarian "Pulau Menjangan Kecil" mengembalikan "Pulau Menjangan" di
+    // urutan teratas — pulau yang sama sekali lain, di Bali Barat. Namanya
+    // seluruhnya termuat di dalam yang ditanyakan, jadi ukuran kemiripan mana
+    // pun akan menerimanya; yang membedakan hanya kesamaan persis.
+    fakeEnsiklopedia([
+        '1' => [
+            'title' => 'Pulau Menjangan',
+            'extract' => 'Pulau Menjangan adalah sebuah pulau di Kecamatan Gerokgak, '
+                .'Kabupaten Buleleng, Provinsi Bali.',
+        ],
+    ], peta: [['name' => 'Pulau Menjangan Kecil', 'address' => ['state' => 'Jawa Tengah', 'county' => 'Jepara']]]);
+
+    cariLokasi('Pulau Menjangan Kecil')->assertOk()
+        ->assertJsonPath('data.provinsi', 'Jawa Tengah')
+        ->assertJsonPath('data.sumber', 'peta');
+});
+
+test('kecamatan yang tidak dikenal katalog tidak dipakai sebagai daerah', function () {
+    // Katalog daerah itu persis daftar yang ditawarkan pemilih daerah. Nama
+    // yang tidak ada di sana akan terisi tetapi tidak pernah bisa dipilih
+    // ulang — dan kecamatan yang tidak dikenal siapa pun memang lebih buruk
+    // daripada nama kabupatennya.
+    fakeEnsiklopedia([
+        '3' => [
+            'title' => 'Air Terjun Antah Berantah',
+            'extract' => 'Air Terjun Antah Berantah terletak di Kecamatan Sukamaju Indah, '
+                .'Kabupaten Banyuwangi, Provinsi Jawa Timur.',
+        ],
+    ]);
+
+    cariLokasi('Air Terjun Antah Berantah')->assertOk()
+        ->assertJsonPath('data.daerah', 'Banyuwangi')
+        ->assertJsonPath('data.provinsi', 'Jawa Timur');
+});
+
+test('destinasi yang sudah tercatat tidak menembak ensiklopedia', function () {
+    fakeEnsiklopedia([]);
+
+    DestinationPopuler::create([
+        'destination_name' => 'Karimunjawa', 'wilayah' => 'jawa',
+        'provinsi' => 'Jawa Tengah', 'daerah' => 'Karimunjawa', 'total_visitor' => 9100,
+    ]);
+
+    cariLokasi('Karimunjawa')->assertOk()->assertJsonPath('data.sumber', 'destinasi');
+
+    \Illuminate\Support\Facades\Http::assertNothingSent();
+});
+
+test('keterangan yang membedakan tempat tidak ikut dipenggal', function () {
+    // "Pulau Menjangan Kecil" TIDAK boleh dicoba sebagai "Pulau Menjangan":
+    // itu pulau lain, di Bali Barat, lengkap dengan artikelnya sendiri. Kata
+    // "Kecil" justru yang membedakan keduanya.
+    fakeEnsiklopedia([
+        '1' => [
+            'title' => 'Pulau Menjangan',
+            'extract' => 'Pulau Menjangan adalah sebuah pulau di Kecamatan Gerokgak, '
+                .'Kabupaten Buleleng, Provinsi Bali.',
+        ],
+    ], peta: []);
+
+    cariLokasi('Pulau Menjangan Kecil')->assertOk()->assertJsonPath('data', null);
+});
+
+test('nama daerah yang disambung di belakang boleh dibuang', function () {
+    // "Kawah Ijen Banyuwangi" — ekornya nama daerah yang kita kenal, jadi
+    // pertanyaannya boleh dipersempit jadi "Kawah Ijen".
+    fakeEnsiklopedia([
+        '5' => [
+            'title' => 'Kawah Ijen',
+            'extract' => 'Kawah Ijen adalah sebuah danau kawah di Kabupaten Banyuwangi, '
+                .'Provinsi Jawa Timur.',
+        ],
+    ], peta: []);
+
+    cariLokasi('Kawah Ijen Banyuwangi')->assertOk()
+        ->assertJsonPath('data.daerah', 'Banyuwangi')
+        ->assertJsonPath('data.provinsi', 'Jawa Timur');
+});

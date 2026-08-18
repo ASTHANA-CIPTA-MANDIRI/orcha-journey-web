@@ -13,6 +13,26 @@
 
 pest()->extend(Tests\TestCase::class)
     ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+    ->beforeEach(function () {
+        /*
+         * Sumber luar dimatikan secara bawaan.
+         *
+         * Http::fake(['*nominatim*' => ...]) TIDAK menghalangi permintaan ke
+         * alamat lain — yang tidak cocok dengan satu pun pola benar-benar
+         * ditembak keluar (lihat PendingRequest::buildStubHandler). Jadi begitu
+         * ensiklopedia ditambahkan sebagai sumber pertama, puluhan uji yang
+         * hanya menstub peta diam-diam mulai menembak Wikipedia sungguhan:
+         * lambat, bergantung jaringan, dan hasilnya berubah tanpa ada kode yang
+         * berubah.
+         *
+         * Uji yang memang menguji ensiklopedia menyalakannya sendiri.
+         */
+        config()->set('orcha.ensiklopedia.aktif', false);
+
+        // Jaring pengaman: permintaan keluar yang tidak distub menggagalkan uji,
+        // bukan diam-diam berhasil.
+        Illuminate\Support\Facades\Http::preventStrayRequests();
+    })
     ->in('Feature');
 
 /*
