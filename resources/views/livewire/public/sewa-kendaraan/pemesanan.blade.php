@@ -439,7 +439,11 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
 <div>
     <x-page-hero title="Pemesanan Sewa Kendaraan" eyebrow="Formulir Sewa"
         subtitle="Pilih unit, lama sewa, dan kebutuhan sopir. Perkiraan biayanya langsung terhitung sebelum Anda mengirim."
-        image="images/kendaraan.jpg" />
+        {{-- Foto yang sama dengan halaman daftar armada. Disengaja: penyewa
+             sampai di sini dengan menekan "Pesan unit ini" dari sana, dan
+             kepala halaman yang berganti gambar membuat perpindahan itu terasa
+             seperti pindah ke situs lain. --}}
+        image="images/HERO/sewa-kendaraan.jpg" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">
