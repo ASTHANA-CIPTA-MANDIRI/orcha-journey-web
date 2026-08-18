@@ -36,6 +36,17 @@ class CariLokasi
     private const SIMPAN_HARI = 30;
 
     /**
+     * Versi bentuk jawaban yang disimpan.
+     *
+     * Dinaikkan setiap kali isi jawabannya bertambah atau berubah bentuk.
+     * Tanpa ini, simpanan tiga puluh hari berbentuk lama tetap terpakai dan
+     * diam-diam kehilangan medan baru — persis yang terjadi ketika daerah
+     * ditambahkan: provinsi terisi, daerah tidak, dan tidak ada satu pun tanda
+     * bahwa penyebabnya cuma jawaban lama yang masih tersimpan.
+     */
+    private const VERSI = 2;
+
+    /**
      * @return array{provinsi: string, wilayah: string, daerah: ?string, sumber: string}|null
      */
     public function cari(string $nama): ?array
@@ -81,7 +92,7 @@ class CariLokasi
             return null;
         }
 
-        $kunci = 'orcha.lokasi.'.md5(mb_strtolower($nama));
+        $kunci = 'orcha.lokasi.v'.self::VERSI.'.'.md5(mb_strtolower($nama));
 
         return Cache::remember($kunci, now()->addDays(self::SIMPAN_HARI), function () use ($nama) {
             $jawaban = $this->tanyaNominatim($nama);

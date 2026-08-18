@@ -556,3 +556,20 @@ test('usulan peta ikut menyebut daerahnya', function () {
         ->assertJsonPath('data.provinsi', 'Jawa Timur')
         ->assertJsonPath('data.daerah', 'Banyuwangi');
 });
+
+test('jawaban peta berbentuk lama tidak dipakai lagi setelah bentuknya berubah', function () {
+    // Simpanan tiga puluh hari berbentuk lama diam-diam kehilangan medan baru:
+    // provinsi terisi, daerah tidak, dan tidak ada satu pun tanda bahwa
+    // penyebabnya cuma jawaban lama yang masih tersimpan.
+    cache()->put('orcha.lokasi.'.md5('djawatan'), [
+        'provinsi' => 'Jawa Timur', 'wilayah' => 'jawa', 'sumber' => 'peta',
+    ], now()->addDays(30));
+
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'address' => ['state' => 'Jawa Timur', 'county' => 'Kabupaten Banyuwangi'],
+        ]]),
+    ]);
+
+    cariLokasi('Djawatan')->assertOk()->assertJsonPath('data.daerah', 'Banyuwangi');
+});
