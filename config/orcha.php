@@ -391,6 +391,71 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Provinsi dan Wilayahnya
+    |--------------------------------------------------------------------------
+    |
+    | Ditulis di sini, BUKAN diambil dari API wilayah gratis saat halaman
+    | dibuka. Daftarnya 38 baris dan berubah beberapa tahun sekali — terakhir
+    | 2022, saat Papua dimekarkan jadi enam. Menggantungkannya pada layanan
+    | pihak ketiga berarti formulir admin ikut mati setiap layanan itu mati atau
+    | berganti alamat, demi data yang justru hampir tidak pernah berubah.
+    |
+    | Pemetaannya ke wilayah yang dipakai penyaring di halaman publik: provinsi
+    | yang dipilih menentukan wilayahnya sendiri, jadi admin cukup memilih satu
+    | hal. Sebelumnya keduanya diketik terpisah, dan "Jawa Timur" yang tercatat
+    | di wilayah "Bali & Nusa Tenggara" tidak akan pernah ketahuan sampai ada
+    | pengunjung yang menyaring dan tidak menemukannya.
+    |
+    */
+
+    'provinsi_wilayah' => [
+        'Aceh' => 'sumatera',
+        'Sumatera Utara' => 'sumatera',
+        'Sumatera Barat' => 'sumatera',
+        'Riau' => 'sumatera',
+        'Kepulauan Riau' => 'sumatera',
+        'Jambi' => 'sumatera',
+        'Sumatera Selatan' => 'sumatera',
+        'Kepulauan Bangka Belitung' => 'sumatera',
+        'Bengkulu' => 'sumatera',
+        'Lampung' => 'sumatera',
+
+        'DKI Jakarta' => 'jawa',
+        'Jawa Barat' => 'jawa',
+        'Banten' => 'jawa',
+        'Jawa Tengah' => 'jawa',
+        'DI Yogyakarta' => 'jawa',
+        'Jawa Timur' => 'jawa',
+
+        'Bali' => 'bali_nusa',
+        'Nusa Tenggara Barat' => 'bali_nusa',
+        'Nusa Tenggara Timur' => 'bali_nusa',
+
+        'Kalimantan Barat' => 'kalimantan',
+        'Kalimantan Tengah' => 'kalimantan',
+        'Kalimantan Selatan' => 'kalimantan',
+        'Kalimantan Timur' => 'kalimantan',
+        'Kalimantan Utara' => 'kalimantan',
+
+        'Sulawesi Utara' => 'sulawesi',
+        'Gorontalo' => 'sulawesi',
+        'Sulawesi Tengah' => 'sulawesi',
+        'Sulawesi Barat' => 'sulawesi',
+        'Sulawesi Selatan' => 'sulawesi',
+        'Sulawesi Tenggara' => 'sulawesi',
+
+        'Maluku' => 'maluku_papua',
+        'Maluku Utara' => 'maluku_papua',
+        'Papua' => 'maluku_papua',
+        'Papua Barat' => 'maluku_papua',
+        'Papua Barat Daya' => 'maluku_papua',
+        'Papua Selatan' => 'maluku_papua',
+        'Papua Tengah' => 'maluku_papua',
+        'Papua Pegunungan' => 'maluku_papua',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Pilihan pada Formulir
     |--------------------------------------------------------------------------
     |

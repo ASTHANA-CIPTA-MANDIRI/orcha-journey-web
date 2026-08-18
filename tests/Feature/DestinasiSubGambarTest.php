@@ -290,3 +290,39 @@ test('satu destinasi bisa diambil untuk halaman ubah', function () {
         ->assertJsonPath('data.sub_foto.0', '/storage/destinasi_populer/tambahan/a.jpg')
         ->assertJsonPath('data.batas_sub_foto', 3);
 });
+
+/* -------- PROVINSI & WILAYAH -------- */
+
+test('tiap provinsi menunjuk wilayah yang benar-benar ada', function () {
+    // Peta yang menunjuk wilayah tak dikenal membuat destinasinya hilang dari
+    // semua penyaring: tidak masuk wilayah mana pun, dan tidak ada pesan salah
+    // yang muncul di mana pun.
+    $wilayah = array_keys(config('orcha.wilayah'));
+
+    // Yang menyimpang dikumpulkan dulu, baru diperiksa sebagai daftar: pesan
+    // gagalnya menyebut provinsi mana yang salah, bukan hanya "ada yang salah".
+    $menyimpang = collect(config('orcha.provinsi_wilayah'))
+        ->reject(fn ($kunci) => in_array($kunci, $wilayah, true))
+        ->keys()
+        ->all();
+
+    expect($menyimpang)->toBe([]);
+
+    // 38 provinsi per pemekaran Papua 2022. Angka yang meleset berarti ada yang
+    // tertinggal — dan provinsi yang tertinggal tidak bisa dipilih admin.
+    expect(config('orcha.provinsi_wilayah'))->toHaveCount(38);
+});
+
+test('rujukan mengirim daftar provinsi beserta wilayahnya', function () {
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    // Disalin ke lemon berarti dua daftar yang bisa berbeda diam-diam saat ada
+    // provinsi baru dimekarkan.
+    $this->getJson('/api/v1/rujukan', [
+        'X-Orcha-Key' => 'kunci-uji',
+        'X-Orcha-Admin' => 'admin@phoenix.test',
+    ])->assertOk()
+        ->assertJsonPath('data.provinsi_wilayah.Jawa Timur', 'jawa')
+        ->assertJsonPath('data.provinsi_wilayah.Papua Pegunungan', 'maluku_papua');
+});

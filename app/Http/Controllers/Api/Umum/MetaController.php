@@ -90,6 +90,11 @@ class MetaController extends ApiController
                 'keperluan_kontak' => config('orcha.keperluan_kontak'),
                 'alasan_pembatalan' => config('orcha.alasan_pembatalan'),
                 'wilayah' => config('orcha.wilayah'),
+                // Provinsi beserta wilayahnya: admin cukup memilih provinsi,
+                // dan wilayah penyaring di halaman publik terisi sendiri.
+                // Dikirim dari sini supaya daftarnya satu — bukan disalin ke
+                // lemon lalu berbeda diam-diam saat provinsi baru dimekarkan.
+                'provinsi_wilayah' => config('orcha.provinsi_wilayah'),
                 'pembayaran' => config('orcha.pembayaran'),
                 'fasilitas_umum' => config('orcha.fasilitas_umum'),
                 'status_paket' => config('orcha.status_paket'),
