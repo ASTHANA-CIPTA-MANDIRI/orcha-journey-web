@@ -16,6 +16,28 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
     #[Url(as: 'wilayah', except: '')]
     public string $wilayah = '';
 
+    /**
+     * Destinasi yang sedang dibuka detailnya.
+     *
+     * Ikut di alamat, bukan hanya keadaan di layar: pengunjung yang menemukan
+     * satu destinasi menarik biasanya mengirimkannya ke teman seperjalanan, dan
+     * tautan yang selalu mendarat di daftar memaksa penerimanya mencari sendiri.
+     * Tombol kembali peramban pun jadi menutup detail, bukan meninggalkan
+     * halaman.
+     */
+    #[Url(as: 'lihat', except: null)]
+    public ?int $lihat = null;
+
+    public function buka(int $id): void
+    {
+        $this->lihat = $id;
+    }
+
+    public function tutupDetail(): void
+    {
+        $this->lihat = null;
+    }
+
     public function updatedSearch(): void
     {
         $this->resetPage();
@@ -36,6 +58,10 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                 ->diWilayah($this->wilayah ?: null)
                 ->orderByDesc('total_visitor')
                 ->paginate(9),
+            // Dicari terpisah dari daftar: destinasi yang dibuka lewat tautan
+            // belum tentu ada di halaman yang sedang tampil, apalagi saat
+            // penyaringnya sedang menyala.
+            'detail' => $this->lihat ? DestinationPopuler::find($this->lihat) : null,
             'total' => DestinationPopuler::count(),
             'totalPengunjung' => (int) DestinationPopuler::sum('total_visitor'),
             'totalProvinsi' => DestinationPopuler::distinct()->count('provinsi'),
@@ -117,7 +143,7 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                 <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 sm:gap-6">
                     @foreach ($destinations as $dest)
                         <article class="flex flex-col overflow-hidden card-orcha group">
-                            <div class="relative overflow-hidden aspect-[4/3]">
+            <div class="relative overflow-hidden aspect-[4/3]">
                                 <img src="{{ $dest->main_photo ?: asset('images/pantai-senja.jpg') }}"
                                     alt="{{ $dest->destination_name }}" loading="lazy"
                                     class="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110">
@@ -163,12 +189,24 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                     </div>
                                 @endif
 
-                                <a href="{{ $wa("Halo Orcha Journey, saya ingin ke {$dest->destination_name}. Ada paket atau armadanya?") }}"
-                                    target="_blank" rel="noopener noreferrer"
-                                    class="w-full mt-auto btn-orcha btn-orcha-outline !py-2.5 !text-sm">
-                                    <x-bi-whatsapp class="w-4 h-4" />
-                                    Tanya Paket ke Sini
-                                </a>
+                                {{-- Dua tindakan berdampingan: melihat dulu, atau langsung
+                                     bertanya. Sebelumnya hanya ada tombol WhatsApp, sehingga
+                                     satu-satunya cara mengetahui lebih banyak adalah menanyakannya
+                                     — pertanyaan yang jawabannya sudah ada di sini. --}}
+                                <div class="flex gap-2 mt-auto">
+                                    <button type="button" wire:click="buka({{ $dest->id }})"
+                                        class="flex-1 btn-orcha btn-orcha-primary !py-2.5 !text-sm">
+                                        <x-heroicon-o-photo class="w-4 h-4" />
+                                        Lihat Detail
+                                    </button>
+
+                                    <a href="{{ $wa("Halo Orcha Journey, saya ingin ke {$dest->destination_name}. Ada paket atau armadanya?") }}"
+                                        target="_blank" rel="noopener noreferrer"
+                                        class="btn-orcha btn-orcha-outline !py-2.5 !text-sm !px-4"
+                                        aria-label="Tanya paket ke {{ $dest->destination_name }} lewat WhatsApp">
+                                        <x-bi-whatsapp class="w-4 h-4" />
+                                    </a>
+                                </div>
                             </div>
                         </article>
                     @endforeach
@@ -194,4 +232,117 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
             </div>
         </div>
     </section>
+
+    {{-- Jendela detail destinasi.
+
+         Di halaman yang sama, bukan halaman tersendiri: pengunjung sedang
+         menyusuri daftar dengan penyaring wilayah yang sudah ia atur, dan
+         memindahkannya ke halaman lain berarti ia harus menyusunnya lagi saat
+         kembali. Keadaan terbukanya tetap ikut di alamat, jadi tautannya bisa
+         dibagikan dan tombol kembali peramban menutupnya. --}}
+    @if ($detail)
+        <div class="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6"
+            role="dialog" aria-modal="true" aria-labelledby="judul-destinasi" wire:key="detail-{{ $detail->id }}">
+            {{-- Latar gelap ikut menutup: itu yang pertama dicoba orang saat
+                 ingin keluar, sebelum mencari tombol silang. --}}
+            <button type="button" wire:click="tutupDetail" aria-label="Tutup detail"
+                class="absolute inset-0 bg-orcha-navy/70 backdrop-blur-sm"></button>
+
+            @php
+                $galeri = array_values(array_filter(array_merge(
+                    [$detail->main_photo],
+                    $detail->others_photo ?? [],
+                )));
+            @endphp
+
+            <div x-data="{ aktif: 0 }" @keydown.escape.window="$wire.tutupDetail()"
+                class="relative w-full max-w-3xl overflow-hidden bg-white shadow-2xl rounded-t-3xl sm:rounded-3xl max-h-[92vh] overflow-y-auto">
+
+                <div class="relative bg-orcha-foam aspect-[16/10]">
+                    @forelse ($galeri as $urutan => $foto)
+                        <img src="{{ $foto }}" alt="{{ $detail->destination_name }}"
+                            x-show="aktif === {{ $urutan }}" x-cloak
+                            class="absolute inset-0 object-cover w-full h-full">
+                    @empty
+                        <div class="flex items-center justify-center w-full h-full text-slate-400">
+                            <x-heroicon-o-photo class="w-12 h-12" />
+                        </div>
+                    @endforelse
+
+                    <div class="absolute inset-x-0 bottom-0 h-32 pointer-events-none bg-gradient-to-t from-orcha-navy/90 to-transparent">
+                    </div>
+
+                    <button type="button" wire:click="tutupDetail" aria-label="Tutup detail"
+                        class="absolute flex items-center justify-center w-9 h-9 rounded-full top-4 right-4 bg-white/90 text-orcha-navy backdrop-blur hover:bg-white">
+                        <x-heroicon-o-x-mark class="w-5 h-5" />
+                    </button>
+
+                    <span class="absolute inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full top-4 left-4 text-orcha-navy bg-orcha-sun">
+                        <x-heroicon-s-user-group class="w-4 h-4" />
+                        {{ shortNumber($detail->total_visitor) }} pengunjung diantar
+                    </span>
+
+                    <div class="absolute inset-x-0 bottom-0 p-5 sm:p-7">
+                        <h2 id="judul-destinasi" class="text-2xl font-bold text-white font-heading sm:text-3xl">
+                            {{ $detail->destination_name }}
+                        </h2>
+                        <p class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-sm text-slate-200">
+                            @if ($detail->provinsi)
+                                <span class="inline-flex items-center gap-1">
+                                    <x-heroicon-s-map-pin class="w-4 h-4 text-orcha-sun" />
+                                    {{ $detail->provinsi }}
+                                </span>
+                            @endif
+                            <span class="inline-flex items-center gap-1">
+                                <x-heroicon-o-globe-asia-australia class="w-4 h-4 text-orcha-sun" />
+                                {{ $detail->wilayah_label }}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+
+                {{-- Foto lain dipilih di sisi peramban: mengganti gambar tidak
+                     mengubah apa pun di server, dan perjalanan bolak-balik ke
+                     server hanya membuat galerinya terasa berat. --}}
+                @if (count($galeri) > 1)
+                    <div class="flex gap-2 px-5 pt-4 overflow-x-auto sm:px-7">
+                        @foreach ($galeri as $urutan => $foto)
+                            <button type="button" @click="aktif = {{ $urutan }}"
+                                :class="aktif === {{ $urutan }} ? 'ring-2 ring-orcha-ocean' : 'ring-1 ring-orcha-foam opacity-70'"
+                                class="overflow-hidden rounded-xl shrink-0"
+                                aria-label="Lihat foto {{ $urutan + 1 }}">
+                                <img src="{{ $foto }}" alt="" class="object-cover w-16 h-16">
+                            </button>
+                        @endforeach
+                    </div>
+                @endif
+
+                <div class="p-5 sm:p-7">
+                    @if ($detail->deskripsi)
+                        <p class="text-sm leading-relaxed text-slate-600">{{ $detail->deskripsi }}</p>
+                    @else
+                        <p class="text-sm text-slate-400">Keterangan destinasi ini belum ditulis.</p>
+                    @endif
+
+                    {{-- Dua jalan lanjut yang berbeda: rombongan yang butuh paket
+                         lengkap, dan yang hanya perlu kendaraannya. Sebelumnya
+                         hanya WhatsApp, sehingga yang sudah tahu ingin menyewa
+                         unit tetap harus bertanya dulu. --}}
+                    <div class="grid gap-2 mt-6 sm:grid-cols-2">
+                        <a href="{{ $wa("Halo Orcha Journey, saya ingin ke {$detail->destination_name}. Ada paket atau armadanya?") }}"
+                            target="_blank" rel="noopener noreferrer"
+                            class="btn-orcha btn-orcha-primary !py-2.5 !text-sm">
+                            <x-bi-whatsapp class="w-4 h-4" />
+                            Tanya Paket ke Sini
+                        </a>
+                        <a href="{{ route('sewa-kendaraan') }}" wire:navigate
+                            class="btn-orcha btn-orcha-outline !py-2.5 !text-sm">
+                            <x-heroicon-o-truck class="w-4 h-4" />
+                            Lihat Armada
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
