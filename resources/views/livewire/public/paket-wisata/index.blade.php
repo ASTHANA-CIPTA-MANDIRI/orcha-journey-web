@@ -53,7 +53,8 @@ new #[Layout('components.layouts.guest')] #[Title('Paket Wisata — Open Trip, P
 @endphp
 
 <div>
-    <x-page-hero :title="$judul" eyebrow="Paket Wisata" :subtitle="$keterangan" image="images/pantai-wide.jpg" />
+    <x-page-hero :title="$judul" eyebrow="Paket Wisata" :subtitle="$keterangan"
+        image="images/HERO/paket-wisata.png" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">
