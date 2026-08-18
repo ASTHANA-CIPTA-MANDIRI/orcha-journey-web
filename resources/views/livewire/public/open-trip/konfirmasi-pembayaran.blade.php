@@ -297,7 +297,7 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
 <div>
     <x-page-hero title="Konfirmasi Pembayaran" eyebrow="Sudah Transfer?"
         subtitle="Kirim bukti transfer di sini supaya pembayaran Anda tercatat dan segera kami cek."
-        image="images/pantai-senja.jpg" />
+        image="images/HERO/form-konfirmasi-pembayaran.jpg" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">
