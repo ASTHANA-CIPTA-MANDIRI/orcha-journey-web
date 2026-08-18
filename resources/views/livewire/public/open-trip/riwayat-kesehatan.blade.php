@@ -295,7 +295,7 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
 <div>
     <x-page-hero title="Riwayat Kesehatan Peserta" eyebrow="Formulir Kesehatan"
         subtitle="Diisi satu formulir untuk tiap peserta. Data ini membantu tim kami menyiapkan penanganan bila terjadi sesuatu di perjalanan."
-        image="images/laut.jpg" />
+        image="images/HERO/form-kesehatan.jpg" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">
