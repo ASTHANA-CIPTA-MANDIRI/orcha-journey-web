@@ -33,3 +33,7 @@ yarn-error.log
 # setiap kloning dan setiap deploy.
 /public/images/HERO/*.png
 /public/images/FOOTER/*.png
+# Berkas asli foto Tentang Kami — yang dikirim ke pengunjung versi jpg
+# di images/tentang-kami/. PNG 1080x1920 berukuran 1,5-3,2 MB per berkas.
+/public/images/web*.png
+/public/images/TENTANG KAMI/

@@ -96,15 +96,20 @@ new #[Layout('components.layouts.guest')] #[Title('Tentang Kami — Orcha Journe
                 </div>
 
                 <div class="lg:col-span-6">
+                    {{-- Kotaknya lebih tinggi daripada sebelumnya karena fotonya
+                         TEGAK (1080x1920). Pada kotak yang lebih lebar daripada
+                         tinggi, object-cover pada foto tegak hanya menyisakan
+                         pita mendatar di tengahnya — orang dan tempatnya
+                         terpotong di atas dan bawah. --}}
                     <div class="grid grid-cols-2 gap-4">
-                        <img src="{{ asset('images/pantai-senja.jpg') }}" alt="Perjalanan Orcha Journey"
+                        <img src="{{ asset('images/tentang-kami/web1.jpg') }}" alt="Perjalanan bersama Orcha Journey"
+                            loading="lazy" class="object-cover w-full h-72 sm:h-96 rounded-3xl shadow-orcha">
+                        <img src="{{ asset('images/tentang-kami/web9.jpg') }}" alt="Rombongan wisata" loading="lazy"
+                            class="object-cover w-full h-72 mt-8 sm:h-96 rounded-3xl shadow-orcha">
+                        <img src="{{ asset('images/tentang-kami/web10.jpg') }}" alt="Destinasi yang kami antar"
                             loading="lazy" class="object-cover w-full h-56 sm:h-72 rounded-3xl shadow-orcha">
-                        <img src="{{ asset('images/gapura.jpg') }}" alt="Destinasi budaya" loading="lazy"
+                        <img src="{{ asset('images/tentang-kami/web11.jpg') }}" alt="Momen di perjalanan" loading="lazy"
                             class="object-cover w-full h-56 mt-8 sm:h-72 rounded-3xl shadow-orcha">
-                        <img src="{{ asset('images/laut.jpg') }}" alt="Panorama laut" loading="lazy"
-                            class="object-cover w-full h-40 sm:h-52 rounded-3xl shadow-orcha">
-                        <img src="{{ asset('images/pantai-pinggir.jpg') }}" alt="Rombongan wisata" loading="lazy"
-                            class="object-cover w-full h-40 mt-8 sm:h-52 rounded-3xl shadow-orcha">
                     </div>
                 </div>
             </div>
