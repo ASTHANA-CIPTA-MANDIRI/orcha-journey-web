@@ -119,6 +119,7 @@ test('destinasi yang sudah tercatat dipakai lebih dulu, tanpa menembak peta', fu
 test('nama yang belum pernah dicatat ditanyakan ke peta', function () {
     \Illuminate\Support\Facades\Http::fake([
         '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'name' => 'Pantai Melasti',
             'address' => ['state' => 'Bali'],
         ]]),
     ]);
@@ -132,6 +133,7 @@ test('nama yang belum pernah dicatat ditanyakan ke peta', function () {
 test('ejaan provinsi dari peta disamakan dengan daftar kita', function () {
     \Illuminate\Support\Facades\Http::fake([
         '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'name' => 'Candi Prambanan',
             'address' => ['state' => 'Daerah Istimewa Yogyakarta'],
         ]]),
     ]);
@@ -146,6 +148,7 @@ test('ejaan provinsi dari peta disamakan dengan daftar kita', function () {
 test('provinsi asing tidak dipakai', function () {
     \Illuminate\Support\Facades\Http::fake([
         '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'name' => 'Gunung Ledang',
             'address' => ['state' => 'Johor'],
         ]]),
     ]);
@@ -176,6 +179,7 @@ test('nama terlalu pendek tidak ditanyakan ke mana pun', function () {
 test('jawaban peta disimpan, tidak ditanyakan dua kali', function () {
     \Illuminate\Support\Facades\Http::fake([
         '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'name' => 'Nusa Penida',
             'address' => ['state' => 'Bali'],
         ]]),
     ]);
@@ -192,6 +196,7 @@ test('jawaban peta disimpan, tidak ditanyakan dua kali', function () {
 test('pemanggilan menyebut pengenal, sesuai ketentuan nominatim', function () {
     \Illuminate\Support\Facades\Http::fake([
         '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'name' => 'Pantai Baru',
             'address' => ['state' => 'Bali'],
         ]]),
     ]);
@@ -349,6 +354,7 @@ test('destinasi yang sudah tercatat ikut jadi pilihan', function () {
 test('nama baru tersimpan beserta provinsi yang dicari sendiri', function () {
     \Illuminate\Support\Facades\Http::fake([
         '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'name' => 'Pantai Melasti',
             'address' => ['state' => 'Bali'],
         ]]),
     ]);
@@ -378,6 +384,7 @@ test('provinsi dan daerah yang disebut admin dipakai apa adanya, tanpa bertanya 
 test('daerah ikut dicari peta bila belum disebut', function () {
     \Illuminate\Support\Facades\Http::fake([
         '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'name' => 'Pantai Baru',
             'address' => ['state' => 'Jawa Timur', 'county' => 'Kabupaten Banyuwangi'],
         ]]),
     ]);
@@ -547,6 +554,7 @@ test('destinasi tanpa daerah tetap terbaca wajar', function () {
 test('usulan peta ikut menyebut daerahnya', function () {
     \Illuminate\Support\Facades\Http::fake([
         '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'name' => 'Kawah Ijen',
             'address' => ['state' => 'Jawa Timur', 'county' => 'Kabupaten Banyuwangi'],
         ]]),
     ]);
@@ -567,9 +575,88 @@ test('jawaban peta berbentuk lama tidak dipakai lagi setelah bentuknya berubah',
 
     \Illuminate\Support\Facades\Http::fake([
         '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'name' => 'Djawatan',
             'address' => ['state' => 'Jawa Timur', 'county' => 'Kabupaten Banyuwangi'],
         ]]),
     ]);
 
     cariLokasi('Djawatan')->assertOk()->assertJsonPath('data.daerah', 'Banyuwangi');
+});
+
+/* -------- NAMA YANG BELUM SELESAI DIKETIK, DAN NAMA YANG BUKAN SATU TEMPAT -------- */
+
+test('nama yang menyebut dua tempat dipenggal sampai peta mengenalinya', function () {
+    // Kejadian sungguhan: "Pulau Cemara Kecil & Besar" adalah DUA pulau, dan
+    // peta menjawab kosong untuk nama itu. "Pulau Cemara Kecil" ada, tercatat
+    // rapi di Jepara — tetapi tidak pernah ditanyakan, sehingga formulir
+    // tertinggal berisi tebakan dari nama yang belum selesai diketik.
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::sequence()
+            ->push([])
+            ->push([[
+                'name' => 'Pulau Cemoro Kecil',
+                'address' => ['state' => 'Jawa Tengah', 'county' => 'Jepara'],
+            ]]),
+    ]);
+
+    cariLokasi('Pulau Cemara Kecil & Besar')->assertOk()
+        ->assertJsonPath('data.provinsi', 'Jawa Tengah')
+        ->assertJsonPath('data.daerah', 'Jepara')
+        ->assertJsonPath('data.wilayah', 'jawa');
+
+    // Ejaan peta berbeda — "Cemoro", bukan "Cemara" — dan itu memang harus
+    // tetap lolos: yang dibandingkan kata per kata, dengan kelonggaran.
+    \Illuminate\Support\Facades\Http::assertSentCount(2);
+});
+
+test('jawaban yang namanya jauh berbeda ditolak, bukan dipakai apa adanya', function () {
+    // "Pula" — empat huruf pertama dari nama yang sedang diketik — dijawab
+    // peta dengan sebuah pura di Jimbaran. Nama itu memang memuat kata "Pula",
+    // tetapi hanya satu dari lima katanya, dan menerimanya berarti mengisi
+    // BALI untuk pulau di Jawa Tengah.
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'name' => 'Kahyangan Jagat Pula Ulun Swi',
+            'address' => ['state' => 'Bali'],
+        ]]),
+    ]);
+
+    cariLokasi('Pula')->assertOk()->assertJsonPath('data', null);
+});
+
+test('yang dipilih calon yang namanya paling mendekati, bukan yang teratas', function () {
+    // Urutan peta mengikuti ukuran dan ketenaran tempat, bukan kedekatan
+    // namanya dengan yang ditanyakan.
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response([
+            ['name' => 'Jalan Pantai Melasti', 'address' => ['state' => 'Jawa Barat']],
+            ['name' => 'Pantai Melasti', 'address' => ['state' => 'Bali']],
+        ]),
+    ]);
+
+    cariLokasi('Pantai Melasti')->assertOk()
+        ->assertJsonPath('data.provinsi', 'Bali');
+});
+
+test('potongan huruf tidak dianggap cocok dengan destinasi yang tersimpan', function () {
+    \Illuminate\Support\Facades\Http::fake();
+
+    DestinationPopuler::create([
+        'destination_name' => 'Kepulauan Derawan', 'wilayah' => 'kalimantan',
+        'provinsi' => 'Kalimantan Timur', 'total_visitor' => 4100,
+    ]);
+
+    // "Pula" ada di dalam "KePULAuan" sebagai potongan huruf, bukan sebagai
+    // kata. Dicocokkan dengan LIKE saja, mengetik empat huruf pertama sebuah
+    // pulau di Jawa Tengah mengisi formulir dengan Kalimantan Timur.
+    cariLokasi('Pula')->assertOk()->assertJsonPath('data', null);
+
+    // Yang longgar pada KATA tetap berjalan: "Bromo" harus tetap menemukan
+    // "Bromo Tengger Semeru".
+    DestinationPopuler::create([
+        'destination_name' => 'Bromo Tengger Semeru', 'wilayah' => 'jawa',
+        'provinsi' => 'Jawa Timur', 'total_visitor' => 26700,
+    ]);
+
+    cariLokasi('Bromo')->assertOk()->assertJsonPath('data.provinsi', 'Jawa Timur');
 });
