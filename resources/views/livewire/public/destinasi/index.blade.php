@@ -65,7 +65,7 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
             'total' => DestinationPopuler::count(),
             'totalPengunjung' => (int) DestinationPopuler::sum('total_visitor'),
             'totalProvinsi' => DestinationPopuler::distinct()->count('provinsi'),
-            'daftarWilayah' => collect(config('orcha.wilayah'))
+            'daftarWilayah' => collect(\App\Models\Etalase\WilayahTambahan::gabungan())
                 ->map(fn ($label, $kunci) => [
                     'kunci' => $kunci,
                     'label' => $label,

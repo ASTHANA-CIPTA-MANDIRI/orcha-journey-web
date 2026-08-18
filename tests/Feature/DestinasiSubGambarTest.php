@@ -43,7 +43,7 @@ test('gambar tambahan bisa diunggah saat menambah destinasi', function () {
 
     Volt::actingAs(User::factory()->create())->test('admin.destinasi.index')
         ->set('destinationName', 'Raja Ampat')
-        ->set('wilayah', 'maluku_papua')
+        ->set('wilayah', 'papua')
         ->set('totalVisitor', 4800)
         ->set('mainPhoto', berkasGambar('utama.jpg'))
         ->set('othersPhoto', [berkasGambar('a.jpg'), berkasGambar('b.jpg')])
@@ -324,5 +324,5 @@ test('rujukan mengirim daftar provinsi beserta wilayahnya', function () {
         'X-Orcha-Admin' => 'admin@phoenix.test',
     ])->assertOk()
         ->assertJsonPath('data.provinsi_wilayah.Jawa Timur', 'jawa')
-        ->assertJsonPath('data.provinsi_wilayah.Papua Pegunungan', 'maluku_papua');
+        ->assertJsonPath('data.provinsi_wilayah.Papua Pegunungan', 'papua');
 });

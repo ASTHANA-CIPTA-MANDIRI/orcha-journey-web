@@ -383,10 +383,12 @@ return [
     'wilayah' => [
         'sumatera' => 'Sumatera',
         'jawa' => 'Jawa',
-        'bali_nusa' => 'Bali & Nusa Tenggara',
+        'bali' => 'Bali',
+        'nusa_tenggara' => 'Nusa Tenggara',
         'kalimantan' => 'Kalimantan',
         'sulawesi' => 'Sulawesi',
-        'maluku_papua' => 'Maluku & Papua',
+        'maluku' => 'Maluku',
+        'papua' => 'Papua',
     ],
 
     /*
@@ -427,9 +429,10 @@ return [
         'DI Yogyakarta' => 'jawa',
         'Jawa Timur' => 'jawa',
 
-        'Bali' => 'bali_nusa',
-        'Nusa Tenggara Barat' => 'bali_nusa',
-        'Nusa Tenggara Timur' => 'bali_nusa',
+        'Bali' => 'bali',
+
+        'Nusa Tenggara Barat' => 'nusa_tenggara',
+        'Nusa Tenggara Timur' => 'nusa_tenggara',
 
         'Kalimantan Barat' => 'kalimantan',
         'Kalimantan Tengah' => 'kalimantan',
@@ -444,14 +447,15 @@ return [
         'Sulawesi Selatan' => 'sulawesi',
         'Sulawesi Tenggara' => 'sulawesi',
 
-        'Maluku' => 'maluku_papua',
-        'Maluku Utara' => 'maluku_papua',
-        'Papua' => 'maluku_papua',
-        'Papua Barat' => 'maluku_papua',
-        'Papua Barat Daya' => 'maluku_papua',
-        'Papua Selatan' => 'maluku_papua',
-        'Papua Tengah' => 'maluku_papua',
-        'Papua Pegunungan' => 'maluku_papua',
+        'Maluku' => 'maluku',
+        'Maluku Utara' => 'maluku',
+
+        'Papua' => 'papua',
+        'Papua Barat' => 'papua',
+        'Papua Barat Daya' => 'papua',
+        'Papua Selatan' => 'papua',
+        'Papua Tengah' => 'papua',
+        'Papua Pegunungan' => 'papua',
     ],
 
     /*

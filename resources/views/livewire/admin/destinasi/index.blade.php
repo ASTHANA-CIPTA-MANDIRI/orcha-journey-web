@@ -23,7 +23,14 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
     #[Rule('required|string|max:191')]
     public string $destinationName = '';
 
-    #[Rule('required|in:sumatera,jawa,bali_nusa,kalimantan,sulawesi,maluku_papua')]
+    /**
+     * Aturannya TIDAK ditulis di atribut.
+     *
+     * Daftar wilayah dulu ditulis keras di sini — tempat ketiga yang menyatakan
+     * hal yang sama sesudah config dan halaman publik — dan langsung meleset
+     * begitu "Bali & Nusa Tenggara" dipecah dua: menyimpan destinasi Bali
+     * ditolak validasi tanpa sebab yang bisa dimengerti admin. Lihat rules().
+     */
     public string $wilayah = 'jawa';
 
     #[Rule('nullable|string|max:60')]
@@ -164,6 +171,16 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
         }
     }
 
+    /**
+     * Wilayah dibaca dari daftar yang berlaku, termasuk yang ditambahkan admin.
+     */
+    protected function rules(): array
+    {
+        return [
+            'wilayah' => ['required', 'in:'.implode(',', array_keys(\App\Models\Etalase\WilayahTambahan::gabungan()))],
+        ];
+    }
+
     public function save(): void
     {
         $this->validate();
@@ -253,7 +270,7 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
             'sisaSlot' => $this->sisaSlot(),
             'batasSubGambar' => self::BATAS_SUB_GAMBAR,
             'headers' => $this->headers(),
-            'wilayahOptions' => collect(config('orcha.wilayah'))
+            'wilayahOptions' => collect(\App\Models\Etalase\WilayahTambahan::gabungan())
                 ->map(fn ($label, $kunci) => ['id' => $kunci, 'name' => $label])
                 ->values()
                 ->all(),

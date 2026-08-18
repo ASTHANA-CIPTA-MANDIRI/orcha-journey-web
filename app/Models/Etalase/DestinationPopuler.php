@@ -30,7 +30,7 @@ class DestinationPopuler extends Model
      */
     public function getWilayahLabelAttribute(): string
     {
-        return config('orcha.wilayah')[$this->wilayah] ?? 'Indonesia';
+        return \App\Models\Etalase\WilayahTambahan::gabungan()[$this->wilayah] ?? 'Indonesia';
     }
 
     public function scopeDiWilayah($query, ?string $wilayah)

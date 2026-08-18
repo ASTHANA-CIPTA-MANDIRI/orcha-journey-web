@@ -440,7 +440,7 @@ test('unit yang pernah disewa tidak bisa dihapus', function () {
 
 test('destinasi, testimoni, dan partner bisa ditambah lalu dihapus', function () {
     $this->postJson('/api/v1/destinasi', [
-        'nama' => 'Nusa Penida', 'wilayah' => 'bali_nusa', 'provinsi' => 'Bali',
+        'nama' => 'Nusa Penida', 'wilayah' => 'bali', 'provinsi' => 'Bali',
     ], kirim())->assertCreated();
 
     $this->postJson('/api/v1/testimoni', [

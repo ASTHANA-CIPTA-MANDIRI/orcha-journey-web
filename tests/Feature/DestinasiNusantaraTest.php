@@ -17,7 +17,7 @@ function buatDestinasi(string $nama, string $wilayah, string $provinsi, int $pen
 }
 
 test('destinasi bisa disaring per wilayah', function () {
-    buatDestinasi('Raja Ampat', 'maluku_papua', 'Papua Barat Daya', 4800);
+    buatDestinasi('Raja Ampat', 'papua', 'Papua Barat Daya', 4800);
     buatDestinasi('Karimunjawa', 'jawa', 'Jawa Tengah', 14200);
 
     $this->get(route('destinasi'))
@@ -25,7 +25,7 @@ test('destinasi bisa disaring per wilayah', function () {
         ->assertSee('Raja Ampat')
         ->assertSee('Karimunjawa');
 
-    $this->get(route('destinasi', ['wilayah' => 'maluku_papua']))
+    $this->get(route('destinasi', ['wilayah' => 'papua']))
         ->assertOk()
         ->assertSee('Raja Ampat')
         ->assertDontSee('Karimunjawa');
@@ -33,7 +33,7 @@ test('destinasi bisa disaring per wilayah', function () {
 
 test('destinasi bisa dicari lewat nama provinsi', function () {
     buatDestinasi('Danau Toba', 'sumatera', 'Sumatera Utara');
-    buatDestinasi('Nusa Penida', 'bali_nusa', 'Bali');
+    buatDestinasi('Nusa Penida', 'bali', 'Bali');
 
     $this->get(route('destinasi', ['cari' => 'Sumatera Utara']))
         ->assertOk()
@@ -42,11 +42,11 @@ test('destinasi bisa dicari lewat nama provinsi', function () {
 });
 
 test('kartu destinasi menampilkan wilayah, provinsi, dan deskripsi', function () {
-    buatDestinasi('Banda Neira', 'maluku_papua', 'Maluku');
+    buatDestinasi('Banda Neira', 'maluku', 'Maluku');
 
     $this->get(route('destinasi'))
         ->assertOk()
-        ->assertSee('Maluku &amp; Papua', false)
+        ->assertSee('Maluku', false)
         ->assertSee('Maluku')
         ->assertSee('Keterangan singkat tentang Banda Neira.');
 });
@@ -84,5 +84,5 @@ test('seeder mengisi destinasi dari berbagai wilayah Indonesia', function () {
     $wilayah = DestinationPopuler::distinct()->pluck('wilayah');
 
     expect(DestinationPopuler::count())->toBeGreaterThanOrEqual(20)
-        ->and($wilayah)->toContain('sumatera', 'jawa', 'bali_nusa', 'kalimantan', 'sulawesi', 'maluku_papua');
+        ->and($wilayah)->toContain('sumatera', 'jawa', 'bali', 'nusa_tenggara', 'kalimantan', 'sulawesi', 'maluku', 'papua');
 });

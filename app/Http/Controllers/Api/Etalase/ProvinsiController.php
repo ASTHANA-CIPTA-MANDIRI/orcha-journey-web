@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\Etalase;
 
 use App\Http\Controllers\Api\ApiController;
+use App\Models\Etalase\DestinationPopuler;
 use App\Models\Etalase\ProvinsiTambahan;
+use App\Models\Etalase\WilayahTambahan;
 use App\Support\Etalase\CariLokasi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,7 +39,9 @@ class ProvinsiController extends ApiController
     {
         $data = $request->validate([
             'nama' => ['required', 'string', 'max:100'],
-            'wilayah' => ['required', 'in:'.implode(',', array_keys(config('orcha.wilayah')))],
+            // Wilayah tambahan ikut sah: provinsi baru boleh ditempatkan di
+            // wilayah yang juga baru ditambahkan admin.
+            'wilayah' => ['required', 'in:'.implode(',', array_keys(WilayahTambahan::gabungan()))],
         ], [], ['nama' => 'nama provinsi']);
 
         $nama = ProvinsiTambahan::rapikan($data['nama']);
@@ -57,6 +61,65 @@ class ProvinsiController extends ApiController
             'pesan' => "{$nama} ditambahkan ke daftar provinsi.",
             'data' => ProvinsiTambahan::kustom(),
         ], 201);
+    }
+
+    /* ------------------------------ WILAYAH ------------------------------ */
+
+    public function simpanWilayah(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'label' => ['required', 'string', 'max:60'],
+        ], [], ['label' => 'nama wilayah']);
+
+        $label = trim(preg_replace('/\s+/', ' ', $data['label']));
+        $kunci = WilayahTambahan::kunciDari($label);
+
+        if ($kunci === '') {
+            return response()->json(['pesan' => 'Nama wilayah tidak bisa dipakai.'], 422);
+        }
+
+        // Yang sudah ada tidak digandakan, dan itu bukan kegagalan.
+        if (array_key_exists($kunci, WilayahTambahan::gabungan())) {
+            return response()->json([
+                'pesan' => "{$label} sudah ada di daftar wilayah.",
+                'data' => WilayahTambahan::kustom(),
+            ]);
+        }
+
+        WilayahTambahan::create(['kunci' => $kunci, 'label' => $label]);
+
+        return response()->json([
+            'pesan' => "{$label} ditambahkan ke daftar wilayah.",
+            'data' => WilayahTambahan::kustom(),
+        ], 201);
+    }
+
+    /**
+     * Menghapus satu wilayah tambahan.
+     *
+     * DITOLAK bila masih dipakai destinasi. Berbeda dari provinsi yang sekadar
+     * tulisan di kartu, wilayah adalah pengelompokan: destinasi yang wilayahnya
+     * dihapus kehilangan tabnya di halaman publik dan tidak ketemu oleh
+     * penyaring mana pun — hilang tanpa ada yang memberitahu.
+     */
+    public function hapusWilayah(WilayahTambahan $wilayah): JsonResponse
+    {
+        $terpakai = DestinationPopuler::where('wilayah', $wilayah->kunci)->count();
+
+        if ($terpakai > 0) {
+            return response()->json([
+                'pesan' => "{$wilayah->label} masih dipakai {$terpakai} destinasi. "
+                    .'Pindahkan destinasinya dulu sebelum menghapus wilayah ini.',
+            ], 422);
+        }
+
+        $label = $wilayah->label;
+        $wilayah->delete();
+
+        return response()->json([
+            'pesan' => "{$label} dihapus dari daftar wilayah.",
+            'data' => WilayahTambahan::kustom(),
+        ]);
     }
 
     /**

@@ -126,7 +126,7 @@ class EtalaseController extends ApiController
     {
         return $request->validate([
             'nama' => 'required|string|max:191',
-            'wilayah' => 'required|in:'.implode(',', array_keys(config('orcha.wilayah'))),
+            'wilayah' => 'required|in:'.implode(',', array_keys(\App\Models\Etalase\WilayahTambahan::gabungan())),
             'provinsi' => 'nullable|string|max:100',
             'deskripsi' => 'nullable|string|max:1000',
             'total_pengunjung' => 'nullable|integer|min:0',

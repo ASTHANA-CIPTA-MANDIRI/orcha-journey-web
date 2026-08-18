@@ -89,7 +89,8 @@ class MetaController extends ApiController
                 'satuan_sewa' => config('orcha.satuan_sewa'),
                 'keperluan_kontak' => config('orcha.keperluan_kontak'),
                 'alasan_pembatalan' => config('orcha.alasan_pembatalan'),
-                'wilayah' => config('orcha.wilayah'),
+                'wilayah' => \App\Models\Etalase\WilayahTambahan::gabungan(),
+                'wilayah_kustom' => \App\Models\Etalase\WilayahTambahan::kustom(),
                 // Provinsi beserta wilayahnya: admin cukup memilih provinsi,
                 // dan wilayah penyaring di halaman publik terisi sendiri.
                 // Dikirim dari sini supaya daftarnya satu — bukan disalin ke

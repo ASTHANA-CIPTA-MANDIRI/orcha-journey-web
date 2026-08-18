@@ -22,12 +22,12 @@ function kirimProvinsi(array $isi, string $metode = 'post', ?int $id = null)
 }
 
 test('provinsi baru tersimpan dan ikut daftar gabungan', function () {
-    kirimProvinsi(['nama' => 'Papua Barat Laut', 'wilayah' => 'maluku_papua'])
+    kirimProvinsi(['nama' => 'Papua Barat Laut', 'wilayah' => 'papua'])
         ->assertCreated()
         ->assertJsonPath('data.0.nama', 'Papua Barat Laut');
 
     expect(ProvinsiTambahan::gabungan())->toHaveKey('Papua Barat Laut')
-        ->and(ProvinsiTambahan::gabungan()['Papua Barat Laut'])->toBe('maluku_papua');
+        ->and(ProvinsiTambahan::gabungan()['Papua Barat Laut'])->toBe('papua');
 });
 
 test('provinsi yang sudah ada tidak digandakan dan bukan dianggap gagal', function () {
@@ -54,10 +54,10 @@ test('wilayah wajib disebut dan harus dikenal', function () {
 });
 
 test('menghapus provinsi tambahan tidak menyentuh destinasinya', function () {
-    $provinsi = ProvinsiTambahan::create(['nama' => 'Papua Barat Laut', 'wilayah' => 'maluku_papua']);
+    $provinsi = ProvinsiTambahan::create(['nama' => 'Papua Barat Laut', 'wilayah' => 'papua']);
 
     DestinationPopuler::create([
-        'destination_name' => 'Raja Ampat Baru', 'wilayah' => 'maluku_papua',
+        'destination_name' => 'Raja Ampat Baru', 'wilayah' => 'papua',
         'provinsi' => 'Papua Barat Laut', 'total_visitor' => 10,
     ]);
 
@@ -69,7 +69,7 @@ test('menghapus provinsi tambahan tidak menyentuh destinasinya', function () {
 });
 
 test('rujukan mengirim gabungan beserta penanda mana yang boleh dihapus', function () {
-    ProvinsiTambahan::create(['nama' => 'Papua Barat Laut', 'wilayah' => 'maluku_papua']);
+    ProvinsiTambahan::create(['nama' => 'Papua Barat Laut', 'wilayah' => 'papua']);
 
     config()->set('orcha.api.kunci', 'kunci-uji');
     config()->set('orcha.api.ip_diizinkan', []);
@@ -125,7 +125,7 @@ test('nama yang belum pernah dicatat ditanyakan ke peta', function () {
 
     cariLokasi('Pantai Melasti')->assertOk()
         ->assertJsonPath('data.provinsi', 'Bali')
-        ->assertJsonPath('data.wilayah', 'bali_nusa')
+        ->assertJsonPath('data.wilayah', 'bali')
         ->assertJsonPath('data.sumber', 'peta');
 });
 
@@ -202,4 +202,99 @@ test('pemanggilan menyebut pengenal, sesuai ketentuan nominatim', function () {
     \Illuminate\Support\Facades\Http::assertSent(fn ($p) => $p->hasHeader('User-Agent')
         && str_contains($p->header('User-Agent')[0], 'OrchaJourney')
         && str_contains($p->url(), 'countrycodes=id'));
+});
+
+/* -------- WILAYAH YANG DITAMBAHKAN ADMIN -------- */
+
+use App\Models\Etalase\WilayahTambahan;
+
+function kirimWilayah(array $isi, string $metode = 'post', ?int $id = null)
+{
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    return test()->json($metode, '/api/v1/wilayah'.($id ? "/{$id}" : ''), $isi, [
+        'X-Orcha-Key' => 'kunci-uji',
+        'X-Orcha-Admin' => 'admin@phoenix.test',
+    ]);
+}
+
+test('delapan wilayah bawaan menutup seluruh Indonesia', function () {
+    // Sebelumnya enam: "Bali & Nusa Tenggara" dan "Maluku & Papua" masing-masing
+    // menggabungkan dua kelompok yang jauh berbeda — Bali ke Labuan Bajo hampir
+    // 500 km laut, dan yang menyaring "Bali" tidak sedang mencari Sumba.
+    expect(array_keys(config('orcha.wilayah')))->toBe([
+        'sumatera', 'jawa', 'bali', 'nusa_tenggara',
+        'kalimantan', 'sulawesi', 'maluku', 'papua',
+    ]);
+
+    // Tiap provinsi tetap menunjuk wilayah yang ada.
+    $menyimpang = collect(config('orcha.provinsi_wilayah'))
+        ->reject(fn ($w) => array_key_exists($w, config('orcha.wilayah')))
+        ->keys()->all();
+
+    expect($menyimpang)->toBe([]);
+});
+
+test('wilayah baru tersimpan beserta kuncinya', function () {
+    kirimWilayah(['label' => 'Segitiga Terumbu Karang'])->assertCreated();
+
+    // Kunci disimpan tersendiri dari labelnya: label boleh diperbaiki ejaannya
+    // kapan saja, kunci sudah terlanjur tersimpan di kolom wilayah destinasi.
+    expect(WilayahTambahan::gabungan())->toHaveKey('segitiga_terumbu_karang')
+        ->and(WilayahTambahan::gabungan()['segitiga_terumbu_karang'])->toBe('Segitiga Terumbu Karang');
+});
+
+test('wilayah yang sudah ada tidak digandakan', function () {
+    kirimWilayah(['label' => 'Jawa'])->assertOk();
+
+    expect(WilayahTambahan::count())->toBe(0);
+});
+
+test('wilayah tambahan bisa dipakai provinsi baru', function () {
+    kirimWilayah(['label' => 'Segitiga Terumbu Karang'])->assertCreated();
+
+    // Tanpa penggabungan di aturan validasinya, provinsi baru tidak bisa
+    // ditempatkan di wilayah yang baru saja dibuat admin sendiri.
+    kirimProvinsi(['nama' => 'Provinsi Karang', 'wilayah' => 'segitiga_terumbu_karang'])
+        ->assertCreated();
+});
+
+test('wilayah yang masih dipakai destinasi tidak bisa dihapus', function () {
+    $wilayah = WilayahTambahan::create(['kunci' => 'jalur_rempah', 'label' => 'Jalur Rempah']);
+
+    DestinationPopuler::create([
+        'destination_name' => 'Banda Neira', 'wilayah' => 'jalur_rempah',
+        'provinsi' => 'Maluku', 'total_visitor' => 100,
+    ]);
+
+    // Berbeda dari provinsi yang sekadar tulisan di kartu, wilayah adalah
+    // pengelompokan: destinasi yang wilayahnya dihapus kehilangan tabnya dan
+    // tidak ketemu oleh penyaring mana pun — hilang tanpa ada yang memberitahu.
+    kirimWilayah([], 'delete', $wilayah->id)->assertStatus(422);
+
+    expect(WilayahTambahan::count())->toBe(1);
+});
+
+test('wilayah tambahan yang kosong boleh dihapus', function () {
+    $wilayah = WilayahTambahan::create(['kunci' => 'jalur_rempah', 'label' => 'Jalur Rempah']);
+
+    kirimWilayah([], 'delete', $wilayah->id)->assertOk();
+
+    expect(WilayahTambahan::count())->toBe(0);
+});
+
+test('wilayah tambahan ikut jadi tab penyaring di halaman publik', function () {
+    WilayahTambahan::create(['kunci' => 'jalur_rempah', 'label' => 'Jalur Rempah']);
+
+    DestinationPopuler::create([
+        'destination_name' => 'Banda Neira', 'wilayah' => 'jalur_rempah',
+        'provinsi' => 'Maluku', 'total_visitor' => 100,
+    ]);
+
+    // Wilayah yang bisa ditambah tetapi tidak muncul di penyaring hanya
+    // memindahkan destinasinya ke tempat yang tidak bisa ditemukan siapa pun.
+    $this->get(route('destinasi'))->assertOk()
+        ->assertSee('Jalur Rempah')
+        ->assertSee('Banda Neira');
 });
