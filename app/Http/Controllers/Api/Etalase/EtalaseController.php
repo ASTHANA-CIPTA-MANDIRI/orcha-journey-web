@@ -40,23 +40,46 @@ class EtalaseController extends ApiController
                 ->when($request->string('wilayah')->toString(), fn ($q, $wilayah) => $q->where('wilayah', $wilayah))
                 ->orderBy('destination_name')
                 ->get()
-                ->map(fn ($destinasi) => [
-                    'id' => $destinasi->id,
-                    'nama' => $destinasi->destination_name,
-                    'provinsi' => $destinasi->provinsi,
-                    'wilayah' => $destinasi->wilayah,
-                    'wilayah_label' => $destinasi->wilayah_label,
-                    'deskripsi' => $destinasi->deskripsi,
-                    'total_pengunjung' => $destinasi->total_visitor,
-                    'foto' => $destinasi->main_photo,
-                    // Gambar tambahan ikut dikirim: kartu destinasi di halaman
-                    // publik menampilkannya, jadi admin harus bisa melihat dan
-                    // mengubahnya dari sini — bukan hanya dari admin bawaan.
-                    'sub_foto' => array_values($destinasi->others_photo ?? []),
-                    'batas_sub_foto' => self::BATAS_SUB_FOTO,
-                ])
+                ->map(fn ($destinasi) => $this->bentukDestinasi($destinasi))
                 ->all(),
         ]);
+    }
+
+    /**
+     * Satu destinasi, untuk halaman ubah di admin lemon.
+     *
+     * Formulir yang mengambil seluruh daftar lalu menyaring sendiri akan
+     * membaca data yang makin besar untuk memakai satu baris saja, dan diam-
+     * diam bergantung pada daftar itu tidak berhalaman.
+     */
+    public function satuDestinasi(DestinationPopuler $destinasi): JsonResponse
+    {
+        return response()->json(['data' => $this->bentukDestinasi($destinasi)]);
+    }
+
+    /**
+     * Satu bentuk untuk daftar maupun satuan.
+     *
+     * Dua pemetaan sejajar untuk data yang sama pasti berselisih suatu saat —
+     * dan yang membacanya formulir yang justru harus menampilkan apa adanya.
+     */
+    private function bentukDestinasi(DestinationPopuler $destinasi): array
+    {
+        return [
+            'id' => $destinasi->id,
+            'nama' => $destinasi->destination_name,
+            'provinsi' => $destinasi->provinsi,
+            'wilayah' => $destinasi->wilayah,
+            'wilayah_label' => $destinasi->wilayah_label,
+            'deskripsi' => $destinasi->deskripsi,
+            'total_pengunjung' => $destinasi->total_visitor,
+            'foto' => $destinasi->main_photo,
+            // Gambar tambahan ikut dikirim: kartu destinasi di halaman publik
+            // menampilkannya, jadi admin harus bisa melihat dan mengubahnya
+            // dari sini — bukan hanya dari admin bawaan.
+            'sub_foto' => array_values($destinasi->others_photo ?? []),
+            'batas_sub_foto' => self::BATAS_SUB_FOTO,
+        ];
     }
 
     public function simpanDestinasi(Request $request): JsonResponse

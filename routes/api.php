@@ -97,6 +97,7 @@ Route::prefix('v1')
 
         /* ------------------------------ ETALASE ------------------------------ */
         Route::get('/destinasi', [EtalaseController::class, 'destinasi']);
+        Route::get('/destinasi/{destinasi}', [EtalaseController::class, 'satuDestinasi']);
         Route::post('/destinasi', [EtalaseController::class, 'simpanDestinasi']);
         Route::match(['put', 'post'], '/destinasi/{destinasi}', [EtalaseController::class, 'perbaruiDestinasi']);
         Route::delete('/destinasi/{destinasi}', [EtalaseController::class, 'hapusDestinasi']);

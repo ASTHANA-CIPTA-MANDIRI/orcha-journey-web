@@ -273,3 +273,20 @@ test('menghapus destinasi ikut membuang gambar tambahannya', function () {
 
     expect(Storage::disk('public')->exists('destinasi_populer/tambahan/ikut.jpg'))->toBeFalse();
 });
+
+test('satu destinasi bisa diambil untuk halaman ubah', function () {
+    $destinasi = destinasiBerkas(['/storage/destinasi_populer/tambahan/a.jpg']);
+
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    // Formulir yang mengambil seluruh daftar lalu menyaring sendiri membaca data
+    // yang makin besar untuk memakai satu baris saja, dan diam-diam bergantung
+    // pada daftar itu tidak berhalaman.
+    $this->getJson("/api/v1/destinasi/{$destinasi->id}", [
+        'X-Orcha-Key' => 'kunci-uji',
+        'X-Orcha-Admin' => 'admin@phoenix.test',
+    ])->assertOk()->assertJsonPath('data.nama', 'Bromo')
+        ->assertJsonPath('data.sub_foto.0', '/storage/destinasi_populer/tambahan/a.jpg')
+        ->assertJsonPath('data.batas_sub_foto', 3);
+});
