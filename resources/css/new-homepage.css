@@ -623,6 +623,80 @@ h6,
     pointer-events: none;
 }
 
+/* ---- Orca yang menyembul ---------------------------------------------- */
+
+/* Geraknya ATMOSFER, bukan kemajuan — sama seperti bintang yang berkelip.
+   Kemajuan sudah dibawa satu benda saja, pesawat di rutenya; benda kedua yang
+   ikut bergerak seolah-olah maju hanya membuat layar ini punya dua jawaban
+   untuk satu pertanyaan. */
+/* Melompat DI DEPAN cahaya matahari, bukan di langit gelap di atasnya.
+
+   Siluet gelap hanya terbaca kalau ada yang terang di belakangnya; ditaruh di
+   langit malam, orcanya menghilang sama sekali — dan yang tersisa cuma bayangan
+   samar yang menabrak tulisan. Di depan fajar, bentuknya tegas. */
+.preloader-orca {
+    position: absolute;
+    /* Di kanan blok tulisan, bukan di belakangnya. Di tengah, puncak
+       lompatannya menimpa "Menyiapkan perjalanan Anda" — dan tulisan yang
+       tertimpa gambar terbaca sebagai tata letak yang rusak, bukan sebagai
+       kedalaman. */
+    /* min() menjaga jaraknya dari tepi kanan. Jaraknya besar bukan karena
+       lebar orcanya, melainkan karena fase menyelamnya berputar 40 derajat —
+       dan kotak sejajar-sumbu sebuah benda yang diputar jauh lebih lebar
+       daripada bendanya sendiri. Terukur: dengan jarak 7,5rem ia masih
+       melewati tepi 24px di layar 500px. */
+    left: min(80%, calc(100% - 10.5rem));
+    bottom: 24%;
+    width: min(24vw, 124px);
+    transform-origin: 50% 100%;
+    animation: preloader-melompat 7s cubic-bezier(.4, 0, .5, 1) infinite;
+    pointer-events: none;
+    filter: drop-shadow(0 6px 16px rgba(0, 18, 32, .55));
+}
+
+.preloader-orca svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.preloader-orca .badan { fill: #04131f; }
+.preloader-orca .perut { fill: rgba(232, 247, 253, .82); }
+.preloader-orca .bercak { fill: rgba(255, 255, 255, .92); }
+
+/* Muncul dari balik garis air, melengkung, lalu menyelam kembali. Diam lebih
+   lama di bawah daripada di atas: lompatan yang terus-menerus terbaca gelisah,
+   sedangkan jeda membuat kemunculannya jadi kejutan kecil. */
+/* Menyembul dari balik air, melengkung, lalu menyelam kembali. Diam lebih lama
+   di bawah daripada di atas: lompatan tanpa jeda terbaca gelisah, sedangkan
+   jeda membuat kemunculannya jadi kejutan kecil. */
+@keyframes preloader-melompat {
+    0%, 58% {
+        transform: translate(-92%, 70%) rotate(-18deg);
+        opacity: 0;
+    }
+    64% {
+        transform: translate(-78%, 24%) rotate(-8deg);
+        opacity: 1;
+    }
+    /* Puncaknya harus MELEWATI garis air. Sebelumnya hanya naik 26% dari
+       tinggi badannya sendiri — sekitar 32px — sementara jarak ke cakrawala
+       jauh lebih besar, jadi orcanya tidak pernah benar-benar keluar dan
+       terbaca berenang di permukaan, bukan melompat. */
+    76% {
+        transform: translate(-50%, -96%) rotate(6deg);
+        opacity: 1;
+    }
+    88% {
+        transform: translate(-20%, 8%) rotate(30deg);
+        opacity: 1;
+    }
+    96%, 100% {
+        transform: translate(-6%, 70%) rotate(40deg);
+        opacity: 0;
+    }
+}
+
 /* Sudut yang diredupkan; mata jatuh ke tengah tanpa disuruh. */
 .preloader-vignet {
     position: absolute;
@@ -665,6 +739,12 @@ h6,
     .preloader-bintang,
     .preloader-pesawat {
         animation: none;
+    }
+
+    /* Orcanya disembunyikan, bukan dibekukan di tengah lompatan — paus yang
+       menggantung diam di udara terbaca seperti tampilan yang rusak. */
+    .preloader-orca {
+        display: none;
     }
 }
 

@@ -72,6 +72,40 @@
         <div class="preloader-fajar" aria-hidden="true"></div>
         <div class="preloader-ombak" aria-hidden="true"></div>
         <div class="preloader-kilau" aria-hidden="true"></div>
+
+        {{-- Orca yang menyembul dari balik cakrawala.
+
+             Lambang Orcha Journey sendiri: paus melompat di atas ombak,
+             matahari, dan pesawat kecil. Layar ini sudah punya tiga yang
+             terakhir; orcanya yang kurang.
+
+             Digambar SVG sebaris, bukan gambar bergerak berkas terpisah. Berkas
+             gambar untuk layar MUAT itu jalan buntu: ia sendiri harus diunduh
+             lebih dulu, padahal justru unduhan itulah yang sedang ditunggu —
+             jadi pada muat ulang paksa layarnya kosong sampai berkasnya
+             sampai. --}}
+        <div class="preloader-orca" aria-hidden="true">
+            {{-- Disusun dari bentuk dasar, bukan satu jalur bebas: badan,
+                 sirip punggung, ekor, dan bercak putih masing-masing bisa
+                 ditimbang sendiri. Sebagai satu jalur, siluetnya terbaca
+                 sebagai baji gelap tanpa rupa. --}}
+            <svg viewBox="0 0 120 70">
+                <g transform="rotate(-24 60 38)">
+                    {{-- Ekor: dua bilah, di ujung belakang. --}}
+                    <path class="badan" d="M10 38c-5-9-8-13-9-16 6 2 11 6 15 10Zm0 0c-5 9-8 13-9 16 6-2 11-6 15-10Z" />
+                    {{-- Sirip punggung. --}}
+                    <path class="badan" d="M58 27c2-9 6-15 11-18-1 6-1 12 0 18Z" />
+                    {{-- Sirip dada. --}}
+                    <path class="badan" d="M56 46c-5 5-8 10-9 15 6-3 11-8 14-13Z" />
+                    {{-- Badan. --}}
+                    <ellipse class="badan" cx="62" cy="38" rx="49" ry="11" />
+                    {{-- Perut terang, seperti orca sungguhan — tanpa ini
+                         siluetnya bisa jadi ikan apa saja. --}}
+                    <path class="perut" d="M92 45c-14 4-33 5-49 3 15 4 35 4 49-3Z" />
+                    <ellipse class="bercak" cx="96" cy="33" rx="6" ry="3" />
+                </g>
+            </svg>
+        </div>
         <div class="preloader-vignet" aria-hidden="true"></div>
 
         <div class="flex flex-col items-center preloader-content">
