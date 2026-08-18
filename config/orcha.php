@@ -888,10 +888,10 @@ return [
     | Katalog Nama Destinasi
     |--------------------------------------------------------------------------
     |
-    | Tempat-tempat yang paling sering diminta, beserta provinsinya. Dipakai
-    | sebagai PILIHAN saat admin menambah destinasi: sekali pilih, nama dan
-    | provinsinya terisi — dan wilayahnya ikut, karena provinsi menentukan
-    | wilayah.
+    | Tempat-tempat yang paling sering diminta, beserta provinsi DAN daerahnya.
+    | Dipakai sebagai PILIHAN saat admin menambah destinasi: sekali pilih, empat
+    | isian terisi sekaligus — nama, daerah, provinsi, dan wilayah (dua terakhir
+    | mengikuti, karena provinsi menentukan wilayah).
     |
     | Ini daftar awal, bukan daftar tertutup: nama yang belum ada bisa ditulis
     | admin dan langsung masuk daftar. Provinsinya pun boleh dibetulkan lewat
@@ -904,101 +904,108 @@ return [
     */
 
     'katalog_destinasi' => [
-        // Jawa Timur
-        'Banyuwangi' => 'Jawa Timur',
-        'Kawah Ijen' => 'Jawa Timur',
-        'Bromo Tengger Semeru' => 'Jawa Timur',
-        'Tumpak Sewu' => 'Jawa Timur',
-        'Madakaripura' => 'Jawa Timur',
-        'Malang' => 'Jawa Timur',
-        'Batu' => 'Jawa Timur',
-        'Pulau Merah' => 'Jawa Timur',
 
-        // Jawa Tengah
-        'Borobudur' => 'Jawa Tengah',
-        'Dieng' => 'Jawa Tengah',
-        'Karimunjawa' => 'Jawa Tengah',
-        'Bukit Sikunir' => 'Jawa Tengah',
-        'Solo' => 'Jawa Tengah',
-        'Semarang' => 'Jawa Tengah',
+        'Banyuwangi' => ['provinsi' => 'Jawa Timur', 'daerah' => 'Banyuwangi'],
+        'Kawah Ijen' => ['provinsi' => 'Jawa Timur', 'daerah' => 'Banyuwangi'],
+        'Bromo Tengger Semeru' => ['provinsi' => 'Jawa Timur', 'daerah' => 'Probolinggo'],
+        'Tumpak Sewu' => ['provinsi' => 'Jawa Timur', 'daerah' => 'Lumajang'],
+        'Madakaripura' => ['provinsi' => 'Jawa Timur', 'daerah' => 'Probolinggo'],
+        'Malang' => ['provinsi' => 'Jawa Timur', 'daerah' => 'Malang'],
+        'Batu' => ['provinsi' => 'Jawa Timur', 'daerah' => 'Kota Batu'],
+        'Pulau Merah' => ['provinsi' => 'Jawa Timur', 'daerah' => 'Banyuwangi'],
 
-        // DI Yogyakarta
-        'Candi Prambanan' => 'DI Yogyakarta',
-        'Malioboro' => 'DI Yogyakarta',
-        'Pantai Parangtritis' => 'DI Yogyakarta',
-        'Goa Jomblang' => 'DI Yogyakarta',
-        'Gunung Merapi' => 'DI Yogyakarta',
-        'Pantai Timang' => 'DI Yogyakarta',
-        'Heha Sky View' => 'DI Yogyakarta',
+        'Borobudur' => ['provinsi' => 'Jawa Tengah', 'daerah' => 'Magelang'],
+        'Dieng' => ['provinsi' => 'Jawa Tengah', 'daerah' => 'Wonosobo'],
+        'Karimunjawa' => ['provinsi' => 'Jawa Tengah', 'daerah' => 'Jepara'],
+        'Bukit Sikunir' => ['provinsi' => 'Jawa Tengah', 'daerah' => 'Wonosobo'],
+        'Solo' => ['provinsi' => 'Jawa Tengah', 'daerah' => 'Surakarta'],
+        'Semarang' => ['provinsi' => 'Jawa Tengah', 'daerah' => 'Semarang'],
 
-        // Jawa Barat & Banten
-        'Kawah Putih' => 'Jawa Barat',
-        'Tangkuban Perahu' => 'Jawa Barat',
-        'Bandung' => 'Jawa Barat',
-        'Pangandaran' => 'Jawa Barat',
-        'Ujung Kulon' => 'Banten',
-        'Tanjung Lesung' => 'Banten',
+        'Candi Prambanan' => ['provinsi' => 'DI Yogyakarta', 'daerah' => 'Sleman'],
+        'Malioboro' => ['provinsi' => 'DI Yogyakarta', 'daerah' => 'Kota Yogyakarta'],
+        'Pantai Parangtritis' => ['provinsi' => 'DI Yogyakarta', 'daerah' => 'Bantul'],
+        'Goa Jomblang' => ['provinsi' => 'DI Yogyakarta', 'daerah' => 'Gunungkidul'],
+        'Gunung Merapi' => ['provinsi' => 'DI Yogyakarta', 'daerah' => 'Sleman'],
+        'Pantai Timang' => ['provinsi' => 'DI Yogyakarta', 'daerah' => 'Gunungkidul'],
+        'Heha Sky View' => ['provinsi' => 'DI Yogyakarta', 'daerah' => 'Gunungkidul'],
 
-        // DKI Jakarta
-        'Kepulauan Seribu' => 'DKI Jakarta',
-        'Kota Tua Jakarta' => 'DKI Jakarta',
+        'Kawah Putih' => ['provinsi' => 'Jawa Barat', 'daerah' => 'Bandung'],
+        'Tangkuban Perahu' => ['provinsi' => 'Jawa Barat', 'daerah' => 'Bandung'],
+        'Bandung' => ['provinsi' => 'Jawa Barat', 'daerah' => 'Bandung'],
+        'Pangandaran' => ['provinsi' => 'Jawa Barat', 'daerah' => 'Pangandaran'],
 
-        // Bali
-        'Pantai Kuta Bali' => 'Bali',
-        'Ubud' => 'Bali',
-        'Nusa Penida' => 'Bali',
-        'Tanah Lot' => 'Bali',
-        'Uluwatu' => 'Bali',
-        'Kintamani' => 'Bali',
-        'Bedugul' => 'Bali',
+        'Ujung Kulon' => ['provinsi' => 'Banten', 'daerah' => 'Pandeglang'],
+        'Tanjung Lesung' => ['provinsi' => 'Banten', 'daerah' => 'Pandeglang'],
 
-        // Nusa Tenggara
-        'Gili Trawangan' => 'Nusa Tenggara Barat',
-        'Gunung Rinjani' => 'Nusa Tenggara Barat',
-        'Mandalika' => 'Nusa Tenggara Barat',
-        'Labuan Bajo' => 'Nusa Tenggara Timur',
-        'Pulau Komodo' => 'Nusa Tenggara Timur',
-        'Kelimutu' => 'Nusa Tenggara Timur',
-        'Sumba' => 'Nusa Tenggara Timur',
+        'Kepulauan Seribu' => ['provinsi' => 'DKI Jakarta', 'daerah' => 'Kepulauan Seribu'],
+        'Kota Tua Jakarta' => ['provinsi' => 'DKI Jakarta', 'daerah' => 'Jakarta Pusat'],
 
-        // Sumatera
-        'Danau Toba' => 'Sumatera Utara',
-        'Pulau Samosir' => 'Sumatera Utara',
-        'Bukit Lawang' => 'Sumatera Utara',
-        'Berastagi' => 'Sumatera Utara',
-        'Bukittinggi' => 'Sumatera Barat',
-        'Kepulauan Mentawai' => 'Sumatera Barat',
-        'Lembah Harau' => 'Sumatera Barat',
-        'Sabang' => 'Aceh',
-        'Pulau Weh' => 'Aceh',
-        'Pulau Belitung' => 'Kepulauan Bangka Belitung',
-        'Pahawang' => 'Lampung',
-        'Way Kambas' => 'Lampung',
-        'Gunung Kerinci' => 'Jambi',
-        'Bintan' => 'Kepulauan Riau',
+        'Pantai Kuta Bali' => ['provinsi' => 'Bali', 'daerah' => 'Badung'],
+        'Ubud' => ['provinsi' => 'Bali', 'daerah' => 'Gianyar'],
+        'Nusa Penida' => ['provinsi' => 'Bali', 'daerah' => 'Nusa Penida'],
+        'Tanah Lot' => ['provinsi' => 'Bali', 'daerah' => 'Tabanan'],
+        'Uluwatu' => ['provinsi' => 'Bali', 'daerah' => 'Badung'],
+        'Kintamani' => ['provinsi' => 'Bali', 'daerah' => 'Bangli'],
+        'Bedugul' => ['provinsi' => 'Bali', 'daerah' => 'Tabanan'],
 
-        // Kalimantan
-        'Kepulauan Derawan' => 'Kalimantan Timur',
-        'Maratua' => 'Kalimantan Timur',
-        'Tanjung Puting' => 'Kalimantan Tengah',
-        'Loksado' => 'Kalimantan Selatan',
+        'Gili Trawangan' => ['provinsi' => 'Nusa Tenggara Barat', 'daerah' => 'Lombok Utara'],
+        'Gunung Rinjani' => ['provinsi' => 'Nusa Tenggara Barat', 'daerah' => 'Lombok Timur'],
+        'Mandalika' => ['provinsi' => 'Nusa Tenggara Barat', 'daerah' => 'Lombok Tengah'],
 
-        // Sulawesi
-        'Bunaken' => 'Sulawesi Utara',
-        'Likupang' => 'Sulawesi Utara',
-        'Tana Toraja' => 'Sulawesi Selatan',
-        'Rammang-Rammang' => 'Sulawesi Selatan',
-        'Wakatobi' => 'Sulawesi Tenggara',
-        'Kepulauan Togean' => 'Sulawesi Tengah',
-        'Pantai Olele' => 'Gorontalo',
+        'Labuan Bajo' => ['provinsi' => 'Nusa Tenggara Timur', 'daerah' => 'Manggarai Barat'],
+        'Pulau Komodo' => ['provinsi' => 'Nusa Tenggara Timur', 'daerah' => 'Manggarai Barat'],
+        'Kelimutu' => ['provinsi' => 'Nusa Tenggara Timur', 'daerah' => 'Ende'],
+        'Sumba' => ['provinsi' => 'Nusa Tenggara Timur', 'daerah' => 'Sumba Barat'],
 
-        // Maluku & Papua
-        'Banda Neira' => 'Maluku',
-        'Ambon' => 'Maluku',
-        'Morotai' => 'Maluku Utara',
-        'Ternate' => 'Maluku Utara',
-        'Raja Ampat' => 'Papua Barat Daya',
-        'Lembah Baliem' => 'Papua Pegunungan',
+        'Danau Toba' => ['provinsi' => 'Sumatera Utara', 'daerah' => 'Toba'],
+        'Pulau Samosir' => ['provinsi' => 'Sumatera Utara', 'daerah' => 'Samosir'],
+        'Bukit Lawang' => ['provinsi' => 'Sumatera Utara', 'daerah' => 'Langkat'],
+        'Berastagi' => ['provinsi' => 'Sumatera Utara', 'daerah' => 'Karo'],
+
+        'Bukittinggi' => ['provinsi' => 'Sumatera Barat', 'daerah' => 'Agam'],
+        'Kepulauan Mentawai' => ['provinsi' => 'Sumatera Barat', 'daerah' => 'Kepulauan Mentawai'],
+        'Lembah Harau' => ['provinsi' => 'Sumatera Barat', 'daerah' => 'Lima Puluh Kota'],
+
+        'Sabang' => ['provinsi' => 'Aceh', 'daerah' => 'Sabang'],
+        'Pulau Weh' => ['provinsi' => 'Aceh', 'daerah' => 'Sabang'],
+
+        'Pulau Belitung' => ['provinsi' => 'Kepulauan Bangka Belitung', 'daerah' => 'Belitung'],
+
+        'Pahawang' => ['provinsi' => 'Lampung', 'daerah' => 'Pesawaran'],
+        'Way Kambas' => ['provinsi' => 'Lampung', 'daerah' => 'Lampung Timur'],
+
+        'Gunung Kerinci' => ['provinsi' => 'Jambi', 'daerah' => 'Kerinci'],
+
+        'Bintan' => ['provinsi' => 'Kepulauan Riau', 'daerah' => 'Bintan'],
+
+        'Kepulauan Derawan' => ['provinsi' => 'Kalimantan Timur', 'daerah' => 'Berau'],
+        'Maratua' => ['provinsi' => 'Kalimantan Timur', 'daerah' => 'Berau'],
+
+        'Tanjung Puting' => ['provinsi' => 'Kalimantan Tengah', 'daerah' => 'Kotawaringin Barat'],
+
+        'Loksado' => ['provinsi' => 'Kalimantan Selatan', 'daerah' => 'Hulu Sungai Selatan'],
+
+        'Bunaken' => ['provinsi' => 'Sulawesi Utara', 'daerah' => 'Manado'],
+        'Likupang' => ['provinsi' => 'Sulawesi Utara', 'daerah' => 'Minahasa Utara'],
+
+        'Tana Toraja' => ['provinsi' => 'Sulawesi Selatan', 'daerah' => 'Toraja Utara'],
+        'Rammang-Rammang' => ['provinsi' => 'Sulawesi Selatan', 'daerah' => 'Maros'],
+
+        'Wakatobi' => ['provinsi' => 'Sulawesi Tenggara', 'daerah' => 'Wakatobi'],
+
+        'Kepulauan Togean' => ['provinsi' => 'Sulawesi Tengah', 'daerah' => 'Tojo Una-Una'],
+
+        'Pantai Olele' => ['provinsi' => 'Gorontalo', 'daerah' => 'Bone Bolango'],
+
+        'Banda Neira' => ['provinsi' => 'Maluku', 'daerah' => 'Maluku Tengah'],
+        'Ambon' => ['provinsi' => 'Maluku', 'daerah' => 'Ambon'],
+
+        'Morotai' => ['provinsi' => 'Maluku Utara', 'daerah' => 'Pulau Morotai'],
+        'Ternate' => ['provinsi' => 'Maluku Utara', 'daerah' => 'Ternate'],
+
+        'Raja Ampat' => ['provinsi' => 'Papua Barat Daya', 'daerah' => 'Raja Ampat'],
+
+        'Lembah Baliem' => ['provinsi' => 'Papua Pegunungan', 'daerah' => 'Jayawijaya'],
     ],
     /*
     |--------------------------------------------------------------------------
@@ -1015,6 +1022,11 @@ return [
     */
 
     'katalog_daerah' => [
+        // Dilengkapi supaya tiap daerah yang dirujuk katalog destinasi
+        // benar-benar bisa dipilih pada isian daerahnya.
+        'Bangli' => 'Bali',
+        'Lima Puluh Kota' => 'Sumatera Barat',
+
         // Jawa Timur
         'Banyuwangi' => 'Jawa Timur',
         'Malang' => 'Jawa Timur',

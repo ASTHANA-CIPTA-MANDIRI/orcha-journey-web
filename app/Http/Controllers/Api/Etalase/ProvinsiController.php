@@ -130,10 +130,19 @@ class ProvinsiController extends ApiController
         $data = $request->validate([
             'nama' => ['required', 'string', 'max:191'],
             'provinsi' => ['nullable', 'string', 'max:100'],
+            'daerah' => ['nullable', 'string', 'max:100'],
         ], [], ['nama' => 'nama destinasi']);
 
         $nama = trim(preg_replace('/\s+/', ' ', $data['nama']));
-        $provinsi = trim((string) ($data['provinsi'] ?? '')) ?: ($peta->cari($nama)['provinsi'] ?? null);
+
+        // Peta ditanya sekali saja untuk keduanya: dua panggilan untuk satu
+        // pertanyaan hanya memperlambat admin dan membebani layanan gratisnya.
+        $usulan = (blank($data['provinsi'] ?? null) || blank($data['daerah'] ?? null))
+            ? $peta->cari($nama)
+            : null;
+
+        $provinsi = trim((string) ($data['provinsi'] ?? '')) ?: ($usulan['provinsi'] ?? null);
+        $daerah = trim((string) ($data['daerah'] ?? '')) ?: ($usulan['daerah'] ?? null);
 
         if (array_key_exists($nama, KatalogDestinasi::gabungan())) {
             return response()->json([
@@ -142,7 +151,7 @@ class ProvinsiController extends ApiController
             ]);
         }
 
-        KatalogDestinasi::create(['nama' => $nama, 'provinsi' => $provinsi]);
+        KatalogDestinasi::create(['nama' => $nama, 'provinsi' => $provinsi, 'daerah' => $daerah]);
 
         return response()->json([
             'pesan' => "{$nama} ditambahkan ke daftar destinasi.",

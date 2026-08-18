@@ -318,11 +318,19 @@ test('katalog bawaan menyebut provinsi yang dikenal semua', function () {
     // Provinsi yang tidak ada di daftar membuat isian terisi nama yang tidak
     // punya wilayah — destinasinya lalu hilang dari penyaring.
     $menyimpang = collect(config('orcha.katalog_destinasi'))
-        ->reject(fn ($provinsi) => array_key_exists($provinsi, config('orcha.provinsi_wilayah')))
+        ->reject(fn ($baris) => array_key_exists($baris['provinsi'], config('orcha.provinsi_wilayah')))
+        ->keys()->all();
+
+    // Daerahnya pun harus benar-benar bisa dipilih pada isian daerah — kalau
+    // tidak, satu pilihan mengisi daerah yang tidak ada di daftarnya sendiri.
+    $daerahAsing = collect(config('orcha.katalog_destinasi'))
+        ->reject(fn ($baris) => array_key_exists($baris['daerah'], config('orcha.katalog_daerah')))
         ->keys()->all();
 
     expect($menyimpang)->toBe([])
-        ->and(config('orcha.katalog_destinasi'))->toHaveKey('Banyuwangi');
+        ->and($daerahAsing)->toBe([])
+        ->and(config('orcha.katalog_destinasi'))->toHaveKey('Banyuwangi')
+        ->and(config('orcha.katalog_destinasi')['Kawah Ijen']['daerah'])->toBe('Banyuwangi');
 });
 
 test('destinasi yang sudah tercatat ikut jadi pilihan', function () {
@@ -335,7 +343,7 @@ test('destinasi yang sudah tercatat ikut jadi pilihan', function () {
     // memilihnya, dan supaya nama yang sudah dipakai muncul sebagai kemungkinan
     // duplikat.
     expect(KatalogDestinasi::gabungan())->toHaveKey('Pantai Rahasia')
-        ->and(KatalogDestinasi::gabungan()['Pantai Rahasia'])->toBe('Jawa Timur');
+        ->and(KatalogDestinasi::gabungan()['Pantai Rahasia']['provinsi'])->toBe('Jawa Timur');
 });
 
 test('nama baru tersimpan beserta provinsi yang dicari sendiri', function () {
@@ -352,13 +360,31 @@ test('nama baru tersimpan beserta provinsi yang dicari sendiri', function () {
     expect(KatalogDestinasi::first()->provinsi)->toBe('Bali');
 });
 
-test('provinsi yang disebut admin dipakai apa adanya, tanpa bertanya ke peta', function () {
+test('provinsi dan daerah yang disebut admin dipakai apa adanya, tanpa bertanya ke peta', function () {
     \Illuminate\Support\Facades\Http::fake();
 
-    kirimKatalog(['nama' => 'Pantai Rahasia', 'provinsi' => 'Jawa Timur'])->assertCreated();
+    // Peta ditanya hanya bila ada yang belum diketahui — dua panggilan untuk
+    // satu pertanyaan hanya memperlambat admin dan membebani layanan gratisnya.
+    kirimKatalog([
+        'nama' => 'Pantai Rahasia', 'provinsi' => 'Jawa Timur', 'daerah' => 'Situbondo',
+    ])->assertCreated();
 
-    expect(KatalogDestinasi::first()->provinsi)->toBe('Jawa Timur');
+    expect(KatalogDestinasi::first()->provinsi)->toBe('Jawa Timur')
+        ->and(KatalogDestinasi::first()->daerah)->toBe('Situbondo');
+
     \Illuminate\Support\Facades\Http::assertNothingSent();
+});
+
+test('daerah ikut dicari peta bila belum disebut', function () {
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'address' => ['state' => 'Jawa Timur', 'county' => 'Kabupaten Banyuwangi'],
+        ]]),
+    ]);
+
+    kirimKatalog(['nama' => 'Pantai Baru Sekali'])->assertCreated();
+
+    expect(KatalogDestinasi::first()->daerah)->toBe('Banyuwangi');
 });
 
 test('nama yang tidak ketemu di peta tetap tersimpan', function () {
@@ -405,7 +431,8 @@ test('rujukan mengirim katalog beserta penanda mana yang boleh dihapus', functio
     ])->assertOk()->json('data');
 
     expect($data['katalog_destinasi'])->toHaveKey('Banyuwangi')
-        ->and($data['katalog_destinasi']['Banyuwangi'])->toBe('Jawa Timur')
+        ->and($data['katalog_destinasi']['Banyuwangi']['provinsi'])->toBe('Jawa Timur')
+        ->and($data['katalog_destinasi']['Banyuwangi']['daerah'])->toBe('Banyuwangi')
         ->and(collect($data['katalog_destinasi_kustom'])->pluck('nama')->all())->toBe(['Pantai Rahasia']);
 });
 
