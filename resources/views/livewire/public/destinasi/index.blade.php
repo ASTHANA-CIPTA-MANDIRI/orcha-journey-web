@@ -124,7 +124,12 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
             </div>
 
             {{-- Filter wilayah --}}
-            <div class="mb-10 tab-scroller">
+            {{-- Dipusatkan di layar lebar. Baris di atasnya sudah terbagi kiri-kanan
+                 (ringkasan dan pencarian), jadi deretan tab yang ikut rata kiri
+                 menggantung tanpa penyeimbang di kanannya. Di layar sempit tetap
+                 rata kiri: deretnya digulung mendatar, dan yang digulung harus
+                 mulai dari tepi. --}}
+            <div class="mb-10 tab-scroller lg:justify-center">
                 <button type="button" wire:click="$set('wilayah', '')"
                     class="tab-orcha {{ $wilayah === '' ? 'tab-orcha-active' : '' }}">
                     Semua Wilayah <span class="opacity-60">({{ $total }})</span>
@@ -156,11 +161,23 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                     class="absolute inset-0 bg-gradient-to-t from-orcha-navy/85 via-orcha-navy/10 to-transparent">
                                 </div>
 
-                                <span
-                                    class="absolute inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full top-3 left-3 text-orcha-navy bg-orcha-sun">
-                                    <x-heroicon-s-user-group class="w-4 h-4" />
-                                    {{ shortNumber($dest->total_visitor) }} pengunjung
-                                </span>
+                                {{-- Nol pengunjung bukan bukti apa-apa; ia justru membaca
+                                     terbalik dari maksud lencananya. Destinasi yang baru
+                                     dicatat memang belum pernah kami antar siapa pun —
+                                     yang perlu dikatakan "baru", bukan "0". --}}
+                                @if ($dest->total_visitor > 0)
+                                    <span
+                                        class="absolute inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full top-3 left-3 text-orcha-navy bg-orcha-sun">
+                                        <x-heroicon-s-user-group class="w-4 h-4" />
+                                        {{ shortNumber($dest->total_visitor) }} pengunjung
+                                    </span>
+                                @elseif ($dest->created_at?->gt(now()->subDays(30)))
+                                    <span
+                                        class="absolute inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-white rounded-full top-3 left-3 bg-orcha-sky">
+                                        <x-heroicon-s-sparkles class="w-4 h-4" />
+                                        Baru
+                                    </span>
+                                @endif
 
                                 <span
                                     class="absolute px-3 py-1 text-xs font-bold rounded-full top-3 right-3 text-white bg-white/20 backdrop-blur">
@@ -185,16 +202,34 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                             </div>
 
                             <div class="flex flex-col flex-1 p-5 sm:p-6">
-                                @if ($dest->deskripsi)
-                                    <p class="mb-4 text-sm leading-relaxed text-slate-600">{{ $dest->deskripsi }}</p>
-                                @endif
+                                {{-- Dipotong di tiga baris dan tingginya dipatok. Keterangan
+                                     yang panjangnya berbeda-beda menggeser galeri kecil di
+                                     bawahnya ke ketinggian yang berbeda pula, dan sebaris
+                                     kartu jadi terbaca berantakan walaupun tiap kartunya
+                                     rapi. --}}
+                                <p class="min-h-[4.1rem] mb-4 text-sm leading-relaxed line-clamp-3 text-slate-600">
+                                    {{ $dest->deskripsi }}
+                                </p>
 
+                                {{-- Galeri kecil dan tombolnya satu kelompok yang menempel ke
+                                     dasar kartu. Dipisah, galerinya mengikuti panjang
+                                     keterangan sementara tombolnya menempel ke dasar — dua
+                                     ketinggian berbeda dalam satu baris kartu. --}}
+                                <div class="mt-auto">
                                 @if (!empty($dest->others_photo))
-                                    <div class="flex gap-2 mb-4">
-                                        @foreach (array_slice($dest->others_photo, 0, 4) as $thumb)
-                                            <img src="{{ $thumb }}" alt="" loading="lazy"
-                                                class="object-cover w-12 h-12 rounded-xl ring-1 ring-orcha-foam">
-                                        @endforeach
+                                    <div class="flex items-center justify-between gap-2 mb-4">
+                                        <div class="flex gap-2">
+                                            @foreach (array_slice($dest->others_photo, 0, 4) as $thumb)
+                                                <img src="{{ $thumb }}" alt="" loading="lazy"
+                                                    class="object-cover w-12 h-12 rounded-xl ring-1 ring-orcha-foam">
+                                            @endforeach
+                                        </div>
+
+                                        {{-- Rata kanan, seimbang dengan gambarnya di kiri:
+                                             yang kiri contoh, yang kanan berapa banyak. --}}
+                                        <span class="text-xs font-semibold whitespace-nowrap text-slate-400">
+                                            {{ count($dest->others_photo) + 1 }} foto
+                                        </span>
                                     </div>
                                 @endif
 
@@ -202,7 +237,7 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                      bertanya. Sebelumnya hanya ada tombol WhatsApp, sehingga
                                      satu-satunya cara mengetahui lebih banyak adalah menanyakannya
                                      — pertanyaan yang jawabannya sudah ada di sini. --}}
-                                <div class="flex gap-2 mt-auto">
+                                <div class="flex gap-2">
                                     <button type="button" wire:click="buka({{ $dest->id }})"
                                         class="flex-1 btn-orcha btn-orcha-primary !py-2.5 !text-sm">
                                         <x-heroicon-o-photo class="w-4 h-4" />
@@ -215,6 +250,7 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                         aria-label="Tanya paket ke {{ $dest->destination_name }} lewat WhatsApp">
                                         <x-bi-whatsapp class="w-4 h-4" />
                                     </a>
+                                </div>
                                 </div>
                             </div>
                         </article>

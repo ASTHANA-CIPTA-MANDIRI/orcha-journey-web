@@ -120,3 +120,44 @@ test('destinasi yang tercatat pada detik yang sama tetap berurutan tetap', funct
     expect($sekali())->toBe($sekali())
         ->and($sekali())->toBe(DestinationPopuler::orderByDesc('id')->pluck('id')->all());
 });
+
+test('destinasi yang belum pernah diantar tidak dilabeli nol pengunjung', function () {
+    // Nol bukan bukti apa-apa; ia justru membaca terbalik dari maksud
+    // lencananya. Yang perlu dikatakan "baru", bukan "0".
+    buatDestinasi('Pulau Menjangan Kecil', 'jawa', 'Jawa Tengah', 0);
+
+    $teks = preg_replace('/\s+/', ' ', strip_tags(
+        $this->get(route('destinasi'))->assertOk()->getContent()
+    ));
+
+    expect($teks)->not->toContain('0 pengunjung')
+        ->and($teks)->toContain('Baru');
+});
+
+test('destinasi lama tanpa pengunjung tidak dilabeli baru', function () {
+    // "Baru" untuk destinasi yang dicatat setahun lalu adalah janji yang
+    // tidak ditepati — dan lencana yang berbohong sekali tidak dipercaya lagi
+    // pada kartu berikutnya.
+    buatDestinasi('Danau Lama', 'jawa', 'Jawa Tengah', 0)
+        ->forceFill(['created_at' => now()->subYear()])->save();
+
+    $teks = preg_replace('/\s+/', ' ', strip_tags(
+        $this->get(route('destinasi'))->assertOk()->getContent()
+    ));
+
+    expect($teks)->not->toContain('0 pengunjung')
+        ->and($teks)->not->toContain('Baru');
+});
+
+test('jumlah foto yang disebut termasuk foto utamanya', function () {
+    // Yang dihitung apa yang akan dilihat pengunjung setelah menekan "Lihat
+    // Detail": foto utama beserta gambar tambahannya, bukan tambahannya saja.
+    $dest = buatDestinasi('Karimunjawa', 'jawa', 'Jawa Tengah');
+    $dest->forceFill(['others_photo' => ['/a.jpg', '/b.jpg']])->save();
+
+    $teks = preg_replace('/\s+/', ' ', strip_tags(
+        $this->get(route('destinasi'))->assertOk()->getContent()
+    ));
+
+    expect($teks)->toContain('3 foto');
+});
