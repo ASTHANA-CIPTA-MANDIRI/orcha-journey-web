@@ -636,7 +636,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
          CTA PENUTUP
     =================================================================== --}}
     <section class="relative overflow-hidden bg-orcha-navy">
-        <img src="{{ asset('images/laut.jpg') }}" alt="" loading="lazy"
+        <img src="{{ asset('images/footer/beranda.jpg') }}" alt="" loading="lazy"
             class="absolute inset-0 object-cover w-full h-full opacity-30">
         <div class="relative container-orcha py-16 sm:py-24">
             <div class="max-w-3xl mx-auto text-center reveal">

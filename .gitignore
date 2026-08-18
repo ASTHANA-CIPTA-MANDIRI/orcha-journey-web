@@ -32,3 +32,4 @@ yarn-error.log
 # tidak pernah diminta peramban — menyimpannya di repo hanya membebani
 # setiap kloning dan setiap deploy.
 /public/images/HERO/*.png
+/public/images/footer/*.png
