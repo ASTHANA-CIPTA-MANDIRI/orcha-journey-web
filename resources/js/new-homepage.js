@@ -96,10 +96,15 @@ function initPreloader() {
     };
 
     // Hanya menunggu gambar yang benar-benar terlihat di layar awal.
-    // Gambar bertanda loading="lazy" tidak ikut dihitung supaya preloader
-    // tidak menahan halaman karena galeri di bagian bawah.
+    //
+    // Yang TIDAK dihitung:
+    // - gambar bertanda loading="lazy", supaya preloader tidak menahan halaman
+    //   karena galeri di bagian bawah;
+    // - gambar milik preloader itu sendiri. Foto latarnya hiasan layar ini,
+    //   bukan isi halaman — kalau ikut dihitung, layar muat menunggu dirinya
+    //   sendiri dan justru memperlambat yang seharusnya ia tutupi.
     const images = Array.from(document.images).filter(
-        (img) => img.loading !== "lazy",
+        (img) => img.loading !== "lazy" && !preloader.contains(img),
     );
 
     if (images.length === 0) {

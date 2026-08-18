@@ -433,26 +433,71 @@ h6,
     display: none;
 }
 
-/* Dua gumpalan cahaya yang hanyut. Satu-satunya gerak yang tidak menyatakan
-   kemajuan — tugasnya menjaga layar ini tidak terlihat membeku. */
-.preloader-kabut {
+/* Foto latar: pratinjau seketika, foto tajam menyusul.
+
+   ::before memuat pratinjau 28x15 piksel yang tertulis di dalam berkas gaya ini
+   sebagai data — 834 bita, tanpa permintaan ke server. Diperbesar dan
+   diburamkan, ia jadi bidang berwarna yang sudah menyerupai fotonya sejak
+   bingkai pertama.
+
+   Skalanya lebih dari satu supaya tepi buramnya keluar bingkai; tanpa itu
+   pinggiran gambar terlihat memudar jadi kotak. */
+.preloader-foto {
     position: absolute;
-    inset: -20%;
-    background:
-        radial-gradient(ellipse farthest-side at 22% 28%,
-            rgba(26, 176, 226, calc(0.16 + var(--maju) * 0.16)) 0%,
-            rgba(26, 176, 226, 0) 100%),
-        radial-gradient(ellipse farthest-side at 78% 72%,
-            rgba(255, 199, 78, calc(0.10 + var(--maju) * 0.20)) 0%,
-            rgba(255, 199, 78, 0) 100%);
-    filter: blur(10px);
-    animation: preloader-hanyut 14s ease-in-out infinite alternate;
-    pointer-events: none;
+    inset: 0;
+    overflow: hidden;
+    animation: preloader-dekat 18s ease-out forwards;
 }
 
-@keyframes preloader-hanyut {
-    from { transform: translate3d(-3%, -2%, 0) scale(1); }
-    to { transform: translate3d(3%, 2%, 0) scale(1.08); }
+.preloader-foto::before {
+    content: "";
+    position: absolute;
+    inset: -6%;
+    background: url("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAHKADAAQAAAABAAAADwAAAAD/wAARCAAPABwDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9sAQwAICAgICAgOCAgOFA4ODhQbFBQUFBsiGxsbGxsiKiIiIiIiIioqKioqKioqMjIyMjIyOjo6OjpBQUFBQUFBQUFB/9sAQwEKCwsRDxEcDw8cRC4mLkRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERE/90ABAAC/9oADAMBAAIRAxEAPwD0yfUNNgthMys2eyqTWJc6lobWzXM5aNV4O5SOa4AeLAbVIssByasJJHqloTfNiLPGQScj09OtcdOMurOypKO0VctXuoaAYTPG4ZQe2SfpiuJuNdiMp8q3O3tk4/SoNS/s+GRXs2JyNu0rgDHf3NczLdjedtdEZPoc00uqP//Z") center / cover no-repeat;
+    filter: blur(26px) saturate(1.15);
+    transform: scale(1.06);
+}
+
+.preloader-foto img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity .9s ease;
+}
+
+/* Dimunculkan lewat onload, bukan lewat animasi berjangka: animasi akan
+   memunculkannya pada detik yang sudah ditentukan, entah fotonya sudah datang
+   atau belum — dan yang muncul bisa jadi bidang kosong. */
+.preloader-foto img.siap {
+    opacity: 1;
+}
+
+/* Mendekat perlahan. Satu-satunya gerak di layar ini yang tidak menyatakan
+   kemajuan; tugasnya menjaga layar tidak terlihat membeku saat muatan
+   tersendat. */
+@keyframes preloader-dekat {
+    from { transform: scale(1); }
+    to { transform: scale(1.09); }
+}
+
+/* Tirai gelap di atas fotonya. Tanpa ini tulisan putih jatuh di atas langit
+   terang dan tidak terbaca; dengan ini fotonya tetap terlihat sebagai foto,
+   bukan sebagai latar abu. */
+.preloader-tirai {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(to top,
+            rgba(0, 18, 32, .92) 0%,
+            rgba(0, 18, 32, .62) 42%,
+            rgba(0, 18, 32, .72) 100%),
+        radial-gradient(ellipse farthest-side at 18% 88%,
+            rgba(0, 18, 32, .55) 0%,
+            rgba(0, 18, 32, 0) 100%);
+    pointer-events: none;
 }
 
 /* Garis tegak setipis rambut — memberi bidang ini rasa terukur, seperti kisi
@@ -582,7 +627,7 @@ h6,
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .preloader-kabut { animation: none; }
+    .preloader-foto { animation: none; }
 }
 
 /* ==========================================================

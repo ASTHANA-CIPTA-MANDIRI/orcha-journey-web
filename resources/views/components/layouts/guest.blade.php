@@ -61,10 +61,27 @@
              ada di bawah ini tergambar seketika bersama halamannya — teks,
              gradasi, dan garis. --}}
 
-        {{-- Dua gumpalan cahaya yang hanyut pelan. Satu-satunya gerak yang
-             tidak menyatakan kemajuan; tugasnya menjaga layar ini tidak
-             terlihat membeku ketika muatannya tersendat. --}}
-        <div class="preloader-kabut" aria-hidden="true"></div>
+        {{-- Foto latar, dengan cara yang tidak menahan apa pun.
+
+             Lapis pertama: pratinjau 28x15 piksel yang ditulis LANGSUNG di
+             dalam CSS sebagai data. Besarnya 834 bita, tidak butuh permintaan
+             ke server, dan tergambar seketika bersama halamannya — jadi layar
+             ini berfoto sejak bingkai pertama, bukan hitam menunggu.
+
+             Lapis kedua: fotonya yang sebenarnya, dipasang tembus pandang dan
+             baru dimunculkan setelah benar-benar termuat (onload). Kalau
+             lambat, atau tidak datang sama sekali, yang terlihat tetap
+             pratinjau buramnya — bukan bidang kosong.
+
+             Inilah sebabnya foto bisa dipakai di sini sementara berkas gambar
+             biasa tidak: yang harus tiba lebih dulu cuma 834 bita yang sudah
+             ikut di dalam CSS. --}}
+        <div class="preloader-foto" aria-hidden="true">
+            <img src="{{ asset('images/HERO/destinasi.jpg') }}" alt="" decoding="async"
+                onload="this.classList.add('siap')">
+        </div>
+
+        <div class="preloader-tirai" aria-hidden="true"></div>
         <div class="preloader-kisi" aria-hidden="true"></div>
 
         <div class="preloader-content">
