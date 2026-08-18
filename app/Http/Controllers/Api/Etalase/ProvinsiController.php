@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Etalase;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Models\Etalase\ProvinsiTambahan;
+use App\Support\Etalase\CariLokasi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,6 +17,22 @@ use Illuminate\Http\Request;
  */
 class ProvinsiController extends ApiController
 {
+    /**
+     * Menebak provinsi dan wilayah dari nama destinasi.
+     *
+     * Jawaban kosong bukan kegagalan: banyak nama memang tidak dikenali, dan
+     * yang benar untuk itu adalah admin mengisi sendiri — bukan galat yang
+     * menghentikannya.
+     */
+    public function cariLokasi(Request $request, CariLokasi $peta): JsonResponse
+    {
+        $data = $request->validate([
+            'nama' => ['required', 'string', 'max:191'],
+        ], [], ['nama' => 'nama destinasi']);
+
+        return response()->json(['data' => $peta->cari($data['nama'])]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([

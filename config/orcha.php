@@ -878,6 +878,30 @@ return [
     */
     'email_salinan_pelanggan' => (bool) env('ORCHA_EMAIL_SALINAN_PELANGGAN', true),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Pencarian Lokasi (peta luar)
+    |--------------------------------------------------------------------------
+    |
+    | Dipakai hanya untuk MENGUSULKAN provinsi dari nama destinasi yang diketik
+    | admin. Nama tempat itu terbuka — tidak bisa didaftar habis — sehingga peta
+    | luar memang alat yang tepat, berbeda dari daftar provinsi yang sengaja
+    | disimpan sendiri.
+    |
+    | Bisa dimatikan tanpa akibat apa pun selain hilangnya usulan: formulir tetap
+    | jalan dan admin mengisi manual seperti biasa.
+    |
+    | 'pengenal' wajib diisi jujur — ketentuan pemakaian Nominatim mengharuskan
+    | pemanggil menyebut dirinya, dan yang anonim berhak diblokir.
+    |
+    */
+
+    'peta' => [
+        'aktif' => env('ORCHA_PETA_AKTIF', true),
+        'alamat' => env('ORCHA_PETA_ALAMAT', 'https://nominatim.openstreetmap.org/search'),
+        'pengenal' => env('ORCHA_PETA_PENGENAL', 'OrchaJourney/1.0 (admin@orchajourney.com)'),
+    ],
+
     'api' => [
         'kunci' => env('ORCHA_API_KEY'),
         'ip_diizinkan' => array_filter(array_map('trim', explode(',', (string) env('ORCHA_API_IP', '')))),

@@ -84,3 +84,122 @@ test('rujukan mengirim gabungan beserta penanda mana yang boleh dihapus', functi
         // Hanya entri tambahan yang boleh dihapus; yang bawaan ikut versi kode.
         ->and(collect($data['provinsi_kustom'])->pluck('nama')->all())->toBe(['Papua Barat Laut']);
 });
+
+/* -------- USULAN PROVINSI DARI NAMA DESTINASI -------- */
+
+function cariLokasi(string $nama)
+{
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    return test()->getJson('/api/v1/cari-lokasi?nama='.urlencode($nama), [
+        'X-Orcha-Key' => 'kunci-uji',
+        'X-Orcha-Admin' => 'admin@phoenix.test',
+    ]);
+}
+
+test('destinasi yang sudah tercatat dipakai lebih dulu, tanpa menembak peta', function () {
+    \Illuminate\Support\Facades\Http::fake();
+
+    DestinationPopuler::create([
+        'destination_name' => 'Bromo Tengger Semeru', 'wilayah' => 'jawa',
+        'provinsi' => 'Jawa Timur', 'total_visitor' => 26700,
+    ]);
+
+    // Gratis, seketika, dan mencerminkan keputusan admin sendiri — "Bromo" yang
+    // dulu ditempatkan di Jawa Timur tidak perlu ditanyakan lagi ke siapa pun.
+    cariLokasi('Bromo')->assertOk()
+        ->assertJsonPath('data.provinsi', 'Jawa Timur')
+        ->assertJsonPath('data.wilayah', 'jawa')
+        ->assertJsonPath('data.sumber', 'destinasi');
+
+    \Illuminate\Support\Facades\Http::assertNothingSent();
+});
+
+test('nama yang belum pernah dicatat ditanyakan ke peta', function () {
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'address' => ['state' => 'Bali'],
+        ]]),
+    ]);
+
+    cariLokasi('Pantai Melasti')->assertOk()
+        ->assertJsonPath('data.provinsi', 'Bali')
+        ->assertJsonPath('data.wilayah', 'bali_nusa')
+        ->assertJsonPath('data.sumber', 'peta');
+});
+
+test('ejaan provinsi dari peta disamakan dengan daftar kita', function () {
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'address' => ['state' => 'Daerah Istimewa Yogyakarta'],
+        ]]),
+    ]);
+
+    // Tanpa penyamaan ini keduanya dianggap provinsi berbeda, dan usulannya
+    // dibuang justru untuk provinsi yang paling ramai.
+    cariLokasi('Candi Prambanan')->assertOk()
+        ->assertJsonPath('data.provinsi', 'DI Yogyakarta')
+        ->assertJsonPath('data.wilayah', 'jawa');
+});
+
+test('provinsi asing tidak dipakai', function () {
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'address' => ['state' => 'Johor'],
+        ]]),
+    ]);
+
+    // Mengisinya berarti destinasi tercatat di provinsi yang tidak punya
+    // wilayah, dan penyaring di halaman publik tidak akan menemukannya.
+    cariLokasi('Gunung Ledang')->assertOk()->assertJsonPath('data', null);
+});
+
+test('peta yang mati tidak menggagalkan apa pun', function () {
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response('', 503),
+    ]);
+
+    // Jawaban kosong bukan kegagalan: yang benar adalah admin mengisi sendiri,
+    // bukan galat yang menghentikannya.
+    cariLokasi('Tempat Antah Berantah')->assertOk()->assertJsonPath('data', null);
+});
+
+test('nama terlalu pendek tidak ditanyakan ke mana pun', function () {
+    \Illuminate\Support\Facades\Http::fake();
+
+    cariLokasi('Bro')->assertOk()->assertJsonPath('data', null);
+
+    \Illuminate\Support\Facades\Http::assertNothingSent();
+});
+
+test('jawaban peta disimpan, tidak ditanyakan dua kali', function () {
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'address' => ['state' => 'Bali'],
+        ]]),
+    ]);
+
+    // Provinsi sebuah tempat tidak berubah; menembak layanan yang sama untuk
+    // pertanyaan yang sama memperlambat admin sekaligus membebani layanan
+    // gratis yang kita menumpang padanya.
+    cariLokasi('Nusa Penida Baru')->assertOk();
+    cariLokasi('Nusa Penida Baru')->assertOk();
+
+    \Illuminate\Support\Facades\Http::assertSentCount(1);
+});
+
+test('pemanggilan menyebut pengenal, sesuai ketentuan nominatim', function () {
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'address' => ['state' => 'Bali'],
+        ]]),
+    ]);
+
+    cariLokasi('Pantai Baru Sekali')->assertOk();
+
+    // Layanan gratis yang tidak tahu siapa pemanggilnya berhak memblokirnya.
+    \Illuminate\Support\Facades\Http::assertSent(fn ($p) => $p->hasHeader('User-Agent')
+        && str_contains($p->header('User-Agent')[0], 'OrchaJourney')
+        && str_contains($p->url(), 'countrycodes=id'));
+});

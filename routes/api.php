@@ -100,6 +100,8 @@ Route::prefix('v1')
         Route::get('/destinasi', [EtalaseController::class, 'destinasi']);
         Route::get('/destinasi/{destinasi}', [EtalaseController::class, 'satuDestinasi']);
         // Provinsi tambahan: daftar bawaan boleh dilengkapi tanpa menunggu rilis.
+        // Usulan provinsi dari nama destinasi — hasilnya boleh kosong.
+        Route::get('/cari-lokasi', [ProvinsiController::class, 'cariLokasi']);
         Route::post('/provinsi', [ProvinsiController::class, 'store']);
         Route::delete('/provinsi/{provinsi}', [ProvinsiController::class, 'destroy']);
         Route::post('/destinasi', [EtalaseController::class, 'simpanDestinasi']);
