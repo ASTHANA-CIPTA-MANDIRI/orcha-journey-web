@@ -1002,6 +1002,127 @@ return [
     ],
     /*
     |--------------------------------------------------------------------------
+    | Katalog Daerah (kabupaten, kota, atau kawasan)
+    |--------------------------------------------------------------------------
+    |
+    | Daerah wisata yang paling sering diminta, beserta provinsinya. Dipakai
+    | sebagai pilihan pada isian daerah: daftarnya menyusut mengikuti provinsi
+    | yang sudah dipilih, sama seperti provinsi menyusut mengikuti wilayah.
+    |
+    | Daftar awal, bukan daftar tertutup — Indonesia punya lebih dari lima ratus
+    | kabupaten dan kota, dan admin bisa menambah yang belum ada.
+    |
+    */
+
+    'katalog_daerah' => [
+        // Jawa Timur
+        'Banyuwangi' => 'Jawa Timur',
+        'Malang' => 'Jawa Timur',
+        'Kota Batu' => 'Jawa Timur',
+        'Probolinggo' => 'Jawa Timur',
+        'Lumajang' => 'Jawa Timur',
+        'Jember' => 'Jawa Timur',
+        'Bondowoso' => 'Jawa Timur',
+        'Surabaya' => 'Jawa Timur',
+        'Madura' => 'Jawa Timur',
+
+        // Jawa Tengah
+        'Magelang' => 'Jawa Tengah',
+        'Wonosobo' => 'Jawa Tengah',
+        'Banjarnegara' => 'Jawa Tengah',
+        'Jepara' => 'Jawa Tengah',
+        'Karimunjawa' => 'Jawa Tengah',
+        'Semarang' => 'Jawa Tengah',
+        'Surakarta' => 'Jawa Tengah',
+        'Purwokerto' => 'Jawa Tengah',
+
+        // DI Yogyakarta
+        'Sleman' => 'DI Yogyakarta',
+        'Bantul' => 'DI Yogyakarta',
+        'Gunungkidul' => 'DI Yogyakarta',
+        'Kulon Progo' => 'DI Yogyakarta',
+        'Kota Yogyakarta' => 'DI Yogyakarta',
+
+        // Jawa Barat & Banten
+        'Bandung' => 'Jawa Barat',
+        'Bogor' => 'Jawa Barat',
+        'Garut' => 'Jawa Barat',
+        'Pangandaran' => 'Jawa Barat',
+        'Sukabumi' => 'Jawa Barat',
+        'Pandeglang' => 'Banten',
+        'Serang' => 'Banten',
+
+        // DKI Jakarta
+        'Kepulauan Seribu' => 'DKI Jakarta',
+        'Jakarta Pusat' => 'DKI Jakarta',
+
+        // Bali
+        'Badung' => 'Bali',
+        'Gianyar' => 'Bali',
+        'Klungkung' => 'Bali',
+        'Nusa Penida' => 'Bali',
+        'Karangasem' => 'Bali',
+        'Buleleng' => 'Bali',
+        'Tabanan' => 'Bali',
+        'Denpasar' => 'Bali',
+
+        // Nusa Tenggara
+        'Lombok Utara' => 'Nusa Tenggara Barat',
+        'Lombok Tengah' => 'Nusa Tenggara Barat',
+        'Lombok Timur' => 'Nusa Tenggara Barat',
+        'Sumbawa' => 'Nusa Tenggara Barat',
+        'Manggarai Barat' => 'Nusa Tenggara Timur',
+        'Ende' => 'Nusa Tenggara Timur',
+        'Sumba Barat' => 'Nusa Tenggara Timur',
+        'Kupang' => 'Nusa Tenggara Timur',
+
+        // Sumatera
+        'Samosir' => 'Sumatera Utara',
+        'Toba' => 'Sumatera Utara',
+        'Karo' => 'Sumatera Utara',
+        'Langkat' => 'Sumatera Utara',
+        'Medan' => 'Sumatera Utara',
+        'Agam' => 'Sumatera Barat',
+        'Padang' => 'Sumatera Barat',
+        'Kepulauan Mentawai' => 'Sumatera Barat',
+        'Sabang' => 'Aceh',
+        'Banda Aceh' => 'Aceh',
+        'Belitung' => 'Kepulauan Bangka Belitung',
+        'Pesawaran' => 'Lampung',
+        'Lampung Timur' => 'Lampung',
+        'Kerinci' => 'Jambi',
+        'Bintan' => 'Kepulauan Riau',
+        'Batam' => 'Kepulauan Riau',
+
+        // Kalimantan
+        'Berau' => 'Kalimantan Timur',
+        'Balikpapan' => 'Kalimantan Timur',
+        'Kotawaringin Barat' => 'Kalimantan Tengah',
+        'Hulu Sungai Selatan' => 'Kalimantan Selatan',
+        'Banjarmasin' => 'Kalimantan Selatan',
+        'Pontianak' => 'Kalimantan Barat',
+
+        // Sulawesi
+        'Manado' => 'Sulawesi Utara',
+        'Minahasa Utara' => 'Sulawesi Utara',
+        'Toraja Utara' => 'Sulawesi Selatan',
+        'Makassar' => 'Sulawesi Selatan',
+        'Maros' => 'Sulawesi Selatan',
+        'Wakatobi' => 'Sulawesi Tenggara',
+        'Tojo Una-Una' => 'Sulawesi Tengah',
+        'Bone Bolango' => 'Gorontalo',
+
+        // Maluku & Papua
+        'Maluku Tengah' => 'Maluku',
+        'Ambon' => 'Maluku',
+        'Pulau Morotai' => 'Maluku Utara',
+        'Ternate' => 'Maluku Utara',
+        'Raja Ampat' => 'Papua Barat Daya',
+        'Jayawijaya' => 'Papua Pegunungan',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Pencarian Lokasi (peta luar)
     |--------------------------------------------------------------------------
     |

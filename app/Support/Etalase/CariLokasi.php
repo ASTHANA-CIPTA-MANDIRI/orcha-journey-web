@@ -36,7 +36,7 @@ class CariLokasi
     private const SIMPAN_HARI = 30;
 
     /**
-     * @return array{provinsi: string, wilayah: string, sumber: string}|null
+     * @return array{provinsi: string, wilayah: string, daerah: ?string, sumber: string}|null
      */
     public function cari(string $nama): ?array
     {
@@ -70,6 +70,7 @@ class CariLokasi
         return [
             'provinsi' => $baris->provinsi,
             'wilayah' => $baris->wilayah,
+            'daerah' => $baris->daerah,
             'sumber' => 'destinasi',
         ];
     }
@@ -83,29 +84,32 @@ class CariLokasi
         $kunci = 'orcha.lokasi.'.md5(mb_strtolower($nama));
 
         return Cache::remember($kunci, now()->addDays(self::SIMPAN_HARI), function () use ($nama) {
-            $provinsi = $this->tanyaNominatim($nama);
+            $jawaban = $this->tanyaNominatim($nama);
 
-            if ($provinsi === null) {
+            if ($jawaban === null) {
                 return null;
             }
 
+            [$provinsi, $daerah] = $jawaban;
             $wilayah = ProvinsiTambahan::gabungan()[$provinsi] ?? null;
 
             // Provinsi yang tidak dikenal daftar kita tidak dipakai: mengisinya
             // berarti destinasi tercatat di provinsi yang tidak punya wilayah,
             // dan penyaring di halaman publik tidak akan menemukannya.
-            return $wilayah ? ['provinsi' => $provinsi, 'wilayah' => $wilayah, 'sumber' => 'peta'] : null;
+            return $wilayah
+                ? ['provinsi' => $provinsi, 'wilayah' => $wilayah, 'daerah' => $daerah, 'sumber' => 'peta']
+                : null;
         });
     }
 
     /**
-     * Nama provinsi menurut OpenStreetMap, atau null bila tidak ketemu.
+     * Provinsi dan daerah menurut OpenStreetMap, atau null bila tidak ketemu.
      *
      * Sengaja dibungkus rescue: layanan gratis boleh saja mati, lambat, atau
      * berubah bentuk jawabannya — dan tidak satu pun dari itu pantas membuat
      * admin gagal menyimpan destinasi.
      */
-    private function tanyaNominatim(string $nama): ?string
+    private function tanyaNominatim(string $nama): ?array
     {
         try {
             $balasan = Http::withHeaders([
@@ -134,12 +138,41 @@ class CariLokasi
             // punya "region" atau "county".
             $provinsi = $alamat['state'] ?? $alamat['region'] ?? null;
 
-            return $provinsi ? $this->samakan($provinsi) : null;
+            if (! $provinsi) {
+                return null;
+            }
+
+            // Daerah: kabupaten/kota lebih dulu, lalu satuan yang lebih kecil.
+            // OSM tidak selalu menyebut ketiganya, dan yang paling berguna bagi
+            // penyewa adalah nama yang dikenalnya — "Banyuwangi", bukan nama
+            // desa yang tidak pernah didengarnya.
+            $daerah = $alamat['county'] ?? $alamat['city'] ?? $alamat['town']
+                ?? $alamat['municipality'] ?? null;
+
+            return [$this->samakan($provinsi), $this->rapikanDaerah($daerah)];
         } catch (\Throwable $e) {
             Log::info('Pencarian lokasi gagal', ['nama' => $nama, 'pesan' => $e->getMessage()]);
 
             return null;
         }
+    }
+
+    /**
+     * Membuang awalan administratif yang tidak dipakai penyewa.
+     *
+     * OSM menulis "Kabupaten Banyuwangi" dan "Kota Batu"; yang dicari dan
+     * disebut penyewa "Banyuwangi" dan "Kota Batu". Hanya "Kabupaten" yang
+     * dibuang — "Kota" ikut membedakan Kota Malang dari Kabupaten Malang.
+     */
+    private function rapikanDaerah(?string $daerah): ?string
+    {
+        if (blank($daerah)) {
+            return null;
+        }
+
+        $daerah = trim(preg_replace('/^Kabupaten\s+/i', '', trim($daerah)));
+
+        return $daerah ?: null;
     }
 
     /**

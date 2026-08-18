@@ -166,10 +166,14 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                     <h2 class="text-xl font-bold leading-tight text-white font-heading sm:text-2xl">
                                         {{ $dest->destination_name }}
                                     </h2>
-                                    @if ($dest->provinsi)
+                                    @if ($dest->alamat_singkat)
+                                        {{-- Daerahnya disebut lebih dulu: itu yang dicari dan
+                                             ditanyakan penyewa — berangkat dari mana, menginap
+                                             di mana. "Jawa Timur" saja membentang 47 ribu km
+                                             persegi. --}}
                                         <p class="flex items-center gap-1 mt-1 text-sm text-slate-200">
                                             <x-heroicon-s-map-pin class="w-4 h-4 text-orcha-sun" />
-                                            {{ $dest->provinsi }}
+                                            {{ $dest->alamat_singkat }}
                                         </p>
                                     @endif
                                 </div>
@@ -287,10 +291,10 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                             {{ $detail->destination_name }}
                         </h2>
                         <p class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-sm text-slate-200">
-                            @if ($detail->provinsi)
+                            @if ($detail->alamat_singkat)
                                 <span class="inline-flex items-center gap-1">
                                     <x-heroicon-s-map-pin class="w-4 h-4 text-orcha-sun" />
-                                    {{ $detail->provinsi }}
+                                    {{ $detail->alamat_singkat }}
                                 </span>
                             @endif
                             <span class="inline-flex items-center gap-1">

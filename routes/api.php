@@ -102,6 +102,8 @@ Route::prefix('v1')
         // Provinsi tambahan: daftar bawaan boleh dilengkapi tanpa menunggu rilis.
         // Usulan provinsi dari nama destinasi — hasilnya boleh kosong.
         Route::get('/cari-lokasi', [ProvinsiController::class, 'cariLokasi']);
+        Route::post('/daerah', [ProvinsiController::class, 'simpanDaerah']);
+        Route::delete('/daerah/{daerah}', [ProvinsiController::class, 'hapusDaerah']);
         Route::post('/katalog-destinasi', [ProvinsiController::class, 'simpanKatalogDestinasi']);
         Route::delete('/katalog-destinasi/{katalog}', [ProvinsiController::class, 'hapusKatalogDestinasi']);
         Route::post('/wilayah', [ProvinsiController::class, 'simpanWilayah']);

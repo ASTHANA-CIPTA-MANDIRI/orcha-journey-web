@@ -408,3 +408,124 @@ test('rujukan mengirim katalog beserta penanda mana yang boleh dihapus', functio
         ->and($data['katalog_destinasi']['Banyuwangi'])->toBe('Jawa Timur')
         ->and(collect($data['katalog_destinasi_kustom'])->pluck('nama')->all())->toBe(['Pantai Rahasia']);
 });
+
+/* -------- DAERAH (KABUPATEN / KOTA / KAWASAN) -------- */
+
+use App\Models\Etalase\DaerahTambahan;
+
+function kirimDaerah(array $isi, string $metode = 'post', ?int $id = null)
+{
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    return test()->json($metode, '/api/v1/daerah'.($id ? "/{$id}" : ''), $isi, [
+        'X-Orcha-Key' => 'kunci-uji',
+        'X-Orcha-Admin' => 'admin@phoenix.test',
+    ]);
+}
+
+test('katalog daerah bawaan menyebut provinsi yang dikenal semua', function () {
+    $menyimpang = collect(config('orcha.katalog_daerah'))
+        ->reject(fn ($provinsi) => array_key_exists($provinsi, config('orcha.provinsi_wilayah')))
+        ->keys()->all();
+
+    expect($menyimpang)->toBe([])
+        ->and(config('orcha.katalog_daerah'))->toHaveKey('Banyuwangi')
+        ->and(config('orcha.katalog_daerah'))->toHaveKey('Karimunjawa')
+        ->and(config('orcha.katalog_daerah'))->toHaveKey('Nusa Penida');
+});
+
+test('daerah baru tersimpan beserta provinsinya', function () {
+    kirimDaerah(['nama' => 'Kabupaten Baru', 'provinsi' => 'Jawa Timur'])->assertCreated();
+
+    expect(DaerahTambahan::gabungan())->toHaveKey('Kabupaten Baru')
+        ->and(DaerahTambahan::gabungan()['Kabupaten Baru'])->toBe('Jawa Timur');
+});
+
+test('daerah wajib menyebut provinsinya', function () {
+    // Daerah dipilih SESUDAH provinsi, dan daftar yang tidak tahu provinsinya
+    // tidak bisa disaring.
+    kirimDaerah(['nama' => 'Kabupaten Baru'])->assertStatus(422)
+        ->assertJsonValidationErrors('provinsi');
+});
+
+test('daerah yang sudah ada di provinsi yang sama tidak digandakan', function () {
+    kirimDaerah(['nama' => 'Banyuwangi', 'provinsi' => 'Jawa Timur'])->assertOk();
+
+    expect(DaerahTambahan::count())->toBe(0);
+});
+
+test('daerah yang dipakai destinasi ikut jadi pilihan', function () {
+    DestinationPopuler::create([
+        'destination_name' => 'Pantai Rahasia', 'wilayah' => 'jawa',
+        'provinsi' => 'Jawa Timur', 'daerah' => 'Situbondo', 'total_visitor' => 10,
+    ]);
+
+    expect(DaerahTambahan::gabungan())->toHaveKey('Situbondo');
+});
+
+test('menghapus daerah tambahan tidak menyentuh destinasinya', function () {
+    $daerah = DaerahTambahan::create(['nama' => 'Situbondo', 'provinsi' => 'Jawa Timur']);
+
+    DestinationPopuler::create([
+        'destination_name' => 'Pantai Rahasia', 'wilayah' => 'jawa',
+        'provinsi' => 'Jawa Timur', 'daerah' => 'Situbondo', 'total_visitor' => 10,
+    ]);
+
+    kirimDaerah([], 'delete', $daerah->id)->assertOk();
+
+    expect(DestinationPopuler::first()->daerah)->toBe('Situbondo');
+});
+
+test('daerah tersimpan lewat api dan terkirim di daftar', function () {
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    test()->postJson('/api/v1/destinasi', [
+        'nama' => 'Kawah Ijen', 'wilayah' => 'jawa',
+        'provinsi' => 'Jawa Timur', 'daerah' => 'Banyuwangi',
+    ], [
+        'X-Orcha-Key' => 'kunci-uji', 'X-Orcha-Admin' => 'admin@phoenix.test',
+    ])->assertCreated();
+
+    $baris = $this->getJson('/api/v1/destinasi', [
+        'X-Orcha-Key' => 'kunci-uji', 'X-Orcha-Admin' => 'admin@phoenix.test',
+    ])->assertOk()->json('data.0');
+
+    expect($baris['daerah'])->toBe('Banyuwangi')
+        ->and($baris['alamat_singkat'])->toBe('Banyuwangi, Jawa Timur');
+});
+
+test('kartu publik menyebut daerah lebih dulu, lalu provinsinya', function () {
+    DestinationPopuler::create([
+        'destination_name' => 'Kawah Ijen', 'wilayah' => 'jawa',
+        'provinsi' => 'Jawa Timur', 'daerah' => 'Banyuwangi', 'total_visitor' => 900,
+    ]);
+
+    // "Jawa Timur" saja membentang 47 ribu km persegi — daerahnya yang dicari
+    // dan ditanyakan penyewa.
+    $this->get(route('destinasi'))->assertOk()->assertSee('Banyuwangi, Jawa Timur');
+});
+
+test('destinasi tanpa daerah tetap terbaca wajar', function () {
+    DestinationPopuler::create([
+        'destination_name' => 'Tempat Lama', 'wilayah' => 'jawa',
+        'provinsi' => 'Jawa Timur', 'total_visitor' => 10,
+    ]);
+
+    // Koma menggantung membuatnya tampak seperti data yang rusak.
+    expect(DestinationPopuler::first()->alamat_singkat)->toBe('Jawa Timur');
+});
+
+test('usulan peta ikut menyebut daerahnya', function () {
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'address' => ['state' => 'Jawa Timur', 'county' => 'Kabupaten Banyuwangi'],
+        ]]),
+    ]);
+
+    // "Kabupaten" dibuang: yang dicari dan disebut penyewa "Banyuwangi".
+    cariLokasi('Kawah Ijen')->assertOk()
+        ->assertJsonPath('data.provinsi', 'Jawa Timur')
+        ->assertJsonPath('data.daerah', 'Banyuwangi');
+});

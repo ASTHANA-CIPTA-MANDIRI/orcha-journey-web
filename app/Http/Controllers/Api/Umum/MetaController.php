@@ -102,6 +102,10 @@ class MetaController extends ApiController
                 // Nama destinasi yang sering diminta beserta provinsinya: sekali
                 // dipilih, nama dan provinsi terisi — dan wilayah ikut, karena
                 // provinsi yang menentukannya.
+                // Daerah menyusut mengikuti provinsi, sama seperti provinsi
+                // menyusut mengikuti wilayah.
+                'katalog_daerah' => \App\Models\Etalase\DaerahTambahan::gabungan(),
+                'katalog_daerah_kustom' => \App\Models\Etalase\DaerahTambahan::kustom(),
                 'katalog_destinasi' => \App\Models\Etalase\KatalogDestinasi::gabungan(),
                 'katalog_destinasi_kustom' => \App\Models\Etalase\KatalogDestinasi::kustom(),
                 'pembayaran' => config('orcha.pembayaran'),

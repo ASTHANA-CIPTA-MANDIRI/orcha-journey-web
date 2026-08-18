@@ -15,6 +15,7 @@ class DestinationPopuler extends Model
         'destination_name',
         'wilayah',
         'provinsi',
+        'daerah',
         'deskripsi',
         'total_visitor',
         'main_photo',
@@ -31,6 +32,21 @@ class DestinationPopuler extends Model
     public function getWilayahLabelAttribute(): string
     {
         return \App\Models\Etalase\WilayahTambahan::gabungan()[$this->wilayah] ?? 'Indonesia';
+    }
+
+    /**
+     * Alamat singkat destinasi: "Banyuwangi, Jawa Timur".
+     *
+     * Dirakit di satu tempat supaya kartu, jendela detail, dan surat menyebut
+     * hal yang sama. Bagian yang belum diketahui dilewati — destinasi lama
+     * belum punya daerah, dan menuliskan koma menggantung membuatnya tampak
+     * seperti data yang rusak.
+     */
+    public function getAlamatSingkatAttribute(): string
+    {
+        return collect([$this->daerah, $this->provinsi])
+            ->filter(fn ($bagian) => trim((string) $bagian) !== '')
+            ->implode(', ');
     }
 
     public function scopeDiWilayah($query, ?string $wilayah)

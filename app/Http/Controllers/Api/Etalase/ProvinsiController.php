@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Etalase;
 
 use App\Http\Controllers\Api\ApiController;
+use App\Models\Etalase\DaerahTambahan;
 use App\Models\Etalase\DestinationPopuler;
 use App\Models\Etalase\KatalogDestinasi;
 use App\Models\Etalase\ProvinsiTambahan;
@@ -62,6 +63,56 @@ class ProvinsiController extends ApiController
             'pesan' => "{$nama} ditambahkan ke daftar provinsi.",
             'data' => ProvinsiTambahan::kustom(),
         ], 201);
+    }
+
+    /* ------------------------------- DAERAH ------------------------------ */
+
+    public function simpanDaerah(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'nama' => ['required', 'string', 'max:100'],
+            // Provinsi wajib: daerah dipilih SESUDAH provinsi, dan daftar yang
+            // tidak tahu provinsinya tidak bisa disaring.
+            'provinsi' => ['required', 'string', 'max:100'],
+        ], [], ['nama' => 'nama daerah']);
+
+        $nama = trim(preg_replace('/\s+/', ' ', $data['nama']));
+        $provinsi = trim($data['provinsi']);
+
+        $sudahAda = collect(DaerahTambahan::gabungan())
+            ->filter(fn ($prov, $daerah) => $daerah === $nama && $prov === $provinsi)
+            ->isNotEmpty();
+
+        if ($sudahAda) {
+            return response()->json([
+                'pesan' => "{$nama} sudah ada di daftar daerah.",
+                'data' => DaerahTambahan::kustom(),
+            ]);
+        }
+
+        DaerahTambahan::create(['nama' => $nama, 'provinsi' => $provinsi]);
+
+        return response()->json([
+            'pesan' => "{$nama} ditambahkan ke daftar daerah.",
+            'data' => DaerahTambahan::kustom(),
+        ], 201);
+    }
+
+    /**
+     * Menghapus satu daerah tambahan.
+     *
+     * TIDAK menyentuh destinasi mana pun: daerah pada destinasi tersimpan
+     * sebagai tulisan, dan yang hilang hanya pilihannya di formulir.
+     */
+    public function hapusDaerah(DaerahTambahan $daerah): JsonResponse
+    {
+        $nama = $daerah->nama;
+        $daerah->delete();
+
+        return response()->json([
+            'pesan' => "{$nama} dihapus dari daftar daerah.",
+            'data' => DaerahTambahan::kustom(),
+        ]);
     }
 
     /* -------------------------- KATALOG DESTINASI ------------------------- */
