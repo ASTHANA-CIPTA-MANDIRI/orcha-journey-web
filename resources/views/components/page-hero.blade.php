@@ -5,6 +5,7 @@
     'image' => 'images/pantai-senja.jpg',
     'posisi' => 'center',
     'gambarPenuh' => null,
+    'kelas' => '',
 ])
 
 {{-- Kepala halaman untuk semua halaman informasi (FAQ, ketentuan, testimoni).
@@ -15,7 +16,12 @@
 
      `gambarPenuh` dipakai bila sumbernya sudah berupa URL/berkas siap pakai
      (mis. sampul paket), sehingga tidak perlu lewat asset(). --}}
-<section class="relative overflow-hidden bg-orcha-navy">
+{{-- `kelas` dipakai halaman yang fotonya harus tampil UTUH: dengan
+     memberi seksinya nisbah yang sama dengan fotonya, object-cover tidak
+     memotong apa pun. Kelasnya ditulis lengkap di halaman pemanggil, bukan
+     dirakit di sini — Tailwind membaca berkas sumber apa adanya, dan kelas
+     yang dirangkai dari variabel tidak pernah ikut terbangun. --}}
+<section class="relative overflow-hidden bg-orcha-navy {{ $kelas }}">
     <img src="{{ $gambarPenuh ?: asset($image) }}" alt=""
         class="absolute inset-0 object-cover w-full h-full opacity-60"
         style="object-position: {{ $posisi }};">

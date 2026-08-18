@@ -142,7 +142,12 @@ new #[Layout('components.layouts.guest')] #[Title('Kontak Kami — Orcha Journey
 <div>
     <x-page-hero title="Kontak Kami" eyebrow="Hubungi Orcha Journey"
         subtitle="Pilih kanal yang paling nyaman untuk Anda. Pertanyaan lewat WhatsApp biasanya dibalas dalam hitungan menit."
-        image="images/HERO/kontak.jpg" posisi="center 30%" />
+        image="images/HERO/kontak.jpg"
+        {{-- Nisbah fotonya sendiri (1717x916): dengan begitu tidak ada bagian
+             yang terpotong — papan penunjuk di kanan dan meja di bawah ikut
+             terlihat. Hanya di layar lebar; di layar sempit nisbah selebar ini
+             menghasilkan pita pendek yang tidak muat untuk judulnya. --}}
+        kelas="lg:aspect-[1717/916]" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">
