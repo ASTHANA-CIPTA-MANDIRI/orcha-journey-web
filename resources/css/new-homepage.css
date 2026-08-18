@@ -515,24 +515,20 @@ h6,
     pointer-events: none;
 }
 
-/* Tata letak sudut, bukan tumpukan di tengah: merek di atas, angka dan
-   keterangan di dasar. Bidang tengah sengaja dibiarkan lapang — itu yang
-   membuatnya terbaca modern, bukan penuh. */
+/* Isinya menempel ke dasar, bidang atasnya dibiarkan lapang.
+
+   Tulisan "Orcha Journey" pernah ada di kiri atas sini dan sudah dibuang.
+   Bukan karena jelek, melainkan karena mengulang: sedetik kemudian layar ini
+   terangkat dan logo yang sama muncul di sudut yang hampir sama pada navbar.
+   Nama yang sama disebut dua kali dalam dua detik terbaca sebagai kedipan,
+   bukan sebagai sambutan. */
 .preloader-content {
     position: relative;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-end;
     height: 100%;
     padding: clamp(1.5rem, 5vw, 3.5rem);
-}
-
-.preloader-merek {
-    font-size: .7rem;
-    font-weight: 700;
-    letter-spacing: .42em;
-    text-transform: uppercase;
-    color: rgba(232, 247, 253, .5);
 }
 
 .preloader-bawah {

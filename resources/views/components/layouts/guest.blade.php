@@ -85,8 +85,6 @@
         <div class="preloader-kisi" aria-hidden="true"></div>
 
         <div class="preloader-content">
-            <span class="preloader-merek">Orcha Journey</span>
-
             <div class="preloader-bawah">
                 {{-- Angkanya TERISI dari bawah seiring muatannya: warnanya
                      dipotong huruf, jadi digitnya sendiri yang jadi takarannya.
