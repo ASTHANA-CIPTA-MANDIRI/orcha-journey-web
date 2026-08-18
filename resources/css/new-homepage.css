@@ -441,6 +441,9 @@ h6,
     width: min(170vw, 1100px);
     aspect-ratio: 2.2 / 1;
     transform: translate(-50%, calc(52% - var(--maju) * 30%));
+    /* Tanpa transition. --maju sudah ditulis GSAP tiap bingkai; menambah
+       transisi CSS di atasnya berarti dua peredam bertumpuk — nilainya
+       dikejar-kejar dan geraknya justru tersendat, bukan makin halus. */
     /* Berhenti pada warna yang SAMA dengan alfa nol, bukan pada `transparent`.
        `transparent` itu hitam beralfa nol, jadi gradasinya diam-diam menggelap
        ke arah tepi — dan batas kotaknya jadi terbaca sebagai persegi samar di
@@ -464,7 +467,6 @@ h6,
             rgba(255, 167, 64, 0.16) 34%,
             rgba(26, 176, 226, 0.08) 68%,
             rgba(26, 176, 226, 0) 100%);
-    transition: transform .6s cubic-bezier(.22, .61, .36, 1);
     pointer-events: none;
 }
 
@@ -521,7 +523,6 @@ h6,
     stroke-dasharray: 1;
     stroke-dashoffset: calc(1 - var(--maju));
     filter: drop-shadow(0 0 6px rgba(255, 199, 78, .55));
-    transition: stroke-dashoffset .35s cubic-bezier(.22, .61, .36, 1);
 }
 
 /* Pesawatnya menyusuri KURVA YANG SAMA, bukan garis lurus khayalan di
@@ -534,7 +535,6 @@ h6,
     offset-path: path("M8 58 C 70 8, 190 8, 252 58");
     offset-distance: calc(var(--maju) * 100%);
     offset-rotate: auto;
-    transition: offset-distance .35s cubic-bezier(.22, .61, .36, 1);
     filter: drop-shadow(0 1px 3px rgba(0, 18, 32, .8));
 }
 
@@ -568,11 +568,103 @@ h6,
 
 /* Gerak yang tidak menerangkan apa pun dimatikan bagi yang memintanya; angka,
    jalur, dan pesawatnya TETAP bergerak — itu isi informasinya, bukan hiasan. */
+/* ---- Langit malam yang berangsur jadi pagi ---------------------------- */
+
+/* Bintangnya gradasi, bukan berkas gambar: tergambar seketika, dan titiknya
+   ditulis tetap supaya susunannya tidak berubah tiap muat — bintang yang
+   melompat-lompat justru menarik perhatian ke tempat yang salah. */
+.preloader-bintang {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 72%;
+    opacity: calc(0.75 - var(--maju) * 0.7);
+    background-repeat: no-repeat;
+    background-image:
+        radial-gradient(1.6px 1.6px at 12% 18%, rgba(255, 255, 255, .85), transparent 60%),
+        radial-gradient(1.2px 1.2px at 27% 42%, rgba(255, 255, 255, .55), transparent 60%),
+        radial-gradient(1.8px 1.8px at 38% 12%, rgba(232, 247, 253, .8), transparent 60%),
+        radial-gradient(1.1px 1.1px at 52% 30%, rgba(255, 255, 255, .5), transparent 60%),
+        radial-gradient(1.5px 1.5px at 64% 8%, rgba(255, 255, 255, .75), transparent 60%),
+        radial-gradient(1.2px 1.2px at 73% 36%, rgba(232, 247, 253, .6), transparent 60%),
+        radial-gradient(1.7px 1.7px at 86% 22%, rgba(255, 255, 255, .8), transparent 60%),
+        radial-gradient(1.1px 1.1px at 94% 48%, rgba(255, 255, 255, .45), transparent 60%),
+        radial-gradient(1.3px 1.3px at 6% 55%, rgba(255, 255, 255, .5), transparent 60%),
+        radial-gradient(1.4px 1.4px at 45% 58%, rgba(232, 247, 253, .45), transparent 60%);
+    animation: preloader-kelip 4.5s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes preloader-kelip {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.45); }
+}
+
+/* Pantulan matahari di air — melebar dan menghangat seiring mataharinya naik.
+   Inilah yang membuat bidang bawah terbaca sebagai air, bukan bidang gelap. */
+.preloader-kilau {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: calc(24% + var(--maju) * 30%);
+    height: 32%;
+    transform: translateX(-50%);
+    /* Radial dari titik terbit di cakrawala, bukan gradasi tegak.
+
+       Gradasi tegak hanya memudar ke atas-bawah; tepi kiri-kanannya berhenti
+       mendadak di batas kotak, dan kilaunya terbaca sebagai persegi terang di
+       air — terlihat jelas begitu dipotret. Radial memudar ke segala arah,
+       jadi tidak ada tepi yang tersisa untuk terlihat. */
+    background: radial-gradient(ellipse farthest-side at 50% 0%,
+        rgba(255, 214, 130, calc(0.12 + var(--maju) * 0.24)) 0%,
+        rgba(255, 199, 78, calc(0.05 + var(--maju) * 0.12)) 45%,
+        rgba(255, 199, 78, 0) 100%);
+    filter: blur(10px);
+    pointer-events: none;
+}
+
+/* Sudut yang diredupkan; mata jatuh ke tengah tanpa disuruh. */
+.preloader-vignet {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse farthest-side at 50% 45%,
+        rgba(0, 18, 32, 0) 40%,
+        rgba(0, 18, 32, .55) 100%);
+    pointer-events: none;
+}
+
+/* Ekor cahaya di belakang pesawat: potongan pendek dari jalur yang sama,
+   digeser mengikuti --maju. Panjangnya tetap, jadi ia terbaca sebagai jejak
+   yang mengikuti, bukan sebagai jalur kedua. */
+.preloader-rute .jalur-ekor {
+    stroke: #fff;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: .06 1;
+    stroke-dashoffset: calc(0.06 - var(--maju));
+    opacity: .5;
+    filter: blur(2px);
+}
+
+/* Pesawatnya mengambang tipis — cukup untuk membuat layar ini tidak pernah
+   terlihat membeku ketika muatannya tersendat, tetapi tidak sampai melepas
+   pesawatnya dari garis. */
+.preloader-pesawat {
+    animation: preloader-mengambang 2.8s ease-in-out infinite;
+}
+
+@keyframes preloader-mengambang {
+    0%, 100% { translate: 0 0; }
+    50% { translate: 0 -1.6px; }
+}
+
+/* Gerak yang tidak menerangkan apa pun dimatikan bagi yang memintanya; angka,
+   jalur, pesawat, dan fajarnya TETAP bergerak — itu isi informasinya, bukan
+   hiasan. */
 @media (prefers-reduced-motion: reduce) {
-    .preloader-fajar,
-    .preloader-rute .jalur-maju,
+    .preloader-bintang,
     .preloader-pesawat {
-        transition: none;
+        animation: none;
     }
 }
 

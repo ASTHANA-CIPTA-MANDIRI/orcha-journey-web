@@ -65,8 +65,14 @@
         {{-- Fajar yang ikut terbit seiring muatannya. Naik dari bawah bingkai
              mengikuti --maju, jadi geraknya menerangkan kemajuan, bukan sekadar
              hiasan yang berdenyut sendiri. --}}
+        {{-- Malam yang berangsur jadi fajar. Bintangnya memudar seiring
+             mataharinya naik, jadi pergantian waktunya sendiri yang
+             menceritakan kemajuan — bukan hanya angkanya. --}}
+        <div class="preloader-bintang" aria-hidden="true"></div>
         <div class="preloader-fajar" aria-hidden="true"></div>
         <div class="preloader-ombak" aria-hidden="true"></div>
+        <div class="preloader-kilau" aria-hidden="true"></div>
+        <div class="preloader-vignet" aria-hidden="true"></div>
 
         <div class="flex flex-col items-center preloader-content">
             {{-- Rute perjalanan: garis putus-putus seperti di peta, digambar
@@ -86,6 +92,10 @@
                          ia menyusut bersama jalurnya di layar sempit dengan
                          sendirinya; di luar, posisinya tetap dalam piksel layar
                          dan melenceng dari garis begitu lebarnya berubah. --}}
+                    {{-- Ekor cahaya: jalur yang sama, digambar hanya sepotong
+                         tepat di belakang pesawatnya. --}}
+                    <path class="jalur-ekor" pathLength="1" d="M8 58 C 70 8, 190 8, 252 58" />
+
                     <g class="preloader-pesawat">
                         <path fill="currentColor" transform="translate(-7.5 -7.5) scale(.62)"
                             d="M21.4 11.1 3.9 3.5c-.6-.3-1.2.3-1 .9l1.9 5.6c.1.3.3.5.6.5l6.9.9c.3 0 .3.4 0 .5l-6.9.9c-.3 0-.5.2-.6.5l-1.9 5.6c-.2.6.4 1.2 1 .9l17.5-7.6c.6-.2.6-1 0-1.2z" />
