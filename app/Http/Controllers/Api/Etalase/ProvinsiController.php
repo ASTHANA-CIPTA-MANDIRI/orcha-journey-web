@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Etalase;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Models\Etalase\DestinationPopuler;
+use App\Models\Etalase\KatalogDestinasi;
 use App\Models\Etalase\ProvinsiTambahan;
 use App\Models\Etalase\WilayahTambahan;
 use App\Support\Etalase\CariLokasi;
@@ -61,6 +62,59 @@ class ProvinsiController extends ApiController
             'pesan' => "{$nama} ditambahkan ke daftar provinsi.",
             'data' => ProvinsiTambahan::kustom(),
         ], 201);
+    }
+
+    /* -------------------------- KATALOG DESTINASI ------------------------- */
+
+    /**
+     * Menambahkan nama destinasi ke katalog pilihan.
+     *
+     * Provinsinya dicari sendiri bila tidak disebut: gunanya katalog ini bukan
+     * sekadar melengkapi nama, melainkan mengisi provinsi dan wilayah sekaligus.
+     * Nama tanpa provinsi tetap disimpan — separuh bantuan lebih baik daripada
+     * menolak menyimpan.
+     */
+    public function simpanKatalogDestinasi(Request $request, CariLokasi $peta): JsonResponse
+    {
+        $data = $request->validate([
+            'nama' => ['required', 'string', 'max:191'],
+            'provinsi' => ['nullable', 'string', 'max:100'],
+        ], [], ['nama' => 'nama destinasi']);
+
+        $nama = trim(preg_replace('/\s+/', ' ', $data['nama']));
+        $provinsi = trim((string) ($data['provinsi'] ?? '')) ?: ($peta->cari($nama)['provinsi'] ?? null);
+
+        if (array_key_exists($nama, KatalogDestinasi::gabungan())) {
+            return response()->json([
+                'pesan' => "{$nama} sudah ada di daftar.",
+                'data' => KatalogDestinasi::kustom(),
+            ]);
+        }
+
+        KatalogDestinasi::create(['nama' => $nama, 'provinsi' => $provinsi]);
+
+        return response()->json([
+            'pesan' => "{$nama} ditambahkan ke daftar destinasi.",
+            'data' => KatalogDestinasi::kustom(),
+        ], 201);
+    }
+
+    /**
+     * Menghapus satu entri katalog.
+     *
+     * TIDAK menghapus destinasi apa pun. Destinasi yang sudah tercatat tetap
+     * utuh, dan namanya tetap muncul di daftar pilihan karena ikut dibaca dari
+     * destinasi yang ada.
+     */
+    public function hapusKatalogDestinasi(KatalogDestinasi $katalog): JsonResponse
+    {
+        $nama = $katalog->nama;
+        $katalog->delete();
+
+        return response()->json([
+            'pesan' => "{$nama} dihapus dari daftar.",
+            'data' => KatalogDestinasi::kustom(),
+        ]);
     }
 
     /* ------------------------------ WILAYAH ------------------------------ */

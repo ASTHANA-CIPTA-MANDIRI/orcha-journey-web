@@ -298,3 +298,113 @@ test('wilayah tambahan ikut jadi tab penyaring di halaman publik', function () {
         ->assertSee('Jalur Rempah')
         ->assertSee('Banda Neira');
 });
+
+/* -------- KATALOG NAMA DESTINASI -------- */
+
+use App\Models\Etalase\KatalogDestinasi;
+
+function kirimKatalog(array $isi, string $metode = 'post', ?int $id = null)
+{
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    return test()->json($metode, '/api/v1/katalog-destinasi'.($id ? "/{$id}" : ''), $isi, [
+        'X-Orcha-Key' => 'kunci-uji',
+        'X-Orcha-Admin' => 'admin@phoenix.test',
+    ]);
+}
+
+test('katalog bawaan menyebut provinsi yang dikenal semua', function () {
+    // Provinsi yang tidak ada di daftar membuat isian terisi nama yang tidak
+    // punya wilayah — destinasinya lalu hilang dari penyaring.
+    $menyimpang = collect(config('orcha.katalog_destinasi'))
+        ->reject(fn ($provinsi) => array_key_exists($provinsi, config('orcha.provinsi_wilayah')))
+        ->keys()->all();
+
+    expect($menyimpang)->toBe([])
+        ->and(config('orcha.katalog_destinasi'))->toHaveKey('Banyuwangi');
+});
+
+test('destinasi yang sudah tercatat ikut jadi pilihan', function () {
+    DestinationPopuler::create([
+        'destination_name' => 'Pantai Rahasia', 'wilayah' => 'jawa',
+        'provinsi' => 'Jawa Timur', 'total_visitor' => 10,
+    ]);
+
+    // Supaya admin tidak perlu menambahkannya lagi ke katalog hanya untuk bisa
+    // memilihnya, dan supaya nama yang sudah dipakai muncul sebagai kemungkinan
+    // duplikat.
+    expect(KatalogDestinasi::gabungan())->toHaveKey('Pantai Rahasia')
+        ->and(KatalogDestinasi::gabungan()['Pantai Rahasia'])->toBe('Jawa Timur');
+});
+
+test('nama baru tersimpan beserta provinsi yang dicari sendiri', function () {
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+            'address' => ['state' => 'Bali'],
+        ]]),
+    ]);
+
+    // Gunanya katalog ini bukan sekadar melengkapi nama, melainkan mengisi
+    // provinsi dan wilayah sekaligus.
+    kirimKatalog(['nama' => 'Pantai Melasti'])->assertCreated();
+
+    expect(KatalogDestinasi::first()->provinsi)->toBe('Bali');
+});
+
+test('provinsi yang disebut admin dipakai apa adanya, tanpa bertanya ke peta', function () {
+    \Illuminate\Support\Facades\Http::fake();
+
+    kirimKatalog(['nama' => 'Pantai Rahasia', 'provinsi' => 'Jawa Timur'])->assertCreated();
+
+    expect(KatalogDestinasi::first()->provinsi)->toBe('Jawa Timur');
+    \Illuminate\Support\Facades\Http::assertNothingSent();
+});
+
+test('nama yang tidak ketemu di peta tetap tersimpan', function () {
+    \Illuminate\Support\Facades\Http::fake([
+        '*nominatim*' => \Illuminate\Support\Facades\Http::response([], 404),
+    ]);
+
+    // Separuh bantuan lebih baik daripada menolak menyimpan.
+    kirimKatalog(['nama' => 'Tempat Antah Berantah'])->assertCreated();
+
+    expect(KatalogDestinasi::first())->provinsi->toBeNull();
+});
+
+test('nama yang sudah ada tidak digandakan', function () {
+    kirimKatalog(['nama' => 'Banyuwangi'])->assertOk();
+
+    expect(KatalogDestinasi::count())->toBe(0);
+});
+
+test('menghapus entri katalog tidak menghapus destinasinya', function () {
+    $katalog = KatalogDestinasi::create(['nama' => 'Pantai Rahasia', 'provinsi' => 'Jawa Timur']);
+
+    DestinationPopuler::create([
+        'destination_name' => 'Pantai Rahasia', 'wilayah' => 'jawa',
+        'provinsi' => 'Jawa Timur', 'total_visitor' => 10,
+    ]);
+
+    kirimKatalog([], 'delete', $katalog->id)->assertOk();
+
+    // Namanya tetap muncul di daftar karena ikut dibaca dari destinasi yang ada.
+    expect(DestinationPopuler::count())->toBe(1)
+        ->and(KatalogDestinasi::gabungan())->toHaveKey('Pantai Rahasia');
+});
+
+test('rujukan mengirim katalog beserta penanda mana yang boleh dihapus', function () {
+    KatalogDestinasi::create(['nama' => 'Pantai Rahasia', 'provinsi' => 'Jawa Timur']);
+
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    $data = $this->getJson('/api/v1/rujukan', [
+        'X-Orcha-Key' => 'kunci-uji',
+        'X-Orcha-Admin' => 'admin@phoenix.test',
+    ])->assertOk()->json('data');
+
+    expect($data['katalog_destinasi'])->toHaveKey('Banyuwangi')
+        ->and($data['katalog_destinasi']['Banyuwangi'])->toBe('Jawa Timur')
+        ->and(collect($data['katalog_destinasi_kustom'])->pluck('nama')->all())->toBe(['Pantai Rahasia']);
+});

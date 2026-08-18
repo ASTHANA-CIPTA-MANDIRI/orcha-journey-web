@@ -99,6 +99,11 @@ class MetaController extends ApiController
                 // Hanya entri tambahan yang boleh dihapus dari daftar pilihan;
                 // yang bawaan ikut versi kode.
                 'provinsi_kustom' => \App\Models\Etalase\ProvinsiTambahan::kustom(),
+                // Nama destinasi yang sering diminta beserta provinsinya: sekali
+                // dipilih, nama dan provinsi terisi — dan wilayah ikut, karena
+                // provinsi yang menentukannya.
+                'katalog_destinasi' => \App\Models\Etalase\KatalogDestinasi::gabungan(),
+                'katalog_destinasi_kustom' => \App\Models\Etalase\KatalogDestinasi::kustom(),
                 'pembayaran' => config('orcha.pembayaran'),
                 'fasilitas_umum' => config('orcha.fasilitas_umum'),
                 'status_paket' => config('orcha.status_paket'),

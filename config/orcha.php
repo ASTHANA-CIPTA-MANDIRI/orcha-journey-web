@@ -882,6 +882,124 @@ return [
     */
     'email_salinan_pelanggan' => (bool) env('ORCHA_EMAIL_SALINAN_PELANGGAN', true),
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Katalog Nama Destinasi
+    |--------------------------------------------------------------------------
+    |
+    | Tempat-tempat yang paling sering diminta, beserta provinsinya. Dipakai
+    | sebagai PILIHAN saat admin menambah destinasi: sekali pilih, nama dan
+    | provinsinya terisi — dan wilayahnya ikut, karena provinsi menentukan
+    | wilayah.
+    |
+    | Ini daftar awal, bukan daftar tertutup: nama yang belum ada bisa ditulis
+    | admin dan langsung masuk daftar. Provinsinya pun boleh dibetulkan lewat
+    | isian provinsi — daftar ini hanya mengisi, tidak mengunci.
+    |
+    | Beberapa tempat berada di perbatasan dan penyebutannya bisa berbeda-beda
+    | (Prambanan sering disebut Yogyakarta walau candinya di perbatasan Klaten).
+    | Yang dipakai di sini penyebutan yang paling lazim di penawaran wisata.
+    |
+    */
+
+    'katalog_destinasi' => [
+        // Jawa Timur
+        'Banyuwangi' => 'Jawa Timur',
+        'Kawah Ijen' => 'Jawa Timur',
+        'Bromo Tengger Semeru' => 'Jawa Timur',
+        'Tumpak Sewu' => 'Jawa Timur',
+        'Madakaripura' => 'Jawa Timur',
+        'Malang' => 'Jawa Timur',
+        'Batu' => 'Jawa Timur',
+        'Pulau Merah' => 'Jawa Timur',
+
+        // Jawa Tengah
+        'Borobudur' => 'Jawa Tengah',
+        'Dieng' => 'Jawa Tengah',
+        'Karimunjawa' => 'Jawa Tengah',
+        'Bukit Sikunir' => 'Jawa Tengah',
+        'Solo' => 'Jawa Tengah',
+        'Semarang' => 'Jawa Tengah',
+
+        // DI Yogyakarta
+        'Candi Prambanan' => 'DI Yogyakarta',
+        'Malioboro' => 'DI Yogyakarta',
+        'Pantai Parangtritis' => 'DI Yogyakarta',
+        'Goa Jomblang' => 'DI Yogyakarta',
+        'Gunung Merapi' => 'DI Yogyakarta',
+        'Pantai Timang' => 'DI Yogyakarta',
+        'Heha Sky View' => 'DI Yogyakarta',
+
+        // Jawa Barat & Banten
+        'Kawah Putih' => 'Jawa Barat',
+        'Tangkuban Perahu' => 'Jawa Barat',
+        'Bandung' => 'Jawa Barat',
+        'Pangandaran' => 'Jawa Barat',
+        'Ujung Kulon' => 'Banten',
+        'Tanjung Lesung' => 'Banten',
+
+        // DKI Jakarta
+        'Kepulauan Seribu' => 'DKI Jakarta',
+        'Kota Tua Jakarta' => 'DKI Jakarta',
+
+        // Bali
+        'Pantai Kuta Bali' => 'Bali',
+        'Ubud' => 'Bali',
+        'Nusa Penida' => 'Bali',
+        'Tanah Lot' => 'Bali',
+        'Uluwatu' => 'Bali',
+        'Kintamani' => 'Bali',
+        'Bedugul' => 'Bali',
+
+        // Nusa Tenggara
+        'Gili Trawangan' => 'Nusa Tenggara Barat',
+        'Gunung Rinjani' => 'Nusa Tenggara Barat',
+        'Mandalika' => 'Nusa Tenggara Barat',
+        'Labuan Bajo' => 'Nusa Tenggara Timur',
+        'Pulau Komodo' => 'Nusa Tenggara Timur',
+        'Kelimutu' => 'Nusa Tenggara Timur',
+        'Sumba' => 'Nusa Tenggara Timur',
+
+        // Sumatera
+        'Danau Toba' => 'Sumatera Utara',
+        'Pulau Samosir' => 'Sumatera Utara',
+        'Bukit Lawang' => 'Sumatera Utara',
+        'Berastagi' => 'Sumatera Utara',
+        'Bukittinggi' => 'Sumatera Barat',
+        'Kepulauan Mentawai' => 'Sumatera Barat',
+        'Lembah Harau' => 'Sumatera Barat',
+        'Sabang' => 'Aceh',
+        'Pulau Weh' => 'Aceh',
+        'Pulau Belitung' => 'Kepulauan Bangka Belitung',
+        'Pahawang' => 'Lampung',
+        'Way Kambas' => 'Lampung',
+        'Gunung Kerinci' => 'Jambi',
+        'Bintan' => 'Kepulauan Riau',
+
+        // Kalimantan
+        'Kepulauan Derawan' => 'Kalimantan Timur',
+        'Maratua' => 'Kalimantan Timur',
+        'Tanjung Puting' => 'Kalimantan Tengah',
+        'Loksado' => 'Kalimantan Selatan',
+
+        // Sulawesi
+        'Bunaken' => 'Sulawesi Utara',
+        'Likupang' => 'Sulawesi Utara',
+        'Tana Toraja' => 'Sulawesi Selatan',
+        'Rammang-Rammang' => 'Sulawesi Selatan',
+        'Wakatobi' => 'Sulawesi Tenggara',
+        'Kepulauan Togean' => 'Sulawesi Tengah',
+        'Pantai Olele' => 'Gorontalo',
+
+        // Maluku & Papua
+        'Banda Neira' => 'Maluku',
+        'Ambon' => 'Maluku',
+        'Morotai' => 'Maluku Utara',
+        'Ternate' => 'Maluku Utara',
+        'Raja Ampat' => 'Papua Barat Daya',
+        'Lembah Baliem' => 'Papua Pegunungan',
+    ],
     /*
     |--------------------------------------------------------------------------
     | Pencarian Lokasi (peta luar)
