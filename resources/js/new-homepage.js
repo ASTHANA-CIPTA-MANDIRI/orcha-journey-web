@@ -22,7 +22,6 @@ function initPreloader() {
     if (!preloader) return;
 
     const percentageEl = document.getElementById("preloader-percentage");
-    const barEl = document.getElementById("preloader-bar");
     const contentEl = preloader.querySelector(".preloader-content");
 
     document.body.classList.add("overflow-hidden");
@@ -35,10 +34,14 @@ function initPreloader() {
     let assetsReady = false;
     let exitStarted = false;
 
+    // Satu tulisan untuk semuanya: angka persennya, dan --maju yang dibaca CSS
+    // untuk jalur, pesawat, dan fajarnya. Kalau masing-masing digerakkan
+    // sendiri, ketiganya akan berselisih di jaringan lambat — pesawatnya sampai
+    // di ujung sementara angkanya masih 70%.
     const renderProgress = () => {
-        const value = Math.round(progress.value);
-        if (percentageEl) percentageEl.textContent = value;
-        if (barEl) barEl.style.width = `${value}%`;
+        const value = progress.value;
+        if (percentageEl) percentageEl.textContent = Math.round(value);
+        preloader.style.setProperty("--maju", (value / 100).toFixed(4));
     };
 
     const finish = () => {
@@ -52,15 +55,21 @@ function initPreloader() {
             return;
         }
 
+        // Keluarnya dibaca sebagai "berangkat", bukan sebagai panel yang
+        // hilang: pesawat dan jalurnya meluncur ke depan lebih dulu, isinya
+        // menepi, baru layarnya terangkat.
+        const rute = preloader.querySelector(".preloader-rute");
+
         gsap.timeline({
-            defaults: { ease: "power4.inOut" },
+            defaults: { ease: "power3.inOut" },
             onComplete: () => {
                 preloader.remove();
                 ScrollTrigger.refresh();
             },
         })
-            .to(contentEl, { opacity: 0, y: -20, duration: 0.4, ease: "power2.in" })
-            .to(preloader, { yPercent: -100, duration: 0.9 }, "-=0.1");
+            .to(rute, { xPercent: 18, opacity: 0, duration: 0.5, ease: "power2.in" }, 0)
+            .to(contentEl, { opacity: 0, y: -24, duration: 0.45, ease: "power2.in" }, 0.12)
+            .to(preloader, { yPercent: -100, duration: 1, ease: "power4.inOut" }, 0.3);
     };
 
     const animateTo = (target, duration) => {

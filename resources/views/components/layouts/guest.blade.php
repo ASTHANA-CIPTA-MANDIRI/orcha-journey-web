@@ -53,25 +53,51 @@
 
     {{-- ============ PRELOADER ============ --}}
     <div id="preloader" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-orcha-navy">
-        {{-- Logonya sengaja TIDAK dipasang di sini.
+        {{-- Tidak ada satu pun berkas gambar di sini, dan itu disengaja.
 
-             Berkas gambar butuh permintaan tersendiri ke server. Saat muat
-             ulang paksa — cache kosong — gambar itu sempat tampil sendirian
-             beberapa saat sebelum skrip pemuatnya jalan, sehingga yang terlihat
-             adalah cap Orcha Journey dulu, baru layar pemuat. Yang tersisa di
-             sini hanya tulisan dan batang: keduanya tergambar seketika bersama
-             halamannya, tanpa menunggu apa pun. --}}
-        <div class="flex flex-col items-center gap-6 preloader-content">
-            <div class="flex items-baseline gap-1 font-heading tabular-nums">
-                <span id="preloader-percentage" class="text-4xl font-black text-white sm:text-5xl">0</span>
-                <span class="text-xl font-black sm:text-2xl text-orcha-sky">%</span>
+             Gambar butuh permintaan tersendiri ke server. Saat muat ulang paksa
+             — cache kosong — gambar itu sempat tampil sendirian beberapa saat
+             sebelum skrip pemuatnya jalan, sehingga yang terlihat cap Orcha
+             Journey dulu, baru layar pemuat. Semua yang ada di bawah ini
+             tergambar seketika bersama halamannya: teks, SVG sebaris, dan
+             gradasi. --}}
+
+        {{-- Fajar yang ikut terbit seiring muatannya. Naik dari bawah bingkai
+             mengikuti --maju, jadi geraknya menerangkan kemajuan, bukan sekadar
+             hiasan yang berdenyut sendiri. --}}
+        <div class="preloader-fajar" aria-hidden="true"></div>
+        <div class="preloader-ombak" aria-hidden="true"></div>
+
+        <div class="flex flex-col items-center preloader-content">
+            {{-- Rute perjalanan: garis putus-putus seperti di peta, digambar
+                 dari kiri ke kanan sementara pesawatnya menyusuri lengkung yang
+                 sama persis.
+
+                 pathLength="1" membuat panjang jalurnya dianggap 1 satuan, jadi
+                 dash-offset-nya cukup (1 - maju) — tanpa perlu mengukur panjang
+                 kurva dan menuliskan angkanya di sini. --}}
+            <div class="preloader-rute">
+                <svg viewBox="0 0 260 72" fill="none" aria-hidden="true">
+                    <path class="jalur" pathLength="1" d="M8 58 C 70 8, 190 8, 252 58" />
+                    <path class="jalur-maju" pathLength="1" d="M8 58 C 70 8, 190 8, 252 58" />
+
+                    {{-- Pesawatnya DI DALAM svg, bukan elemen terpisah di
+                         atasnya. Di dalam sini koordinatnya ikut viewBox, jadi
+                         ia menyusut bersama jalurnya di layar sempit dengan
+                         sendirinya; di luar, posisinya tetap dalam piksel layar
+                         dan melenceng dari garis begitu lebarnya berubah. --}}
+                    <g class="preloader-pesawat">
+                        <path fill="currentColor" transform="translate(-7.5 -7.5) scale(.62)"
+                            d="M21.4 11.1 3.9 3.5c-.6-.3-1.2.3-1 .9l1.9 5.6c.1.3.3.5.6.5l6.9.9c.3 0 .3.4 0 .5l-6.9.9c-.3 0-.5.2-.6.5l-1.9 5.6c-.2.6.4 1.2 1 .9l17.5-7.6c.6-.2.6-1 0-1.2z" />
+                    </g>
+                </svg>
             </div>
-            <div class="w-48 h-1.5 overflow-hidden rounded-full bg-white/10 sm:w-72">
-                <div id="preloader-bar" class="h-full rounded-full bg-gradient-to-r from-orcha-sky to-orcha-sun"
-                    style="width: 0%"></div>
+
+            <div class="preloader-angka font-heading tabular-nums">
+                <span id="preloader-percentage">0</span><span class="persen">%</span>
             </div>
-            <p class="text-[0.65rem] sm:text-xs font-semibold tracking-[0.3em] uppercase text-slate-400">Menyiapkan
-                perjalanan Anda</p>
+
+            <p class="preloader-tulisan">Menyiapkan perjalanan Anda</p>
         </div>
     </div>
 
