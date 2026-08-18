@@ -94,7 +94,10 @@ class MetaController extends ApiController
                 // dan wilayah penyaring di halaman publik terisi sendiri.
                 // Dikirim dari sini supaya daftarnya satu — bukan disalin ke
                 // lemon lalu berbeda diam-diam saat provinsi baru dimekarkan.
-                'provinsi_wilayah' => config('orcha.provinsi_wilayah'),
+                'provinsi_wilayah' => \App\Models\Etalase\ProvinsiTambahan::gabungan(),
+                // Hanya entri tambahan yang boleh dihapus dari daftar pilihan;
+                // yang bawaan ikut versi kode.
+                'provinsi_kustom' => \App\Models\Etalase\ProvinsiTambahan::kustom(),
                 'pembayaran' => config('orcha.pembayaran'),
                 'fasilitas_umum' => config('orcha.fasilitas_umum'),
                 'status_paket' => config('orcha.status_paket'),

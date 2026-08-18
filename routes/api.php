@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Etalase\EtalaseController;
+use App\Http\Controllers\Api\Etalase\ProvinsiController;
 use App\Http\Controllers\Api\Kontak\PesanController;
 use App\Http\Controllers\Api\OpenTrip\PembatalanController;
 use App\Http\Controllers\Api\OpenTrip\PembayaranController;
@@ -98,6 +99,9 @@ Route::prefix('v1')
         /* ------------------------------ ETALASE ------------------------------ */
         Route::get('/destinasi', [EtalaseController::class, 'destinasi']);
         Route::get('/destinasi/{destinasi}', [EtalaseController::class, 'satuDestinasi']);
+        // Provinsi tambahan: daftar bawaan boleh dilengkapi tanpa menunggu rilis.
+        Route::post('/provinsi', [ProvinsiController::class, 'store']);
+        Route::delete('/provinsi/{provinsi}', [ProvinsiController::class, 'destroy']);
         Route::post('/destinasi', [EtalaseController::class, 'simpanDestinasi']);
         Route::match(['put', 'post'], '/destinasi/{destinasi}', [EtalaseController::class, 'perbaruiDestinasi']);
         Route::delete('/destinasi/{destinasi}', [EtalaseController::class, 'hapusDestinasi']);
