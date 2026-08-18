@@ -573,28 +573,82 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                         @endforeach
                                     </dl>
 
-                                    {{-- Keterangan sopir dan BBM jadi daftar berikon, bukan dua
-                                         kalimat biru bertumpuk yang terbaca seperti tautan. --}}
-                                    <ul class="pt-3 mt-3 space-y-1.5 text-xs border-t text-slate-500 border-white">
-                                        {{-- Keterangan mengikuti wilayah yang sedang dipilih.
-                                             Menampilkan aturan dalam kota pada pesanan luar kota
-                                             berarti menjanjikan hal yang tidak berlaku — dan itu
-                                             baru ketahuan saat menagih. --}}
-                                        @foreach ([[collect($mobil->rincianOperasional((bool) $luarKota))->contains('termasuk', true), $mobil->operasionalLabel((bool) $luarKota)], [$mobil->termasukSopir((bool) $luarKota), $mobil->sopirLabel((bool) $luarKota)]] as [$termasuk, $kalimat])
-                                            <li class="flex items-start gap-1.5">
-                                                @if ($termasuk)
-                                                    <x-heroicon-s-check-circle
-                                                        class="w-4 h-4 mt-px shrink-0 text-orcha-ocean" />
-                                                @else
-                                                    <x-heroicon-o-information-circle
-                                                        class="w-4 h-4 mt-px shrink-0 text-slate-300" />
-                                                @endif
-                                                <span class="{{ $termasuk ? 'font-semibold text-slate-600' : '' }}">
-                                                    {{ $kalimat }}
-                                                </span>
-                                            </li>
-                                        @endforeach
-                                    </ul>
+                                    {{-- Yang sudah dihitung vs yang dibayar sendiri.
+
+                                         Sebelumnya dua kalimat kecil bertumpuk — "BBM, tol, dan
+                                         parkir ditanggung penyewa" dan "Harga sudah termasuk
+                                         sopir". Kalimat begitu harus DIURAI penyewa sendiri
+                                         untuk menjawab satu pertanyaan yang paling penting
+                                         baginya: selain angka ini, apa lagi yang harus saya
+                                         siapkan? Yang tidak terbaca di sini akan ditanyakan
+                                         lewat WhatsApp, atau lebih buruk — baru disadari di
+                                         jalan.
+
+                                         Dipecah per pos dan dikelompokkan menurut siapa yang
+                                         membayar. Keterangannya mengikuti wilayah yang sedang
+                                         dipilih; aturan dalam kota pada pesanan luar kota
+                                         menjanjikan hal yang tidak berlaku. --}}
+                                    @php
+                                        $posWilayah = collect($mobil->rincianOperasional((bool) $luarKota));
+
+                                        $sudahDihitung = $posWilayah
+                                            ->filter(fn ($pos) => $pos['termasuk'])
+                                            ->map(fn ($pos) => $pos['label']
+                                                . ($pos['biaya'] > 0 ? ' +' . $rupiah($pos['biaya']) . '/hari' : ''))
+                                            ->values();
+
+                                        $dibayarSendiri = $posWilayah
+                                            ->reject(fn ($pos) => $pos['termasuk'])
+                                            ->pluck('label')
+                                            ->values();
+
+                                        // Sopir hanya disebut bila pesanannya memang memakai
+                                        // sopir. Pada sewa lepas kunci, menyebutnya sama sekali
+                                        // tidak menjawab pertanyaan siapa pun.
+                                        if ($denganSopir === 'ya') {
+                                            $sudahDihitung->push($mobil->sopirLabel((bool) $luarKota));
+                                        }
+                                    @endphp
+
+                                    <div class="grid gap-4 pt-4 mt-4 border-t sm:grid-cols-2 border-white">
+                                        <div>
+                                            <p class="flex items-center gap-1.5 text-xs font-bold tracking-wide uppercase text-orcha-ocean">
+                                                <x-heroicon-s-check-circle class="w-4 h-4 shrink-0" />
+                                                Sudah dihitung
+                                            </p>
+                                            <ul class="mt-2 space-y-1 text-sm text-slate-600">
+                                                @forelse ($sudahDihitung as $butir)
+                                                    <li class="flex items-start gap-1.5">
+                                                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-orcha-ocean"></span>
+                                                        <span>{{ $butir }}</span>
+                                                    </li>
+                                                @empty
+                                                    <li class="text-slate-400">Hanya tarif sewanya.</li>
+                                                @endforelse
+                                            </ul>
+                                        </div>
+
+                                        <div>
+                                            <p class="flex items-center gap-1.5 text-xs font-bold tracking-wide uppercase text-slate-500">
+                                                <x-heroicon-o-wallet class="w-4 h-4 shrink-0" />
+                                                Dibayar sendiri
+                                            </p>
+                                            <ul class="mt-2 space-y-1 text-sm text-slate-600">
+                                                @forelse ($dibayarSendiri as $butir)
+                                                    <li class="flex items-start gap-1.5">
+                                                        <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-slate-300"></span>
+                                                        <span>{{ $butir }}</span>
+                                                    </li>
+                                                @empty
+                                                    <li class="text-slate-400">Tidak ada — semuanya sudah dihitung.</li>
+                                                @endforelse
+                                                <li class="flex items-start gap-1.5">
+                                                    <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-slate-300"></span>
+                                                    <span>Tiket masuk lokasi wisata</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </div>
                             @endif
 

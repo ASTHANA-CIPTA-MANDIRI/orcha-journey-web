@@ -218,3 +218,45 @@ test('resource mengirim aturan kedua wilayah', function () {
     ])->and($baris['beda_aturan_luar_kota'])->toBeTrue()
         ->and($baris['operasional']['bbm']['termasuk'])->toBeFalse();
 });
+
+/* -------- YANG DIHITUNG vs YANG DIBAYAR SENDIRI -------- */
+
+test('formulir memilah pos yang dihitung dan yang dibayar penyewa', function () {
+    $unit = unitDuaWilayah();
+
+    // Sebelumnya dua kalimat kecil yang harus diurai sendiri oleh penyewa untuk
+    // menjawab satu pertanyaan yang paling penting baginya: selain angka ini,
+    // apa lagi yang harus saya siapkan?
+    $uji = Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $unit->uuid)
+        ->set('denganSopir', 'ya');
+
+    $dalamKota = preg_replace('/\s+/', ' ', strip_tags($uji->html()));
+
+    expect($dalamKota)->toContain('Sudah dihitung')
+        ->and($dalamKota)->toContain('Dibayar sendiri')
+        // Dalam kota: semuanya ditanggung penyewa, sopir ditambahkan.
+        ->and($dalamKota)->toContain('Sopir +Rp 200.000/hari')
+        ->and($dalamKota)->toContain('Tiket masuk lokasi wisata');
+
+    $luarKota = preg_replace('/\s+/', ' ', strip_tags($uji->set('luarKota', true)->html()));
+
+    // Luar kota: BBM ikut dihitung beserta nominalnya, sopir sudah termasuk.
+    expect($luarKota)->toContain('BBM +Rp 300.000/hari')
+        ->and($luarKota)->toContain('Harga sudah termasuk sopir');
+});
+
+test('sopir tidak disebut pada sewa lepas kunci', function () {
+    $unit = unitDuaWilayah(['lepas_kunci' => true]);
+
+    // Menyebut sopir pada pesanan yang memang tanpa sopir tidak menjawab
+    // pertanyaan siapa pun.
+    $teks = preg_replace('/\s+/', ' ', strip_tags(
+        Volt::test('public.sewa-kendaraan.pemesanan')
+            ->set('unit', $unit->uuid)
+            ->set('denganSopir', 'tidak')
+            ->html()
+    ));
+
+    expect($teks)->not->toContain('Sopir +Rp 200.000/hari');
+});
