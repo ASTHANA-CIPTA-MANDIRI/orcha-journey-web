@@ -245,8 +245,11 @@ test('formulir memilah pos yang dihitung dan yang dibayar penyewa', function () 
 
     $dalamKota = preg_replace('/\s+/', ' ', strip_tags($uji->html()));
 
-    expect($dalamKota)->toContain('Sudah dihitung')
-        ->and($dalamKota)->toContain('Dibayar sendiri')
+    // Judulnya harus menyebut termasuk ke dalam APA — "sudah dihitung" saja
+    // menyuruh penyewa menebak, dan daftar yang judulnya ditebak tidak
+    // dipercaya isinya.
+    expect($dalamKota)->toContain('Masuk perkiraan biaya')
+        ->and($dalamKota)->toContain('Dibayar sendiri di jalan')
         // Dalam kota: semuanya ditanggung penyewa, sopir ditambahkan.
         ->and($dalamKota)->toContain('Sopir +Rp 200.000/hari')
         ->and($dalamKota)->toContain('Tiket masuk lokasi wisata');

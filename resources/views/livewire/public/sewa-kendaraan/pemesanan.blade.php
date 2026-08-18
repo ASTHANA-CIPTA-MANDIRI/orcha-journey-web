@@ -610,11 +610,23 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                         }
                                     @endphp
 
-                                    <div class="grid gap-4 pt-4 mt-4 border-t sm:grid-cols-2 border-white">
+                                    {{-- Judul kolomnya menyebut TERMASUK KE DALAM APA.
+
+                                         "Sudah dihitung" tidak menjawab itu: dihitung ke mana,
+                                         ke harga sewa atau ke tagihan yang lain? Penyewa yang
+                                         harus menebak arti judulnya tidak akan mempercayai
+                                         daftarnya. Yang membedakan kedua kolom ini satu hal —
+                                         masuk ke angka perkiraan di sebelah kanan, atau dibayar
+                                         sendiri di jalan — jadi itu yang ditulis. --}}
+                                    <p class="pt-4 mt-4 text-xs border-t text-slate-500 border-white">
+                                        Yang kami hitungkan, dan yang Anda siapkan sendiri:
+                                    </p>
+
+                                    <div class="grid gap-4 mt-3 sm:grid-cols-2">
                                         <div>
                                             <p class="flex items-center gap-1.5 text-xs font-bold tracking-wide uppercase text-orcha-ocean">
                                                 <x-heroicon-s-check-circle class="w-4 h-4 shrink-0" />
-                                                Sudah dihitung
+                                                Masuk perkiraan biaya
                                             </p>
                                             <ul class="mt-2 space-y-1 text-sm text-slate-600">
                                                 @forelse ($sudahDihitung as $butir)
@@ -623,7 +635,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                                         <span>{{ $butir }}</span>
                                                     </li>
                                                 @empty
-                                                    <li class="text-slate-400">Hanya tarif sewanya.</li>
+                                                    <li class="text-slate-400">Hanya tarif sewa unitnya.</li>
                                                 @endforelse
                                             </ul>
                                         </div>
@@ -631,7 +643,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                         <div>
                                             <p class="flex items-center gap-1.5 text-xs font-bold tracking-wide uppercase text-slate-500">
                                                 <x-heroicon-o-wallet class="w-4 h-4 shrink-0" />
-                                                Dibayar sendiri
+                                                Dibayar sendiri di jalan
                                             </p>
                                             <ul class="mt-2 space-y-1 text-sm text-slate-600">
                                                 @forelse ($dibayarSendiri as $butir)
@@ -640,7 +652,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                                         <span>{{ $butir }}</span>
                                                     </li>
                                                 @empty
-                                                    <li class="text-slate-400">Tidak ada — semuanya sudah dihitung.</li>
+                                                    <li class="text-slate-400">Tidak ada — semuanya kami hitungkan.</li>
                                                 @endforelse
                                                 <li class="flex items-start gap-1.5">
                                                     <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-slate-300"></span>
