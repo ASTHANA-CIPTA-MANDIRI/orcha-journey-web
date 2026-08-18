@@ -142,7 +142,7 @@ new #[Layout('components.layouts.guest')] #[Title('Kontak Kami — Orcha Journey
 <div>
     <x-page-hero title="Kontak Kami" eyebrow="Hubungi Orcha Journey"
         subtitle="Pilih kanal yang paling nyaman untuk Anda. Pertanyaan lewat WhatsApp biasanya dibalas dalam hitungan menit."
-        image="images/pantai-pinggir-laut.jpg" />
+        image="images/HERO/kontak.jpg" posisi="center 30%" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">
