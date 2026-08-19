@@ -96,31 +96,25 @@ new #[Layout('components.layouts.guest')] #[Title('Tentang Kami — Orcha Journe
                 </div>
 
                 <div class="lg:col-span-6">
-                    {{-- Keempat berkasnya POSTER, bukan foto lepas: aslinya memuat
-                         logo Orcha di kiri atas dan tulisannya sendiri di bawah,
-                         lengkap dengan gradasi gelapnya.
+                    {{-- Susunannya seperti semula: tinggi berselang dan kolom
+                         kanan berundak. Yang berganti gambarnya saja.
 
-                         Ditampilkan utuh, empat poster berdampingan berarti empat
-                         logo yang sama berulang dan empat tulisan yang bersaing
-                         dengan judul bagian ini — dan yang tulisannya kebetulan
-                         terpotong separuh membuat blok ini terlihat belum jadi.
-
-                         Karena itu pita logo dan pita tulisannya dibuang DI
-                         BERKASNYA, bukan disiasati dengan object-position.
-                         Menggesernya lewat CSS memerlukan satu angka untuk tiap
-                         foto — subjeknya ada di ketinggian yang berbeda-beda —
-                         dan angka itu akan meleset lagi begitu fotonya diganti.
-                         Yang tersimpan sekarang memang sudah berupa foto, jadi
-                         penempatan bawaannya benar dengan sendirinya. --}}
+                         Berkasnya sendiri sudah dipotong lebih dulu — pita logo
+                         di atas dan pita tulisan di bawah dibuang dari berkasnya,
+                         karena aslinya poster media sosial. Tanpa itu, empat
+                         logo Orcha berulang dalam satu blok dan tulisan
+                         posternya bersaing dengan judul bagian ini; dan pada
+                         kotak sependek h-40, yang tersisa justru pita tulisannya,
+                         bukan fotonya. --}}
                     <div class="grid grid-cols-2 gap-4">
                         <img src="{{ asset('images/tentang-kami/web1.jpg') }}" alt="Menyusuri pantai bersama rombongan"
-                            loading="lazy" class="object-cover w-full h-56 sm:h-64 rounded-3xl shadow-orcha">
-                        <img src="{{ asset('images/tentang-kami/web9.jpg') }}" alt="Pantai yang kami kunjungi"
-                            loading="lazy" class="object-cover w-full h-56 sm:h-64 rounded-3xl shadow-orcha">
-                        <img src="{{ asset('images/tentang-kami/web10.jpg') }}" alt="Tebing dan laut di pagi hari"
-                            loading="lazy" class="object-cover w-full h-56 sm:h-64 rounded-3xl shadow-orcha">
-                        <img src="{{ asset('images/tentang-kami/web11.jpg') }}" alt="Destinasi budaya"
-                            loading="lazy" class="object-cover w-full h-56 sm:h-64 rounded-3xl shadow-orcha">
+                            loading="lazy" class="object-cover w-full h-56 sm:h-72 rounded-3xl shadow-orcha">
+                        <img src="{{ asset('images/tentang-kami/web9.jpg') }}" alt="Pantai yang kami kunjungi" loading="lazy"
+                            class="object-cover w-full h-56 mt-8 sm:h-72 rounded-3xl shadow-orcha">
+                        <img src="{{ asset('images/tentang-kami/web10.jpg') }}" alt="Tebing dan laut di pagi hari" loading="lazy"
+                            class="object-cover w-full h-40 sm:h-52 rounded-3xl shadow-orcha">
+                        <img src="{{ asset('images/tentang-kami/web11.jpg') }}" alt="Destinasi budaya" loading="lazy"
+                            class="object-cover w-full h-40 mt-8 sm:h-52 rounded-3xl shadow-orcha">
                     </div>
                 </div>
             </div>
