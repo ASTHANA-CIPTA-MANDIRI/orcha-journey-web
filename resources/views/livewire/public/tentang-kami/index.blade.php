@@ -96,20 +96,31 @@ new #[Layout('components.layouts.guest')] #[Title('Tentang Kami — Orcha Journe
                 </div>
 
                 <div class="lg:col-span-6">
-                    {{-- Kotaknya lebih tinggi daripada sebelumnya karena fotonya
-                         TEGAK (1080x1920). Pada kotak yang lebih lebar daripada
-                         tinggi, object-cover pada foto tegak hanya menyisakan
-                         pita mendatar di tengahnya — orang dan tempatnya
-                         terpotong di atas dan bawah. --}}
+                    {{-- Keempat berkasnya POSTER, bukan foto lepas: aslinya memuat
+                         logo Orcha di kiri atas dan tulisannya sendiri di bawah,
+                         lengkap dengan gradasi gelapnya.
+
+                         Ditampilkan utuh, empat poster berdampingan berarti empat
+                         logo yang sama berulang dan empat tulisan yang bersaing
+                         dengan judul bagian ini — dan yang tulisannya kebetulan
+                         terpotong separuh membuat blok ini terlihat belum jadi.
+
+                         Karena itu pita logo dan pita tulisannya dibuang DI
+                         BERKASNYA, bukan disiasati dengan object-position.
+                         Menggesernya lewat CSS memerlukan satu angka untuk tiap
+                         foto — subjeknya ada di ketinggian yang berbeda-beda —
+                         dan angka itu akan meleset lagi begitu fotonya diganti.
+                         Yang tersimpan sekarang memang sudah berupa foto, jadi
+                         penempatan bawaannya benar dengan sendirinya. --}}
                     <div class="grid grid-cols-2 gap-4">
-                        <img src="{{ asset('images/tentang-kami/web1.jpg') }}" alt="Perjalanan bersama Orcha Journey"
-                            loading="lazy" class="object-cover w-full h-72 sm:h-96 rounded-3xl shadow-orcha">
-                        <img src="{{ asset('images/tentang-kami/web9.jpg') }}" alt="Rombongan wisata" loading="lazy"
-                            class="object-cover w-full h-72 mt-8 sm:h-96 rounded-3xl shadow-orcha">
-                        <img src="{{ asset('images/tentang-kami/web10.jpg') }}" alt="Destinasi yang kami antar"
-                            loading="lazy" class="object-cover w-full h-56 sm:h-72 rounded-3xl shadow-orcha">
-                        <img src="{{ asset('images/tentang-kami/web11.jpg') }}" alt="Momen di perjalanan" loading="lazy"
-                            class="object-cover w-full h-56 mt-8 sm:h-72 rounded-3xl shadow-orcha">
+                        <img src="{{ asset('images/tentang-kami/web1.jpg') }}" alt="Menyusuri pantai bersama rombongan"
+                            loading="lazy" class="object-cover w-full h-56 sm:h-64 rounded-3xl shadow-orcha">
+                        <img src="{{ asset('images/tentang-kami/web9.jpg') }}" alt="Pantai yang kami kunjungi"
+                            loading="lazy" class="object-cover w-full h-56 sm:h-64 rounded-3xl shadow-orcha">
+                        <img src="{{ asset('images/tentang-kami/web10.jpg') }}" alt="Tebing dan laut di pagi hari"
+                            loading="lazy" class="object-cover w-full h-56 sm:h-64 rounded-3xl shadow-orcha">
+                        <img src="{{ asset('images/tentang-kami/web11.jpg') }}" alt="Destinasi budaya"
+                            loading="lazy" class="object-cover w-full h-56 sm:h-64 rounded-3xl shadow-orcha">
                     </div>
                 </div>
             </div>
