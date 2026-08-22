@@ -162,6 +162,35 @@ test('hanya satu paket yang disorot di beranda, berapa pun yang ditandai admin',
         ->and(substr_count($isi, 'Terlaris'))->toBe(1);
 });
 
+test('paket yang disorot diletakkan di TENGAH, bukan di tempat yang kebetulan didudukinya', function () {
+    // Tiga paket dibuat berurutan; yang ditandai justru yang PALING LAMA,
+    // jadi menurut urutan terbaru ia semestinya duduk paling kanan. Kalau uji
+    // ini hijau, yang teruji memang pemindahannya — bukan kebetulan.
+    $tandai = TravelPackage::create([
+        'name' => 'Paket Ditandai', 'category' => 'open_trip', 'price' => 100000,
+        'original_price' => 0, 'discount_percentage' => null, 'is_best_choice' => true,
+        'destination_list' => ['Destinasi'],
+    ]);
+
+    foreach (['Paket Biasa Satu', 'Paket Biasa Dua'] as $nama) {
+        TravelPackage::create([
+            'name' => $nama, 'category' => 'open_trip', 'price' => 100000,
+            'original_price' => 0, 'discount_percentage' => null, 'is_best_choice' => false,
+            'destination_list' => ['Destinasi'],
+        ]);
+    }
+
+    $isi = $this->get(route('home'))->assertOk()->getContent();
+
+    $letak = collect(['Paket Biasa Satu', 'Paket Biasa Dua', $tandai->name])
+        ->mapWithKeys(fn ($nama) => [$nama => strpos($isi, $nama)]);
+
+    // Di tepi, kartunya terbaca sebagai "yang pertama" dan mata meneruskan ke
+    // kanan seperti daftar biasa. Di tengah ia jadi titik henti, diapit dua
+    // pembanding.
+    expect($letak->sort()->keys()[1])->toBe($tandai->name);
+});
+
 test('halaman kontak memuat kanal komunikasi', function () {
     $this->get(route('kontak'))
         ->assertOk()

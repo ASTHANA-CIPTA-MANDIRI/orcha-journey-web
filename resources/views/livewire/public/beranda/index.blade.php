@@ -108,6 +108,24 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
             ->sortByDesc(fn ($paket) => [$paket->pendaftaran_count, $paket->id])
             ->first()?->id;
 
+        // Yang disorot dipindah ke TENGAH, tidak dibiarkan di tempat yang
+        // kebetulan didudukinya menurut urutan terbaru.
+        //
+        // Di tepi kiri ia terbaca sebagai "yang pertama", dan mata meneruskan
+        // membaca ke kanan seperti daftar biasa. Di tengah ia jadi titik henti:
+        // dua kartu di kiri-kanannya berlaku sebagai pembanding, dan itulah
+        // yang membuat sorotannya bekerja.
+        if ($idSorot) {
+            $sorot = $packages->firstWhere('id', $idSorot);
+            $lain = $packages->reject(fn ($paket) => $paket->id === $idSorot)->values();
+            $tengah = intdiv($lain->count(), 2);
+
+            $packages = $lain->slice(0, $tengah)
+                ->push($sorot)
+                ->concat($lain->slice($tengah))
+                ->values();
+        }
+
         $destinations = DestinationPopuler::query()
             ->orderByDesc('total_visitor')
             ->limit(8)

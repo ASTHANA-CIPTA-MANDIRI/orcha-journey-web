@@ -642,7 +642,14 @@ h6,
 .card-orcha.kartu-sorot {
     outline: 5px solid var(--color-orcha-sun);
     outline-offset: 4px;
-    box-shadow: 0 22px 55px -14px rgba(255, 199, 78, .75);
+    /* Dua lapis: yang gelap memberi KEDALAMAN — kartunya terbaca terangkat
+       dari bidang halaman — dan yang hangat memberi cahaya emas di bawahnya.
+       Cahaya hangat saja tidak terbaca sebagai bayangan; ia terbaca sebagai
+       noda kuning, karena bayangan yang dikenal mata selalu lebih gelap
+       daripada latarnya. */
+    box-shadow:
+        0 30px 60px -18px rgba(0, 18, 32, .42),
+        0 16px 40px -12px rgba(255, 199, 78, .55);
 }
 
 /* ==========================================================
