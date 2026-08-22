@@ -155,7 +155,10 @@ test('hanya satu paket yang disorot di beranda, berapa pun yang ditandai admin',
 
     $isi = $this->get(route('home'))->assertOk()->getContent();
 
-    expect(substr_count($isi, 'ring-4 ring-orcha-sun'))->toBe(1)
+    // Diperiksa pada kelas sorotnya, bukan pada utilitas ring: ring digambar
+    // lewat box-shadow dan berebut properti itu dengan bayangan .card-orcha,
+    // sehingga garisnya pernah hilang sama sekali tanpa satu tes pun merah.
+    expect(substr_count($isi, 'kartu-sorot'))->toBe(1)
         ->and(substr_count($isi, 'Terlaris'))->toBe(1);
 });
 

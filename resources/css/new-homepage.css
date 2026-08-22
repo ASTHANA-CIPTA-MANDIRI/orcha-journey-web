@@ -626,6 +626,25 @@ h6,
     .preloader-foto { animation: none; }
 }
 
+/* Kartu paket yang disorot.
+
+   Memakai OUTLINE, bukan ring bawaan Tailwind. Ring digambar lewat box-shadow,
+   dan .card-orcha sudah memakai box-shadow untuk bayangannya sendiri — terukur
+   di peramban, yang tersisa cuma bayangan kartu, garis emasnya hilang sama
+   sekali. Outline properti yang berbeda, jadi keduanya bisa hidup bersama.
+
+   outline-offset memberi jeda antara badan kartu dan garisnya. Tanpa jeda,
+   garis emas menempel pada badan kartu yang putih dan terbaca sebagai
+   pinggiran biasa — setebal apa pun dibuat.
+
+   Bayangannya ditulis di sini juga, dengan pemilih yang lebih kuat daripada
+   .card-orcha, supaya cahaya hangatnya tidak ikut tertimpa. */
+.card-orcha.kartu-sorot {
+    outline: 5px solid var(--color-orcha-sun);
+    outline-offset: 4px;
+    box-shadow: 0 22px 55px -14px rgba(255, 199, 78, .75);
+}
+
 /* ==========================================================
    8. GALERI & PARTNER — marquee murni CSS (jalan walau JS gagal)
 ========================================================== */

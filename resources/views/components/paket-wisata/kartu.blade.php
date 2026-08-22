@@ -27,9 +27,13 @@
     // diredupkan. Satu pembeda saja — garis tepi tipis seperti sebelumnya —
     // hilang begitu kartunya berdampingan dengan dua kartu lain yang sama
     // ramainya.
+    // Kelas sorotnya didefinisikan di new-homepage.css, bukan dirangkai dari
+    // utilitas ring — ring digambar lewat box-shadow dan berebut properti itu
+    // dengan bayangan .card-orcha, sehingga garisnya hilang sama sekali.
     $kelasSorot = $sorot
-        ? 'ring-4 ring-orcha-sun shadow-[0_18px_45px_-12px_rgba(255,199,78,.55)] lg:-translate-y-3 z-10'
+        ? 'kartu-sorot lg:-translate-y-3 z-10'
         : ($unggulan ? 'ring-2 ring-orcha-sun' : '');
+
 @endphp
 
 <article
