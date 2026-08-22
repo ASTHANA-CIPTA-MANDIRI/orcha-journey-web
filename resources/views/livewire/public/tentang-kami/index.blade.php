@@ -231,7 +231,7 @@ new #[Layout('components.layouts.guest')] #[Title('Tentang Kami — Orcha Journe
 
     {{-- CTA --}}
     <section class="relative overflow-hidden bg-orcha-navy">
-        <img src="{{ asset('images/pantai-wide.jpg') }}" alt="" loading="lazy"
+        <img src="{{ asset('images/FOOTER/tentang-kami.jpg') }}" alt="" loading="lazy"
             class="absolute inset-0 object-cover w-full h-full opacity-25">
         <div class="relative container-orcha py-16 sm:py-24">
             <div class="max-w-3xl mx-auto text-center">
