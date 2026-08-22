@@ -118,7 +118,7 @@ test('halaman destinasi menampilkan data dan bisa dicari', function () {
         ->assertDontSee('Pantai Contoh');
 });
 
-test('beranda hanya menampilkan sorotan dan menaut ke halaman lengkap', function () {
+test('beranda menampilkan tiga paket TERBARU dan menaut ke halaman lengkap', function () {
     foreach (range(1, 9) as $i) {
         TravelPackage::create([
             'name' => "Paket Nomor $i", 'category' => 'open_trip', 'price' => 100000 * $i,
@@ -127,12 +127,36 @@ test('beranda hanya menampilkan sorotan dan menaut ke halaman lengkap', function
         ]);
     }
 
+    // Harganya sengaja menaik mengikuti nomornya. Dengan urutan lama — termurah
+    // dulu — yang tampil justru Nomor 1, 2, 3; jadi kalau uji ini hijau untuk
+    // 9, 8, 7, yang teruji memang urutan TERBARU, bukan kebetulan.
     $this->get(route('home'))
         ->assertOk()
-        ->assertSee('Paket Nomor 1')
-        ->assertDontSee('Paket Nomor 9')       // dibatasi 6 kartu di beranda
+        ->assertSee('Paket Nomor 9')
+        ->assertSee('Paket Nomor 8')
+        ->assertSee('Paket Nomor 7')
+        ->assertDontSee('Paket Nomor 6')
+        ->assertDontSee('Paket Nomor 1')
         ->assertSee('Lihat Semua Paket Wisata')
         ->assertSee('Lihat Semua Armada');
+});
+
+test('hanya satu paket yang disorot di beranda, berapa pun yang ditandai admin', function () {
+    // Penanda "terlaris" di admin boleh menempel di banyak paket sekaligus —
+    // saat ini tiga dari lima. Kalau semuanya ikut disorot, tidak ada yang
+    // menonjol dan sorotannya kehilangan gunanya.
+    foreach (range(1, 4) as $i) {
+        TravelPackage::create([
+            'name' => "Paket Tandai $i", 'category' => 'open_trip', 'price' => 100000,
+            'original_price' => 0, 'discount_percentage' => null, 'is_best_choice' => true,
+            'destination_list' => ['Destinasi'],
+        ]);
+    }
+
+    $isi = $this->get(route('home'))->assertOk()->getContent();
+
+    expect(substr_count($isi, 'ring-4 ring-orcha-sun'))->toBe(1)
+        ->and(substr_count($isi, 'Terlaris'))->toBe(1);
 });
 
 test('halaman kontak memuat kanal komunikasi', function () {

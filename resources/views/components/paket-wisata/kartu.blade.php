@@ -1,4 +1,14 @@
-@props(['paket'])
+@props([
+    'paket',
+    // Satu kartu yang sengaja dijadikan tujuan mata. Dipakai beranda, yang
+    // hanya menampilkan tiga paket; di halaman daftar lengkap tidak ada yang
+    // disorot — kalau setiap layar punya "yang paling", tidak ada yang paling.
+    'sorot' => false,
+    // Lencana "Terlaris" bawaan yang mengikuti penanda admin. Dimatikan di
+    // tempat yang sudah punya sorotan sendiri, supaya lencananya tidak muncul
+    // di beberapa kartu sekaligus.
+    'lencanaUnggulan' => true,
+])
 
 @php
     $rupiah = fn ($angka) => 'Rp ' . number_format((float) $angka, 0, ',', '.');
@@ -7,12 +17,23 @@
         config('orcha.whatsapp') .
         '&text=' .
         rawurlencode("Halo Orcha Journey, saya tertarik paket {$paket->name} ({$paket->category_label}). Boleh minta detailnya?");
-    $unggulan = (bool) $paket->is_best_choice;
+    $unggulan = $sorot || ($lencanaUnggulan && (bool) $paket->is_best_choice);
     $destinasi = collect($paket->destination_list ?? [])->filter()->values();
 @endphp
 
+@php
+    // Yang disorot dibedakan pada EMPAT hal sekaligus, bukan satu: garis tepi
+    // tebal, cahaya hangat di bawahnya, terangkat sedikit, dan tidak ikut
+    // diredupkan. Satu pembeda saja — garis tepi tipis seperti sebelumnya —
+    // hilang begitu kartunya berdampingan dengan dua kartu lain yang sama
+    // ramainya.
+    $kelasSorot = $sorot
+        ? 'ring-4 ring-orcha-sun shadow-[0_18px_45px_-12px_rgba(255,199,78,.55)] lg:-translate-y-3 z-10'
+        : ($unggulan ? 'ring-2 ring-orcha-sun' : '');
+@endphp
+
 <article
-    {{ $attributes->merge(['class' => 'flex flex-col overflow-hidden bg-white card-orcha group ' . ($unggulan ? 'ring-2 ring-orcha-sun' : '')]) }}>
+    {{ $attributes->merge(['class' => 'relative flex flex-col overflow-hidden bg-white card-orcha group transition-transform ' . $kelasSorot]) }}>
 
     {{-- ============ SAMPUL ============
          Kartu ini dulu tanpa gambar sama sekali — semuanya teks rata kiri yang
@@ -32,8 +53,22 @@
         </span>
 
         @if ($unggulan)
+            {{-- Bunyinya tetap "Terlaris", tidak dinaikkan jadi "paling banyak
+                 dipesan".
+
+                 Sempat saya tulis begitu supaya klaimnya terdengar berdasar —
+                 dan justru itu kesalahannya: kalimat yang menyebut angka bisa
+                 dibantah angka. Penanda ini dipasang admin di halaman
+                 pengelolaan, tidak dihitung dari jumlah pendaftaran, dan saat
+                 diperiksa paket yang tertandai memang ada yang pendaftarannya
+                 nol. Yang disorot dibedakan ukurannya, bukan ditambahi klaim
+                 yang tidak dijamin datanya. --}}
             <span
-                class="absolute top-4 right-4 px-3 py-1 text-[0.7rem] font-black tracking-wider uppercase rounded-full bg-orcha-sun text-orcha-navy">
+                class="absolute top-4 right-4 inline-flex items-center gap-1.5 rounded-full bg-orcha-sun text-orcha-navy font-black uppercase tracking-wider
+                    {{ $sorot ? 'px-4 py-1.5 text-xs shadow-lg shadow-orcha-sun/40' : 'px-3 py-1 text-[0.7rem]' }}">
+                @if ($sorot)
+                    <x-heroicon-s-fire class="w-4 h-4" />
+                @endif
                 Terlaris
             </span>
         @endif

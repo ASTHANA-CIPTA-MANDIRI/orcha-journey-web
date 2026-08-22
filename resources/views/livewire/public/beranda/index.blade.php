@@ -75,12 +75,38 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
     {
         // Beranda hanya menampilkan sorotan; daftar lengkapnya ada di
         // halaman /paket-wisata, /sewa-kendaraan, dan /destinasi.
+        // Tiga terbaru saja. Enam kartu di beranda berarti menggulung dua baris
+        // penuh sebelum sampai ke bagian berikutnya, dan yang di baris kedua
+        // praktis tidak pernah terlihat.
+        //
+        // id sebagai pemutus: paket bawaan tercatat pada detik yang sama, dan
+        // urutan tanpa pemutus berarti tiga yang tampil berganti-ganti sendiri
+        // tiap halaman dibuka.
         $packages = TravelPackage::query()
             ->tayang()
-            ->orderByDesc('is_best_choice')
-            ->orderBy('price')
-            ->limit(6)
+            ->withCount('pendaftaran')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit(3)
             ->get();
+
+        // HANYA SATU yang disorot, dan itu inti permintaannya: mata harus
+        // punya satu tujuan. Penanda "terlaris" di admin sekarang menempel di
+        // tiga dari lima paket; kalau semuanya ikut disorot, tidak ada yang
+        // menonjol dan sorotannya kehilangan gunanya.
+        //
+        // Yang dipilih di antara yang ditandai: pendaftarannya paling banyak,
+        // lalu yang paling baru bila seri. Angka pendaftaran dipakai sebagai
+        // PEMUTUS, bukan sebagai syarat — penandanya tetap keputusan admin,
+        // dan mengabaikan penanda itu berarti mengambil alih keputusan yang
+        // bukan milik halaman ini.
+        //
+        // Karena itu pula lencananya tidak menyebut angka. Saat ini tiga dari
+        // lima paket tertandai, salah satunya tanpa satu pun pendaftaran.
+        $idSorot = $packages
+            ->where('is_best_choice', true)
+            ->sortByDesc(fn ($paket) => [$paket->pendaftaran_count, $paket->id])
+            ->first()?->id;
 
         $destinations = DestinationPopuler::query()
             ->orderByDesc('total_visitor')
@@ -122,6 +148,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
             'kategoriPaket' => config('orcha.kategori_paket'),
             'jenisKendaraan' => config('orcha.jenis_kendaraan'),
             'packages' => $packages,
+            'idSorot' => $idSorot,
             'destinations' => $destinations,
             'cars' => $cars,
             'testimonials' => Testimoni::latest('id')->limit(12)->get(),
@@ -299,7 +326,12 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
 
             <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 sm:gap-6">
                 @foreach ($packages as $package)
-                    <x-paket-wisata.kartu :paket="$package" class="reveal" />
+                    {{-- lencana-unggulan dimatikan supaya lencana "Terlaris"
+                         bawaan kartu tidak ikut muncul di dua kartu lain yang
+                         kebetulan juga ditandai admin. Di beranda, yang berhak
+                         memakai lencana itu hanya yang disorot. --}}
+                    <x-paket-wisata.kartu :paket="$package" :sorot="$package->id === $idSorot"
+                        :lencana-unggulan="false" class="reveal" />
                 @endforeach
             </div>
 
