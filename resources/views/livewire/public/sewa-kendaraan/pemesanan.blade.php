@@ -951,6 +951,89 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                 @endif
                             </div>
 
+                            {{-- ============ GAMBARAN RUTE ============
+                                 Hiasan, dan disebut hiasan. Titiknya TIDAK dicari ke layanan
+                                 peta mana pun: yang digambar bentuk tetap, bukan letak
+                                 sebenarnya. Karena itu ada keterangan kecil di bawahnya —
+                                 penyewa yang mengira ini peta sungguhan akan menyangka titik
+                                 jemputnya sudah dipastikan, padahal belum.
+
+                                 wire:ignore: Livewire tidak boleh menggambar ulang bagian ini.
+                                 Sekali digambar ulang, keadaan Alpine di dalamnya terlempar dan
+                                 animasinya mengulang dari awal tiap kali isian lain disentuh.
+
+                                 Nilainya dibaca LANGSUNG dari kotak isiannya lewat pendengar
+                                 'input', bukan lewat $wire. wire:model di sini tanpa .live —
+                                 nilainya baru sampai ke server saat isian ditinggalkan, jadi
+                                 lewat $wire animasinya baru jalan setelah penyewa pindah kotak,
+                                 bukan saat mengetik. Dan menjadikannya .live berarti menembak
+                                 server tiap ketikan hanya demi hiasan. --}}
+                            {{-- Nilainya diikuti lewat @input.window, bukan lewat x-init yang
+                                 memasang pendengar sendiri.
+
+                                 Dua hal yang sudah terbukti gagal sebelum ini:
+
+                                 1. pendengar dipasang langsung pada kotak isiannya — ikut hilang
+                                    begitu Livewire mengganti simpul isian itu saat menggambar
+                                    ulang, dan sesudah itu mengetik tidak menggerakkan apa pun;
+                                 2. isi x-init diberi komentar '//'. Alpine menilai isi atribut
+                                    sebagai SATU ungkapan, jadi komentarnya menelan barisnya:
+                                    tidak ada galat sama sekali, dan juga tidak terjadi apa-apa.
+                                    Terukur — Alpine.evaluate() pada isi atribut itu melapor
+                                    "berjalan tanpa galat" sementara datanya tetap kosong.
+
+                                 Peristiwa input menggelembung sampai window, jadi satu pendengar
+                                 di sana cukup dan kebal terhadap pergantian simpul. --}}
+                            <div wire:ignore class="peta-rute" x-data="{ jemput: '', tujuan: '' }"
+                                @input.window="
+                                    if ($event.target.id === 'sk-lokasi') jemput = $event.target.value;
+                                    if ($event.target.id === 'sk-tujuan') tujuan = $event.target.value;
+                                ">
+                                <svg class="peta-rute-gambar" viewBox="0 0 400 168" fill="none" aria-hidden="true">
+                                    <rect width="400" height="168" rx="18" class="peta-tanah" />
+                                    <path class="peta-air" d="M0 128 C 60 118, 120 140, 180 132 C 250 122, 320 146, 400 134 L400 168 L0 168 Z" />
+                                    <g class="peta-jalan">
+                                        <path d="M-10 42 H410" /><path d="M-10 92 H410" />
+                                        <path d="M96 -10 V178" /><path d="M232 -10 V178" /><path d="M328 -10 V178" />
+                                    </g>
+
+                                    <path class="peta-jalur" pathLength="1" d="M74 112 C 140 60, 250 128, 322 52"
+                                        :class="{ 'tampil': jemput.trim().length >= 4 && tujuan.trim().length >= 3 }" />
+
+                                    <g class="peta-mobil" :class="{ 'tampil': jemput.trim().length >= 4 && tujuan.trim().length >= 3 }">
+                                        <circle r="7" class="peta-mobil-bulat" />
+                                        <path class="peta-mobil-ikon" transform="translate(-5 -5) scale(.42)"
+                                            d="M4 16v-3l2-5h12l2 5v3h-2a2 2 0 1 1-4 0h-4a2 2 0 1 1-4 0H4Zm3.4-7-1 3h11.2l-1-3H7.4Z" />
+                                    </g>
+
+                                    <g class="peta-titik peta-titik-a" :class="{ 'tampil': jemput.trim().length >= 4 }">
+                                        <circle cx="74" cy="112" r="16" class="peta-riak" />
+                                        <path d="M74 96 a10 10 0 0 1 10 10 c0 7-10 16-10 16 s-10-9-10-16 a10 10 0 0 1 10-10Z" class="peta-pin-a" />
+                                        <circle cx="74" cy="106" r="3.6" fill="#fff" />
+                                    </g>
+
+                                    <g class="peta-titik peta-titik-b" :class="{ 'tampil': jemput.trim().length >= 4 && tujuan.trim().length >= 3 }">
+                                        <circle cx="322" cy="52" r="16" class="peta-riak" />
+                                        <path d="M322 36 a10 10 0 0 1 10 10 c0 7-10 16-10 16 s-10-9-10-16 a10 10 0 0 1 10-10Z" class="peta-pin-b" />
+                                        <circle cx="322" cy="46" r="3.6" fill="#fff" />
+                                    </g>
+                                </svg>
+
+                                <div class="peta-rute-teks">
+                                    <p class="peta-rute-baris">
+                                        <span class="peta-noktah peta-noktah-a"></span>
+                                        <span x-text="jemput.trim() || 'Titik jemput belum diisi'"
+                                            :class="{ 'kosong': ! jemput.trim() }"></span>
+                                    </p>
+                                    <p class="peta-rute-baris" x-show="document.getElementById('sk-tujuan')">
+                                        <span class="peta-noktah peta-noktah-b"></span>
+                                        <span x-text="tujuan.trim() || 'Tujuan belum diisi'"
+                                            :class="{ 'kosong': ! tujuan.trim() }"></span>
+                                    </p>
+                                    <p class="peta-rute-nota">Gambaran saja — titik sebenarnya dipastikan tim kami saat menghubungi Anda.</p>
+                                </div>
+                            </div>
+
                             {{-- ============ TENGGAT PENGEMBALIAN ============
                                  Ditampilkan sebelum dikirim, bukan setelahnya: keterlambatan
                                  didenda, jadi penyewa harus tahu jam berapa unit ditunggu
