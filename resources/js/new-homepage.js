@@ -17,6 +17,15 @@ const prefersReducedMotion = window.matchMedia(
 /* ==========================================================
    1. PRELOADER — progres berdasarkan gambar yang selesai dimuat
 ========================================================== */
+/* ==========================================================
+   0. PETA RUTE — hanya di halaman yang memakainya
+   Leaflet beserta gayanya sekitar 45 KB; halaman lain tidak perlu
+   membayarnya, jadi modulnya diambil hanya bila wadahnya ada.
+========================================================== */
+if (document.querySelector(".peta-rute-kanvas")) {
+    import("./peta-rute.js");
+}
+
 function initPreloader() {
     const preloader = document.getElementById("preloader");
     if (!preloader) return;

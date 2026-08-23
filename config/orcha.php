@@ -1171,6 +1171,26 @@ return [
         'alamat' => env('ORCHA_ENSIKLOPEDIA_ALAMAT', 'https://id.wikipedia.org/w/api.php'),
     ],
 
+    /*
+     * Rute perjalanan untuk formulir sewa: mencari koordinat titik jemput dan
+     * tujuan, lalu jarak JALAN di antara keduanya.
+     *
+     * Koordinatnya dari Nominatim (lihat 'peta' di atas). Jaraknya dari
+     * OpenRouteService, karena Nominatim tidak menghitung rute.
+     *
+     * Sengaja BUKAN jarak garis lurus. Jogja ke Borobudur lurus sekitar 40 km,
+     * lewat jalan sekitar 60 km — meleset separuh, dan angka yang meleset
+     * separuh di halaman pemesanan lebih buruk daripada tidak ada angka.
+     *
+     * Tanpa kunci, petanya tetap tampil beserta kedua penandanya; yang tidak
+     * muncul hanya angka jaraknya.
+     */
+    'rute' => [
+        'aktif' => env('ORCHA_RUTE_AKTIF', true),
+        'kunci' => env('ORCHA_RUTE_KUNCI'),
+        'alamat' => env('ORCHA_RUTE_ALAMAT', 'https://api.openrouteservice.org/v2/directions/driving-car'),
+    ],
+
     'api' => [
         'kunci' => env('ORCHA_API_KEY'),
         'ip_diizinkan' => array_filter(array_map('trim', explode(',', (string) env('ORCHA_API_IP', '')))),

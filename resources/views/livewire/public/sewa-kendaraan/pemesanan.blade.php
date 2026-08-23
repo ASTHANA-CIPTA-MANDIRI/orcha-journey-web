@@ -47,6 +47,18 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
     public string $tujuan = '';
 
     /**
+     * Titik jemput, tujuan, dan jarak jalan di antara keduanya.
+     *
+     * KETERANGAN saja: tarif sewa dihitung per hari, bukan per kilometer, jadi
+     * angka ini tidak pernah mengubah biaya. Disimpan sebagai properti biasa —
+     * bukan dihitung ulang tiap render — supaya layanan petanya tidak ditembak
+     * setiap kali isian lain disentuh.
+     *
+     * @var array<string, mixed>
+     */
+    public array $peta = [];
+
+    /**
      * Perjalanan keluar kota — tarifnya berbeda.
      *
      * Disimpan sebagai pilihan penyewa, BUKAN disimpulkan dari tulisan tujuannya.
@@ -212,6 +224,26 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             'tujuan' => 'tujuan perjalanan',
             'setuju' => 'persetujuan ketentuan sewa',
         ];
+    }
+
+    /**
+     * Mencari koordinat kedua titik dan jarak jalannya.
+     *
+     * Dipanggil saat isian DITINGGALKAN, bukan saat diketik. Nominatim
+     * membatasi satu permintaan per detik dan melarang beban tinggi; memanggil
+     * ini tiap ketikan berarti melanggar ketentuan layanan yang kita menumpang
+     * padanya, sekaligus memperlambat penyewa yang sedang mengisi formulir.
+     *
+     * Gagalnya layanan tidak pernah menghentikan pemesanan: yang gagal
+     * mengembalikan null, petanya kosong, dan formulirnya berjalan seperti
+     * biasa.
+     */
+    public function petakan(): void
+    {
+        $this->peta = app(\App\Support\SewaKendaraan\PetaRute::class)
+            ->rangkum($this->lokasiAntar, $this->bersopir() ? $this->tujuan : '');
+
+        $this->dispatch('peta-rute', peta: $this->peta);
     }
 
     public function pesan(): void
@@ -968,69 +1000,68 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                  lewat $wire animasinya baru jalan setelah penyewa pindah kotak,
                                  bukan saat mengetik. Dan menjadikannya .live berarti menembak
                                  server tiap ketikan hanya demi hiasan. --}}
-                            {{-- Nilainya diikuti lewat @input.window, bukan lewat x-init yang
-                                 memasang pendengar sendiri.
+                            {{-- ============ PETA RUTE ============
+                                 Peta sungguhan (OpenStreetMap), bukan gambaran.
 
-                                 Dua hal yang sudah terbukti gagal sebelum ini:
+                                 Koordinatnya dicari DI SERVER, bukan dari peramban: Nominatim
+                                 membatasi satu permintaan per detik, mewajibkan pengenal
+                                 pemanggil, dan hasilnya kita simpan tiga puluh hari. Dari
+                                 peramban, ketentuan itu tidak mungkin dijaga.
 
-                                 1. pendengar dipasang langsung pada kotak isiannya — ikut hilang
-                                    begitu Livewire mengganti simpul isian itu saat menggambar
-                                    ulang, dan sesudah itu mengetik tidak menggerakkan apa pun;
-                                 2. isi x-init diberi komentar '//'. Alpine menilai isi atribut
-                                    sebagai SATU ungkapan, jadi komentarnya menelan barisnya:
-                                    tidak ada galat sama sekali, dan juga tidak terjadi apa-apa.
-                                    Terukur — Alpine.evaluate() pada isi atribut itu melapor
-                                    "berjalan tanpa galat" sementara datanya tetap kosong.
+                                 Dipanggil saat isian DITINGGALKAN, bukan saat diketik —
+                                 memanggilnya tiap ketikan berarti melanggar ketentuan layanan
+                                 sekaligus memperlambat penyewa yang sedang mengisi.
 
-                                 Peristiwa input menggelembung sampai window, jadi satu pendengar
-                                 di sana cukup dan kebal terhadap pergantian simpul. --}}
-                            <div wire:ignore class="peta-rute" x-data="{ jemput: '', tujuan: '' }"
-                                @input.window="
-                                    if ($event.target.id === 'sk-lokasi') jemput = $event.target.value;
-                                    if ($event.target.id === 'sk-tujuan') tujuan = $event.target.value;
+                                 wire:ignore: Livewire tidak boleh menggambar ulang bagian ini.
+                                 Peta Leaflet menyimpan keadaannya sendiri di dalam simpul itu;
+                                 sekali digambar ulang, petanya lenyap dan harus dipasang dari
+                                 nol. --}}
+                            <div class="peta-rute"
+                                @blur.window="
+                                    if (['sk-lokasi', 'sk-tujuan'].includes($event.target.id)) $wire.petakan();
                                 ">
-                                <svg class="peta-rute-gambar" viewBox="0 0 400 168" fill="none" aria-hidden="true">
-                                    <rect width="400" height="168" rx="18" class="peta-tanah" />
-                                    <path class="peta-air" d="M0 128 C 60 118, 120 140, 180 132 C 250 122, 320 146, 400 134 L400 168 L0 168 Z" />
-                                    <g class="peta-jalan">
-                                        <path d="M-10 42 H410" /><path d="M-10 92 H410" />
-                                        <path d="M96 -10 V178" /><path d="M232 -10 V178" /><path d="M328 -10 V178" />
-                                    </g>
-
-                                    <path class="peta-jalur" pathLength="1" d="M74 112 C 140 60, 250 128, 322 52"
-                                        :class="{ 'tampil': jemput.trim().length >= 4 && tujuan.trim().length >= 3 }" />
-
-                                    <g class="peta-mobil" :class="{ 'tampil': jemput.trim().length >= 4 && tujuan.trim().length >= 3 }">
-                                        <circle r="7" class="peta-mobil-bulat" />
-                                        <path class="peta-mobil-ikon" transform="translate(-5 -5) scale(.42)"
-                                            d="M4 16v-3l2-5h12l2 5v3h-2a2 2 0 1 1-4 0h-4a2 2 0 1 1-4 0H4Zm3.4-7-1 3h11.2l-1-3H7.4Z" />
-                                    </g>
-
-                                    <g class="peta-titik peta-titik-a" :class="{ 'tampil': jemput.trim().length >= 4 }">
-                                        <circle cx="74" cy="112" r="16" class="peta-riak" />
-                                        <path d="M74 96 a10 10 0 0 1 10 10 c0 7-10 16-10 16 s-10-9-10-16 a10 10 0 0 1 10-10Z" class="peta-pin-a" />
-                                        <circle cx="74" cy="106" r="3.6" fill="#fff" />
-                                    </g>
-
-                                    <g class="peta-titik peta-titik-b" :class="{ 'tampil': jemput.trim().length >= 4 && tujuan.trim().length >= 3 }">
-                                        <circle cx="322" cy="52" r="16" class="peta-riak" />
-                                        <path d="M322 36 a10 10 0 0 1 10 10 c0 7-10 16-10 16 s-10-9-10-16 a10 10 0 0 1 10-10Z" class="peta-pin-b" />
-                                        <circle cx="322" cy="46" r="3.6" fill="#fff" />
-                                    </g>
-                                </svg>
+                                <div wire:ignore class="peta-rute-kanvas"></div>
 
                                 <div class="peta-rute-teks">
                                     <p class="peta-rute-baris">
                                         <span class="peta-noktah peta-noktah-a"></span>
-                                        <span x-text="jemput.trim() || 'Titik jemput belum diisi'"
-                                            :class="{ 'kosong': ! jemput.trim() }"></span>
+                                        <span class="{{ $peta['jemput'] ?? null ? '' : 'kosong' }}">
+                                            {{ $peta['jemput']['nama'] ?? ($lokasiAntar ?: 'Titik jemput belum diisi') }}
+                                        </span>
                                     </p>
-                                    <p class="peta-rute-baris" x-show="document.getElementById('sk-tujuan')">
-                                        <span class="peta-noktah peta-noktah-b"></span>
-                                        <span x-text="tujuan.trim() || 'Tujuan belum diisi'"
-                                            :class="{ 'kosong': ! tujuan.trim() }"></span>
+
+                                    @if ($bersopir)
+                                        <p class="peta-rute-baris">
+                                            <span class="peta-noktah peta-noktah-b"></span>
+                                            <span class="{{ $peta['tujuan'] ?? null ? '' : 'kosong' }}">
+                                                {{ $peta['tujuan']['nama'] ?? ($tujuan ?: 'Tujuan belum diisi') }}
+                                            </span>
+                                        </p>
+                                    @endif
+
+                                    {{-- Angkanya ditulis dengan tanda kira-kira, dan disebut BUKAN
+                                         dasar hitungan biaya. Tarif sewa dihitung per hari, bukan
+                                         per kilometer; angka yang dipajang tanpa keterangan itu
+                                         akan dibaca penyewa sebagai bagian dari tagihan. --}}
+                                    @if ($peta['jarak_km'] ?? null)
+                                        <p class="peta-rute-jarak">
+                                            <x-heroicon-s-map class="w-4 h-4" />
+                                            <span>&plusmn; {{ number_format($peta['jarak_km'], 1, ',', '.') }} km
+                                                @if ($peta['durasi_menit'] ?? null)
+                                                    · sekitar
+                                                    {{ $peta['durasi_menit'] >= 60
+                                                        ? intdiv($peta['durasi_menit'], 60) . ' jam' . ($peta['durasi_menit'] % 60 ? ' ' . $peta['durasi_menit'] % 60 . ' menit' : '')
+                                                        : $peta['durasi_menit'] . ' menit' }} berkendara
+                                                @endif
+                                            </span>
+                                        </p>
+                                    @endif
+
+                                    <p class="peta-rute-nota">
+                                        Perkiraan menurut peta, bukan dasar perhitungan biaya —
+                                        tarif dihitung per hari sewa. Titik jemput yang sebenarnya
+                                        dipastikan tim kami saat menghubungi Anda.
                                     </p>
-                                    <p class="peta-rute-nota">Gambaran saja — titik sebenarnya dipastikan tim kami saat menghubungi Anda.</p>
                                 </div>
                             </div>
 

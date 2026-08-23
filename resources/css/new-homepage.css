@@ -653,8 +653,9 @@ h6,
 }
 
 /* ==========================================================
-   7b. GAMBARAN RUTE DI FORMULIR SEWA
-   Hiasan sepenuhnya: bentuknya tetap, tidak mewakili letak sebenarnya.
+   7b. PETA RUTE DI FORMULIR SEWA
+   Peta sungguhan (OpenStreetMap lewat Leaflet). Gaya Leaflet sendiri
+   diimpor di resources/js/peta-rute.js, hanya di halaman yang memakainya.
 ========================================================== */
 .peta-rute {
     margin-top: 1.25rem;
@@ -664,89 +665,29 @@ h6,
     background: #fff;
 }
 
-.peta-rute-gambar {
-    display: block;
-    width: 100%;
-    height: auto;
+.peta-rute-kanvas {
+    height: 15rem;
     border-radius: 1rem;
     overflow: hidden;
+    background: #eef7fc;
+    z-index: 0; /* peta Leaflet punya lapisannya sendiri; dijaga di bawah isian */
 }
 
-.peta-tanah { fill: #eef7fc; }
-.peta-air { fill: #d8ecf8; }
-
-.peta-jalan path {
-    stroke: #fff;
-    stroke-width: 6;
-    stroke-linecap: round;
+@media (min-width: 640px) {
+    .peta-rute-kanvas { height: 18rem; }
 }
 
-/* Jalur yang ditempuh, digambar dari titik jemput ke tujuan.
-
-   pathLength="1" membuat panjang kurvanya dianggap satu satuan, jadi
-   dash-offset-nya cukup 1 -> 0. Tanpa itu panjang kurvanya harus diukur lalu
-   ditulis sebagai angka tetap — angka yang langsung salah begitu lengkungnya
-   digeser sedikit. */
-.peta-jalur {
-    stroke: var(--color-orcha-sky);
-    stroke-width: 3.5;
-    stroke-linecap: round;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    filter: drop-shadow(0 2px 5px rgba(26, 176, 226, .45));
-    transition: stroke-dashoffset 1.1s cubic-bezier(.22, .61, .36, 1);
+/* Penanda digambar sendiri, bukan memakai berkas ikon bawaan Leaflet — berkas
+   itu tidak ikut ter-bundle dan akan muncul sebagai gambar rusak. */
+.peta-penanda-bulat {
+    display: block;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: var(--warna);
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(0, 18, 32, .45);
 }
-
-.peta-jalur.tampil { stroke-dashoffset: 0; }
-
-/* Penanda titik: mengecil dan tembus pandang sampai isiannya terisi, lalu
-   menjatuh sekali. Riaknya berdenyut terus supaya titik yang sudah ada tetap
-   terlihat hidup tanpa menarik perhatian. */
-.peta-titik {
-    opacity: 0;
-    transform: translateY(-14px) scale(.6);
-    transform-origin: center bottom;
-    transform-box: fill-box;
-    transition: opacity .3s ease, transform .5s cubic-bezier(.34, 1.56, .64, 1);
-}
-
-.peta-titik.tampil { opacity: 1; transform: translateY(0) scale(1); }
-
-.peta-pin-a { fill: var(--color-orcha-ocean, #1d6fa5); }
-.peta-pin-b { fill: var(--color-orcha-sun); }
-
-.peta-riak { fill: currentColor; opacity: .16; }
-.peta-titik-a { color: var(--color-orcha-ocean, #1d6fa5); }
-.peta-titik-b { color: var(--color-orcha-sun); }
-.peta-titik.tampil .peta-riak { animation: peta-riak 2.4s ease-out infinite; }
-
-@keyframes peta-riak {
-    0% { transform: scale(.5); opacity: .35; }
-    70%, 100% { transform: scale(1.35); opacity: 0; }
-}
-
-/* Mobilnya menyusuri KURVA YANG SAMA dengan jalurnya — offset-path memakai
-   definisi 'd' yang persis sama, jadi keduanya tidak mungkin berpisah. */
-.peta-mobil {
-    opacity: 0;
-    color: #fff;
-    offset-path: path("M74 112 C 140 60, 250 128, 322 52");
-    offset-distance: 0%;
-    offset-rotate: 0deg;
-}
-
-.peta-mobil.tampil {
-    opacity: 1;
-    animation: peta-jalan 1.5s cubic-bezier(.4, 0, .3, 1) .15s forwards;
-}
-
-@keyframes peta-jalan {
-    from { offset-distance: 0%; }
-    to { offset-distance: 100%; }
-}
-
-.peta-mobil-bulat { fill: var(--color-orcha-sky); }
-.peta-mobil-ikon { fill: #fff; }
 
 .peta-rute-teks {
     display: grid;
@@ -777,20 +718,23 @@ h6,
 .peta-noktah-a { background: var(--color-orcha-ocean, #1d6fa5); }
 .peta-noktah-b { background: var(--color-orcha-sun); }
 
+.peta-rute-jarak {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    margin: .35rem 0 0;
+    font-size: .84rem;
+    font-weight: 700;
+    color: var(--color-orcha-navy);
+}
+
+.peta-rute-jarak svg { color: var(--color-orcha-sky); flex: 0 0 auto; }
+
 .peta-rute-nota {
     margin: .35rem 0 0;
     font-size: .7rem;
     line-height: 1.5;
     color: #94a3b8;
-}
-
-/* Yang meminta gerak seperlunya tetap mendapat titik dan jalurnya — yang
-   dimatikan hanya perjalanannya, bukan keterangannya. */
-@media (prefers-reduced-motion: reduce) {
-    .peta-jalur { transition: none; }
-    .peta-titik { transition: none; }
-    .peta-titik.tampil .peta-riak { animation: none; }
-    .peta-mobil.tampil { animation: none; offset-distance: 100%; }
 }
 
 /* ==========================================================
