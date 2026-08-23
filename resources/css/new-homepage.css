@@ -652,6 +652,123 @@ h6,
         0 16px 40px -12px rgba(255, 199, 78, .55);
 }
 
+/* ==========================================================
+   MENU MOBILE
+========================================================== */
+
+/* Tombol tiga garis yang berubah jadi silang. */
+.menu-tombol {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 2.75rem;
+    height: 2.75rem;
+    align-items: center;
+}
+
+.menu-garis {
+    display: block;
+    width: 22px;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+    transition: transform .25s cubic-bezier(.4, 0, .2, 1), opacity .18s ease;
+}
+
+/* Garis atas dan bawah bertemu di tengah lalu menyilang; yang tengah memudar.
+   Sudut putarnya dihitung dari jarak antar garis (2px tebal + 5px sela = 7px),
+   bukan ditebak. */
+.menu-tombol-buka .menu-garis:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.menu-tombol-buka .menu-garis:nth-child(2) { opacity: 0; transform: scaleX(.4); }
+.menu-tombol-buka .menu-garis:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+.menu-mobile {
+    position: relative;
+    background: #fff;
+    border-top: 1px solid var(--color-orcha-foam);
+    border-radius: 0 0 1.5rem 1.5rem;
+    box-shadow: 0 28px 60px -24px rgba(0, 18, 32, .5);
+    /* Panjang menunya tetap; kalau layarnya pendek, ia yang menggulung —
+       bukan halaman di belakangnya. */
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+}
+
+.menu-ubin {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    padding: .8rem .9rem;
+    border-radius: 1rem;
+    color: #334155;
+    font-weight: 600;
+    transition: background .18s ease, color .18s ease;
+}
+
+.menu-ubin:hover { background: var(--color-orcha-foam); }
+
+.menu-ubin-ikon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.3rem;
+    height: 2.3rem;
+    flex: 0 0 auto;
+    border-radius: .8rem;
+    background: var(--color-orcha-foam);
+    color: var(--color-orcha-ocean, #1d6fa5);
+}
+
+.menu-ubin-teks { flex: 1; }
+
+.menu-ubin-panah { color: #cbd5e1; flex: 0 0 auto; }
+
+/* Yang sedang dibuka diberi bidang berwarna, bukan hanya titik kecil di ujung
+   kanan — titik sebesar itu mudah terlewat justru pada layar yang kecil. */
+.menu-ubin-aktif {
+    background: linear-gradient(135deg, var(--color-orcha-ocean, #1d6fa5), var(--color-orcha-navy));
+    color: #fff;
+}
+
+.menu-ubin-aktif .menu-ubin-ikon {
+    background: rgba(255, 255, 255, .16);
+    color: #fff;
+}
+
+.menu-ubin-aktif:hover { background: linear-gradient(135deg, var(--color-orcha-ocean, #1d6fa5), var(--color-orcha-navy)); }
+
+.menu-ubin-tanda {
+    font-size: .62rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--color-orcha-sun);
+    flex: 0 0 auto;
+}
+
+.menu-kaki {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--color-orcha-foam);
+}
+
+.menu-kaki-jam {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    margin: .8rem 0 0;
+    font-size: .74rem;
+    color: #94a3b8;
+}
+
+.menu-kaki-jam svg { color: var(--color-orcha-sky); flex: 0 0 auto; }
+
+@media (prefers-reduced-motion: reduce) {
+    .menu-garis { transition: none; }
+}
+
 /* Daftar usulan tempat di bawah isian titik jemput dan tujuan. */
 .usul-bungkus { position: relative; }
 

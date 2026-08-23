@@ -31,13 +31,17 @@
     $waLink = 'https://api.whatsapp.com/send?phone=' . $waNumber . '&text=' . rawurlencode('Halo Orcha Journey, saya ingin bertanya soal paket wisata.');
     // Menu utama. Tiap butir menyimpan sendiri kapan dianggap "sedang dibuka",
     // sehingga penanda halaman aktif ikut menyala di menu desktop dan mobile.
+    // 'ikon' hanya dipakai menu mobile. Di layar sempit menunya berupa daftar
+    // tegak yang panjang, dan tanpa ikon tiap barisnya terlihat sama — mata
+    // harus membaca satu per satu. Menu desktop tetap teks saja: berjajar
+    // mendatar, ikon di situ justru menambah keramaian tanpa menambah petunjuk.
     $navLinks = [
-        ['label' => 'Beranda', 'url' => route('home'), 'aktif' => request()->routeIs('home')],
-        ['label' => 'Tentang Kami', 'url' => route('tentang-kami'), 'aktif' => request()->routeIs('tentang-kami')],
-        ['label' => 'Paket Wisata', 'url' => route('paket-wisata'), 'aktif' => request()->routeIs('paket-wisata')],
-        ['label' => 'Sewa Kendaraan', 'url' => route('sewa-kendaraan'), 'aktif' => request()->routeIs('sewa-kendaraan')],
-        ['label' => 'Destinasi', 'url' => route('destinasi'), 'aktif' => request()->routeIs('destinasi')],
-        ['label' => 'Kontak', 'url' => route('kontak'), 'aktif' => request()->routeIs('kontak')],
+        ['label' => 'Beranda', 'url' => route('home'), 'aktif' => request()->routeIs('home'), 'ikon' => 'heroicon-o-home'],
+        ['label' => 'Tentang Kami', 'url' => route('tentang-kami'), 'aktif' => request()->routeIs('tentang-kami'), 'ikon' => 'heroicon-o-users'],
+        ['label' => 'Paket Wisata', 'url' => route('paket-wisata'), 'aktif' => request()->routeIs('paket-wisata'), 'ikon' => 'heroicon-o-map'],
+        ['label' => 'Sewa Kendaraan', 'url' => route('sewa-kendaraan'), 'aktif' => request()->routeIs('sewa-kendaraan'), 'ikon' => 'heroicon-o-truck'],
+        ['label' => 'Destinasi', 'url' => route('destinasi'), 'aktif' => request()->routeIs('destinasi'), 'ikon' => 'heroicon-o-map-pin'],
+        ['label' => 'Kontak', 'url' => route('kontak'), 'aktif' => request()->routeIs('kontak'), 'ikon' => 'heroicon-o-chat-bubble-left-right'],
     ];
 @endphp
 
@@ -135,46 +139,93 @@
                     </a>
                 </div>
 
-                <button type="button" @click="open = !open" aria-label="Buka menu"
-                    :class="(scrolled || open) ? 'text-orcha-navy' : 'text-white'"
-                    class="p-2 transition rounded-xl lg:hidden hover:bg-orcha-foam/60">
-                    <svg x-show="!open" class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2"
-                        viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h16" />
-                    </svg>
-                    <svg x-show="open" x-cloak class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2"
-                        viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                {{-- Tiga garis yang BERUBAH jadi silang, bukan dua gambar yang
+                     bertukar tempat. Bertukar gambar, perubahannya terjadi
+                     seketika dan tidak menerangkan apa-apa; bergerak, ia
+                     menunjukkan bahwa tombol yang sama kini menutup apa yang
+                     tadi dibukanya. --}}
+                <button type="button" @click="open = !open"
+                    :aria-label="open ? 'Tutup menu' : 'Buka menu'" :aria-expanded="open"
+                    :class="[(scrolled || open) ? 'text-orcha-navy' : 'text-white', open ? 'menu-tombol-buka' : '']"
+                    class="p-2 transition menu-tombol rounded-xl lg:hidden hover:bg-orcha-foam/60">
+                    <span class="menu-garis"></span>
+                    <span class="menu-garis"></span>
+                    <span class="menu-garis"></span>
                 </button>
             </div>
         </div>
 
-        {{-- Menu mobile --}}
+        {{-- ============ MENU MOBILE ============
+             Panel bertirai, bukan panel yang menempel begitu saja di bawah
+             kepala halaman.
+
+             Sebelumnya halaman di belakangnya tetap terlihat penuh dan tetap
+             bisa digulung, jadi menunya terbaca sebagai potongan halaman —
+             bukan sebagai lapisan yang sedang dibuka. Tirai gelap memisahkan
+             keduanya, dan gulirnya dikunci selama menu terbuka. --}}
         <div x-show="open" x-cloak x-transition:enter="transition ease-out duration-200"
-            x-transition:enter-start="opacity-0 -translate-y-3" x-transition:enter-end="opacity-100 translate-y-0"
+            x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100"
-            x-transition:leave-end="opacity-0" class="bg-white border-t shadow-xl lg:hidden border-orcha-foam">
+            x-transition:leave-end="opacity-0" @click="open = false"
+            {{-- Dimulai di bawah bilah kepala (top-16 = tinggi bilah saat menu
+                 terbuka), bukan dari puncak layar.
+
+                 Menutupi seluruh layar, tirainya duduk di belakang latar navbar
+                 yang tembus 95% dan ikut mengusamkan logonya — terlihat kusam
+                 tanpa sebab yang jelas. --}}
+            class="fixed inset-x-0 bottom-0 top-16 bg-orcha-navy/45 backdrop-blur-[2px] lg:hidden"
+            aria-hidden="true">
+        </div>
+
+        <div x-show="open" x-cloak x-transition:enter="transition ease-out duration-250"
+            x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+            x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0"
+            x-transition:leave-end="opacity-0 -translate-y-3"
+            x-effect="document.body.style.overflow = open ? 'hidden' : ''"
+            class="menu-mobile lg:hidden">
             <div class="container-orcha">
-                <div class="flex flex-col py-5 divide-y divide-orcha-foam">
-                    @foreach ($navLinks as $item)
-                        <a href="{{ $item['url'] }}" @click="open = false"
-                            @if ($item['aktif']) aria-current="page" @endif
-                            class="flex items-center justify-between py-3.5 text-base font-semibold transition-colors {{ $item['aktif'] ? 'text-orcha-ocean' : 'text-slate-700 hover:text-orcha-sky' }}">
-                            {{ $item['label'] }}
-                            @if ($item['aktif'])
-                                <span class="w-2 h-2 rounded-full bg-orcha-sun"></span>
-                            @endif
+                <div class="py-4">
+                    {{-- Tiap butir jadi ubin, bukan baris bergaris tipis. Ikonnya
+                         memberi mata titik pegangan, dan yang sedang dibuka
+                         ditandai dengan bidang berwarna — bukan cuma titik kecil
+                         di ujung kanan yang mudah terlewat. --}}
+                    <div class="grid gap-1.5">
+                        @foreach ($navLinks as $item)
+                            <a href="{{ $item['url'] }}" @click="open = false"
+                                @if ($item['aktif']) aria-current="page" @endif
+                                class="menu-ubin {{ $item['aktif'] ? 'menu-ubin-aktif' : '' }}">
+                                <span class="menu-ubin-ikon">
+                                    <x-dynamic-component :component="$item['ikon']" class="w-5 h-5" />
+                                </span>
+                                <span class="menu-ubin-teks">{{ $item['label'] }}</span>
+                                @if ($item['aktif'])
+                                    <span class="menu-ubin-tanda">Sedang dibuka</span>
+                                @else
+                                    <x-heroicon-o-chevron-right class="w-4 h-4 menu-ubin-panah" />
+                                @endif
+                            </a>
+                        @endforeach
+                    </div>
+
+                    {{-- Cara menghubungi ditaruh di dasar panel, terpisah garis:
+                         itu tindakan, bukan halaman, dan menaruhnya sebaris
+                         dengan menu membuat keduanya terlihat setara. --}}
+                    <div class="menu-kaki">
+                        <a href="{{ $waLink }}" target="_blank" rel="noopener noreferrer"
+                            class="btn-orcha btn-orcha-sun w-full">
+                            <x-bi-whatsapp class="w-5 h-5" />
+                            Hubungi via WhatsApp
                         </a>
-                    @endforeach
-                    <a href="{{ $waLink }}" target="_blank" rel="noopener noreferrer"
-                        class="mt-4 btn-orcha btn-orcha-sun">
-                        <x-bi-whatsapp class="w-5 h-5" />
-                        Hubungi via WhatsApp
-                    </a>
+
+                        <p class="menu-kaki-jam">
+                            <x-heroicon-s-clock class="w-4 h-4" />
+                            Setiap hari, 08.00 &ndash; 21.00 WIB
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
+
     </nav>
 
     <main>
