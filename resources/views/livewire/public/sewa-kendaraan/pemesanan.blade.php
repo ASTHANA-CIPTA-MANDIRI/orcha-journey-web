@@ -59,6 +59,13 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
     public array $peta = [];
 
     /**
+     * Calon tempat untuk tiap isian, sampai penyewa memilih salah satunya.
+     *
+     * @var array<string, list<array<string, mixed>>>
+     */
+    public array $usulan = ['jemput' => [], 'tujuan' => []];
+
+    /**
      * Perjalanan keluar kota — tarifnya berbeda.
      *
      * Disimpan sebagai pilihan penyewa, BUKAN disimpulkan dari tulisan tujuannya.
@@ -227,21 +234,76 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
     }
 
     /**
-     * Mencari koordinat kedua titik dan jarak jalannya.
+     * Calon tempat untuk sebuah isian.
      *
-     * Dipanggil saat isian DITINGGALKAN, bukan saat diketik. Nominatim
-     * membatasi satu permintaan per detik dan melarang beban tinggi; memanggil
-     * ini tiap ketikan berarti melanggar ketentuan layanan yang kita menumpang
-     * padanya, sekaligus memperlambat penyewa yang sedang mengisi formulir.
+     * Teksnya dikirim sebagai argumen, bukan dibaca dari properti: kedua isian
+     * memakai wire:model biasa, jadi nilainya baru sampai ke server saat
+     * ditinggalkan. Menjadikannya .live berarti menembak server tiap ketikan
+     * hanya demi daftar usulan.
+     */
+    public function cariTitik(string $medan, string $teks): void
+    {
+        if (! in_array($medan, ['jemput', 'tujuan'], true)) {
+            return;
+        }
+
+        $this->usulan[$medan] = app(\App\Support\SewaKendaraan\PetaRute::class)->cari($teks);
+    }
+
+    /**
+     * Penyewa memilih salah satu calon.
+     *
+     * Menebak sendiri tidak pernah benar untuk semua orang: "malioboro" bisa
+     * berarti jalan di Yogyakarta atau pusat belanja di Surabaya, 370 km
+     * terpisah — dan halaman ini pernah menampilkan jarak 369,7 km untuk
+     * perjalanan yang sebenarnya 40 km, tanpa satu pun tanda bahwa titiknya
+     * keliru.
+     */
+    public function pilihTitik(string $medan, int $indeks): void
+    {
+        $pilihan = $this->usulan[$medan][$indeks] ?? null;
+
+        if (! $pilihan) {
+            return;
+        }
+
+        $this->peta[$medan] = $pilihan;
+        $this->usulan[$medan] = [];
+
+        // Tulisan di isiannya ikut dirapikan ke nama yang dipilih, supaya yang
+        // terbaca penyewa sama dengan yang tergambar di peta.
+        if ($medan === 'jemput') {
+            $this->lokasiAntar = $pilihan['nama'];
+        } else {
+            $this->tujuan = $pilihan['nama'];
+        }
+
+        $this->hitungRute();
+    }
+
+    /**
+     * Jarak jalan antara dua titik yang sudah dipilih.
      *
      * Gagalnya layanan tidak pernah menghentikan pemesanan: yang gagal
-     * mengembalikan null, petanya kosong, dan formulirnya berjalan seperti
-     * biasa.
+     * mengembalikan null, petanya tetap menampilkan kedua penanda, dan
+     * formulirnya berjalan seperti biasa.
      */
-    public function petakan(): void
+    private function hitungRute(): void
     {
-        $this->peta = app(\App\Support\SewaKendaraan\PetaRute::class)
-            ->rangkum($this->lokasiAntar, $this->bersopir() ? $this->tujuan : '');
+        $jemput = $this->peta['jemput'] ?? null;
+        $tujuan = $this->bersopir() ? ($this->peta['tujuan'] ?? null) : null;
+
+        $rute = ($jemput && $tujuan)
+            ? app(\App\Support\SewaKendaraan\PetaRute::class)->rute($jemput, $tujuan)
+            : null;
+
+        $this->peta = [
+            'jemput' => $jemput,
+            'tujuan' => $tujuan,
+            'jarak_km' => $rute['jarak_km'] ?? null,
+            'durasi_menit' => $rute['durasi_menit'] ?? null,
+            'garis' => $rute['garis'] ?? null,
+        ];
 
         $this->dispatch('peta-rute', peta: $this->peta);
     }
@@ -946,7 +1008,10 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                         {{ $bersopir ? 'Titik penjemputan' : 'Lokasi pengantaran unit' }}
                                         <x-wajib />
                                     </label>
+                                    <div class="usul-bungkus">
                                     <input id="sk-lokasi" type="text" wire:model="lokasiAntar" required minlength="4" maxlength="191"
+                                        autocomplete="off"
+                                        x-on:input.debounce.700ms="$wire.cariTitik('jemput', $event.target.value)"
                                         placeholder="{{ $bersopir
                                             ? 'Contoh: Hotel Malioboro, atau alamat lengkap'
                                             : 'Contoh: Bandara YIA, atau alamat lengkap' }}"
@@ -954,14 +1019,45 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                     @error('lokasiAntar')
                                         <p class="galat-orcha">{{ $message }}</p>
                                     @enderror
+
+                                    @if ($usulan['jemput'] ?? [])
+                                        <ul class="usul-daftar">
+                                            @foreach ($usulan['jemput'] as $i => $calon)
+                                                <li>
+                                                    <button type="button" wire:click="pilihTitik('jemput', {{ $i }})">
+                                                        <span class="usul-nama">{{ $calon['nama'] }}</span>
+                                                        <span class="usul-alamat">{{ $calon['alamat'] }}</span>
+                                                    </button>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    @endif
+                                    </div>
                                 </div>
 
                                 @if ($bersopir)
                                     <div>
                                         <label for="sk-tujuan" class="label-orcha">Tujuan perjalanan <x-wajib /></label>
+                                        <div class="usul-bungkus">
                                         <input id="sk-tujuan" type="text" wire:model="tujuan" required minlength="3" maxlength="191"
+                                            autocomplete="off"
+                                            x-on:input.debounce.700ms="$wire.cariTitik('tujuan', $event.target.value)"
                                             placeholder="Contoh: Borobudur — Dieng, atau Bromo"
                                             class="isian-orcha @error('tujuan') isian-galat @enderror">
+                                        @if ($usulan['tujuan'] ?? [])
+                                            <ul class="usul-daftar">
+                                                @foreach ($usulan['tujuan'] as $i => $calon)
+                                                    <li>
+                                                        <button type="button" wire:click="pilihTitik('tujuan', {{ $i }})">
+                                                            <span class="usul-nama">{{ $calon['nama'] }}</span>
+                                                            <span class="usul-alamat">{{ $calon['alamat'] }}</span>
+                                                        </button>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @endif
+                                        </div>
+
                                         @error('tujuan')
                                             <p class="galat-orcha">{{ $message }}</p>
                                         @enderror
@@ -1008,18 +1104,18 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                  pemanggil, dan hasilnya kita simpan tiga puluh hari. Dari
                                  peramban, ketentuan itu tidak mungkin dijaga.
 
-                                 Dipanggil saat isian DITINGGALKAN, bukan saat diketik —
-                                 memanggilnya tiap ketikan berarti melanggar ketentuan layanan
-                                 sekaligus memperlambat penyewa yang sedang mengisi.
+                                 Petanya digambar setelah penyewa MEMILIH dari daftar usulan,
+                                 bukan ditebak dari tulisannya. Menebak sendiri tidak pernah
+                                 benar untuk semua orang: halaman ini pernah menampilkan
+                                 369,7 km untuk Bandara YIA ke Malioboro — perjalanan yang
+                                 sebenarnya 40 km — karena "malioboro" ditebak sebagai pusat
+                                 belanja di Surabaya.
 
                                  wire:ignore: Livewire tidak boleh menggambar ulang bagian ini.
                                  Peta Leaflet menyimpan keadaannya sendiri di dalam simpul itu;
                                  sekali digambar ulang, petanya lenyap dan harus dipasang dari
                                  nol. --}}
-                            <div class="peta-rute"
-                                @blur.window="
-                                    if (['sk-lokasi', 'sk-tujuan'].includes($event.target.id)) $wire.petakan();
-                                ">
+                            <div class="peta-rute">
                                 <div wire:ignore class="peta-rute-kanvas"></div>
 
                                 <div class="peta-rute-teks">

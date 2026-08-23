@@ -35,69 +35,35 @@ class PetaRute
     private const VERSI = 1;
 
     /**
-     * Ringkasan untuk satu pasang titik.
+     * Beberapa calon tempat untuk sebuah tulisan, supaya PENYEWA yang memilih.
      *
-     * @return array{
-     *     jemput: array{lat: float, lon: float, nama: string}|null,
-     *     tujuan: array{lat: float, lon: float, nama: string}|null,
-     *     jarak_km: float|null,
-     *     durasi_menit: int|null,
-     *     garis: list<array{0: float, 1: float}>|null,
-     * }
-     */
-    public function rangkum(string $teksJemput, string $teksTujuan): array
-    {
-        // Titik jemput diutamakan di sekitar pangkalan; tujuan TIDAK.
-        //
-        // Keduanya menuntut hal yang berlawanan. Titik jemput hampir selalu
-        // lokal, dan tanpa pengutamaan "malioboro" jatuh ke Surabaya. Tujuan
-        // justru bertolak dari situ — dan dengan pengutamaan yang sama,
-        // "Bromo" jatuh ke "Jalan Bromo" di Yogyakarta, bukan gunungnya.
-        // Terukur, keduanya.
-        $jemput = $this->titik($teksJemput, utamakanSekitar: true);
-        $tujuan = $this->titik($teksTujuan, utamakanSekitar: false);
-
-        $rute = ($jemput && $tujuan) ? $this->rute($jemput, $tujuan) : null;
-
-        return [
-            'jemput' => $jemput,
-            'tujuan' => $tujuan,
-            'jarak_km' => $rute['jarak_km'] ?? null,
-            'durasi_menit' => $rute['durasi_menit'] ?? null,
-            'garis' => $rute['garis'] ?? null,
-        ];
-    }
-
-    /**
-     * Koordinat sebuah tulisan bebas, atau null bila tidak ketemu.
+     * Menebak sendiri tidak pernah benar untuk semua orang. Terukur pada nama
+     * yang sama persis: "malioboro" bisa berarti jalan di Yogyakarta atau pusat
+     * belanja di Surabaya, 370 km terpisah. Diutamakan yang dekat pangkalan,
+     * "Bromo" jatuh ke Jalan Bromo di Yogyakarta; tidak diutamakan, "malioboro"
+     * jatuh ke Surabaya. Kedua aturan sama-sama salah untuk separuh kejadian.
      *
-     * @return array{lat: float, lon: float, nama: string}|null
+     * @return list<array{lat: float, lon: float, nama: string, alamat: string}>
      */
-    public function titik(string $teks, bool $utamakanSekitar = true): ?array
+    public function cari(string $teks): array
     {
         $teks = trim(preg_replace('/\s+/', ' ', $teks));
 
         if (mb_strlen($teks) < self::HURUF_MINIMAL || ! config('orcha.peta.aktif', true)) {
-            return null;
+            return [];
         }
 
-        // Penanda pengutamaan ikut ke kunci simpanan: tulisan yang sama bisa
-        // berarti tempat yang berbeda tergantung ia titik jemput atau tujuan,
-        // dan satu kunci untuk keduanya akan menyajikan jawaban yang salah.
-        $kunci = 'orcha.titik.v'.self::VERSI.'.'.($utamakanSekitar ? 'dekat' : 'bebas')
-            .'.'.md5(mb_strtolower($teks));
-
         return Cache::remember(
-            $kunci,
+            'orcha.cari.v'.self::VERSI.'.'.md5(mb_strtolower($teks)),
             now()->addDays(self::SIMPAN_HARI),
-            fn () => $this->tanyaNominatim($teks, $utamakanSekitar),
+            fn () => $this->tanyaNominatim($teks),
         );
     }
 
     /**
-     * @return array{lat: float, lon: float, nama: string}|null
+     * @return list<array{lat: float, lon: float, nama: string, alamat: string}>
      */
-    private function tanyaNominatim(string $teks, bool $utamakanSekitar = true): ?array
+    private function tanyaNominatim(string $teks): array
     {
         try {
             $balasan = Http::withHeaders([
@@ -112,29 +78,44 @@ class PetaRute
                     'q' => $teks,
                     'format' => 'jsonv2',
                     'countrycodes' => 'id',
-                    'limit' => 1,
-                ] + ($utamakanSekitar ? [
-                    'viewbox' => config('orcha.peta.kotak_utama'),
-                    'bounded' => 0,
-                ] : []));
+                    'limit' => 6,
+                    // TANPA pengutamaan wilayah, dan itu disengaja.
+                    //
+                    // Selama jawabannya cuma satu, mengutamakan yang dekat
+                    // pangkalan memang menolong. Begitu jawabannya berupa
+                    // daftar pilihan, pengutamaan itu berbalik merugikan:
+                    // terukur, "Bromo" dengan pengutamaan menghasilkan lima
+                    // Jalan Bromo di Yogyakarta dan Surakarta — gunungnya
+                    // TERSINGKIR dari daftar, jadi penyewa tidak punya cara
+                    // memilihnya sama sekali.
+                ]);
 
-            $baris = $balasan->successful() ? ($balasan->json('0') ?? null) : null;
-
-            if (! $baris || ! isset($baris['lat'], $baris['lon'])) {
-                return null;
+            if (! $balasan->successful()) {
+                return [];
             }
 
-            return [
-                'lat' => (float) $baris['lat'],
-                'lon' => (float) $baris['lon'],
-                // Ruas pertama display_name: nama tempatnya, bukan alamat
-                // lengkap sampai negaranya.
-                'nama' => trim(explode(',', (string) ($baris['display_name'] ?? $teks))[0]),
-            ];
+            return collect($balasan->json() ?? [])
+                ->filter(fn ($baris) => isset($baris['lat'], $baris['lon']))
+                ->map(function ($baris) {
+                    $penuh = (string) ($baris['display_name'] ?? '');
+                    $ruas = array_map('trim', explode(',', $penuh));
+
+                    return [
+                        'lat' => (float) $baris['lat'],
+                        'lon' => (float) $baris['lon'],
+                        // Nama tempatnya sendiri, lalu sisa alamatnya sebagai
+                        // pembeda — tanpa itu dua "Malioboro" di daftar terlihat
+                        // sama persis dan tidak bisa dipilih dengan yakin.
+                        'nama' => $ruas[0] ?? $penuh,
+                        'alamat' => implode(', ', array_slice($ruas, 1, 3)),
+                    ];
+                })
+                ->values()
+                ->all();
         } catch (\Throwable $e) {
             Log::info('Pencarian titik gagal', ['teks' => $teks, 'pesan' => $e->getMessage()]);
 
-            return null;
+            return [];
         }
     }
 

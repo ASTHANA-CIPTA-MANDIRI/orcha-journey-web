@@ -652,6 +652,56 @@ h6,
         0 16px 40px -12px rgba(255, 199, 78, .55);
 }
 
+/* Daftar usulan tempat di bawah isian titik jemput dan tujuan. */
+.usul-bungkus { position: relative; }
+
+.usul-daftar {
+    position: absolute;
+    inset-inline: 0;
+    top: calc(100% + .35rem);
+    z-index: 30;
+    max-height: 16rem;
+    overflow-y: auto;
+    margin: 0;
+    padding: .3rem;
+    list-style: none;
+    background: #fff;
+    border: 1px solid var(--color-orcha-foam);
+    border-radius: 1rem;
+    box-shadow: 0 18px 40px -14px rgba(0, 18, 32, .35);
+}
+
+.usul-daftar button {
+    display: block;
+    width: 100%;
+    padding: .55rem .7rem;
+    border-radius: .7rem;
+    text-align: left;
+    cursor: pointer;
+    transition: background .15s ease;
+}
+
+.usul-daftar button:hover,
+.usul-daftar button:focus-visible {
+    background: var(--color-orcha-foam);
+}
+
+.usul-nama {
+    display: block;
+    font-size: .88rem;
+    font-weight: 600;
+    color: var(--color-orcha-navy);
+}
+
+/* Alamat di bawah namanya: tanpa itu dua "Malioboro" di daftar terlihat sama
+   persis dan tidak bisa dipilih dengan yakin. */
+.usul-alamat {
+    display: block;
+    font-size: .74rem;
+    line-height: 1.4;
+    color: #64748b;
+}
+
 /* ==========================================================
    7b. PETA RUTE DI FORMULIR SEWA
    Peta sungguhan (OpenStreetMap lewat Leaflet). Gaya Leaflet sendiri
