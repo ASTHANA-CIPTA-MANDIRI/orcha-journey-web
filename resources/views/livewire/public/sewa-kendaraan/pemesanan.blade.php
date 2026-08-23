@@ -300,8 +300,10 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
         $this->peta = [
             'jemput' => $jemput,
             'tujuan' => $tujuan,
+            'moda' => $rute['moda'] ?? null,
             'jarak_km' => $rute['jarak_km'] ?? null,
             'durasi_menit' => $rute['durasi_menit'] ?? null,
+            'jarak_lurus_km' => $rute['jarak_lurus_km'] ?? null,
             'garis' => $rute['garis'] ?? null,
         ];
 
@@ -1139,7 +1141,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                          dasar hitungan biaya. Tarif sewa dihitung per hari, bukan
                                          per kilometer; angka yang dipajang tanpa keterangan itu
                                          akan dibaca penyewa sebagai bagian dari tagihan. --}}
-                                    @if ($peta['jarak_km'] ?? null)
+                                    @if (($peta['moda'] ?? null) === 'darat')
                                         <p class="peta-rute-jarak">
                                             <x-heroicon-s-map class="w-4 h-4" />
                                             <span>&plusmn; {{ number_format($peta['jarak_km'], 1, ',', '.') }} km
@@ -1150,6 +1152,31 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                                                         : $peta['durasi_menit'] . ' menit' }} berkendara
                                                 @endif
                                             </span>
+                                        </p>
+                                    @elseif (($peta['moda'] ?? null) === 'tak_tersambung')
+                                        {{-- Tidak ada jalan yang menyambung — tujuannya di pulau
+                                             lain, atau jauh dari jalan mana pun.
+
+                                             Ini KETERANGAN, bukan kegagalan, dan penyewa berhak
+                                             tahu: tanpa kalimat ini peta hanya menampilkan dua
+                                             titik tanpa garis, dan yang terbaca "petanya rusak",
+                                             bukan "tempat ini perlu menyeberang".
+
+                                             Angkanya disebut GARIS LURUS apa adanya. Untuk
+                                             perjalanan darat angka semacam ini menyesatkan —
+                                             terukur pada Yogyakarta-Borobudur, garis lurusnya
+                                             27 km sementara jalannya 42 km — tetapi di sini
+                                             justru satu-satunya ukuran yang jujur. --}}
+                                        <p class="peta-rute-jarak peta-rute-seberang">
+                                            <x-heroicon-s-paper-airplane class="w-4 h-4" />
+                                            <span>Tidak tersambung jalan darat &mdash; perjalanannya
+                                                lewat kapal penyeberangan atau pesawat.</span>
+                                        </p>
+                                        <p class="peta-rute-nota">
+                                            Jarak garis lurus &plusmn;
+                                            {{ number_format($peta['jarak_lurus_km'], 1, ',', '.') }} km, bukan jarak
+                                            tempuh. Armada kami mengantar sampai titik penyeberangan;
+                                            tim kami mengabari rinciannya lewat WhatsApp.
                                         </p>
                                     @endif
 

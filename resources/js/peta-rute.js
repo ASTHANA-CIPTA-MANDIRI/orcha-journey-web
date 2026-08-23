@@ -62,15 +62,27 @@ export function pasangPetaRute() {
             titik.push(b);
         }
 
-        // Garis rute sebenarnya bila ada; kalau layanan rutenya tidak menjawab,
-        // TIDAK digambar garis lurus pengganti — garis lurus di atas peta
-        // sungguhan terbaca sebagai rute, padahal bukan.
+        // Garis rute sebenarnya, bila jalannya menyambung.
         if (data?.garis?.length) {
             L.polyline(data.garis, {
                 color: "#1ab0e2",
                 weight: 5,
                 opacity: 0.9,
                 lineJoin: "round",
+            }).addTo(lapisan);
+        } else if (data?.moda === "tak_tersambung" && titik.length === 2) {
+            // Tidak tersambung jalan darat: garisnya PUTUS-PUTUS, bukan penuh.
+            //
+            // Garis penuh di atas peta sungguhan terbaca sebagai rute yang bisa
+            // ditempuh, padahal jalannya tidak ada. Putus-putus adalah cara peta
+            // pada umumnya mengatakan "penghubungnya bukan jalan" — dan
+            // keterangannya ditulis di bawah peta.
+            L.polyline(titik, {
+                color: "#ffc74e",
+                weight: 4,
+                opacity: 0.95,
+                dashArray: "2 10",
+                lineCap: "round",
             }).addTo(lapisan);
         }
 

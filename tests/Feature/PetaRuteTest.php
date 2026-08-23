@@ -73,8 +73,57 @@ test('jarak jalan dihitung dari titik yang sudah dipilih', function () {
     $calon = $peta->cari('malioboro');
     $rute = $peta->rute($calon[0], $calon[1]);
 
-    expect($rute['jarak_km'])->toBe(42.3)
+    expect($rute['moda'])->toBe('darat')
+        ->and($rute['jarak_km'])->toBe(42.3)
         ->and($rute['durasi_menit'])->toBe(35);
+});
+
+test('tujuan yang tidak tersambung jalan darat dikatakan apa adanya', function () {
+    config()->set('orcha.rute.kunci', 'kunci-uji');
+
+    Http::fake([
+        '*nominatim*' => Http::response([
+            ['lat' => '-7.7908', 'lon' => '110.3668', 'display_name' => 'Yogyakarta, Indonesia'],
+            ['lat' => '-5.8796', 'lon' => '110.4329', 'display_name' => 'Karimunjawa, Jepara, Indonesia'],
+        ]),
+        // Kode 2010 dari OpenRouteService: tidak ada jalan yang menyambung ke
+        // titik itu. Karimunjawa sebuah pulau — jawabannya memang begitu.
+        '*openrouteservice*' => Http::response([
+            'error' => ['code' => 2010, 'message' => 'Could not find routable point'],
+        ], 404),
+    ]);
+
+    $peta = new PetaRute;
+    $calon = $peta->cari('apa saja');
+    $rute = $peta->rute($calon[0], $calon[1]);
+
+    // Ini KETERANGAN, bukan kegagalan. Tanpa membedakannya, peta hanya
+    // menampilkan dua titik tanpa garis dan yang terbaca "petanya rusak",
+    // bukan "tempat ini perlu menyeberang".
+    expect($rute['moda'])->toBe('tak_tersambung')
+        // Jarak garis lurus, dan di tampilan disebut garis lurus apa adanya.
+        ->and($rute['jarak_lurus_km'])->toBeGreaterThan(200.0)
+        ->and($rute['jarak_lurus_km'])->toBeLessThan(220.0)
+        ->and($rute)->not->toHaveKey('jarak_km');
+});
+
+test('kegagalan yang tidak diketahui sebabnya tetap diam', function () {
+    config()->set('orcha.rute.kunci', 'kunci-uji');
+
+    Http::fake([
+        '*nominatim*' => Http::response([
+            ['lat' => '-7.79', 'lon' => '110.36', 'display_name' => 'A, Indonesia'],
+            ['lat' => '-7.60', 'lon' => '110.20', 'display_name' => 'B, Indonesia'],
+        ]),
+        '*openrouteservice*' => Http::response([], 500),
+    ]);
+
+    $peta = new PetaRute;
+    $calon = $peta->cari('apa saja');
+
+    // Layanan yang mati bukan urusan penyewa. "Tidak ada jalan ke sana" berguna
+    // baginya; "layanan sedang mati" tidak, dan lebih baik tidak dikatakan.
+    expect($peta->rute($calon[0], $calon[1]))->toBeNull();
 });
 
 test('layanan rute diberi radius pencarian jalan yang longgar', function () {

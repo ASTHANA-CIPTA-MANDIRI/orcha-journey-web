@@ -120,11 +120,26 @@ class PetaRute
     }
 
     /**
-     * Jarak dan lama tempuh menurut jalan, beserta garis rutenya.
+     * Perjalanan antara dua titik.
+     *
+     * Dua kemungkinan, dan keduanya jawaban yang sah:
+     *
+     *   moda 'darat'          — ada jalan yang menyambung; jarak, lama tempuh,
+     *                           dan garis rutenya ikut.
+     *   moda 'tak_tersambung' — tidak ada jalan yang menyambung. Karimunjawa
+     *                           contohnya: sebuah pulau, dan layanan rute
+     *                           menjawab "could not find routable point".
+     *                           Yang bisa diberikan hanya jarak GARIS LURUS,
+     *                           dan itu disebut apa adanya.
+     *
+     * null hanya untuk kegagalan yang tidak diketahui sebabnya — layanan mati,
+     * kunci belum dipasang. Membedakannya penting: "tidak ada jalan ke sana"
+     * adalah keterangan yang berguna bagi penyewa, sedangkan "layanan sedang
+     * mati" bukan urusannya dan lebih baik diam.
      *
      * @param  array{lat: float, lon: float}  $dari
      * @param  array{lat: float, lon: float}  $ke
-     * @return array{jarak_km: float, durasi_menit: int, garis: list<array{0: float, 1: float}>}|null
+     * @return array<string, mixed>|null
      */
     public function rute(array $dari, array $ke): ?array
     {
@@ -146,7 +161,31 @@ class PetaRute
     }
 
     /**
-     * @return array{jarak_km: float, durasi_menit: int, garis: list<array{0: float, 1: float}>}|null
+     * Jarak garis lurus antara dua titik, dalam kilometer.
+     *
+     * HANYA dipakai ketika tidak ada jalan yang menyambung, dan di tampilan
+     * disebut "garis lurus" apa adanya. Untuk perjalanan darat angka ini
+     * menyesatkan — terukur pada Yogyakarta-Borobudur: garis lurusnya 27 km
+     * sementara jalannya 42 km.
+     *
+     * @param  array{lat: float, lon: float}  $dari
+     * @param  array{lat: float, lon: float}  $ke
+     */
+    private function jarakLurus(array $dari, array $ke): float
+    {
+        $r = 6371; // jari-jari bumi, kilometer
+
+        $dLat = deg2rad($ke['lat'] - $dari['lat']);
+        $dLon = deg2rad($ke['lon'] - $dari['lon']);
+
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($dari['lat'])) * cos(deg2rad($ke['lat'])) * sin($dLon / 2) ** 2;
+
+        return round($r * 2 * atan2(sqrt($a), sqrt(1 - $a)), 1);
+    }
+
+    /**
+     * @return array<string, mixed>|null
      */
     private function tanyaRute(array $dari, array $ke, string $kunci): ?array
     {
@@ -179,7 +218,19 @@ class PetaRute
                 ]);
 
             if (! $balasan->successful()) {
-                Log::info('Rute gagal', ['status' => $balasan->status()]);
+                // 2009/2010: titiknya tidak punya jalan yang menyambung —
+                // pulau, atau tempat yang jauh dari jalan mana pun. Itu jawaban,
+                // bukan kegagalan, dan penyewa berhak tahu.
+                $kode = $balasan->json('error.code');
+
+                if (in_array($kode, [2009, 2010], true)) {
+                    return [
+                        'moda' => 'tak_tersambung',
+                        'jarak_lurus_km' => $this->jarakLurus($dari, $ke),
+                    ];
+                }
+
+                Log::info('Rute gagal', ['status' => $balasan->status(), 'kode' => $kode]);
 
                 return null;
             }
@@ -192,6 +243,7 @@ class PetaRute
             }
 
             return [
+                'moda' => 'darat',
                 'jarak_km' => round($ringkas['distance'] / 1000, 1),
                 'durasi_menit' => (int) round(($ringkas['duration'] ?? 0) / 60),
                 // Dibalik jadi [lat, lon] di sini, sekali, supaya sisi tampilan

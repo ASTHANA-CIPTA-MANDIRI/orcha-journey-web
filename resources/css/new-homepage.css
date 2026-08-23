@@ -780,6 +780,16 @@ h6,
 
 .peta-rute-jarak svg { color: var(--color-orcha-sky); flex: 0 0 auto; }
 
+/* Perjalanan yang tidak tersambung jalan darat: dibedakan warnanya supaya
+   terbaca sebagai keterangan lain, bukan sebagai jarak tempuh biasa. */
+.peta-rute-seberang {
+    align-items: flex-start;
+    font-weight: 600;
+    color: #92640f;
+}
+
+.peta-rute-seberang svg { color: #d99a12; margin-top: .15rem; }
+
 .peta-rute-nota {
     margin: .35rem 0 0;
     font-size: .7rem;
