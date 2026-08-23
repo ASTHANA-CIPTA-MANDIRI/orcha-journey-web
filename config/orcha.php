@@ -1155,6 +1155,16 @@ return [
         'aktif' => env('ORCHA_PETA_AKTIF', true),
         'alamat' => env('ORCHA_PETA_ALAMAT', 'https://nominatim.openstreetmap.org/search'),
         'pengenal' => env('ORCHA_PETA_PENGENAL', 'OrchaJourney/1.0 (admin@orchajourney.com)'),
+
+        /*
+         * Kotak yang diutamakan saat mencari titik: sekitar Yogyakarta dan
+         * daerah sekelilingnya (lon,lat kiri-atas sampai lon,lat kanan-bawah).
+         *
+         * Hanya MENGUTAMAKAN, tidak membatasi — tujuan di luar kotak ini tetap
+         * ketemu. Gunanya menyelesaikan tulisan yang ambigu: "malioboro"
+         * sendirian jatuh ke Surabaya tanpa kotak ini.
+         */
+        'kotak_utama' => env('ORCHA_PETA_KOTAK', '109.9,-7.5,110.9,-8.2'),
     ],
 
     /*

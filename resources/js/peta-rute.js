@@ -81,7 +81,21 @@ export function pasangPetaRute() {
         }
     };
 
-    window.addEventListener("peta-rute", (e) => gambar(e.detail?.peta ?? e.detail));
+    // Livewire.on, BUKAN window.addEventListener.
+    //
+    // $this->dispatch() di PHP mengirim peristiwa Livewire, bukan peristiwa DOM
+    // di window — itu cara Livewire 2. Menunggunya di window berarti menunggu
+    // sesuatu yang tidak pernah datang: petanya tetap di tampilan awal, tanpa
+    // penanda, tanpa galat, dan tanpa satu pun tanda bahwa ada yang salah.
+    const dengar = () => window.Livewire.on("peta-rute", (data) => {
+        gambar(data?.peta ?? data);
+    });
+
+    if (window.Livewire) {
+        dengar();
+    } else {
+        document.addEventListener("livewire:init", dengar);
+    }
 
     // Ukuran peta dihitung ulang setelah tampil: Leaflet salah mengukur bila
     // wadahnya sempat tersembunyi atau berubah lebar.

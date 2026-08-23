@@ -68,6 +68,18 @@ test('koordinat dikirim ke layanan rute dalam urutan lon-lat', function () {
     });
 });
 
+test('layanan rute diberi radius pencarian jalan yang longgar', function () {
+    fakeTitikDanRute();
+
+    (new PetaRute)->rangkum('Hotel Malioboro Yogyakarta', 'Candi Borobudur');
+
+    // Bawaan OpenRouteService 350 meter, dan itu terlalu rapat untuk titik yang
+    // datang dari pencarian nama: "bali" menghasilkan titik tengah provinsinya,
+    // yang jatuh jauh dari jalan mana pun dan dijawab 404.
+    Http::assertSent(fn ($permintaan) => ! str_contains($permintaan->url(), 'openrouteservice')
+        || $permintaan->data()['radiuses'] === [5000, 5000]);
+});
+
 test('garis rute dibalik jadi lat-lon untuk peta', function () {
     fakeTitikDanRute();
 

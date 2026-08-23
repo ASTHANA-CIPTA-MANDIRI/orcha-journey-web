@@ -47,8 +47,15 @@ class PetaRute
      */
     public function rangkum(string $teksJemput, string $teksTujuan): array
     {
-        $jemput = $this->titik($teksJemput);
-        $tujuan = $this->titik($teksTujuan);
+        // Titik jemput diutamakan di sekitar pangkalan; tujuan TIDAK.
+        //
+        // Keduanya menuntut hal yang berlawanan. Titik jemput hampir selalu
+        // lokal, dan tanpa pengutamaan "malioboro" jatuh ke Surabaya. Tujuan
+        // justru bertolak dari situ — dan dengan pengutamaan yang sama,
+        // "Bromo" jatuh ke "Jalan Bromo" di Yogyakarta, bukan gunungnya.
+        // Terukur, keduanya.
+        $jemput = $this->titik($teksJemput, utamakanSekitar: true);
+        $tujuan = $this->titik($teksTujuan, utamakanSekitar: false);
 
         $rute = ($jemput && $tujuan) ? $this->rute($jemput, $tujuan) : null;
 
@@ -66,7 +73,7 @@ class PetaRute
      *
      * @return array{lat: float, lon: float, nama: string}|null
      */
-    public function titik(string $teks): ?array
+    public function titik(string $teks, bool $utamakanSekitar = true): ?array
     {
         $teks = trim(preg_replace('/\s+/', ' ', $teks));
 
@@ -74,17 +81,23 @@ class PetaRute
             return null;
         }
 
+        // Penanda pengutamaan ikut ke kunci simpanan: tulisan yang sama bisa
+        // berarti tempat yang berbeda tergantung ia titik jemput atau tujuan,
+        // dan satu kunci untuk keduanya akan menyajikan jawaban yang salah.
+        $kunci = 'orcha.titik.v'.self::VERSI.'.'.($utamakanSekitar ? 'dekat' : 'bebas')
+            .'.'.md5(mb_strtolower($teks));
+
         return Cache::remember(
-            'orcha.titik.v'.self::VERSI.'.'.md5(mb_strtolower($teks)),
+            $kunci,
             now()->addDays(self::SIMPAN_HARI),
-            fn () => $this->tanyaNominatim($teks),
+            fn () => $this->tanyaNominatim($teks, $utamakanSekitar),
         );
     }
 
     /**
      * @return array{lat: float, lon: float, nama: string}|null
      */
-    private function tanyaNominatim(string $teks): ?array
+    private function tanyaNominatim(string $teks, bool $utamakanSekitar = true): ?array
     {
         try {
             $balasan = Http::withHeaders([
@@ -100,7 +113,10 @@ class PetaRute
                     'format' => 'jsonv2',
                     'countrycodes' => 'id',
                     'limit' => 1,
-                ]);
+                ] + ($utamakanSekitar ? [
+                    'viewbox' => config('orcha.peta.kotak_utama'),
+                    'bounded' => 0,
+                ] : []));
 
             $baris = $balasan->successful() ? ($balasan->json('0') ?? null) : null;
 
@@ -165,6 +181,20 @@ class PetaRute
                         [$dari['lon'], $dari['lat']],
                         [$ke['lon'], $ke['lat']],
                     ],
+                    // Jarak pencarian jalan terdekat dari titik yang diberikan.
+                    //
+                    // Bawaannya 350 meter, dan itu terlalu rapat untuk titik
+                    // yang datang dari pencarian nama: "bali" menghasilkan
+                    // TITIK TENGAH provinsinya, yang jatuh jauh dari jalan mana
+                    // pun. Terukur — dengan bawaannya layanan menjawab 404
+                    // "could not find routable point", dengan 5 km rutenya
+                    // ketemu: Yogyakarta ke Bali 702,5 km, 9,5 jam, lengkap
+                    // dengan penyeberangannya.
+                    //
+                    // Dibatasi 5 km, tidak dibuat tanpa batas: titik yang salah
+                    // sama sekali lebih baik gagal daripada diam-diam
+                    // disambungkan ke jalan puluhan kilometer di seberang.
+                    'radiuses' => [5000, 5000],
                 ]);
 
             if (! $balasan->successful()) {
