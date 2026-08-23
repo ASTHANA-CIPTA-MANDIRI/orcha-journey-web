@@ -1,12 +1,4 @@
-        {{-- Cap nama sebagai latar footer. Digambar SVG dengan textLength supaya
-             lebarnya persis mengikuti lebar footer — di tengah, tidak pernah
-             terpotong, dan ikut mengecil sendiri di layar sempit. --}}
-        <svg class="orcha-cap-footer" viewBox="0 0 1000 200" preserveAspectRatio="xMidYMid meet"
-            aria-hidden="true" focusable="false">
-            <text x="500" y="150" text-anchor="middle" textLength="940" lengthAdjust="spacingAndGlyphs">
-                Orcha Journey
-            </text>
-        </svg><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="no-js scroll-smooth">
 
 <head>
@@ -195,34 +187,30 @@
             style="background-image: radial-gradient(60% 50% at 15% 0%, rgba(26,176,226,.35), transparent 70%), radial-gradient(50% 40% at 90% 100%, rgba(255,199,78,.18), transparent 70%);">
         </div>
 
-        {{-- Tulisan raksasa "ORCHA JOURNEY" sebagai latar. Sangat samar dan
-             dipotong di bawah supaya terbaca sebagai tekstur, bukan tulisan
-             kedua yang bersaing dengan isi footer. --}}
-        <svg class="orcha-cap-footer" viewBox="0 0 1000 150" preserveAspectRatio="xMidYMax meet"
-            aria-hidden="true" focusable="false">
-            {{-- textLength memaksa tulisannya selebar bidang gambar, jadi selalu
-                 pas di tengah dan tidak pernah terpotong — berapa pun lebar
-                 layar dan seberapa pun lebar hurufnya. --}}
-            <text x="500" y="120" text-anchor="middle" textLength="960" lengthAdjust="spacingAndGlyphs">
-                Orcha Journey
-            </text>
-        </svg>
-
         <div class="relative container-orcha py-14 sm:py-20">
-            <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
+            {{-- Di layar sempit isinya dipusatkan, dari sm ke atas kembali rata kiri.
+
+                 Satu kolom selebar layar dengan teks rata kiri menyisakan pias kosong
+                 yang lebar di kanan tiap baris — terbaca seperti tata letak yang
+                 belum selesai. Dipusatkan, tiap blok punya sumbu yang sama dan
+                 footernya terbaca sebagai satu kesatuan.
+
+                 Begitu kolomnya berdampingan (sm ke atas), rata kiri justru yang
+                 benar: mata menyusuri daftar tautan dari satu tepi yang tetap. --}}
+            <div class="grid gap-10 text-center sm:text-left sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
 
                 <div class="lg:col-span-4">
-                    <div class="flex items-center gap-3 mb-5">
+                    <div class="flex items-center justify-center gap-3 mb-5 sm:justify-start">
                         <img src="{{ asset('orcha-logo-only.png') }}" alt="Orcha Journey" width="48" height="48"
                             class="object-contain w-12 h-12">
                         <span class="text-xl font-black tracking-tight text-white uppercase font-heading">Orcha <span
                                 class="text-orcha-sky">Journey</span></span>
                     </div>
-                    <p class="max-w-sm text-sm leading-relaxed text-slate-400">
+                    <p class="max-w-sm mx-auto text-sm leading-relaxed text-slate-400 sm:mx-0">
                         Travel agent Yogyakarta untuk open trip, private trip, study tour, dan sewa kendaraan
                         pariwisata. Harga transparan, armada terawat, dan pemandu yang paham medan.
                     </p>
-                    <div class="flex gap-3 mt-6">
+                    <div class="flex justify-center gap-3 mt-6 sm:justify-start">
                         <a href="https://www.instagram.com/{{ config('orcha.instagram') }}/" target="_blank"
                             rel="noopener noreferrer" aria-label="Instagram Orcha Journey"
                             class="flex items-center justify-center transition border rounded-full w-11 h-11 border-white/15 bg-white/5 hover:bg-orcha-sky hover:border-orcha-sky">
@@ -298,21 +286,26 @@
                 <div class="lg:col-span-2">
                     <h4 class="mb-4 text-sm font-bold tracking-[0.2em] uppercase text-orcha-sun">Kontak</h4>
                     <ul class="space-y-4 text-sm">
-                        <li class="flex items-start gap-3">
+                        <li class="flex items-start justify-center gap-3 sm:justify-start">
                             <x-heroicon-s-map-pin class="w-5 h-5 shrink-0 mt-0.5 text-orcha-sky" />
-                            <span>{{ config('orcha.alamat') }}</span>
+                            {{-- Lebarnya dibatasi di layar sempit supaya ikon dan teks
+                                 terbaca sebagai satu kelompok yang dipusatkan. Dibiarkan
+                                 selebar baris, alamat yang panjang mendorong ikonnya
+                                 menempel ke tepi kiri layar sementara teksnya di tengah —
+                                 keduanya terlihat tidak berhubungan. --}}
+                            <span class="max-w-[15rem] sm:max-w-none">{{ config('orcha.alamat') }}</span>
                         </li>
-                        <li class="flex items-center gap-3">
+                        <li class="flex items-center justify-center gap-3 sm:justify-start">
                             <x-heroicon-s-phone class="w-5 h-5 shrink-0 text-orcha-sky" />
                             <a href="{{ $waLink }}" target="_blank" rel="noopener noreferrer"
                                 class="transition hover:text-orcha-sky">+{{ config('orcha.whatsapp') }}</a>
                         </li>
-                        <li class="flex items-center gap-3">
+                        <li class="flex items-center justify-center gap-3 sm:justify-start">
                             <x-heroicon-s-envelope class="w-5 h-5 shrink-0 text-orcha-sky" />
                             <a href="mailto:{{ config('orcha.email') }}"
                                 class="transition hover:text-orcha-sky">{{ config('orcha.email') }}</a>
                         </li>
-                        <li class="flex items-center gap-3">
+                        <li class="flex items-center justify-center gap-3 sm:justify-start">
                             <x-heroicon-s-clock class="w-5 h-5 shrink-0 text-orcha-sky" />
                             <span>Setiap hari, 08.00 – 21.00 WIB</span>
                         </li>

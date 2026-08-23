@@ -1356,35 +1356,6 @@ input[type="radio"] {
    lebar footer lewat textLength — jadi selalu pas berapa pun lebar layarnya.
    Hurufnya memakai aksen kaligrafi yang sama dengan judul-judul di situs,
    supaya terasa satu keluarga dan tidak seperti tulisan asing yang nyasar. */
-.orcha-cap-footer {
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: 0;
-    width: 100%;
-    height: clamp(7rem, 22vw, 17rem);
-    transform: translateY(-50%);
-    pointer-events: none;
-    user-select: none;
-}
-
-.orcha-cap-footer text {
-    font-family: var(--font-aksen);
-    font-weight: 400;
-    font-size: 150px;
-    fill: rgba(255, 255, 255, 0.05);
-    stroke: rgba(255, 199, 78, 0.07);
-    stroke-width: 0.75;
-}
-
-/* Layar sempit: footernya jadi tinggi dan isinya menumpuk, jadi capnya
-   dibuat lebih samar supaya tidak mengganggu keterbacaan. */
-@media (max-width: 767.98px) {
-    .orcha-cap-footer text {
-        fill: rgba(255, 255, 255, 0.035);
-        stroke: rgba(255, 199, 78, 0.05);
-    }
-}
 
 
 /* Isian kode pesanan ditulis huruf besar, tapi CONTOHNYA jangan ikut —
