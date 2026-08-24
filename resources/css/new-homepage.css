@@ -667,6 +667,23 @@ h6,
     align-items: center;
 }
 
+/* Tombolnya disembunyikan DI SINI, bukan hanya dengan `lg:hidden` di markup.
+
+   Berkas ini menulis kelasnya di luar lapisan CSS, sedangkan Tailwind v4
+   menaruh seluruh utilitasnya di dalam @layer utilities. Aturan tanpa lapisan
+   selalu mengalahkan aturan berlapis — bukan soal kekhususan, bukan soal
+   urutan — sehingga `display: inline-flex` di atas menang atas
+   `.xl\:hidden { display: none }` dan tombolnya ikut tampil di layar laptop,
+   berdampingan dengan menu lengkap yang sudah ada.
+
+   Diperbaiki di tempat kelasnya ditulis, supaya yang menyembunyikan dan yang
+   menampilkan berada di satu berkas dan tidak lagi saling menimpa diam-diam. */
+@media (min-width: 80rem) {
+    .menu-tombol {
+        display: none;
+    }
+}
+
 .menu-garis {
     display: block;
     width: 22px;

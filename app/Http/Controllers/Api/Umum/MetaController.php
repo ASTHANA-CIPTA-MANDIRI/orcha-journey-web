@@ -46,6 +46,7 @@ class MetaController extends ApiController
                 ['jalur' => 'pembatalan', 'label' => 'Pembatalan', 'ikon' => 'x-circle'],
                 ['jalur' => 'pesan', 'label' => 'Pesan Kontak', 'ikon' => 'inbox'],
                 ['jalur' => 'paket-wisata', 'label' => 'Paket Wisata', 'ikon' => 'map'],
+                ['jalur' => 'keuntungan', 'label' => 'Keuntungan Paket', 'ikon' => 'chart-bar'],
                 ['jalur' => 'kendaraan', 'label' => 'Armada', 'ikon' => 'truck'],
                 ['jalur' => 'destinasi', 'label' => 'Destinasi Populer', 'ikon' => 'map-pin'],
                 ['jalur' => 'testimoni', 'label' => 'Testimoni', 'ikon' => 'chat-bubble-left-right'],
@@ -111,6 +112,19 @@ class MetaController extends ApiController
                 'pembayaran' => config('orcha.pembayaran'),
                 'fasilitas_umum' => config('orcha.fasilitas_umum'),
                 'status_paket' => config('orcha.status_paket'),
+                // Daftar paket untuk pemilih saringan di lemon. Dikirim lewat
+                // rujukan — yang sudah disimpan sebentar di sisi sana — bukan
+                // lewat panggilan sendiri tiap kali halaman digambar.
+                'paket_wisata' => \App\Models\PaketWisata\TravelPackage::query()
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'category', 'tanggal_berangkat'])
+                    ->map(fn ($paket) => [
+                        'id' => $paket->id,
+                        'nama' => $paket->name,
+                        'kategori' => $paket->category,
+                        'tanggal_berangkat' => $paket->tanggal_berangkat?->toDateString(),
+                    ])
+                    ->all(),
                 'status_tayang' => config('orcha.status_tayang'),
                 // Dipakai lembar serah terima kendaraan di lemon: daftar bagian
                 // yang diperiksa dan pilihan kondisinya harus sama persis di

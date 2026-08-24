@@ -35,6 +35,14 @@ class PaketWisataResource extends JsonResource
             'minimal_peserta' => $this->minimal_peserta,
             'harga' => $this->price,
             'harga_asli' => $this->original_price,
+
+            // Modal dan marginnya hanya lewat jalur ini — jalur yang dijaga
+            // kunci antar server. Halaman publik tidak pernah menyentuhnya.
+            'harga_modal' => $this->harga_modal,
+            'modal_terisi' => $this->modal_terisi,
+            'margin_per_orang' => $this->margin_per_orang,
+            'margin_per_orang_teks' => $this->margin_per_orang_teks,
+            'margin_persen' => $this->margin_persen,
             'diskon_persen' => $this->discount_percentage,
             'catatan_promo' => $this->catatan_promo,
             'pilihan_terbaik' => (bool) $this->is_best_choice,

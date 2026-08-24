@@ -92,3 +92,65 @@ test('setiap hero yang dirujuk tampilan ada berkasnya dan tidak dikirim mentah',
     expect($hilang)->toBe([])
         ->and($berat)->toBe([]);
 });
+
+test('tombol menu tiga garis hanya untuk layar sempit', function () {
+    // Kelas .menu-tombol ditulis di luar lapisan CSS, sedangkan utilitas
+    // Tailwind v4 berada di dalam @layer utilities — dan aturan tanpa lapisan
+    // selalu mengalahkan yang berlapis. Akibatnya `lg:hidden` di markup tidak
+    // pernah menang, dan tombolnya ikut tampil di layar laptop berdampingan
+    // dengan menu lengkap yang sudah ada.
+    $css = file_get_contents(resource_path('css/new-homepage.css'));
+
+    expect($css)->toContain('.menu-tombol {')
+        // Penyembunyiannya harus ada di berkas yang sama dengan kelasnya.
+        ->and($css)->toMatch('/@media \(min-width: 80rem\) \{\s*\.menu-tombol \{\s*display: none;/');
+});
+
+test('markup navbar tetap menyatakan maksudnya', function () {
+    $blade = file_get_contents(resource_path('views/components/layouts/guest.blade.php'));
+
+    // Menu lengkap muncul mulai xl, tombol tiga garis berhenti di sana.
+    //
+    // Ambangnya bukan lg: pada 1024px — lebar iPad Pro tegak — enam tautan dan
+    // satu tombol ajakan tidak muat, lalu melipat jadi dua baris yang menabrak
+    // logo.
+    expect($blade)->toContain('hidden gap-6 xl:flex')
+        ->and($blade)->toContain('menu-tombol rounded-xl xl:hidden')
+        // Tautan yang tidak muat harus meluber, bukan melipat diam-diam.
+        ->and($blade)->toContain('flex-nowrap')
+        ->and($blade)->toContain('whitespace-nowrap');
+});
+
+test('galeri beranda memakai foto admin walau baru sedikit', function () {
+    App\Models\Etalase\Galeri::create(['foto' => '/storage/galeri/rombongan.webp', 'urutan' => 1]);
+
+    /*
+     | Dulu ada aturan "kalau kurang dari enam, ganti foto bawaan" — masuk akal
+     | waktu sumbernya foto destinasi yang mungkin cuma ada dua, tetapi merusak
+     | begitu galerinya diisi admin: mengunggah lima foto berarti kelimanya
+     | dibuang diam-diam, dan admin melihat beranda yang sama sekali tidak
+     | berubah tanpa tahu apa yang salah.
+     |
+     | Jalur fotonya diulang sampai memenuhi pita berjalan, jadi satu foto pun
+     | sudah cukup.
+     */
+    $isi = $this->get('/')->assertOk()->getContent();
+
+    // Diukur di dalam bagian galerinya saja: pantai-wide.jpg juga dipakai
+    // sebagai poster video hero, jadi mencarinya di seluruh halaman tidak
+    // mengukur apa pun tentang galeri.
+    $galeri = substr($isi, strpos($isi, 'id="galeri"'));
+
+    expect($galeri)
+        ->toContain('/storage/galeri/rombongan.webp')
+        ->not->toContain('images/pantai-wide.jpg');
+});
+
+test('galeri yang benar-benar kosong tetap memakai foto cadangan', function () {
+    // Beranda tidak boleh tampak kosong melompong hanya karena galerinya belum
+    // pernah diisi.
+    $isi = $this->get('/')->assertOk()->getContent();
+
+    expect(substr($isi, strpos($isi, 'id="galeri"')))
+        ->toContain('pantai-wide.jpg');
+});

@@ -29,6 +29,7 @@ class TravelPackage extends Model
         'minimal_peserta',
         'price',
         'original_price',
+        'harga_modal',
         'discount_percentage',
         'catatan_promo',
         'is_best_choice',
@@ -39,6 +40,7 @@ class TravelPackage extends Model
     ];
 
     protected $casts = [
+        'harga_modal' => 'integer',
         'destination_list' => 'array',
         'fasilitas' => 'array',
         'itinerary' => 'array',
@@ -50,6 +52,19 @@ class TravelPackage extends Model
         'tayang_sampai' => 'datetime',
         'berakhir_otomatis' => 'boolean',
     ];
+
+    /**
+     * Modal tidak pernah ikut keluar saat paketnya diubah jadi larik.
+     *
+     * Halaman publik menyerahkan model paket apa adanya ke Blade, dan sekali
+     * ada yang menuliskannya sebagai JSON — komponen Alpine, atribut data,
+     * atau tag ld+json — biaya internal Orcha terbaca siapa pun yang membuka
+     * kode sumber halaman. API dashboard tetap bisa membacanya karena Resource
+     * mengambil kolomnya langsung, bukan lewat toArray().
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['harga_modal'];
 
     /**
      * UUID dibuat otomatis; dipakai sebagai kunci alamat halaman publik.
@@ -256,6 +271,49 @@ class TravelPackage extends Model
     public function getHematRupiahAttribute(): int
     {
         return $this->ada_diskon ? (int) ($this->original_price - $this->price) : 0;
+    }
+
+    /* ------------------------------- KEUNTUNGAN ------------------------------- */
+
+    /**
+     * Modal paket sudah diisi admin?
+     *
+     * Dibedakan dari modal bernilai nol: nol berarti paket ini memang tidak
+     * berbiaya, kosong berarti belum pernah dihitung. Laporan keuntungan
+     * memakai pembedaan itu untuk memisahkan "untung nol" dari "belum tahu".
+     */
+    public function getModalTerisiAttribute(): bool
+    {
+        return $this->harga_modal !== null;
+    }
+
+    /**
+     * Untung per peserta: harga jual dikurangi modal, keduanya per orang.
+     *
+     * null bila modalnya belum diisi. Boleh negatif — paket yang dijual di
+     * bawah modal memang rugi, dan menyembunyikannya dengan max(0) hanya
+     * membuat laporan terlihat sehat padahal tidak.
+     */
+    public function getMarginPerOrangAttribute(): ?int
+    {
+        return $this->modal_terisi ? (int) $this->price - (int) $this->harga_modal : null;
+    }
+
+    /** Margin sebagai persen harga jual, satu angka di belakang koma. */
+    public function getMarginPersenAttribute(): ?float
+    {
+        if (! $this->modal_terisi || (int) $this->price <= 0) {
+            return null;
+        }
+
+        return round($this->margin_per_orang / (int) $this->price * 100, 1);
+    }
+
+    public function getMarginPerOrangTeksAttribute(): string
+    {
+        return $this->modal_terisi
+            ? \App\Support\RincianBiaya::rupiah($this->margin_per_orang)
+            : 'Belum dihitung';
     }
 
     public function scopeOfCategory($query, ?string $category)

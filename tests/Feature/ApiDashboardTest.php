@@ -1179,3 +1179,681 @@ test('status pesanan hanya maju oleh pembayaran yang sudah diterima', function (
     expect(App\Support\StatusPendaftaran::selaraskan($pendaftaran))->toBeNull()
         ->and($pendaftaran->fresh()->status)->toBe('baru');
 });
+
+/* ------------------- SARINGAN PAKET DI PENDAFTARAN ------------------- */
+
+test('pendaftaran bisa disaring per paket', function () {
+    $banyuwangi = TravelPackage::create([
+        'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip',
+        'price' => 1430000, 'minimal_peserta' => 6,
+    ]);
+    $dieng = TravelPackage::create([
+        'name' => 'Private Trip Dieng', 'category' => 'private_trip',
+        'price' => 2500000, 'minimal_peserta' => 4,
+    ]);
+
+    buatPendaftaran(['travel_package_id' => $banyuwangi->id, 'nama' => 'Peserta Banyuwangi']);
+    buatPendaftaran(['travel_package_id' => $banyuwangi->id, 'nama' => 'Peserta Banyuwangi Dua']);
+    buatPendaftaran(['travel_package_id' => $dieng->id, 'nama' => 'Peserta Dieng']);
+
+    $this->getJson("/api/v1/pendaftaran?paket_id={$banyuwangi->id}", kirim())
+        ->assertOk()
+        ->assertJsonPath('meta.total', 2)
+        ->assertJsonMissing(['nama' => 'Peserta Dieng']);
+
+    // Tanpa saringan, ketiganya tetap keluar.
+    $this->getJson('/api/v1/pendaftaran', kirim())
+        ->assertOk()
+        ->assertJsonPath('meta.total', 3);
+});
+
+test('rujukan membawa daftar paket untuk pemilih saringan', function () {
+    TravelPackage::create([
+        'name' => 'Study Tour Bali', 'category' => 'study_tour',
+        'price' => 1600000, 'minimal_peserta' => 10,
+        'tanggal_berangkat' => '2026-09-22',
+    ]);
+
+    $this->getJson('/api/v1/rujukan', kirim())
+        ->assertOk()
+        ->assertJsonPath('data.paket_wisata.0.nama', 'Study Tour Bali')
+        ->assertJsonPath('data.paket_wisata.0.kategori', 'study_tour')
+        ->assertJsonPath('data.paket_wisata.0.tanggal_berangkat', '2026-09-22');
+});
+
+/* ------------------ MELENGKAPI DAFTAR PESERTA ------------------ */
+
+test('admin bisa melengkapi nama peserta yang belum didata', function () {
+    $daftar = buatPendaftaran(['jumlah_peserta' => 3, 'titik_jemput' => 'Jogja']);
+
+    expect($daftar->peserta)->toBe([]);
+
+    $this->patchJson("/api/v1/pendaftaran/{$daftar->id}/peserta", [
+        'peserta' => [
+            ['nama' => ' Siti Aminah ', 'titik_jemput' => 'Surakarta'],
+            ['nama' => 'Budi Santoso', 'titik_jemput' => ''],
+            ['nama' => 'Rina Wijaya'],
+        ],
+    ], kirim())
+        ->assertOk()
+        ->assertJsonPath('pesan', 'Daftar peserta tersimpan.')
+        ->assertJsonPath('data.peserta.0.nama', 'Siti Aminah')
+        ->assertJsonPath('data.peserta.0.titik_jemput', 'Surakarta')
+        // Titik jemput kosong jatuh ke titik rombongan, bukan dibiarkan hampa.
+        ->assertJsonPath('data.peserta.1.titik_jemput', 'Jogja');
+});
+
+test('jumlah peserta tidak ikut berubah, selisihnya dilaporkan', function () {
+    $daftar = buatPendaftaran(['jumlah_peserta' => 5]);
+
+    $balasan = $this->patchJson("/api/v1/pendaftaran/{$daftar->id}/peserta", [
+        'peserta' => [['nama' => 'Siti Aminah'], ['nama' => 'Budi Santoso']],
+    ], kirim())->assertOk();
+
+    // Angka itu yang mengalikan harga jadi tagihan — tidak boleh berubah
+    // diam-diam hanya karena nama yang masuk baru dua.
+    expect($daftar->fresh()->jumlah_peserta)->toBe(5)
+        ->and($balasan->json('pesan'))->toContain('2 nama untuk 5 peserta');
+});
+
+test('daftar peserta boleh dikosongkan lagi', function () {
+    $daftar = buatPendaftaran(['daftar_peserta' => [['nama' => 'Siti Aminah']]]);
+
+    $this->patchJson("/api/v1/pendaftaran/{$daftar->id}/peserta", ['peserta' => []], kirim())
+        ->assertOk();
+
+    expect($daftar->fresh()->daftar_peserta)->toBeNull();
+});
+
+test('nama peserta kosong ditolak', function () {
+    $daftar = buatPendaftaran();
+
+    $this->patchJson("/api/v1/pendaftaran/{$daftar->id}/peserta", [
+        'peserta' => [['nama' => '', 'titik_jemput' => 'Jogja']],
+    ], kirim())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('peserta.0.nama');
+});
+
+test('melengkapi peserta tetap dijaga kunci api', function () {
+    $daftar = buatPendaftaran();
+
+    $this->patchJson("/api/v1/pendaftaran/{$daftar->id}/peserta", ['peserta' => []])
+        ->assertStatus(401);
+});
+
+test('detail pendaftaran membawa titik jemput paket untuk daftar pilihan', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip',
+        'price' => 1430000, 'minimal_peserta' => 6,
+        'titik_jemput' => 'Jogja, Klaten, Surakarta',
+    ]);
+
+    $daftar = buatPendaftaran(['travel_package_id' => $paket->id]);
+
+    $this->getJson("/api/v1/pendaftaran/{$daftar->id}", kirim())
+        ->assertOk()
+        ->assertJsonPath('data.paket.titik_jemput', ['Jogja', 'Klaten', 'Surakarta']);
+});
+
+/* ------------------- PENGGANTIAN PESERTA ------------------- */
+
+test('penggantian tercatat saat admin menyatakannya', function () {
+    $daftar = buatPendaftaran([
+        'jumlah_peserta' => 2,
+        'daftar_peserta' => [
+            ['nama' => 'Suparjiman', 'titik_jemput' => 'Klaten'],
+            ['nama' => 'Haha', 'titik_jemput' => 'Jogja'],
+        ],
+    ]);
+
+    $this->patchJson("/api/v1/pendaftaran/{$daftar->id}/peserta", [
+        'peserta' => [
+            ['nama' => 'Suparjiman', 'titik_jemput' => 'Klaten'],
+            ['nama' => 'Wiam', 'titik_jemput' => 'Jogja', 'gantikan' => 'Haha'],
+        ],
+    ], kirim())->assertOk();
+
+    $jejak = $daftar->fresh()->riwayat_penggantian;
+
+    expect($jejak)->toHaveCount(1)
+        ->and($jejak[0]['dari'])->toBe('Haha')
+        ->and($jejak[0]['ke'])->toBe('Wiam')
+        ->and($jejak[0]['oleh'])->toBe('admin@phoenix.test');
+});
+
+test('pembetulan salah ketik tidak dianggap penggantian', function () {
+    $daftar = buatPendaftaran([
+        'jumlah_peserta' => 1,
+        'daftar_peserta' => [['nama' => 'Suparjimen']],
+    ]);
+
+    // Menebak dari selisih daftar tidak bisa membedakan keduanya: sama-sama satu
+    // nama keluar, satu nama masuk. Yang membedakan niat admin, dan niat itu
+    // dinyatakan lewat 'gantikan' — bukan ditebak.
+    $this->patchJson("/api/v1/pendaftaran/{$daftar->id}/peserta",
+        ['peserta' => [['nama' => 'Suparjiman']]], kirim())->assertOk();
+
+    expect($daftar->fresh()->riwayat_penggantian)->toBeNull()
+        ->and($daftar->fresh()->peserta[0]['nama'])->toBe('Suparjiman');
+});
+
+test('penggantian beruntun menumpuk, tidak menimpa yang sebelumnya', function () {
+    $daftar = buatPendaftaran([
+        'jumlah_peserta' => 1,
+        'daftar_peserta' => [['nama' => 'Haha']],
+    ]);
+
+    $this->patchJson("/api/v1/pendaftaran/{$daftar->id}/peserta",
+        ['peserta' => [['nama' => 'Wiam', 'gantikan' => 'Haha']]], kirim())->assertOk();
+
+    $this->patchJson("/api/v1/pendaftaran/{$daftar->id}/peserta",
+        ['peserta' => [['nama' => 'Rina', 'gantikan' => 'Wiam']]], kirim())->assertOk();
+
+    expect(collect($daftar->fresh()->riwayat_penggantian)
+        ->map(fn ($satu) => $satu['dari'].' → '.$satu['ke'])->all())
+        ->toBe(['Haha → Wiam', 'Wiam → Rina']);
+});
+
+test('titik jemput yang ikut berpindah tercatat di riwayatnya', function () {
+    $daftar = buatPendaftaran([
+        'jumlah_peserta' => 1,
+        'daftar_peserta' => [['nama' => 'Haha', 'titik_jemput' => 'Jogja']],
+    ]);
+
+    $this->patchJson("/api/v1/pendaftaran/{$daftar->id}/peserta", [
+        'peserta' => [
+            ['nama' => 'Wiam', 'titik_jemput' => 'Klaten',
+                'gantikan' => 'Haha', 'gantikan_titik' => 'Jogja'],
+        ],
+    ], kirim())->assertOk();
+
+    $jejak = $daftar->fresh()->riwayat_penggantian;
+
+    expect($jejak[0]['dari_titik'])->toBe('Jogja')
+        ->and($jejak[0]['ke_titik'])->toBe('Klaten');
+});
+
+test('titik jemput tetap dicatat walau pengganti naik di titik yang sama', function () {
+    $daftar = buatPendaftaran([
+        'jumlah_peserta' => 1,
+        'daftar_peserta' => [['nama' => 'Haha', 'titik_jemput' => 'Jogja']],
+    ]);
+
+    $this->patchJson("/api/v1/pendaftaran/{$daftar->id}/peserta", [
+        'peserta' => [
+            ['nama' => 'Wiam', 'titik_jemput' => 'Jogja',
+                'gantikan' => 'Haha', 'gantikan_titik' => 'Jogja'],
+        ],
+    ], kirim())->assertOk();
+
+    // Arsip yang diam saat titiknya tidak berubah menyisakan pertanyaan yang
+    // tidak bisa dijawab lagi kemudian: memang tetap, atau tidak sempat
+    // dicatat? Dicatat selalu, jadi tidak perlu ditafsirkan.
+    $jejak = $daftar->fresh()->riwayat_penggantian;
+
+    expect($jejak[0]['dari_titik'])->toBe('Jogja')
+        ->and($jejak[0]['ke_titik'])->toBe('Jogja');
+});
+
+test('surat penggantian memuat seluruh penggantian pendaftarannya', function () {
+    $daftar = buatPendaftaran([
+        'jumlah_peserta' => 2,
+        'daftar_peserta' => [['nama' => 'Wildan'], ['nama' => 'Wiam']],
+        'riwayat_penggantian' => [
+            ['dari' => 'Suparjiman', 'ke' => 'Wildan', 'dari_titik' => 'Jogja', 'ke_titik' => 'Surakarta'],
+            ['dari' => 'Haha', 'ke' => 'Wiam', 'dari_titik' => 'Surakarta', 'ke_titik' => 'Klaten'],
+        ],
+    ]);
+
+    /*
+     | Satu surat untuk satu pemesanan, bukan satu per penggantian.
+     |
+     | Pihak yang menyatakan sama, pendaftaran yang dirujuk sama, kebijakan yang
+     | mendasarinya sama — yang berbeda cuma barisnya. Surat per penggantian
+     | membuat pemesan menandatangani dua berkas bermaterai untuk satu
+     | pemesanan.
+     */
+    $this->get("/api/v1/pendaftaran/{$daftar->id}/surat-penggantian", kirim())
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
+
+    $isi = view('pdf.surat-penggantian', [
+        'pendaftaran' => $daftar,
+        'riwayat' => $daftar->riwayat_penggantian,
+    ])->render();
+
+    expect($isi)
+        ->toContain('Suparjiman')->toContain('Wildan')
+        ->toContain('Haha')->toContain('Wiam')
+        // Jumlahnya disebut di pasalnya, bukan hanya tersirat dari banyak baris.
+        ->toContain('sebanyak 2 penggantian,')
+        // Tanda tangan para pengganti pindah ke tabelnya sendiri: tidak ada
+        // satu nama yang pantas ditulis di kolom tunggal.
+        ->toContain('Persetujuan Peserta Pengganti');
+});
+
+test('surat tidak membocorkan surel admin, dan kopnya tercetak tiap halaman', function () {
+    $daftar = buatPendaftaran();
+
+    $isi = view('pdf.surat-penggantian', [
+        'pendaftaran' => $daftar,
+        'riwayat' => [[
+            'dari' => 'Haha', 'ke' => 'Wiam',
+            'pada' => '2026-08-24T18:17:00+07:00',
+            'oleh' => 'pt.asthanaciptamandiri@gmail.com',
+        ]],
+    ])->render();
+
+    // Berkas ini keluar ke pemesan. Alamat surel staf bukan miliknya untuk
+    // dipegang — yang perlu ia tahu cuma bahwa pencatatnya pihak Orcha. Nama
+    // admin sebenarnya tetap tersimpan di riwayat dan terbaca di layar admin.
+    expect($isi)
+        ->not->toContain('pt.asthanaciptamandiri@gmail.com')
+        ->toContain('oleh Admin Orcha Journey')
+        /*
+         | Kop dipasang mengambang, bukan sekadar tabel di puncak badan.
+         |
+         | Yang mengambang ikut tercetak di setiap halaman; yang tidak hanya
+         | muncul sekali, dan halaman kedua surat resmi yang polos tanpa kop
+         | terbaca seperti lembar lepas yang tercecer dari berkas lain.
+         */
+        ->toContain('kepala-luar')
+        ->toContain('position: fixed');
+});
+
+test('tautan konfirmasi pembayaran membawa kodenya, tidak dipendekkan', function () {
+    $daftar = buatPendaftaran();
+
+    $tautan = $this->getJson("/api/v1/pendaftaran/{$daftar->id}", kirim())
+        ->assertOk()->json('data.konfirmasi_pembayaran_tautan');
+
+    /*
+     | Sengaja terbaca, bukan /t/xxx seperti berkas: yang diminta di sini bukan
+     | mengunduh melainkan mengunggah bukti transfer, dan orang yang diminta
+     | menyerahkan bukti pembayaran pantas melihat ke mana ia dibawa sebelum
+     | mengetuk.
+     */
+    expect($tautan)->toContain('/konfirmasi-pembayaran')
+        ->toContain('kode='.$daftar->kode)
+        ->not->toContain('/t/');
+});
+
+test('peserta yang belum mengisi dapat tautan pribadinya sendiri', function () {
+    $daftar = buatPendaftaran([
+        'jumlah_peserta' => 2,
+        'daftar_peserta' => [['nama' => 'Rina Wijaya'], ['nama' => 'Ahmad Fauzi']],
+    ]);
+
+    $tautan = $this->getJson("/api/v1/pendaftaran/{$daftar->id}", kirim())
+        ->assertOk()->json('data.peserta_belum_isi_tautan');
+
+    // Kode dan namanya sudah terbawa, sehingga yang membukanya tinggal mengisi
+    // kondisinya sendiri — tidak perlu mengetik ulang kode yang mudah salah.
+    expect($tautan)->toHaveKey('Rina Wijaya')
+        ->and($tautan['Rina Wijaya'])
+        ->toContain('riwayat-kesehatan')
+        ->toContain('kode='.$daftar->kode)
+        ->toContain('peserta=Rina');
+});
+
+/* ------------------------------- GALERI ------------------------------- */
+
+test('foto galeri disimpan sebagai webp, aslinya tidak ikut tersimpan', function () {
+    Storage::fake('public');
+
+    // PNG hasil unggahan admin biasanya beberapa MB. Menyimpan aslinya
+    // berdampingan dengan WebP-nya berarti membayar dua kali untuk gambar yang
+    // sama, dan yang penuh lebih dulu adalah kuota hosting.
+    $this->post('/api/v1/galeri', [
+        'gambar' => UploadedFile::fake()->image('rombongan.png', 800, 600),
+    ], kirim())->assertStatus(201);
+
+    $berkas = Storage::disk('public')->allFiles('galeri');
+
+    expect($berkas)->toHaveCount(1)
+        ->and($berkas[0])->toEndWith('.webp');
+});
+
+test('galeri hanya menampilkan yang ditandai tampil, mengikuti urutannya', function () {
+    App\Models\Etalase\Galeri::create(['foto' => '/storage/galeri/c.webp', 'urutan' => 3]);
+    App\Models\Etalase\Galeri::create(['foto' => '/storage/galeri/a.webp', 'urutan' => 1]);
+    App\Models\Etalase\Galeri::create(['foto' => '/storage/galeri/x.webp', 'urutan' => 2, 'tampil' => false]);
+
+    expect(App\Models\Etalase\Galeri::tayang()->pluck('foto')->all())
+        ->toBe(['/storage/galeri/a.webp', '/storage/galeri/c.webp']);
+});
+
+test('foto baru masuk ke belakang barisan, tidak menyerobot urutan yang sudah disusun', function () {
+    Storage::fake('public');
+
+    App\Models\Etalase\Galeri::create(['foto' => '/storage/galeri/a.webp', 'urutan' => 5]);
+
+    $this->post('/api/v1/galeri', ['gambar' => UploadedFile::fake()->image('b.jpg')], kirim())
+        ->assertStatus(201);
+
+    // Urutan yang sudah disusun admin tidak boleh berubah sendiri hanya karena
+    // ada unggahan baru.
+    expect(App\Models\Etalase\Galeri::latest('id')->first()->urutan)->toBe(6);
+});
+
+test('menghapus foto galeri ikut membuang berkasnya', function () {
+    Storage::fake('public');
+
+    $this->post('/api/v1/galeri', ['gambar' => UploadedFile::fake()->image('a.jpg')], kirim())
+        ->assertStatus(201);
+
+    $galeri = App\Models\Etalase\Galeri::first();
+    $jalur = str_replace('/storage/', '', $galeri->foto);
+
+    Storage::disk('public')->assertExists($jalur);
+
+    $this->delete("/api/v1/galeri/{$galeri->id}", [], kirim())->assertOk();
+
+    // Berkas yatim yang tidak dirujuk apa pun cuma memakan ruang.
+    Storage::disk('public')->assertMissing($jalur);
+});
+
+test('kwitansi punya tautan pendek yang bisa dibagikan ke pelanggan', function () {
+    $daftar = buatPendaftaran();
+
+    $tautan = $this->getJson("/api/v1/pendaftaran/{$daftar->id}", kirim())
+        ->assertOk()->json('data.kwitansi_tautan');
+
+    /*
+     | Pendek, bukan alamat bertanda tangan Laravel yang lebih dari 200
+     | karakter. Di gelembung WhatsApp yang panjang patah ke banyak baris dan
+     | lebih tampak seperti tautan sampah daripada berkas resmi.
+     |
+     | Dan bukan alamat unduh milik admin, yang menuntut X-Orcha-Key dan
+     | karenanya cuma menghasilkan penolakan di tangan pelanggan.
+     */
+    expect($tautan)->toContain('/t/')
+        ->and(strlen($tautan))->toBeLessThan(60);
+
+    $this->get($tautan)->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
+});
+
+test('surat pernyataan punya tautan pendek untuk dikirim ke pemesan', function () {
+    $daftar = buatPendaftaran([
+        'riwayat_penggantian' => [['dari' => 'Haha', 'ke' => 'Wiam']],
+    ]);
+
+    $tautan = $this->getJson("/api/v1/pendaftaran/{$daftar->id}", kirim())
+        ->assertOk()->json('data.surat_penggantian_kosong_tautan');
+
+    expect($tautan)->toContain('/t/')
+        ->and(strlen($tautan))->toBeLessThan(60);
+
+    // Berkas kosong untuk dicetak dan ditandatangani — langkah pertamanya,
+    // bukan salinan arsip yang baru ada sesudah pemesan mengirimkannya balik.
+    $balasan = $this->get($tautan)->assertOk();
+
+    expect(substr($balasan->streamedContent(), 0, 5))->toBe('%PDF-');
+});
+
+test('tanpa penggantian, tautan suratnya tidak ditawarkan sama sekali', function () {
+    $daftar = buatPendaftaran();
+
+    // Suratnya memang tidak bisa diterbitkan, dan menawarkan tautan yang pasti
+    // berujung galat lebih buruk daripada tidak menawarkan apa pun.
+    $this->getJson("/api/v1/pendaftaran/{$daftar->id}", kirim())
+        ->assertOk()
+        ->assertJsonPath('data.surat_penggantian_kosong_tautan', null);
+});
+
+test('kode tautan yang tidak dikenal ditolak, bukan menampilkan berkas orang lain', function () {
+    $this->get('/t/kodengawur1')->assertStatus(404);
+});
+
+test('tautan pendek dipakai ulang, bukan dibuat baru tiap halaman dibuka', function () {
+    $daftar = buatPendaftaran();
+
+    $pertama = $this->getJson("/api/v1/pendaftaran/{$daftar->id}", kirim())
+        ->json('data.kwitansi_tautan');
+    $kedua = $this->getJson("/api/v1/pendaftaran/{$daftar->id}", kirim())
+        ->json('data.kwitansi_tautan');
+
+    // Kalau tidak, satu pendaftaran menumpuk puluhan baris dan tautan yang
+    // telanjur dikirim ke pelanggan berdampingan dengan yang belum.
+    expect($kedua)->toBe($pertama)
+        ->and(App\Models\Umum\TautanPendek::count())->toBe(1);
+});
+
+test('tautan pendek yang kedaluwarsa ditolak, bukan diam-diam melayani', function () {
+    $daftar = buatPendaftaran();
+
+    $tautan = $this->getJson("/api/v1/pendaftaran/{$daftar->id}", kirim())
+        ->json('data.kwitansi_tautan');
+
+    App\Models\Umum\TautanPendek::query()->update(['kedaluwarsa_pada' => now()->subDay()]);
+
+    $this->get($tautan)->assertStatus(404);
+});
+
+test('kode tautan tidak bisa ditebak dari nomor pendaftarannya', function () {
+    $daftar = buatPendaftaran();
+
+    $this->getJson("/api/v1/pendaftaran/{$daftar->id}", kirim())->assertOk();
+
+    // Berkasnya memuat nama, nomor telepon, dan rincian biaya seseorang. Kode
+    // yang bisa dihitung ulang dari nomor pendaftaran berarti bisa ditebak.
+    $kode = App\Models\Umum\TautanPendek::first()->kode;
+
+    expect($kode)->not->toContain((string) $daftar->id)
+        ->and(strlen($kode))->toBe(10);
+
+    $this->get('/t/'.$daftar->id)->assertStatus(404);
+});
+
+test('surat bertanda tangan bisa diunggah, dan yang lama digantikan', function () {
+    Storage::fake('public');
+
+    $daftar = buatPendaftaran([
+        'riwayat_penggantian' => [['dari' => 'Haha', 'ke' => 'Wiam']],
+    ]);
+
+    $this->post("/api/v1/pendaftaran/{$daftar->id}/surat-penggantian-ttd", [
+        'surat' => UploadedFile::fake()->create('surat.pdf', 200, 'application/pdf'),
+    ], kirim())->assertOk();
+
+    $lama = $daftar->fresh()->surat_penggantian;
+
+    expect($lama)->toStartWith('/storage/surat-penggantian/')
+        ->and($daftar->fresh()->surat_penggantian_pada)->not->toBeNull();
+
+    Storage::disk('public')->assertExists(str_replace('/storage/', '', $lama));
+
+    // Hasil pindaian buram atau tanda tangan yang terlewat memang harus
+    // diulang, bukan ditumpuk — dan berkas lamanya ikut dibuang, bukan
+    // ditinggal yatim memakan ruang.
+    $this->post("/api/v1/pendaftaran/{$daftar->id}/surat-penggantian-ttd", [
+        'surat' => UploadedFile::fake()->image('ulang.jpg'),
+    ], kirim())->assertOk();
+
+    $baru = $daftar->fresh()->surat_penggantian;
+
+    expect($baru)->not->toBe($lama);
+    Storage::disk('public')->assertMissing(str_replace('/storage/', '', $lama));
+    Storage::disk('public')->assertExists(str_replace('/storage/', '', $baru));
+});
+
+test('surat bertanda tangan bisa dicabut bila salah unggah', function () {
+    Storage::fake('public');
+
+    $daftar = buatPendaftaran();
+
+    $this->post("/api/v1/pendaftaran/{$daftar->id}/surat-penggantian-ttd",
+        ['surat' => UploadedFile::fake()->create('surat.pdf', 100, 'application/pdf')],
+        kirim())->assertOk();
+
+    $jalur = $daftar->fresh()->surat_penggantian;
+
+    $this->delete("/api/v1/pendaftaran/{$daftar->id}/surat-penggantian-ttd", [], kirim())
+        ->assertOk();
+
+    expect($daftar->fresh()->surat_penggantian)->toBeNull()
+        ->and($daftar->fresh()->surat_penggantian_pada)->toBeNull();
+
+    Storage::disk('public')->assertMissing(str_replace('/storage/', '', $jalur));
+});
+
+test('berkas selain pindaian dan foto ditolak', function () {
+    Storage::fake('public');
+
+    $daftar = buatPendaftaran();
+
+    // Diterima apa adanya PDF maupun foto — memaksa satu bentuk berarti menolak
+    // cara paling lazim berkasnya sampai ke admin. Tapi bukan sembarang berkas.
+    $this->postJson("/api/v1/pendaftaran/{$daftar->id}/surat-penggantian-ttd",
+        ['surat' => UploadedFile::fake()->create('virus.exe', 10)], kirim())
+        ->assertStatus(422);
+});
+
+test('alamat surat bertanda tangan ikut di balasan pendaftaran', function () {
+    Storage::fake('public');
+
+    $daftar = buatPendaftaran();
+
+    $this->post("/api/v1/pendaftaran/{$daftar->id}/surat-penggantian-ttd",
+        ['surat' => UploadedFile::fake()->create('surat.pdf', 100, 'application/pdf')],
+        kirim())->assertOk();
+
+    // Alamat penuh, supaya lemon bisa langsung menautkannya tanpa menebak
+    // host berkasnya.
+    $this->getJson("/api/v1/pendaftaran/{$daftar->id}", kirim())
+        ->assertOk()
+        ->assertJsonPath('data.surat_penggantian', url($daftar->fresh()->surat_penggantian));
+});
+
+test('surat penggantian ditolak bila belum ada penggantian sama sekali', function () {
+    $daftar = buatPendaftaran();
+
+    $this->getJson("/api/v1/pendaftaran/{$daftar->id}/surat-penggantian", kirim())
+        ->assertStatus(422);
+});
+
+test('riwayat kesehatan peserta yang diganti ditandai, bukan dihapus', function () {
+    $daftar = buatPendaftaran([
+        'jumlah_peserta' => 2,
+        'daftar_peserta' => [['nama' => 'Suparjiman'], ['nama' => 'Haha']],
+    ]);
+
+    foreach (['Suparjiman', 'Haha'] as $nama) {
+        RiwayatKesehatan::create([
+            'kode_pendaftaran' => $daftar->kode, 'nama_peserta' => $nama,
+            'kontak_darurat_nama' => 'Budi', 'kontak_darurat_hp' => '0812',
+            'setuju_data_kesehatan' => true,
+        ]);
+    }
+
+    $this->patchJson("/api/v1/pendaftaran/{$daftar->id}/peserta", [
+        'peserta' => [['nama' => 'Suparjiman'], ['nama' => 'Wiam']],
+    ], kirim())->assertOk();
+
+    $balasan = $this->getJson("/api/v1/pendaftaran/{$daftar->id}/riwayat-kesehatan", kirim())
+        ->assertOk();
+
+    // Datanya tetap ada — menghapus data kesehatan orang hanya karena namanya
+    // dicoret dari satu daftar bukan keputusan yang diambil diam-diam.
+    expect($balasan->json('data'))->toHaveCount(2);
+
+    $perNama = collect($balasan->json('data'))->keyBy('nama_peserta');
+
+    expect($perNama['Suparjiman']['peserta_aktif'])->toBeTrue()
+        ->and($perNama['Haha']['peserta_aktif'])->toBeFalse();
+});
+
+test('surat penggantian peserta terbit sebagai pdf', function () {
+    $daftar = buatPendaftaran([
+        'jumlah_peserta' => 2,
+        'daftar_peserta' => [['nama' => 'Suparjiman'], ['nama' => 'Wiam']],
+        'riwayat_penggantian' => [['dari' => 'Haha', 'ke' => 'Wiam']],
+    ]);
+
+    $balasan = $this->get(
+        "/api/v1/pendaftaran/{$daftar->id}/surat-penggantian",
+        kirim()
+    )->assertOk();
+
+    expect($balasan->headers->get('content-disposition'))
+        ->toContain('SURAT-PENGGANTIAN-PESERTA-'.strtoupper($daftar->kode).'.pdf');
+
+    // PDF menandai dirinya sendiri di lima huruf pertama.
+    expect(substr($balasan->streamedContent(), 0, 5))->toBe('%PDF-');
+});
+
+test('isi surat penggantian menyebut kedua nama dan kode pendaftarannya', function () {
+    $daftar = buatPendaftaran(['nama' => 'Suparjiman', 'nama_paket' => 'Open Trip Banyuwangi']);
+
+    /*
+     | Isinya diperiksa dari HTML templatnya, bukan dari PDF jadinya.
+     |
+     | Dompdf memampatkan aliran teks di dalam PDF, jadi mencari kata di
+     | berkas jadinya tidak menemukan apa-apa walau katanya benar-benar
+     | tercetak. Yang perlu dijaga uji ini justru isi suratnya — bahwa
+     | pasal-pasalnya ada dan namanya benar — dan itu seluruhnya ditentukan
+     | templat. Bahwa PDF-nya sendiri terbentuk dijaga uji di atas.
+     */
+    $isi = view('pdf.surat-penggantian', [
+        'pendaftaran' => $daftar,
+        'riwayat' => [['dari' => 'Haha', 'ke' => 'Wiam']],
+    ])->render();
+
+    expect($isi)
+        ->toContain('Surat Pernyataan')
+        ->toContain('Penggantian Peserta')
+        ->toContain('Haha')
+        ->toContain('Wiam')
+        ->toContain($daftar->kode)
+        ->toContain('Suparjiman')
+        // Nomor suratnya bergaya persuratan supaya bisa diarsipkan pemesan
+        // institusi bersama surat-surat lain.
+        ->toContain('SPP/'.$daftar->kode.'/')
+        // Dasar aturannya ikut disebut supaya pemesan tidak perlu mencari sendiri.
+        ->toContain('tidak dikenakan biaya tambahan sepanjang jumlah peserta')
+        // Nasib data lama dinyatakan terang.
+        ->toContain('tetap tersimpan sebagai arsip')
+        // Enam pasal, bukan daftar butir: berkas ini ditandatangani.
+        ->toContain('Pasal 6')
+        ->toContain('Materai')
+        // Panah U+2192 tidak ada di Helvetica bawaan PDF; dompdf mencetaknya
+        // sebagai tanda tanya, dan "Jogja ? Surakarta" di surat bermaterai
+        // terbaca seperti data yang rusak.
+        ->not->toContain('&rarr;')
+        // Kop dan kaki sebentuk kwitansi.
+        ->toContain('ORCHA <span>JOURNEY</span>')
+        ->toContain('Nomor Berkas');
+});
+
+test('surat penggantian tidak mengaku sah tanpa tanda tangan', function () {
+    $daftar = buatPendaftaran();
+
+    // Kwitansi memang sah tanpa tanda tangan basah, dan kalimat itu ada di
+    // kakinya. Surat ini kebalikannya: ia justru menunggu tanda tangan para
+    // pihak, jadi kalimat yang sama akan bertentangan dengan blok materai di
+    // atasnya.
+    $isi = view('pdf.surat-penggantian', [
+        'pendaftaran' => $daftar,
+        'riwayat' => [['dari' => 'Haha', 'ke' => 'Wiam']],
+    ])->render();
+
+    expect($isi)
+        ->not->toContain('sah tanpa tanda tangan basah')
+        ->toContain('berlaku setelah ditandatangani para pihak');
+});
+
+test('titik jemput yang tidak berpindah disebut apa adanya di surat', function () {
+    $daftar = buatPendaftaran();
+
+    $isi = view('pdf.surat-penggantian', [
+        'pendaftaran' => $daftar,
+        'riwayat' => [['dari' => 'Haha', 'ke' => 'Wiam',
+            'dari_titik' => 'Jogja', 'ke_titik' => 'Jogja']],
+    ])->render();
+
+    // Menulis "Jogja dari Jogja ke Jogja" memaksa pembacanya membandingkan
+    // sendiri, lalu ragu apakah itu salah cetak.
+    expect($isi)->toContain('(tetap)');
+});

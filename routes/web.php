@@ -36,6 +36,21 @@ Volt::route('/riwayat-kesehatan', 'public.open-trip.riwayat-kesehatan')->name('r
 Volt::route('/pembatalan', 'public.open-trip.pembatalan')->name('pembatalan');
 Volt::route('/konfirmasi-pembayaran', 'public.open-trip.konfirmasi-pembayaran')->name('konfirmasi-pembayaran');
 
+/*
+ | Berkas yang boleh dibuka pelanggan sendiri dari tautan WhatsApp.
+ |
+ | Satu rute pendek untuk semua jenisnya. Alamat bertanda tangan Laravel benar,
+ | tetapi panjangnya lebih dari 200 karakter — di gelembung percakapan ia patah
+ | ke banyak baris dan lebih tampak seperti tautan sampah daripada berkas resmi,
+ | dan pelanggan yang melihatnya cenderung curiga alih-alih mengetuk.
+ |
+ | Kodenya acak dan berumur, disimpan di tbl_tautan_pendek: kode yang bisa
+ | dihitung ulang dari nomor pendaftaran berarti bisa ditebak, sementara
+ | berkasnya memuat nama, nomor telepon, dan rincian biaya seseorang.
+ */
+Route::get('/t/{kode}', [\App\Http\Controllers\OpenTrip\BerkasPelangganController::class, 'pendek'])
+    ->name('tautan.pendek');
+
 // Halaman informasi & ketentuan
 Volt::route('/faq', 'public.informasi.faq')->name('faq');
 Volt::route('/syarat-ketentuan', 'public.informasi.syarat-ketentuan')->name('syarat-ketentuan');

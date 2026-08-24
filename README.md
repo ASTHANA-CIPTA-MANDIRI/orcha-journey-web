@@ -202,6 +202,21 @@ $mobil->transmisi_label;                       // "Manual & Matic"
 `tarif()` mengembalikan `null` untuk satuan yang tidak dijual, dan formulir pemesanan
 **menolak di server** satuan atau transmisi yang tidak tersedia pada unit terpilih.
 
+### Keuntungan paket
+
+Paket menyimpan **modal per orang** (`harga_modal`) di samping harga jual, jadi marginnya
+cukup selisih keduanya — modal 1.400.000 yang dijual 1.430.000 berarti 30.000 per peserta.
+Laporannya ada di dashboard lemon (menu *Keuntungan Paket*), datanya lewat
+`/api/v1/keuntungan`.
+
+| Aturan | Alasan |
+| --- | --- |
+| Hanya pendaftaran **lunas** yang dihitung untung | Pesanan ber-DP masih bisa batal; ia dilaporkan terpisah sebagai potensi |
+| Modal kosong ≠ nol | Paket yang modalnya belum diisi dihitung "belum lengkap", bukan untung penuh |
+| Harga jual & modal **dibekukan** tiap pendaftaran | Modal berubah sepanjang tahun; laporan bulan lalu tidak boleh ikut berubah |
+
+Modal tidak pernah tampil di halaman publik — kolomnya `$hidden`, dan ada uji yang menjaganya.
+
 ### Admin
 
 `/admin/dashboard` beserta pengelolaan paket wisata, armada, destinasi, testimoni,
@@ -276,6 +291,7 @@ Berkas uji di `tests/Feature/`:
 | `FormulirPublikTest` | kontak, pendaftaran, riwayat kesehatan |
 | `PembatalanTest` | pengajuan pembatalan dan tindak lanjut admin |
 | `SewaKendaraanTest` | tarif bertingkat, transmisi, pemesanan sewa, penataan folder |
+| `KeuntunganPaketTest` | modal paket, margin per orang, pembekuan di pendaftaran, laporan & API keuntungan |
 | `OpenTripBanyuwangiTest` | data trip sungguhan dari flyer |
 | `TampilanTest` | hal-hal tampilan yang gampang jebol (aset, ikon, tipografi) |
 | `AdminPagesTest` | halaman admin |

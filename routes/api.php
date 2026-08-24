@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Kontak\PesanController;
 use App\Http\Controllers\Api\OpenTrip\PembatalanController;
 use App\Http\Controllers\Api\OpenTrip\PembayaranController;
 use App\Http\Controllers\Api\OpenTrip\PendaftaranController;
+use App\Http\Controllers\Api\PaketWisata\KeuntunganController;
 use App\Http\Controllers\Api\PaketWisata\PaketWisataController;
 use App\Http\Controllers\Api\SewaKendaraan\KatalogKendaraanController;
 use App\Http\Controllers\Api\SewaKendaraan\KendaraanController;
@@ -44,6 +45,15 @@ Route::prefix('v1')
         Route::get('/pendaftaran/{pendaftaran}', [PendaftaranController::class, 'show']);
         Route::get('/pendaftaran/{pendaftaran}/riwayat-kesehatan', [PendaftaranController::class, 'riwayatKesehatan']);
         Route::patch('/pendaftaran/{pendaftaran}/status', [PendaftaranController::class, 'ubahStatus']);
+        // Melengkapi nama peserta yang belum didata — dari sisi admin, karena
+        // pemesan tidak selalu bisa diminta mengisi ulang lewat website.
+        Route::patch('/pendaftaran/{pendaftaran}/peserta', [PendaftaranController::class, 'ubahPeserta']);
+        // Surat pernyataan penggantian peserta (DOCX) — masih disunting pemesan
+        // sebelum ditandatangani, jadi bukan PDF.
+        Route::get('/pendaftaran/{pendaftaran}/surat-penggantian', [PendaftaranController::class, 'suratPenggantian']);
+        // Surat yang sudah ditandatangani, kembali ke sistem lewat admin.
+        Route::post('/pendaftaran/{pendaftaran}/surat-penggantian-ttd', [PendaftaranController::class, 'unggahSuratPenggantian']);
+        Route::delete('/pendaftaran/{pendaftaran}/surat-penggantian-ttd', [PendaftaranController::class, 'hapusSuratPenggantian']);
         Route::get('/pendaftaran/{pendaftaran}/kwitansi', [PendaftaranController::class, 'kwitansi']);
 
         Route::get('/pembayaran', [PembayaranController::class, 'index']);
@@ -86,6 +96,10 @@ Route::prefix('v1')
          | memakai POST + _method=PUT karena PHP tidak menguraikan multipart
          | pada permintaan PUT.
          */
+        // Keuntungan: rekapnya utuh, rinciannya berhalaman.
+        Route::get('/keuntungan', [KeuntunganController::class, 'index']);
+        Route::get('/keuntungan/rincian', [KeuntunganController::class, 'rincian']);
+
         Route::get('/saran', [PaketWisataController::class, 'saran']);
         Route::post('/saran', [PaketWisataController::class, 'simpanSaran']);
         Route::delete('/saran/{saran}', [PaketWisataController::class, 'hapusSaran']);
@@ -123,4 +137,9 @@ Route::prefix('v1')
         Route::post('/partner', [EtalaseController::class, 'simpanPartner']);
         Route::match(['put', 'post'], '/partner/{partner}', [EtalaseController::class, 'perbaruiPartner']);
         Route::delete('/partner/{partner}', [EtalaseController::class, 'hapusPartner']);
+
+        Route::get('/galeri', [EtalaseController::class, 'galeri']);
+        Route::post('/galeri', [EtalaseController::class, 'simpanGaleri']);
+        Route::match(['put', 'post'], '/galeri/{galeri}', [EtalaseController::class, 'perbaruiGaleri']);
+        Route::delete('/galeri/{galeri}', [EtalaseController::class, 'hapusGaleri']);
     });

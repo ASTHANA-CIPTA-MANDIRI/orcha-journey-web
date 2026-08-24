@@ -208,6 +208,33 @@
             </table>
         @endif
 
+        {{-- ============ KEADAAN PEMBAYARAN ============
+             Satu kalimat yang menyebutkan posisi pembayaran apa adanya.
+
+             Angka besar di atas menjawab "berapa", tapi tidak menjawab "lalu
+             saya harus apa". Pelanggan yang sudah membayar DP membaca angka
+             sisa lalu bertanya apakah DP-nya sudah masuk; yang belum membayar
+             sama sekali membaca angka yang sama tanpa tahu itu uang muka atau
+             seluruhnya. Kalimatnya yang menjawab. --}}
+        @if (! empty($keadaan['kalimat']))
+            @php
+                $warnaKeadaan = match ($keadaan['nada'] ?? 'netral') {
+                    'aman' => ['#eafaf1', '#b7e4cd', '#0b7a4b'],
+                    'awas' => ['#fff4e0', '#f3ddb0', '#8a5a09'],
+                    default => ['#f4f8fb', '#dbe6f0', '#0f2d4a'],
+                };
+            @endphp
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;">
+                <tr>
+                    <td style="background-color:{{ $warnaKeadaan[0] }};border:1px solid {{ $warnaKeadaan[1] }};
+                        border-radius:8px;padding:11px 14px;font-size:10.5px;line-height:1.6;
+                        color:{{ $warnaKeadaan[2] }};">
+                        {!! $keadaan['kalimat'] !!}
+                    </td>
+                </tr>
+            </table>
+        @endif
+
         {{-- ============ RINCIAN ============
              Berselang-seling supaya mata tidak melompat baris saat membaca
              daftar panjang berisi nama peserta. --}}
@@ -251,6 +278,11 @@
                     <td><span class="total-teks">Total biaya</span></td>
                     <td align="right"><span class="total-angka">{{ $biaya['total_teks'] }}</span></td>
                 </tr>
+                {{-- Tenggat DP dan pelunasan hanya dicetak selama pembayarannya
+                     memang masih ditunggu. Pada pesanan yang sudah lunas — atau
+                     yang sudah dibatalkan — dua baris ini menagih uang yang tidak
+                     perlu lagi dibayar, dan itu berkas yang dipegang pelanggan. --}}
+                @if ($biaya['tempo'] ?? true)
                 <tr>
                     <td style="padding-top:11px;">
                         <strong style="color:{{ $ocean }};font-size:11.5px;">
@@ -271,6 +303,7 @@
                         <span class="nilai">{{ $biaya['sisa_teks'] }}</span>
                     </td>
                 </tr>
+                @endif
             </table>
         @endif
 
@@ -361,6 +394,10 @@
              dicocokkan sendiri oleh pelanggan di ATM sebelum menekan kirim. --}}
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;">
             <tr>
+                {{-- Cara pembayaran dilewati untuk pesanan yang tidak lagi menunggu
+                     uang masuk. Petunjuk transfer di berkas milik pesanan lunas
+                     membuat pelanggan mengira masih ada yang kurang. --}}
+                @if ($caraBayar ?? true)
                 <td width="60%" valign="top">
                     <table width="100%" cellpadding="0" cellspacing="0" class="kotak-bayar">
                         <tr>
@@ -425,6 +462,7 @@
                         </tr>
                     </table>
                 </td>
+                @endif
 
                 <td align="center" valign="top" style="font-size:9px;color:#94a3b8;padding-left:18px;">
                     Hormat kami,

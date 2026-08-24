@@ -7,11 +7,14 @@ use App\Http\Resources\OpenTrip\PendaftaranResource;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\Pembatalan;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Models\Umum\TautanPendek;
 use App\Support\BerkasKwitansi;
 use App\Support\RincianBiaya;
+use App\Support\SuratPenggantian;
 use App\Support\TagihanPesanan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class PendaftaranController extends ApiController
 {
@@ -26,6 +29,11 @@ class PendaftaranController extends ApiController
                     ->orWhere('nama_paket', 'like', "%{$cari}%")
             ))
             ->when($request->string('status')->toString(), fn ($q, $status) => $q->where('status', $status))
+            // Saringan per paket: manifes tour leader dibentuk dari daftar yang
+            // sedang tampil, dan satu keberangkatan hampir selalu berarti satu
+            // paket. Tanpa saringan ini admin harus mengetik nama paketnya di
+            // kotak cari dan berharap tidak ada paket lain yang namanya mirip.
+            ->when($request->integer('paket_id'), fn ($q, $id) => $q->where('travel_package_id', $id))
             ->latest('id')
             ->paginate($this->perHalaman($request));
 
@@ -48,6 +56,62 @@ class PendaftaranController extends ApiController
         $data = (new PendaftaranResource($pendaftaran->loadCount('riwayatKesehatan')))->resolve();
 
         $data['tagihan'] = TagihanPesanan::untuk($pendaftaran);
+
+        /*
+         | Tautan berkas dibuat DI SINI, bukan di resource.
+         |
+         | Resource yang sama dipakai halaman daftar, dan membuat tautan di sana
+         | berarti satu tulisan basis data per baris per pembukaan halaman —
+         | dua puluh baris jadi dua puluh tulisan untuk tautan yang tidak
+         | seorang pun minta.
+         */
+        $data['kwitansi_tautan'] = route('tautan.pendek', [
+            'kode' => TautanPendek::untuk($pendaftaran->id, 'kwitansi')->kode,
+        ]);
+
+        /*
+         | Tautan formulir konfirmasi pembayaran, kodenya sudah terbawa.
+         |
+         | Cukup kodenya: formulir itu sendiri yang mencari tagihannya, memilih
+         | jenis pembayaran yang disarankan, lalu mengisikan nominalnya. Yang
+         | membuka tinggal melampirkan bukti transfer.
+         |
+         | Alamatnya sengaja dibiarkan terbaca — bukan dipendekkan jadi /t/xxx
+         | seperti berkas. Yang diminta di sini bukan mengunduh melainkan
+         | mengunggah bukti transfer, dan orang yang diminta menyerahkan bukti
+         | pembayaran pantas melihat ke mana ia dibawa sebelum mengetuk.
+         */
+        $data['konfirmasi_pembayaran_tautan'] = route('konfirmasi-pembayaran', [
+            'kode' => $pendaftaran->kode,
+        ]);
+
+        /*
+         | Tautan pribadi tiap peserta yang belum mengisi riwayat kesehatan.
+         |
+         | Kode dan namanya sudah terbawa, sehingga yang membukanya tinggal
+         | mengisi kondisinya sendiri — pola yang sudah dipakai halaman publik
+         | untuk ketua rombongan, dengan alasan yang sama: rombongan besar bisa
+         | jalan sendiri tanpa ada yang menyalin data kesehatan orang lain.
+         |
+         | Dibuat di sini, bukan di lemon: rutenya milik Orcha, dan menyusunnya
+         | dari seberang berarti menebak bentuk alamat yang sewaktu-waktu
+         | berubah tanpa ada yang memberi tahu.
+         */
+        $data['peserta_belum_isi_tautan'] = collect($pendaftaran->peserta_belum_isi)
+            ->mapWithKeys(fn ($nama) => [$nama => route('riwayat-kesehatan', [
+                'kode' => $pendaftaran->kode,
+                'peserta' => $nama,
+            ])])
+            ->all();
+
+        // Null bila belum pernah ada penggantian: suratnya memang tidak bisa
+        // diterbitkan, dan menawarkan tautan yang pasti berujung galat lebih
+        // buruk daripada tidak menawarkan apa pun.
+        $data['surat_penggantian_kosong_tautan'] = filled($pendaftaran->riwayat_penggantian)
+            ? route('tautan.pendek', [
+                'kode' => TautanPendek::untuk($pendaftaran->id, 'surat-penggantian')->kode,
+            ])
+            : null;
 
         $data['pembayaran'] = KonfirmasiPembayaran::where('kode', $pendaftaran->kode)
             ->latest('id')
@@ -95,10 +159,26 @@ class PendaftaranController extends ApiController
     {
         $this->catat($request, 'membuka riwayat kesehatan', ['kode' => $pendaftaran->kode]);
 
+        /*
+         | Nama yang masih tercantum di daftar peserta.
+         |
+         | Riwayat milik peserta yang sudah diganti TIDAK dihapus — ia arsip,
+         | dan menghapus data kesehatan orang hanya karena namanya dicoret dari
+         | satu daftar bukan keputusan yang pantas diambil diam-diam. Yang
+         | dilakukan cukup menandainya, supaya tim lapangan tidak mencari orang
+         | yang tidak ikut.
+         */
+        $masihIkut = collect($pendaftaran->peserta)
+            ->pluck('nama')
+            ->map(fn ($nama) => mb_strtolower(trim((string) $nama)))
+            ->all();
+
         return response()->json([
             'data' => $pendaftaran->riwayatKesehatan->map(fn ($riwayat) => [
                 'id' => $riwayat->id,
                 'nama_peserta' => $riwayat->nama_peserta,
+                'peserta_aktif' => $masihIkut === []
+                    || in_array(mb_strtolower(trim((string) $riwayat->nama_peserta)), $masihIkut, true),
                 'usia' => $riwayat->usia,
                 'jenis_kelamin' => $riwayat->jenis_kelamin,
                 'tinggi_badan' => $riwayat->tinggi_badan,
@@ -164,21 +244,96 @@ class PendaftaranController extends ApiController
         // pelanggan.
         $tagihan = TagihanPesanan::untuk($pendaftaran);
 
-        [$jumlah, $jumlahLabel, $cap] = match (true) {
-            $tagihan === [] => [
-                $biaya ? $biaya['dp_teks'] : null,
-                $biaya ? 'Dibayar sekarang · DP '.$biaya['dp_persen'].'%' : null,
-                'Belum Dibayar',
+        /*
+         | Angka besar, cap, kalimat keadaan, dan perlu-tidaknya petunjuk
+         | transfer — keempatnya ditentukan satu keadaan yang sama.
+         |
+         | Sebelumnya berkas ini selalu mencetak tenggat DP, sisa pelunasan, dan
+         | cara pembayaran, apa pun keadaan pesanannya. Pelanggan yang sudah
+         | melunasi menerima berkas yang tetap menagih; pelanggan yang
+         | pesanannya sudah dibatalkan menerima berkas yang meminta ia
+         | menyelesaikan sisa pembayaran. Berkas yang menagih uang yang tidak
+         | perlu dibayar bukan sekadar salah tulis — ia membuat orang mentransfer.
+         */
+        $batal = $pendaftaran->status === 'batal';
+        $sudahMasuk = (int) ($tagihan['sudah'] ?? 0);
+        $lunas = (bool) ($tagihan['lunas'] ?? false);
+
+        $tenggatPelunasan = $pendaftaran->tanggal_berangkat
+            ? $pendaftaran->tanggal_berangkat->copy()
+                ->subDays((int) config('orcha.pembayaran.pelunasan_hari_sebelum'))
+                ->locale('id')->translatedFormat('j F Y')
+            : null;
+
+        [$jumlah, $jumlahLabel, $cap, $keadaan, $caraBayar] = match (true) {
+            // Dibatalkan: tidak ada lagi yang perlu ditransfer, apa pun sisanya.
+            $batal => [
+                $sudahMasuk > 0 ? $tagihan['sudah_teks'] : null,
+                $sudahMasuk > 0 ? 'Sudah dibayar sebelum dibatalkan' : null,
+                'Dibatalkan',
+                [
+                    'nada' => 'awas',
+                    'kalimat' => $sudahMasuk > 0
+                        ? '<strong>Pendaftaran ini dibatalkan.</strong> Pembayaran yang sudah kami terima '
+                            .'sebesar <strong>'.$tagihan['sudah_teks'].'</strong> diproses menurut kebijakan '
+                            .'pengembalian — besar potongannya mengikuti kapan pembatalan diajukan. '
+                            .'Tidak ada lagi yang perlu Anda transfer.'
+                        : '<strong>Pendaftaran ini dibatalkan.</strong> Belum ada pembayaran yang kami terima, '
+                            .'jadi tidak ada yang perlu dikembalikan maupun ditransfer.',
+                ],
+                false,
             ],
-            $tagihan['lunas'] => [$tagihan['total_teks'], 'Sudah dibayar penuh', 'Lunas'],
-            $tagihan['sudah'] > 0 => [$tagihan['sisa_teks'], 'Sisa yang harus dibayar', 'Dibayar Sebagian'],
-            default => [$tagihan['dp_teks'], 'Dibayar sekarang · DP '.$tagihan['dp_persen'].'%', 'Belum Dibayar'],
+
+            $lunas => [
+                $tagihan['total_teks'], 'Sudah dibayar penuh', 'Lunas',
+                [
+                    'nada' => 'aman',
+                    'kalimat' => 'Pembayaran Anda <strong>sudah lunas</strong>. Seluruh biaya sebesar '
+                        .'<strong>'.$tagihan['total_teks'].'</strong> telah kami terima — tidak ada sisa '
+                        .'yang perlu dibayar lagi. Simpan berkas ini sampai perjalanan selesai.',
+                ],
+                false,
+            ],
+
+            // Sudah membayar sebagian: yang ditanya berikutnya selalu sama —
+            // DP saya sudah masuk belum, dan sisanya kapan.
+            $tagihan !== [] && $sudahMasuk > 0 => [
+                $tagihan['sisa_teks'], 'Sisa yang harus dibayar', 'Dibayar Sebagian',
+                [
+                    'nada' => 'awas',
+                    'kalimat' => 'Uang muka Anda sebesar <strong>'.$tagihan['sudah_teks'].'</strong> '
+                        .'<strong>sudah kami terima</strong>. Sisa yang perlu dilunasi '
+                        .'<strong>'.$tagihan['sisa_teks'].'</strong>'
+                        .($tenggatPelunasan
+                            ? ', paling lambat <strong>'.$tenggatPelunasan.'</strong> (H-'
+                                .config('orcha.pembayaran.pelunasan_hari_sebelum').' sebelum berangkat).'
+                            : '.'),
+                ],
+                true,
+            ],
+
+            default => [
+                $tagihan !== [] ? $tagihan['dp_teks'] : ($biaya ? $biaya['dp_teks'] : null),
+                $tagihan !== [] || $biaya
+                    ? 'Dibayar sekarang · DP '.($tagihan['dp_persen'] ?? $biaya['dp_persen']).'%'
+                    : null,
+                'Belum Dibayar',
+                $biaya || $tagihan !== [] ? [
+                    'nada' => 'netral',
+                    'kalimat' => '<strong>Belum ada pembayaran yang kami terima</strong> untuk pendaftaran ini. '
+                        .'Uang muka sebesar <strong>'.($tagihan['dp_teks'] ?? $biaya['dp_teks']).'</strong> '
+                        .'ditunggu paling lambat '.config('orcha.pembayaran.dp_batas_jam').' jam sejak '
+                        .'pendaftaran, dan sisanya'
+                        .($tenggatPelunasan ? ' paling lambat '.$tenggatPelunasan : ' sebelum keberangkatan').'.',
+                ] : [],
+                true,
+            ],
         };
 
-        // Yang sudah masuk ikut disebut di rinciannya, supaya pelanggan bisa
-        // mencocokkan sendiri tanpa bertanya.
-        if ($tagihan !== [] && $tagihan['sudah'] > 0) {
-            $rincian['Sudah dibayar'] = $tagihan['sudah_teks'];
+        // Tenggat DP dan sisa pelunasan hanya dicetak selama uangnya memang
+        // masih ditunggu.
+        if ($biaya !== [] && ! $caraBayar) {
+            $biaya['tempo'] = false;
         }
 
         $isi = BerkasKwitansi::buat(
@@ -190,6 +345,8 @@ class PendaftaranController extends ApiController
             $jumlahLabel,
             $cap,
             biaya: $biaya,
+            keadaan: $keadaan,
+            caraBayar: $caraBayar,
         );
 
         abort_if($isi === null, 503, 'Kwitansi gagal dibuat.');
@@ -201,6 +358,221 @@ class PendaftaranController extends ApiController
             'Content-Disposition' => 'attachment; filename="'
                 .BerkasKwitansi::namaBerkas('rincian-biaya', $pendaftaran->kode).'"',
         ]);
+    }
+
+    /**
+     * Melengkapi daftar nama peserta dari sisi admin.
+     *
+     * Pendaftaran lama — yang masuk sebelum website meminta nama tiap peserta —
+     * tidak punya daftar itu, dan rombongan tanpa nama tidak bisa masuk manifes
+     * panggil-nama. Sebelumnya satu-satunya jalan adalah meminta pemesan
+     * mengisi ulang lewat website; sekarang admin bisa memasukkannya sendiri
+     * dari daftar yang biasanya sudah ada di WhatsApp atau berkas panitia.
+     *
+     * jumlah_peserta SENGAJA tidak ikut berubah. Angka itulah yang mengalikan
+     * harga paket jadi tagihan; menyesuaikannya diam-diam karena admin
+     * kelebihan satu baris tempelan berarti mengubah jumlah yang harus dibayar
+     * pelanggan tanpa ada yang memutuskannya. Selisihnya dilaporkan lewat
+     * pesan balasan, keputusannya tetap di tangan manusia.
+     */
+    public function ubahPeserta(PendaftaranOpenTrip $pendaftaran, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'peserta' => 'present|array|max:200',
+            'peserta.*.nama' => 'required|string|max:120',
+            'peserta.*.titik_jemput' => 'nullable|string|max:191',
+            // Nama yang digantikan baris ini. Diisi HANYA saat admin memang
+            // mengganti orang — pembetulan salah ketik tidak mengisinya.
+            'peserta.*.gantikan' => 'nullable|string|max:120',
+            // Titik jemput yang dipakai orang yang digantikan. Ikut dikirim
+            // supaya perpindahan titiknya tercatat, bukan hanya namanya.
+            'peserta.*.gantikan_titik' => 'nullable|string|max:191',
+        ], [], [
+            'peserta.*.nama' => 'nama peserta',
+            'peserta.*.titik_jemput' => 'titik jemput',
+        ]);
+
+        $bersih = collect($data['peserta'])
+            ->map(fn ($baris) => [
+                'nama' => trim($baris['nama']),
+                'titik_jemput' => trim($baris['titik_jemput'] ?? '') ?: null,
+            ])
+            ->filter(fn ($baris) => $baris['nama'] !== '')
+            ->values()
+            ->all();
+
+        /*
+         | Penggantian dicatat dari NIAT yang dinyatakan admin, bukan ditebak
+         | dari selisih daftar.
+         |
+         | Menebaknya dari selisih tidak bisa membedakan dua hal yang berbeda
+         | jauh: mengganti orang, dan membetulkan salah ketik. Keduanya
+         | berbentuk sama — satu nama keluar, satu nama masuk — sehingga
+         | membetulkan "Suparjimen" jadi "Suparjiman" ikut tercatat sebagai
+         | penggantian peserta, lengkap dengan suratnya. Sekarang yang mencatat
+         | adalah tombol "Ganti" yang ditekan admin.
+         */
+        $penggantian = collect($data['peserta'])
+            ->filter(fn ($baris) => filled($baris['gantikan'] ?? null)
+                && mb_strtolower(trim($baris['gantikan'])) !== mb_strtolower(trim($baris['nama'])))
+            ->map(function ($baris) use ($request) {
+                $catatan = [
+                    'dari' => trim($baris['gantikan']),
+                    'ke' => trim($baris['nama']),
+                    'pada' => now()->toIso8601String(),
+                    'oleh' => $request->attributes->get('admin_pemanggil'),
+                ];
+
+                /*
+                 | Titik jemputnya ikut dicatat walau tidak berpindah.
+                 |
+                 | Arsip yang menyebut titiknya hanya saat berubah menyisakan
+                 | pertanyaan yang tidak bisa dijawab lagi setahun kemudian:
+                 | baris tanpa titik itu berarti titiknya memang tetap, atau
+                 | titiknya tidak sempat dicatat? Dicatat selalu, sehingga
+                 | diamnya arsip tidak perlu ditafsirkan.
+                 */
+                $titikLama = trim((string) ($baris['gantikan_titik'] ?? ''));
+                $titikBaru = trim((string) ($baris['titik_jemput'] ?? ''));
+
+                if ($titikLama !== '' || $titikBaru !== '') {
+                    $catatan['dari_titik'] = $titikLama ?: null;
+                    $catatan['ke_titik'] = $titikBaru ?: null;
+                }
+
+                return $catatan;
+            })
+            ->values()
+            ->all();
+
+        $pendaftaran->update([
+            'daftar_peserta' => $bersih ?: null,
+            'riwayat_penggantian' => $penggantian !== []
+                ? array_merge($pendaftaran->riwayat_penggantian ?? [], $penggantian)
+                : $pendaftaran->riwayat_penggantian,
+        ]);
+
+        $this->catat($request, 'ubah daftar peserta pendaftaran', [
+            'penggantian' => collect($penggantian)
+                ->map(fn ($satu) => ($satu['dari'] ?? '—').' → '.($satu['ke'] ?? '—'))
+                ->all(),
+            'kode' => $pendaftaran->kode,
+            'jumlah_nama' => count($bersih),
+            'jumlah_peserta' => $pendaftaran->jumlah_peserta,
+        ]);
+
+        return response()->json([
+            'data' => (new PendaftaranResource($pendaftaran->fresh()->loadCount('riwayatKesehatan')))->resolve(),
+            'pesan' => count($bersih) === (int) $pendaftaran->jumlah_peserta
+                ? 'Daftar peserta tersimpan.'
+                : 'Daftar peserta tersimpan — '.count($bersih).' nama untuk '
+                    .$pendaftaran->jumlah_peserta.' peserta yang tercatat.',
+        ]);
+    }
+
+    /**
+     * Surat pernyataan penggantian peserta, berbentuk DOCX.
+     *
+     * Dibuat di sini, bukan digambar ulang oleh lemon: surat ini berdampingan
+     * dengan kwitansi di tangan pemesan, dan dua aplikasi yang menggambar
+     * dokumen resmi yang sama cepat atau lambat menghasilkan dua rupa yang
+     * berbeda.
+     */
+    /**
+     * Surat pernyataan penggantian peserta — SATU untuk seluruh pendaftaran.
+     *
+     * Sebelumnya satu surat per penggantian, dan pemesan yang mengganti dua
+     * orang menandatangani dua surat bermaterai untuk pemesanan yang sama.
+     * Padahal pihak yang menyatakan sama, pendaftaran yang dirujuk sama, dan
+     * kebijakan yang mendasarinya sama — yang berbeda cuma barisnya. Sekarang
+     * seluruh riwayat disusun jadi satu tabel bernomor di dalam satu surat.
+     *
+     * Isinya dibaca dari riwayat pendaftaran itu sendiri, bukan dari parameter
+     * yang dikirim pemanggil: yang tercetak di surat bermaterai harus persis
+     * yang tercatat sistem, tidak boleh bisa disetir lewat URL.
+     */
+    public function suratPenggantian(PendaftaranOpenTrip $pendaftaran, Request $request)
+    {
+        $riwayat = $pendaftaran->riwayat_penggantian ?? [];
+
+        abort_if($riwayat === [], 422,
+            'Pendaftaran ini belum punya penggantian peserta yang bisa disuratkan.');
+
+        $this->catat($request, 'cetak surat penggantian peserta', [
+            'kode' => $pendaftaran->kode,
+            'jumlah_penggantian' => count($riwayat),
+        ]);
+
+        return response()->streamDownload(
+            fn () => print SuratPenggantian::buat($pendaftaran, $riwayat),
+            SuratPenggantian::namaBerkas($pendaftaran->kode),
+            ['Content-Type' => 'application/pdf'],
+        );
+    }
+
+    /**
+     * Menyimpan surat pernyataan yang sudah ditandatangani.
+     *
+     * Diterima apa adanya — PDF hasil pindaian maupun foto dari ponsel. Memaksa
+     * satu bentuk saja berarti menolak cara paling lazim berkasnya sampai ke
+     * admin: pemesan memotretnya lalu mengirim lewat WhatsApp.
+     *
+     * Tidak diubah jadi WebP seperti gambar etalase. Ini bukti bertanda tangan;
+     * memampatkannya ulang berarti menurunkan mutu satu-satunya hal yang
+     * membuatnya berguna — coretan tinta di atas kertas.
+     */
+    public function unggahSuratPenggantian(PendaftaranOpenTrip $pendaftaran, Request $request): JsonResponse
+    {
+        $request->validate([
+            'surat' => 'required|file|mimes:pdf,jpg,jpeg,png,webp|max:8192',
+        ], [], ['surat' => 'berkas surat']);
+
+        $this->hapusSurat($pendaftaran->surat_penggantian);
+
+        $jalur = $request->file('surat')->store('surat-penggantian', 'public');
+
+        $pendaftaran->update([
+            'surat_penggantian' => '/storage/'.$jalur,
+            'surat_penggantian_pada' => now(),
+        ]);
+
+        $this->catat($request, 'unggah surat penggantian bertanda tangan', [
+            'kode' => $pendaftaran->kode,
+        ]);
+
+        return response()->json([
+            'pesan' => 'Surat pernyataan bertanda tangan tersimpan.',
+            'data' => new PendaftaranResource($pendaftaran->fresh()),
+        ]);
+    }
+
+    /** Mencabut surat yang salah unggah. Berkasnya ikut dihapus, bukan ditinggal yatim. */
+    public function hapusSuratPenggantian(PendaftaranOpenTrip $pendaftaran, Request $request): JsonResponse
+    {
+        $this->hapusSurat($pendaftaran->surat_penggantian);
+
+        $pendaftaran->update([
+            'surat_penggantian' => null,
+            'surat_penggantian_pada' => null,
+        ]);
+
+        $this->catat($request, 'hapus surat penggantian bertanda tangan', [
+            'kode' => $pendaftaran->kode,
+        ]);
+
+        return response()->json([
+            'pesan' => 'Surat pernyataan dihapus.',
+            'data' => new PendaftaranResource($pendaftaran->fresh()),
+        ]);
+    }
+
+    private function hapusSurat(?string $jalur): void
+    {
+        if (blank($jalur) || ! str_starts_with($jalur, '/storage/')) {
+            return;
+        }
+
+        Storage::disk('public')->delete(str_replace('/storage/', '', $jalur));
     }
 
     public function ubahStatus(PendaftaranOpenTrip $pendaftaran, Request $request): JsonResponse

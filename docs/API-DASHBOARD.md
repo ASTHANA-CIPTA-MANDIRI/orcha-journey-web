@@ -184,6 +184,39 @@ permintaan PUT.
 Isian yang ditolak dibalas 422 dengan `errors` per kolom, berbahasa Indonesia — Phoenix
 cukup menampilkan pesan pertamanya.
 
+### Keuntungan paket
+
+| Cara | Jalur | Keterangan |
+| --- | --- | --- |
+| GET | `/keuntungan` | rekap utuh; saringan: `dari`, `sampai`, `kategori`, `paket_id`, `dasar` |
+| GET | `/keuntungan/rincian` | baris per pendaftaran, berhalaman; tambahan `hanya_lunas=1` |
+
+Paket menyimpan **`harga_modal`** — biaya internal **per orang**, satuan yang sama dengan
+harga jual. Marginnya selisih keduanya: paket bermodal 1.400.000 yang dijual 1.430.000
+menghasilkan 30.000 per peserta. Medan itu ikut pada `POST /paket-wisata` dan balasan
+`/paket-wisata`, beserta `margin_per_orang` dan `margin_persen` yang sudah terhitung.
+
+Tiga aturan yang menentukan angkanya, dan semuanya disengaja:
+
+1. **Hanya pendaftaran lunas** yang dihitung sebagai keuntungan. Pesanan ber-DP masih bisa
+   batal dan potongannya mengikuti tangga pembatalan, jadi untungnya belum tentu ada —
+   angkanya tetap dilaporkan, tapi di kolom `potensi_*` yang terpisah. Pesanan batal tidak
+   dihitung di mana pun.
+2. **Modal kosong bukan nol.** Paket yang modalnya belum diisi masuk hitungan `belum_lengkap`,
+   omzetnya tetap terhitung, keuntungannya tidak dikarang. Nilai uang yang tidak diketahui
+   dikirim sebagai `null` dengan `_teks` berbunyi "Belum dihitung".
+3. **Harga jual dan modal dibekukan** di tiap pendaftaran saat kodenya dibuat. Modal paket
+   berubah sepanjang tahun mengikuti harga hotel dan sewa bus; tanpa jejak itu, keuntungan
+   bulan lalu ikut berubah setiap kali admin merevisi modal hari ini. Pendaftaran yang masuk
+   sebelum medan ini ada meminjam angka paketnya.
+
+`dasar` menentukan tanggal mana yang dipakai menyaring dan mengelompokkan bulan:
+`daftar` (bawaan, tanggal pendaftaran masuk) atau `berangkat`. Untuk trip yang dijual jauh
+hari, keduanya bisa terpaut berbulan-bulan.
+
+Modal **tidak pernah keluar lewat halaman publik** — kolomnya `$hidden` di model, dan ada
+uji yang memastikan angkanya tidak muncul di halaman paket yang dibuka pengunjung.
+
 ## Login Orcha sudah dimatikan
 
 Karena seluruh pengelolaan pindah ke lemon, halaman `/login`, `/register`, dan

@@ -102,6 +102,10 @@ class PaketWisataController extends ApiController
             'catatan_promo' => 'nullable|string|max:191',
             'harga' => 'required|numeric|min:0',
             'harga_asli' => 'nullable|numeric|min:0',
+            // Modal boleh kosong: sebagian paket masih dihitung manual saat
+            // dibuat. Kosong berarti belum dihitung, dan laporan keuntungan
+            // menyebutnya begitu alih-alih menganggapnya nol.
+            'harga_modal' => 'nullable|numeric|min:0',
             'diskon_persen' => 'nullable|numeric|min:0|max:100',
             'pilihan_terbaik' => 'nullable|boolean',
             'destinasi' => 'nullable|array',
@@ -130,6 +134,7 @@ class PaketWisataController extends ApiController
             'catatan_promo' => $data['catatan_promo'] ?? null,
             'price' => $data['harga'],
             'original_price' => $data['harga_asli'] ?? $data['harga'],
+            'harga_modal' => ($data['harga_modal'] ?? null) === null ? null : (int) $data['harga_modal'],
             'discount_percentage' => $data['diskon_persen'] ?? 0,
             'is_best_choice' => (bool) ($data['pilihan_terbaik'] ?? false),
             'destination_list' => $data['destinasi'] ?? null,

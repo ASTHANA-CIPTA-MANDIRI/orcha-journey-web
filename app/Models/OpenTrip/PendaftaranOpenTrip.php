@@ -20,7 +20,12 @@ class PendaftaranOpenTrip extends Model
         'whatsapp',
         'email',
         'jumlah_peserta',
+        'harga_jual',
+        'harga_modal',
         'daftar_peserta',
+        'riwayat_penggantian',
+        'surat_penggantian',
+        'surat_penggantian_pada',
         'tanggal_berangkat',
         'titik_jemput',
         'catatan',
@@ -30,7 +35,11 @@ class PendaftaranOpenTrip extends Model
     protected $casts = [
         'tanggal_berangkat' => 'date',
         'jumlah_peserta' => 'integer',
+        'harga_jual' => 'integer',
+        'harga_modal' => 'integer',
         'daftar_peserta' => 'array',
+        'riwayat_penggantian' => 'array',
+        'surat_penggantian_pada' => 'datetime',
     ];
 
     /**
@@ -46,6 +55,17 @@ class PendaftaranOpenTrip extends Model
                 } while (static::where('kode', $kode)->exists());
 
                 $pendaftaran->kode = $kode;
+            }
+
+            // Harga jual dan modal dibekukan di sini, bukan dibaca ulang dari
+            // paket saat laporan dibuka. Modal paket berubah sepanjang tahun
+            // mengikuti harga hotel dan sewa bus; tanpa jejak ini, keuntungan
+            // bulan lalu ikut berubah tiap kali admin merevisi modal hari ini.
+            $paket = $pendaftaran->paket()->first();
+
+            if ($paket) {
+                $pendaftaran->harga_jual ??= (int) $paket->price;
+                $pendaftaran->harga_modal ??= $paket->harga_modal;
             }
         });
     }
@@ -139,5 +159,72 @@ class PendaftaranOpenTrip extends Model
     public function getStatusLabelAttribute(): string
     {
         return config('orcha.status_pendaftaran')[$this->status] ?? 'Baru';
+    }
+
+    /* ------------------------------- KEUNTUNGAN ------------------------------- */
+
+    /**
+     * Harga jual per orang yang berlaku untuk pendaftaran ini.
+     *
+     * Yang dipakai jejak beku miliknya sendiri. Pendaftaran yang masuk sebelum
+     * pembekuan ini ada tidak punya jejak, jadi meminjam angka paketnya — itu
+     * keterangan terbaik yang tersedia, dan lebih berguna daripada laporan
+     * yang kosong untuk seluruh riwayat sebelumnya.
+     */
+    public function getJualSatuanAttribute(): ?int
+    {
+        return $this->harga_jual ?? ($this->paket?->price !== null ? (int) $this->paket->price : null);
+    }
+
+    /** Modal per orang; null berarti belum pernah dihitung, bukan nol. */
+    public function getModalSatuanAttribute(): ?int
+    {
+        return $this->harga_modal ?? $this->paket?->harga_modal;
+    }
+
+    public function getMarginSatuanAttribute(): ?int
+    {
+        return $this->modal_satuan === null || $this->jual_satuan === null
+            ? null
+            : $this->jual_satuan - $this->modal_satuan;
+    }
+
+    /** Uang masuk dari pendaftaran ini bila seluruhnya dibayar. */
+    public function getOmzetAttribute(): int
+    {
+        return (int) ($this->jual_satuan ?? 0) * max(1, (int) $this->jumlah_peserta);
+    }
+
+    public function getModalTotalAttribute(): ?int
+    {
+        return $this->modal_satuan === null
+            ? null
+            : $this->modal_satuan * max(1, (int) $this->jumlah_peserta);
+    }
+
+    public function getKeuntunganAttribute(): ?int
+    {
+        return $this->margin_satuan === null
+            ? null
+            : $this->margin_satuan * max(1, (int) $this->jumlah_peserta);
+    }
+
+    /**
+     * Pendaftaran yang keuntungannya sudah benar-benar didapat.
+     *
+     * Hanya yang lunas. DP masuk berarti uangnya baru sebagian dan pesanannya
+     * masih bisa batal — kalau ikut dihitung, laporan keuntungan menggelembung
+     * oleh pesanan yang belum tentu jadi, dan itulah angka yang paling
+     * berbahaya untuk dijadikan dasar keputusan.
+     */
+    public function scopeSudahUntung($query)
+    {
+        return $query->where('status', 'lunas');
+    }
+
+    /** Pesanan yang uangnya belum utuh tapi masih hidup — bukan keuntungan. */
+    public function scopeMasihPotensi($query)
+    {
+        return $query->whereNotIn('status', ['lunas', 'batal']);
     }
 }

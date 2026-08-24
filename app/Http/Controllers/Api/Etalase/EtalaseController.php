@@ -5,10 +5,11 @@ namespace App\Http\Controllers\Api\Etalase;
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Controllers\Api\Concerns\MenyimpanGambar;
 use App\Models\Etalase\DestinationPopuler;
+use App\Models\Etalase\Galeri;
 use App\Models\Etalase\Partner;
 use App\Models\Etalase\Testimoni;
-use Illuminate\Http\JsonResponse;
 use App\Support\GambarWebp;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -348,6 +349,79 @@ class EtalaseController extends ApiController
         $this->catat($request, 'hapus partner', ['id' => $partner->id]);
 
         return response()->json(['pesan' => 'Partner dihapus.']);
+    }
+
+    /* ------------------------------- GALERI ------------------------------- */
+
+    public function galeri(): JsonResponse
+    {
+        return response()->json([
+            'data' => Galeri::orderBy('urutan')->orderByDesc('id')->get()->map(fn ($satu) => [
+                'id' => $satu->id,
+                'foto' => $satu->foto,
+                'keterangan' => $satu->keterangan,
+                'urutan' => $satu->urutan,
+                'tampil' => $satu->tampil,
+            ])->all(),
+        ]);
+    }
+
+    public function simpanGaleri(Request $request): JsonResponse
+    {
+        $data = $this->validasiGaleri($request, wajibGambar: true);
+
+        Galeri::create([
+            'foto' => $this->simpanGambar($request, 'galeri'),
+            'keterangan' => $data['keterangan'] ?? null,
+            // Foto baru masuk ke belakang barisan, bukan menyerobot ke depan:
+            // urutan yang sudah disusun admin tidak boleh berubah sendiri
+            // hanya karena ada unggahan baru.
+            'urutan' => $data['urutan'] ?? ((int) Galeri::max('urutan') + 1),
+            'tampil' => $data['tampil'] ?? true,
+        ]);
+
+        $this->catat($request, 'tambah foto galeri', []);
+
+        return response()->json(['pesan' => 'Foto galeri ditambahkan.'], 201);
+    }
+
+    public function perbaruiGaleri(Galeri $galeri, Request $request): JsonResponse
+    {
+        $data = $this->validasiGaleri($request);
+
+        $galeri->update([
+            'foto' => $this->simpanGambar($request, 'galeri', $galeri->foto),
+            'keterangan' => $data['keterangan'] ?? null,
+            'urutan' => $data['urutan'] ?? $galeri->urutan,
+            'tampil' => $data['tampil'] ?? $galeri->tampil,
+        ]);
+
+        $this->catat($request, 'ubah foto galeri', ['id' => $galeri->id]);
+
+        return response()->json(['pesan' => 'Foto galeri diperbarui.']);
+    }
+
+    public function hapusGaleri(Galeri $galeri, Request $request): JsonResponse
+    {
+        $this->hapusGambar($galeri->foto);
+        $galeri->delete();
+
+        $this->catat($request, 'hapus foto galeri', ['id' => $galeri->id]);
+
+        return response()->json(['pesan' => 'Foto galeri dihapus.']);
+    }
+
+    private function validasiGaleri(Request $request, bool $wajibGambar = false): array
+    {
+        return $request->validate([
+            // Fotonya yang wajib, keterangannya tidak. Admin yang diminta
+            // mengarang judul untuk dua puluh foto rombongan akan berhenti
+            // mengunggah di foto kelima.
+            'gambar' => ($wajibGambar ? 'required' : 'nullable').'|image|max:4096',
+            'keterangan' => 'nullable|string|max:191',
+            'urutan' => 'nullable|integer|min:0|max:9999',
+            'tampil' => 'nullable|boolean',
+        ]);
     }
 
     private function validasiPartner(Request $request): array

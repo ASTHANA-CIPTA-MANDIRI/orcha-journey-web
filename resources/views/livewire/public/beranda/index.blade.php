@@ -2,6 +2,7 @@
 
 use App\Models\SewaKendaraan\Car;
 use App\Models\Etalase\DestinationPopuler;
+use App\Models\Etalase\Galeri;
 use App\Models\Etalase\Partner;
 use App\Models\Etalase\Testimoni;
 use App\Models\PaketWisata\TravelPackage;
@@ -141,16 +142,42 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
             ->take(8)
             ->values();
 
-        // Galeri diambil dari foto destinasi yang sudah diunggah admin; kalau
-        // belum ada, pakai foto bawaan agar section tidak kosong melompong.
-        $galleries = $destinations
-            ->flatMap(fn ($d) => array_merge([$d->main_photo], $d->others_photo ?? []))
-            ->filter()
-            ->take(8)
-            ->values()
-            ->all();
+        /*
+         | Galeri punya sumbernya sendiri sekarang: menu Galeri di admin.
+         |
+         | Sebelumnya bagian ini meminjam foto destinasi, dan dua hal yang
+         | berbeda maksudnya jadi satu — destinasi menjual TEMPAT, galeri
+         | menunjukkan ORANG yang sudah berangkat. Admin tidak punya cara
+         | memajang foto rombongan tanpa mengarang destinasi baru.
+         |
+         | Foto destinasi tetap dipakai sebagai cadangan supaya beranda yang
+         | galerinya belum diisi tidak kosong melompong.
+         */
+        $galleries = Galeri::tayang()->take(12)->pluck('foto')->all();
 
-        if (count($galleries) < 6) {
+        /*
+         | Cadangan hanya dipakai saat galerinya BENAR-BENAR kosong.
+         |
+         | Sebelumnya ada aturan kedua: bila jumlahnya kurang dari enam, seluruh
+         | daftar diganti foto bawaan. Aturan itu masuk akal waktu sumbernya
+         | foto destinasi — yang mungkin cuma ada dua — tetapi jadi merusak
+         | begitu galerinya diisi admin: mengunggah lima foto berarti kelimanya
+         | dibuang diam-diam, dan admin melihat beranda yang sama sekali tidak
+         | berubah tanpa tahu apa yang salah.
+         |
+         | Jalur foto diulang sampai memenuhi pita berjalan (lihat $jalurGaleri
+         | di bawah), jadi satu foto pun sudah cukup untuk menggambarnya.
+         */
+        if ($galleries === []) {
+            $galleries = $destinations
+                ->flatMap(fn ($d) => array_merge([$d->main_photo], $d->others_photo ?? []))
+                ->filter()
+                ->take(8)
+                ->values()
+                ->all();
+        }
+
+        if ($galleries === []) {
             $galleries = array_map(
                 fn ($file) => asset("images/$file"),
                 ['pantai-wide.jpg', 'pantai-senja.jpg', 'gapura.jpg', 'pantai-ramai.jpg', 'laut.jpg', 'pantai-pinggir-laut.jpg', 'pantai-atas.jpg', 'pantai-pinggir.jpg'],

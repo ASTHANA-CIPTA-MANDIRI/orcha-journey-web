@@ -118,10 +118,21 @@
                     </span>
                 </a>
 
-                <div class="items-center hidden gap-6 lg:flex xl:gap-8">
+                {{-- Ambangnya xl (1280px), bukan lg (1024px).
+
+                     Pada 1024px — lebar iPad Pro tegak — menu lengkap ini muncul
+                     padahal ruangnya tidak cukup: enam tautan dan satu tombol
+                     ajakan melipat jadi dua baris lalu menabrak logo. Yang
+                     terbaca pengunjung bukan menu, melainkan tumpukan.
+
+                     flex-nowrap dan whitespace-nowrap menjaga janji itu: bila
+                     suatu saat tautannya bertambah dan tetap tidak muat, ia
+                     meluber keluar dan langsung terlihat saat diuji — bukan
+                     melipat diam-diam jadi dua baris yang tampak "hampir rapi". --}}
+                <div class="items-center hidden gap-6 xl:flex xl:gap-8 flex-nowrap">
                     @foreach ($navLinks as $item)
                         <a href="{{ $item['url'] }}" @if ($item['aktif']) aria-current="page" @endif
-                            class="relative text-sm font-semibold transition-colors hover:text-orcha-sky"
+                            class="relative text-sm font-semibold transition-colors whitespace-nowrap hover:text-orcha-sky"
                             :class="(scrolled || open)
                                 ? '{{ $item['aktif'] ? 'text-orcha-ocean' : 'text-slate-600' }}'
                                 : '{{ $item['aktif'] ? 'text-orcha-sun nav-link-hero' : 'text-white nav-link-hero' }}'">
@@ -133,7 +144,7 @@
                     @endforeach
 
                     <a href="{{ $waLink }}" target="_blank" rel="noopener noreferrer"
-                        class="btn-orcha btn-orcha-sun !py-2.5 !px-6 !text-sm">
+                        class="btn-orcha btn-orcha-sun !py-2.5 !px-6 !text-sm whitespace-nowrap">
                         <x-bi-whatsapp class="w-4 h-4" />
                         Hubungi Kami
                     </a>
@@ -147,7 +158,7 @@
                 <button type="button" @click="open = !open"
                     :aria-label="open ? 'Tutup menu' : 'Buka menu'" :aria-expanded="open"
                     :class="[(scrolled || open) ? 'text-orcha-navy' : 'text-white', open ? 'menu-tombol-buka' : '']"
-                    class="p-2 transition menu-tombol rounded-xl lg:hidden hover:bg-orcha-foam/60">
+                    class="p-2 transition menu-tombol rounded-xl xl:hidden hover:bg-orcha-foam/60">
                     <span class="menu-garis"></span>
                     <span class="menu-garis"></span>
                     <span class="menu-garis"></span>
@@ -182,7 +193,7 @@
             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0"
             x-transition:leave-end="opacity-0 -translate-y-3"
             x-effect="document.body.style.overflow = open ? 'hidden' : ''"
-            class="menu-mobile lg:hidden">
+            class="menu-mobile xl:hidden">
             <div class="container-orcha">
                 <div class="py-4">
                     {{-- Tiap butir jadi ubin, bukan baris bergaris tipis. Ikonnya
