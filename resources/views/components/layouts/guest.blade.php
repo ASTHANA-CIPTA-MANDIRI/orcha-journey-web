@@ -156,7 +156,18 @@
             Yang tidak dikirim tidak bisa bocor. --}}
     @php
         $analitik = config('orcha.analitik_google');
-        $bolehAnalitik = filled($analitik) && app()->isProduction() && $bolehIndeks;
+        $pixel = config('orcha.meta_pixel');
+
+        /*
+         | Satu penjagaan untuk KEDUA pelacak — Google Analytics dan Meta Pixel.
+         |
+         | Dijadikan satu variabel supaya tidak mungkin salah satunya lolos:
+         | dua syarat yang ditulis terpisah lambat laun berbeda, dan yang
+         | berbeda diam-diam justru yang berbahaya.
+         */
+        $bolehMelacak = app()->isProduction() && $bolehIndeks;
+        $bolehAnalitik = filled($analitik) && $bolehMelacak;
+        $bolehPixel = filled($pixel) && $bolehMelacak;
     @endphp
 
     @if ($bolehAnalitik)
@@ -176,6 +187,35 @@
                 anonymize_ip: true,
             });
         </script>
+    @endif
+
+    {{-- ============ META PIXEL ============
+
+         Penjagaannya sama dengan Google Analytics, dan di sini lebih penting
+         lagi.
+
+         Meta menyalakan "Otomatis sertakan info halaman dan produk yang lebih
+         detail" secara bawaan. Fitur itu tidak sekadar mencatat alamat: ia
+         MEMBACA ISI HALAMAN dengan AI — judul, ulasan, harga, nama entitas —
+         lalu mengirimkannya ke Meta.
+
+         Di /riwayat-kesehatan, yang dibacanya adalah jawaban pertanyaan medis
+         peserta; di /konfirmasi-pembayaran, nama dan nominal transfernya.
+         Karena itu Pixel tidak dimuat sama sekali di halaman-halaman itu —
+         bukan sekadar dikurangi datanya. Yang tidak dimuat tidak bisa
+         membaca apa pun. --}}
+    @if ($bolehPixel)
+        <script>
+            !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+            n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+            n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+            t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+            document,'script','https://connect.facebook.net/en_US/fbevents.js');
+            fbq('init', @json($pixel));
+            fbq('track', 'PageView');
+        </script>
+        <noscript><img height="1" width="1" style="display:none" alt=""
+            src="https://www.facebook.com/tr?id={{ $pixel }}&ev=PageView&noscript=1"></noscript>
     @endif
 
     @vite(['resources/css/new-homepage.css', 'resources/js/new-homepage.js'])

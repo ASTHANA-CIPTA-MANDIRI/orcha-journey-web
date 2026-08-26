@@ -48,6 +48,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Meta Pixel
+    |--------------------------------------------------------------------------
+    |
+    | ID set data dari Meta Events Manager. Sama seperti ID Google Analytics,
+    | ini bukan rahasia.
+    |
+    | Pixel dijalankan dengan penjagaan yang SAMA dengan Google Analytics —
+    | dan untuk Pixel penjagaannya lebih penting lagi. Selain alamat halaman,
+    | Meta menyalakan "Otomatis sertakan info halaman dan produk yang lebih
+    | detail" secara bawaan: fitur itu MEMBACA ISI HALAMAN dengan AI — judul,
+    | ulasan, harga, nama entitas — lalu mengirimkannya ke Meta.
+    |
+    | Di halaman riwayat kesehatan, yang dibacanya adalah jawaban pertanyaan
+    | medis peserta.
+    |
+    */
+    'meta_pixel' => env('ORCHA_META_PIXEL', '25511443571868907'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Kategori Paket Wisata
     |--------------------------------------------------------------------------
     |

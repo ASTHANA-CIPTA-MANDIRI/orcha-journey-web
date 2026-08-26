@@ -225,3 +225,57 @@ test('tanpa id pengukuran, skrip analytics tidak digambar sama sekali', function
     expect($this->get(route('home'))->assertOk()->getContent())
         ->not->toContain('googletagmanager.com');
 });
+
+test('meta pixel jalan di halaman jualan saat production', function () {
+    app()->detectEnvironment(fn () => 'production');
+
+    $isi = $this->get(route('home'))->assertOk()->getContent();
+
+    expect($isi)->toContain('connect.facebook.net/en_US/fbevents.js')
+        ->toContain("fbq('init', \"".config('orcha.meta_pixel').'")')
+        ->toContain("fbq('track', 'PageView')")
+        // Jaring untuk peramban tanpa JavaScript
+        ->toContain('facebook.com/tr?id='.config('orcha.meta_pixel'));
+});
+
+test('meta pixel dimatikan di halaman yang memuat data pelanggan', function () {
+    app()->detectEnvironment(fn () => 'production');
+
+    /*
+     | Untuk Pixel ini lebih penting daripada untuk Google Analytics.
+     |
+     | Meta menyalakan "Otomatis sertakan info halaman dan produk yang lebih
+     | detail" secara bawaan, dan fitur itu tidak sekadar mencatat alamat: ia
+     | MEMBACA ISI HALAMAN dengan AI lalu mengirimkannya ke Meta.
+     |
+     | Di /riwayat-kesehatan yang dibacanya jawaban pertanyaan medis peserta.
+     | Karena itu Pixel tidak dimuat sama sekali di sana — bukan sekadar
+     | dikurangi datanya. Yang tidak dimuat tidak bisa membaca apa pun.
+     */
+    foreach (['riwayat-kesehatan', 'konfirmasi-pembayaran', 'pembatalan', 'pendaftaran-open-trip'] as $rute) {
+        expect($this->get(route($rute))->assertOk()->getContent())
+            ->not->toContain('fbevents.js')
+            ->not->toContain('facebook.com/tr?id=');
+    }
+});
+
+test('kedua pelacak memakai penjagaan yang sama, tidak mungkin salah satu lolos', function () {
+    /*
+     | Dua syarat yang ditulis terpisah lambat laun berbeda, dan yang berbeda
+     | diam-diam justru yang berbahaya: Pixel yang tetap menyala di halaman
+     | medis tidak akan ketahuan sampai ada yang memeriksa Events Manager.
+     */
+    $layout = file_get_contents(resource_path('views/components/layouts/guest.blade.php'));
+
+    expect($layout)->toContain('$bolehMelacak = app()->isProduction() && $bolehIndeks')
+        ->toContain('$bolehAnalitik = filled($analitik) && $bolehMelacak')
+        ->toContain('$bolehPixel = filled($pixel) && $bolehMelacak');
+
+    // Dan di luar production keduanya diam
+    expect(app()->environment())->not->toBe('production');
+
+    $isi = $this->get(route('home'))->assertOk()->getContent();
+
+    expect($isi)->not->toContain('fbevents.js')
+        ->not->toContain('googletagmanager');
+});
