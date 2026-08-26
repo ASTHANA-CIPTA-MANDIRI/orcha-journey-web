@@ -154,3 +154,40 @@ test('galeri yang benar-benar kosong tetap memakai foto cadangan', function () {
     expect(substr($isi, strpos($isi, 'id="galeri"')))
         ->toContain('pantai-wide.jpg');
 });
+
+test('keterangan galeri ikut tampil dan jadi alt gambarnya', function () {
+    App\Models\Etalase\Galeri::create([
+        'foto' => '/storage/galeri/rombongan.webp',
+        'keterangan' => 'Rombongan SMA 1 di Kawah Ijen',
+        'urutan' => 1,
+    ]);
+
+    /*
+     | Keterangannya dipakai dua kali. Sebagai alt: yang dibaca pembaca layar
+     | dan mesin telusur, dan sebelum ini seragam "Dokumentasi perjalanan"
+     | untuk SEMUA foto — tidak memberi tahu apa pun. Sebagai keterangan yang
+     | muncul saat tilenya disentuh: bukti bahwa yang dipajang rombongan
+     | sungguhan, bukan foto stok.
+     */
+    $isi = $this->get('/')->assertOk()->getContent();
+    $galeri = substr($isi, strpos($isi, 'id="galeri"'));
+
+    expect($galeri)
+        ->toContain('alt="Rombongan SMA 1 di Kawah Ijen"')
+        // Pil kaca berlapis: selubung gradien, pil, lalu tulisannya.
+        ->toContain('galeri-selubung')
+        ->toContain('<span>Rombongan SMA 1 di Kawah Ijen</span>');
+});
+
+test('foto tanpa keterangan tidak menampilkan pita kosong', function () {
+    App\Models\Etalase\Galeri::create(['foto' => '/storage/galeri/a.webp', 'urutan' => 1]);
+
+    // Pita gelap tanpa tulisan cuma menutupi foto tanpa memberi apa pun.
+    $isi = $this->get('/')->assertOk()->getContent();
+    $galeri = substr($isi, strpos($isi, 'id="galeri"'));
+
+    expect($galeri)
+        ->not->toContain('galeri-selubung')
+        // altnya kembali ke kalimat umum, bukan kosong.
+        ->toContain('alt="Dokumentasi perjalanan Orcha Journey"');
+});

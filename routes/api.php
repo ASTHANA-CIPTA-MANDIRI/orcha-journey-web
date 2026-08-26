@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\OpenTrip\PembayaranController;
 use App\Http\Controllers\Api\OpenTrip\PendaftaranController;
 use App\Http\Controllers\Api\PaketWisata\KeuntunganController;
 use App\Http\Controllers\Api\PaketWisata\PaketWisataController;
+use App\Http\Controllers\Api\SewaKendaraan\BagianPemeriksaanController;
 use App\Http\Controllers\Api\SewaKendaraan\KatalogKendaraanController;
 use App\Http\Controllers\Api\SewaKendaraan\KendaraanController;
 use App\Http\Controllers\Api\SewaKendaraan\PenyewaanController;
@@ -42,6 +43,8 @@ Route::prefix('v1')
 
         /* ----------------------------- OPEN TRIP ----------------------------- */
         Route::get('/pendaftaran', [PendaftaranController::class, 'index']);
+        // Sebelum /{pendaftaran}: tanpa ini "perhatian" terbaca sebagai nomor.
+        Route::get('/pendaftaran/perhatian', [PendaftaranController::class, 'perhatian']);
         Route::get('/pendaftaran/{pendaftaran}', [PendaftaranController::class, 'show']);
         Route::get('/pendaftaran/{pendaftaran}/riwayat-kesehatan', [PendaftaranController::class, 'riwayatKesehatan']);
         Route::patch('/pendaftaran/{pendaftaran}/status', [PendaftaranController::class, 'ubahStatus']);
@@ -57,15 +60,28 @@ Route::prefix('v1')
         Route::get('/pendaftaran/{pendaftaran}/kwitansi', [PendaftaranController::class, 'kwitansi']);
 
         Route::get('/pembayaran', [PembayaranController::class, 'index']);
+        // Sebelum /{pembayaran}: tanpa ini "menunggu" terbaca sebagai nomor.
+        Route::get('/pembayaran/menunggu', [PembayaranController::class, 'menunggu']);
         Route::get('/pembayaran/{pembayaran}', [PembayaranController::class, 'show']);
         Route::patch('/pembayaran/{pembayaran}/status', [PembayaranController::class, 'ubahStatus']);
 
         Route::get('/pembatalan', [PembatalanController::class, 'index']);
+        // Sebelum /{pembatalan}: tanpa ini "perhatian" terbaca sebagai nomor.
+        Route::get('/pembatalan/perhatian', [PembatalanController::class, 'perhatian']);
         Route::get('/pembatalan/{pembatalan}', [PembatalanController::class, 'show']);
         Route::patch('/pembatalan/{pembatalan}/status', [PembatalanController::class, 'ubahStatus']);
 
         /* --------------------------- SEWA KENDARAAN --------------------------- */
         Route::get('/penyewaan', [PenyewaanController::class, 'index']);
+        // Sebelum /{penyewaan}: tanpa ini "perhatian" terbaca sebagai nomor.
+        Route::get('/penyewaan/perhatian', [PenyewaanController::class, 'perhatian']);
+
+        // Bagian kendaraan yang diperiksa saat serah terima — dulu dipatok di
+        // config, sekarang dikelola admin sendiri.
+        Route::get('/bagian-pemeriksaan', [BagianPemeriksaanController::class, 'index']);
+        Route::post('/bagian-pemeriksaan', [BagianPemeriksaanController::class, 'store']);
+        Route::patch('/bagian-pemeriksaan/{bagian}', [BagianPemeriksaanController::class, 'update']);
+        Route::delete('/bagian-pemeriksaan/{bagian}', [BagianPemeriksaanController::class, 'destroy']);
         Route::get('/penyewaan/{penyewaan}', [PenyewaanController::class, 'show']);
         Route::patch('/penyewaan/{penyewaan}/status', [PenyewaanController::class, 'ubahStatus']);
         Route::patch('/penyewaan/{penyewaan}/serah-terima', [PenyewaanController::class, 'serahTerima']);
@@ -88,6 +104,8 @@ Route::prefix('v1')
 
         /* ------------------------------ KONTAK ------------------------------ */
         Route::get('/pesan', [PesanController::class, 'index']);
+        // Sebelum /{pesan}: tanpa ini "perhatian" terbaca sebagai nomor.
+        Route::get('/pesan/perhatian', [PesanController::class, 'perhatian']);
         Route::get('/pesan/{pesan}', [PesanController::class, 'show']);
         Route::patch('/pesan/{pesan}/dibaca', [PesanController::class, 'tandaiDibaca']);
 

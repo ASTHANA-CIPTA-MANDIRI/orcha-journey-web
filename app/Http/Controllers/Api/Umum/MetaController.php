@@ -126,12 +126,24 @@ class MetaController extends ApiController
                     ])
                     ->all(),
                 'status_tayang' => config('orcha.status_tayang'),
-                // Dipakai lembar serah terima kendaraan di lemon: daftar bagian
-                // yang diperiksa dan pilihan kondisinya harus sama persis di
-                // kedua sisi, kalau tidak perbandingannya tidak berarti.
-                'pemeriksaan_kendaraan' => config('orcha.pemeriksaan_kendaraan'),
+                /*
+                 | Dipakai formulir armada dan lembar serah terima di lemon:
+                 | daftar bagian yang diperiksa dan pilihan kondisinya harus
+                 | sama persis di kedua sisi, kalau tidak perbandingannya tidak
+                 | berarti.
+                 |
+                 | Dikirim dalam dua bentuk yang berbeda gunanya:
+                 |
+                 |   pemeriksaan_kendaraan — SELURUH bagian yang pernah ada,
+                 |     termasuk yang sudah dinonaktifkan. Untuk MEMBACA nama
+                 |     bagian di lembar serah terima lama.
+                 |   pemeriksaan_per_jenis — yang DIISI, dipilah per jenis unit.
+                 |     Formulir memakai ini.
+                 */
+                'pemeriksaan_kendaraan' => \App\Support\Pemeriksaan::label(),
+                'pemeriksaan_per_jenis' => \App\Support\Pemeriksaan::perJenis(),
                 'kondisi_pemeriksaan' => config('orcha.kondisi_pemeriksaan'),
-                'biaya_kerusakan' => config('orcha.biaya_kerusakan'),
+                'biaya_kerusakan' => \App\Support\Pemeriksaan::tarif(),
                 'denda_sewa' => config('orcha.denda_sewa'),
             ],
         ]);

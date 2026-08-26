@@ -64,6 +64,48 @@ function sewaBaru(string $status = 'dp_masuk'): PenyewaanKendaraan
     ]);
 }
 
+test('pembatalan yang perlu ditindak bisa dihitung sendiri lewat api', function () {
+    $batal = function (string $status) {
+        $p = ajukanBatal('OT-'.uniqid());
+        $p->update(['status' => $status]);
+
+        return $p;
+    };
+
+    // Keputusannya belum diambil
+    $batal('diajukan');
+    $batal('diajukan');
+    $batal('diproses');
+
+    // Sudah disetujui, dananya belum dikirim
+    $batal('disetujui');
+
+    // Sudah selesai — tidak menuntut apa pun lagi
+    $batal('dana_dikirim');
+    $batal('ditolak');
+
+    /*
+     | Dihitung per status, bukan digabung: tiap status menuntut perbuatan yang
+     | berbeda. Yang "disetujui" paling mahal dibiarkan — uang pelanggan sudah
+     | dinyatakan kembali tetapi belum berangkat ke mana-mana.
+     */
+    $data = $this->getJson('/api/v1/pembatalan/perhatian', kepala())
+        ->assertOk()
+        ->json('data');
+
+    expect($data['diajukan'])->toBe(2)
+        ->and($data['diproses'])->toBe(1)
+        ->and($data['disetujui'])->toBe(1);
+});
+
+test('jalur perhatian pembatalan tidak terbaca sebagai nomor', function () {
+    // Rutenya harus terdaftar SEBELUM /pembatalan/{pembatalan}; kalau tidak,
+    // "perhatian" ditangkap sebagai nomor dan jawabannya 404.
+    $this->getJson('/api/v1/pembatalan/perhatian', kepala())
+        ->assertOk()
+        ->assertJsonStructure(['data' => ['diajukan', 'diproses', 'disetujui']]);
+});
+
 test('pengajuan yang baru masuk belum membatalkan pesanannya', function () {
     $trip = tripBaru();
     $batal = ajukanBatal($trip->kode);

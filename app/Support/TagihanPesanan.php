@@ -81,6 +81,71 @@ class TagihanPesanan
         ];
     }
 
+    /**
+     * Bukti yang sudah dikirim penyewa tetapi belum dicek admin.
+     *
+     * Dipisah dari posisi tagihan karena artinya berbeda, dan perbedaan itu
+     * yang sering salah dibaca: uangnya mungkin memang sudah masuk rekening,
+     * tetapi selama buktinya belum diterima, sistem tidak boleh menganggapnya
+     * ada. Kalau boleh, siapa pun bisa memajukan status pesanannya sendiri
+     * hanya dengan mengunggah gambar.
+     *
+     * Yang perlu tahu justru admin di loket: unit hendak diserahkan, statusnya
+     * masih "Baru", dan sebabnya bukan karena penyewa belum membayar melainkan
+     * karena buktinya belum sempat dibuka.
+     *
+     * @return array{nominal: int, berkas: int}
+     */
+    public static function menungguDicek(PendaftaranOpenTrip|PenyewaanKendaraan|null $pesanan): array
+    {
+        if (! $pesanan) {
+            return ['nominal' => 0, 'berkas' => 0];
+        }
+
+        $bukti = KonfirmasiPembayaran::where('kode', $pesanan->kode)->menunggu();
+
+        return [
+            'nominal' => (int) (clone $bukti)->sum('nominal'),
+            'berkas' => (int) $bukti->count(),
+        ];
+    }
+
+    /**
+     * Uang yang sudah DITERIMA, dipecah menurut jenis pembayarannya.
+     *
+     * Satu baris "sudah dibayar" menjawab berapa, tetapi tidak menjawab yang
+     * ditanyakan berikutnya: itu uang mukanya atau pelunasannya. Pertanyaan itu
+     * muncul persis saat menagih sisa, dan jawabannya menentukan kalimat yang
+     * dipakai admin.
+     *
+     * Hanya yang berstatus diterima. Yang masih menunggu dicek belum uang, dan
+     * memasukkannya ke daftar pengurang berarti mengurangi tagihan berdasarkan
+     * gambar yang belum diperiksa siapa pun.
+     *
+     * @return array<int, array{jenis: string, label: string, nominal: int, berkas: int}>
+     */
+    public static function diterimaPerJenis(PendaftaranOpenTrip|PenyewaanKendaraan|null $pesanan): array
+    {
+        if (! $pesanan) {
+            return [];
+        }
+
+        $label = (array) config('orcha.jenis_pembayaran', []);
+
+        return KonfirmasiPembayaran::where('kode', $pesanan->kode)
+            ->where('status', 'diterima')
+            ->get()
+            ->groupBy('jenis')
+            ->map(fn ($bukti, $jenis) => [
+                'jenis' => (string) $jenis,
+                'label' => $label[$jenis] ?? 'Pembayaran',
+                'nominal' => (int) $bukti->sum('nominal'),
+                'berkas' => $bukti->count(),
+            ])
+            ->values()
+            ->all();
+    }
+
     /** Nominal yang pantas ditawarkan untuk satu jenis pembayaran. */
     public static function nominalUntukJenis(array $tagihan, string $jenis): ?int
     {
@@ -99,7 +164,19 @@ class TagihanPesanan
     private static function total(PendaftaranOpenTrip|PenyewaanKendaraan $pesanan): int
     {
         if ($pesanan instanceof PenyewaanKendaraan) {
-            return (int) $pesanan->estimasi_biaya;
+            /*
+             | Termasuk dendanya, bukan biaya sewanya saja.
+             |
+             | Denda keterlambatan dan kerusakan sama-sama ditagihkan ke penyewa
+             | dan sama-sama harus ia bayar. Selama yang dihitung hanya biaya
+             | sewa, halaman serah terima menyebut "Total tagihan Rp 2.150.000"
+             | sementara "Sisa tagihan" di kartu pembayaran menyebut Rp 210.000 —
+             | dua angka untuk satu tagihan yang sama, di layar yang sama.
+             |
+             | Yang dibaca penyewa saat menagih adalah yang lebih besar, jadi
+             | itulah yang harus dipakai menghitung sisanya.
+             */
+            return (int) $pesanan->total_tagihan;
         }
 
         return (int) (RincianBiaya::untuk($pesanan->paket, (int) $pesanan->jumlah_peserta)['total'] ?? 0);

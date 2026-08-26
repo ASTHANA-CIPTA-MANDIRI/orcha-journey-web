@@ -5,6 +5,7 @@ use App\Models\SewaKendaraan\Car;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\BerkasKwitansi;
 use App\Support\KirimPemberitahuan;
+use App\Support\NotaSewa;
 use App\Support\NomorTelepon;
 use App\Support\SalinanPelanggan;
 use Illuminate\Support\Facades\RateLimiter;
@@ -270,15 +271,51 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
         $this->peta[$medan] = $pilihan;
         $this->usulan[$medan] = [];
 
-        // Tulisan di isiannya ikut dirapikan ke nama yang dipilih, supaya yang
+        // Tulisan di isiannya ikut dirapikan ke tempat yang dipilih, supaya yang
         // terbaca penyewa sama dengan yang tergambar di peta.
+        //
+        // Alamatnya ikut, bukan namanya saja. Daftar usulan menampilkan dua
+        // baris — "SMAN 1 Pleret" dan "Jalan Nyi Truntum, Pleret, Bantul" —
+        // lalu baris kedua itu hilang begitu dipilih, padahal justru itu yang
+        // membedakannya dari sekolah bernama sama di kabupaten lain. Yang
+        // tersimpan hanya namanya, dan itulah satu-satunya yang dibaca sopir
+        // saat menjemput; letak yang tergambar di peta tidak ikut tersimpan
+        // ke mana pun.
+        //
+        // Ia juga jadi tanda bahwa pilihannya benar-benar masuk: saat nama
+        // tempat sama persis dengan yang diketik, satu-satunya perubahan yang
+        // terlihat cuma daftarnya menghilang.
+        $terpilih = self::alamatLengkap($pilihan);
+
         if ($medan === 'jemput') {
-            $this->lokasiAntar = $pilihan['nama'];
+            $this->lokasiAntar = $terpilih;
         } else {
-            $this->tujuan = $pilihan['nama'];
+            $this->tujuan = $terpilih;
         }
 
         $this->hitungRute();
+    }
+
+    /**
+     * Nama tempat berikut alamatnya, dipotong agar muat di isian.
+     *
+     * Batas 191 huruf datang dari kolom dan aturan pemeriksaannya. Alamat
+     * Nominatim paling panjang tiga ruas, jadi pemotongan hampir tidak pernah
+     * terjadi — tapi kalau terjadi, yang dipotong ekor alamatnya, bukan nama
+     * tempatnya.
+     *
+     * @param  array{nama: string, alamat: string}  $pilihan
+     */
+    private static function alamatLengkap(array $pilihan): string
+    {
+        $nama = trim($pilihan['nama'] ?? '');
+        $alamat = trim($pilihan['alamat'] ?? '');
+
+        if ($alamat === '' || $alamat === $nama) {
+            return mb_substr($nama, 0, 191);
+        }
+
+        return mb_substr($nama.' — '.$alamat, 0, 191);
     }
 
     /**
@@ -392,6 +429,11 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             'dengan_sopir' => $this->denganSopir === 'ya',
             'lokasi_antar' => $this->lokasiAntar ?: null,
             'estimasi_biaya' => $mobil->estimasiBiaya($this->satuan, (int) $this->durasi, $this->denganSopir === 'ya', $this->luarKota),
+            // Perinciannya disalin apa adanya, bukan dihitung ulang nanti:
+            // tarif unit bisa berubah kapan saja, dan perincian yang jumlahnya
+            // tidak lagi sama dengan total yang dipesan lebih membingungkan
+            // daripada tidak ada perincian sama sekali.
+            'rincian_estimasi' => $mobil->rincianEstimasi($this->satuan, (int) $this->durasi, $this->denganSopir === 'ya', $this->luarKota) ?: null,
             'catatan' => $this->catatan ?: null,
         ]);
 
@@ -442,6 +484,12 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             'WhatsApp' => $sewa->whatsapp,
         ];
 
+        // Angka tunggal tanpa perincian membuat penyewa bertanya "kok segitu?"
+        // — lalu menanyakannya lewat WhatsApp satu per satu. Perinciannya sudah
+        // ia lihat di layar sebelum memesan; berkas yang cuma menulis totalnya
+        // justru mencabut penjelasan yang tadi ada.
+        $nota = NotaSewa::untuk($sewa);
+
         $berkas = BerkasKwitansi::buat(
             'Rincian Pemesanan Sewa Kendaraan',
             $sewa->kode,
@@ -450,12 +498,25 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             $sewa->estimasi_biaya ? 'Rp '.number_format($sewa->estimasi_biaya, 0, ',', '.') : null,
             'Estimasi biaya sewa',
             'Belum Dibayar',
+            nota: $nota,
         );
+
+        // Angkanya ikut ditulis di badan surat supaya terbaca tanpa perlu
+        // membuka lampirannya lebih dulu — surat yang sama sekali tidak
+        // menyebut biaya membuat penyewa mengira harganya belum dihitung.
+        $rincianSurat = $sewa->estimasi_biaya
+            ? array_merge($rincian, collect($sewa->rincian_estimasi ?: [])
+                ->mapWithKeys(fn ($pos) => [
+                    $pos['label'].' ('.$pos['keterangan'].')' => 'Rp '.number_format((int) $pos['jumlah'], 0, ',', '.'),
+                ])->all(), [
+                    'Estimasi total' => 'Rp '.number_format((int) $sewa->estimasi_biaya, 0, ',', '.'),
+                ])
+            : $rincian;
 
         KirimPemberitahuan::kirim(
             'Pemesanan Sewa Kendaraan Baru',
             $sewa->kode,
-            $rincian,
+            $rincianSurat,
             $sewa->catatan,
             [],
             $berkas ? [BerkasKwitansi::namaBerkas('rincian-sewa', $sewa->kode) => $berkas] : [],

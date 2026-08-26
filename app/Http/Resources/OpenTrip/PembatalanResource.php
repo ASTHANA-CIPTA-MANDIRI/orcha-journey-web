@@ -19,14 +19,20 @@ class PembatalanResource extends JsonResource
             'id' => $this->id,
             'kode_pendaftaran' => $this->kode_pendaftaran,
 
-            // Jenisnya dibaca dari kodenya sendiri, tanpa query tambahan —
-            // daftar pembatalan bisa panjang, dan satu query per baris hanya
-            // untuk menampilkan satu kata tidak sebanding.
-            //
-            // Perlu disebut karena "1 peserta dibatalkan" pada sewa kendaraan
-            // membingungkan: yang dibatalkan unitnya, bukan orangnya.
-            'jenis' => str_starts_with((string) $this->kode_pendaftaran, 'SK-') ? 'sewa_kendaraan' : 'open_trip',
-            'jenis_label' => str_starts_with((string) $this->kode_pendaftaran, 'SK-') ? 'Sewa Kendaraan' : 'Open Trip',
+            /*
+             | Jenis pesanannya, sampai ke kategori paketnya.
+             |
+             | Sempat cuma dua: sewa kendaraan, atau "Open Trip" untuk segala
+             | yang bukan sewa. Akibatnya pembatalan private trip dan study tour
+             | ikut berlabel Open Trip — padahal ketiganya beda kebijakan
+             | potongannya, dan admin yang menyaring "Open Trip" mendapat
+             | rombongan sekolah di dalamnya.
+             |
+             | Paketnya sudah ikut termuat lewat with('pendaftaran.paket'), jadi
+             | ini tidak menambah satu query pun per baris.
+             */
+            'jenis' => self::jenisPesanan($this->resource),
+            'jenis_label' => self::labelJenis(self::jenisPesanan($this->resource)),
             'nama_pemohon' => $this->nama_pemohon,
             'whatsapp' => $this->whatsapp,
             'email' => $this->email,
@@ -96,6 +102,33 @@ class PembatalanResource extends JsonResource
      * dan tanggal berangkat untuk open trip. Tampilan di lemon tidak perlu
      * bercabang dua hanya karena sumbernya dua tabel.
      */
+    /**
+     * Jenis pesanan yang dibatalkan: sewa kendaraan, atau kategori paketnya.
+     *
+     * Kode "SK-" sudah cukup menandai sewa. Selebihnya dibaca dari kategori
+     * paketnya; kalau pesanannya tidak ketemu — kode salah ketik — jatuh ke
+     * open trip, sebutan yang paling sering benar.
+     */
+    private static function jenisPesanan($pembatalan): string
+    {
+        if (str_starts_with((string) $pembatalan->kode_pendaftaran, 'SK-')) {
+            return 'sewa_kendaraan';
+        }
+
+        $kategori = $pembatalan->pendaftaran?->paket?->category;
+
+        return in_array($kategori, ['open_trip', 'private_trip', 'study_tour'], true)
+            ? $kategori
+            : 'open_trip';
+    }
+
+    private static function labelJenis(string $jenis): string
+    {
+        return $jenis === 'sewa_kendaraan'
+            ? 'Sewa Kendaraan'
+            : (config('orcha.kategori_paket')[$jenis] ?? 'Open Trip');
+    }
+
     private static function ringkasPesanan($pesanan): ?array
     {
         if (! $pesanan) {

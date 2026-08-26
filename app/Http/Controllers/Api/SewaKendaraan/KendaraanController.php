@@ -53,7 +53,10 @@ class KendaraanController extends ApiController
      */
     public function ubahKondisi(Car $kendaraan, Request $request): JsonResponse
     {
-        $bagian = array_keys(config('orcha.pemeriksaan_kendaraan'));
+        // Disaring menurut jenis unitnya: bus tidak punya ban serep
+        // sebagaimana mobil, dan ceklis yang memuat bagian tak berlaku hanya
+        // akan diisi "Baik" tanpa pernah benar-benar diperiksa.
+        $bagian = \App\Support\Pemeriksaan::kunci($kendaraan->type);
         $kondisi = implode(',', array_keys(config('orcha.kondisi_pemeriksaan')));
 
         $data = $request->validate([

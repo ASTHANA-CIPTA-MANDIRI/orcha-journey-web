@@ -49,6 +49,7 @@ class PenyewaanKendaraan extends Model
         'catatan_denda',
         'rincian_denda',
         'estimasi_biaya',
+        'rincian_estimasi',
         'catatan',
         'status',
     ];
@@ -64,6 +65,7 @@ class PenyewaanKendaraan extends Model
         'kondisi_awal' => 'array',
         'kondisi_akhir' => 'array',
         'rincian_denda' => 'array',
+        'rincian_estimasi' => 'array',
         'denda_keterlambatan' => 'integer',
         'denda_kerusakan' => 'integer',
         'denda_lain' => 'integer',
@@ -250,7 +252,7 @@ class PenyewaanKendaraan extends Model
      */
     public function getDendaKerusakanUsulanAttribute(): int
     {
-        $tarif = config('orcha.biaya_kerusakan');
+        $tarif = \App\Support\Pemeriksaan::tarif();
         $urutan = array_keys(config('orcha.kondisi_pemeriksaan'));
         $awal = $this->kondisi_awal ?? [];
         $jumlah = 0;
@@ -278,7 +280,7 @@ class PenyewaanKendaraan extends Model
      */
     public function getRincianDendaKerusakanAttribute(): array
     {
-        $tarif = config('orcha.biaya_kerusakan');
+        $tarif = \App\Support\Pemeriksaan::tarif();
         $urutan = array_keys(config('orcha.kondisi_pemeriksaan'));
         $awal = $this->kondisi_awal ?? [];
         $baris = [];
@@ -296,7 +298,7 @@ class PenyewaanKendaraan extends Model
                 // dipakai sebagai penunjuk isian di lemon — ketikan admin hilang
                 // begitu isiannya ditinggalkan.
                 'kunci' => $bagian,
-                'bagian' => config('orcha.pemeriksaan_kendaraan')[$bagian] ?? $bagian,
+                'bagian' => \App\Support\Pemeriksaan::label()[$bagian] ?? $bagian,
                 'dari' => config('orcha.kondisi_pemeriksaan')[$sebelum] ?? $sebelum,
                 'jadi' => config('orcha.kondisi_pemeriksaan')[$sesudah] ?? $sesudah,
                 'biaya' => max(0, ($tarif[$bagian][$sesudah] ?? 0) - ($tarif[$bagian][$sebelum] ?? 0)),
@@ -344,7 +346,7 @@ class PenyewaanKendaraan extends Model
 
             if ($nilai($sesudah) > $nilai($sebelum)) {
                 $baru[] = [
-                    'bagian' => config('orcha.pemeriksaan_kendaraan')[$bagian] ?? $bagian,
+                    'bagian' => \App\Support\Pemeriksaan::label()[$bagian] ?? $bagian,
                     'dari' => config('orcha.kondisi_pemeriksaan')[$sebelum] ?? $sebelum,
                     'jadi' => config('orcha.kondisi_pemeriksaan')[$sesudah] ?? $sesudah,
                 ];

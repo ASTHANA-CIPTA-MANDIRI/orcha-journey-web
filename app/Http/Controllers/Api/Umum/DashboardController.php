@@ -36,6 +36,7 @@ class DashboardController extends ApiController
                 'penyewaan_terbaru' => PenyewaanResource::collection(
                     PenyewaanKendaraan::latest('id')->limit(5)->get()
                 )->resolve(),
+                'tren_bulanan' => $this->trenBulanan(),
                 'perlu_ditindak' => [
                     'pendaftaran_baru' => PendaftaranOpenTrip::where('status', 'baru')->count(),
                     'penyewaan_baru' => PenyewaanKendaraan::where('status', 'baru')->count(),
@@ -48,6 +49,54 @@ class DashboardController extends ApiController
                 'diperbarui_pada' => now()->toIso8601String(),
             ],
         ]);
+    }
+
+    /**
+     * Pendaftaran dan penyewaan enam bulan terakhir.
+     *
+     * Angka tunggal menjawab "berapa hari ini"; yang tidak dijawabnya adalah
+     * "sedang naik atau turun" — dan itu justru pertanyaan yang membuat orang
+     * membuka dashboard dua kali sehari.
+     *
+     * Enam bulan, bukan dua belas: yang lebih lama tidak lagi mengubah
+     * keputusan minggu ini, dan batangnya jadi terlalu rapat untuk dibaca
+     * sekilas di kolom yang sempit.
+     *
+     * Bulan tanpa data tetap dikirim bernilai nol. Melompatinya membuat jarak
+     * antarbatang berbohong tentang waktu.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function trenBulanan(): array
+    {
+        $mulai = now()->startOfMonth()->subMonths(5);
+
+        $hitung = function (string $model) use ($mulai) {
+            return $model::where('created_at', '>=', $mulai)
+                ->get(['created_at'])
+                ->groupBy(fn ($baris) => $baris->created_at->format('Y-m'))
+                ->map->count();
+        };
+
+        $daftar = $hitung(PendaftaranOpenTrip::class);
+        $sewa = $hitung(PenyewaanKendaraan::class);
+
+        $hasil = [];
+
+        for ($i = 0; $i < 6; $i++) {
+            $bulan = $mulai->copy()->addMonths($i);
+            $kunci = $bulan->format('Y-m');
+
+            $hasil[] = [
+                'bulan' => $kunci,
+                'label' => $bulan->locale('id')->translatedFormat('M'),
+                'label_panjang' => $bulan->locale('id')->translatedFormat('F Y'),
+                'pendaftaran' => (int) ($daftar[$kunci] ?? 0),
+                'penyewaan' => (int) ($sewa[$kunci] ?? 0),
+            ];
+        }
+
+        return $hasil;
     }
 
     /**

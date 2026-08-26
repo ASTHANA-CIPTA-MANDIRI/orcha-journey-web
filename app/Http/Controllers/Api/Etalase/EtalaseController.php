@@ -235,17 +235,35 @@ class EtalaseController extends ApiController
 
     /* ----------------------------- TESTIMONI ----------------------------- */
 
-    public function testimoni(): JsonResponse
+    /**
+     * Daftar testimoni, dipenggal per halaman dan bisa dicari.
+     *
+     * Sebelumnya dikirim seluruhnya sekaligus dan disaring di lemon. Selama
+     * jumlahnya belasan itu tidak terasa; begitu ratusan, tiap membuka halaman
+     * berarti mengangkut seluruh isi tabel — dan pencarian yang dikerjakan di
+     * lemon hanya melihat apa yang kebetulan sudah terkirim.
+     *
+     * Sekarang keduanya dikerjakan di sini, jadi yang dicari admin tetap
+     * ketemu walau barisnya ada di halaman kelima.
+     */
+    public function testimoni(Request $request): JsonResponse
     {
-        return response()->json([
-            'data' => Testimoni::latest('id')->get()->map(fn ($testimoni) => [
+        $daftar = Testimoni::query()
+            ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
+                fn ($sub) => $sub->where('customer_name', 'like', "%{$cari}%")
+                    ->orWhere('testimonial', 'like', "%{$cari}%")
+            ))
+            ->latest('id')
+            ->paginate($this->perHalaman($request));
+
+        return $this->halamanDipeta($daftar, fn () => $daftar->getCollection()
+            ->map(fn (Testimoni $testimoni) => [
                 'id' => $testimoni->id,
                 'nama' => $testimoni->customer_name,
                 'isi' => $testimoni->testimonial,
                 'rating' => $testimoni->rating,
                 'foto' => $testimoni->avatar,
-            ])->all(),
-        ]);
+            ])->all());
     }
 
     public function simpanTestimoni(Request $request): JsonResponse
@@ -302,15 +320,31 @@ class EtalaseController extends ApiController
 
     /* ------------------------------ PARTNER ------------------------------ */
 
-    public function partner(): JsonResponse
+    /**
+     * Daftar partner, dipenggal per halaman dan bisa dicari.
+     *
+     * Sebabnya sama dengan testimoni: yang dikirim sekaligus harus disaring di
+     * lemon, dan penyaring di sana hanya melihat baris yang kebetulan sedang
+     * tampil. Begitu daftarnya dipenggal, pencarian yang tertinggal di lemon
+     * akan menjawab "tidak ditemukan" untuk partner yang ada di halaman lain.
+     *
+     * Urutannya tetap menurut nama — daftar partner dibaca untuk mencari satu
+     * nama, bukan untuk melihat mana yang paling baru ditambahkan.
+     */
+    public function partner(Request $request): JsonResponse
     {
-        return response()->json([
-            'data' => Partner::orderBy('partner_name')->get()->map(fn ($partner) => [
+        $daftar = Partner::query()
+            ->when($request->string('cari')->toString(),
+                fn ($q, $cari) => $q->where('partner_name', 'like', "%{$cari}%"))
+            ->orderBy('partner_name')
+            ->paginate($this->perHalaman($request));
+
+        return $this->halamanDipeta($daftar, fn () => $daftar->getCollection()
+            ->map(fn (Partner $partner) => [
                 'id' => $partner->id,
                 'nama' => $partner->partner_name,
                 'logo' => $partner->foto,
-            ])->all(),
-        ]);
+            ])->all());
     }
 
     public function simpanPartner(Request $request): JsonResponse

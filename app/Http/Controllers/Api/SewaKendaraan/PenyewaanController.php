@@ -8,6 +8,7 @@ use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\BerkasKwitansi;
 use App\Support\GambarWebp;
 use App\Support\KirimPemberitahuan;
+use App\Support\NotaSewa;
 use App\Support\SalinanPelanggan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,11 +31,78 @@ class PenyewaanController extends ApiController
         return $this->halaman($daftar, PenyewaanResource::class);
     }
 
+    /**
+     * Sewa yang menuntut tindakan admin.
+     *
+     * Tiga hal, dan sengaja dipisah karena beda urusannya:
+     *
+     *   baru  — pemesanan yang belum disentuh siapa pun. Pelanggan sudah
+     *           mengirim formulir dan sedang menunggu dijawab; selama ini ia
+     *           hanya ketahuan kalau admin kebetulan membuka daftarnya.
+     *
+     *   telat — unit yang sudah lewat tenggat DAN BELUM dicatat kembali. Yang
+     *           sudah kembali tidak ikut, sekalipun kembalinya telat: pekerjaan
+     *           menagihnya sudah selesai. Ini yang paling mahal dibiarkan —
+     *           dendanya terus berjalan tanpa pernah ditetapkan, dan unitnya
+     *           tidak bisa disewakan lagi karena di sistem masih dianggap ada
+     *           di luar.
+     *
+     *   denda — unit SUDAH kembali, sistem punya usulan dendanya, tetapi tidak
+     *           satu rupiah pun ditetapkan. Ini yang tersisa dari perkara di
+     *           atas: unitnya sudah aman, tetapi uangnya belum ditagihkan dan
+     *           nota yang dikirim ke penyewa masih menyebut Rp 0.
+     *
+     * Jalur tersendiri dan semurah mungkin: dipanggil bilah samping lemon di
+     * setiap halaman admin.
+     */
+    public function perhatian(): JsonResponse
+    {
+        $baru = PenyewaanKendaraan::where('status', 'baru')->count();
+
+        /*
+         | Tenggat dan usulan denda sama-sama dihitung lewat aksesor, bukan
+         | kolom, jadi penyaringannya diselesaikan di PHP. Yang ditarik hanya
+         | sewa yang belum tuntas — dibatasi status, jadi jumlahnya kecil.
+         */
+        $belumKembali = PenyewaanKendaraan::whereNull('dikembalikan_pada')
+            ->whereNotIn('status', ['selesai', 'batal'])
+            ->get();
+
+        $sudahKembali = PenyewaanKendaraan::whereNotNull('dikembalikan_pada')
+            ->where('status', '!=', 'batal')
+            ->get();
+
+        return response()->json(['data' => [
+            'baru' => (int) $baru,
+            'telat' => $belumKembali->filter(fn (PenyewaanKendaraan $sewa) => $sewa->terlambat)->count(),
+            'denda' => $sudahKembali->filter(
+                fn (PenyewaanKendaraan $sewa) => $sewa->total_denda === 0
+                    && ($sewa->denda_keterlambatan_usulan + $sewa->denda_kerusakan_usulan) > 0
+            )->count(),
+        ]]);
+    }
+
     public function show(PenyewaanKendaraan $penyewaan): JsonResponse
     {
-        return response()->json([
-            'data' => (new PenyewaanResource($penyewaan))->resolve(),
+        $data = (new PenyewaanResource($penyewaan))->resolve();
+
+        /*
+         | Tautan tempat penyewa mengirim bukti transfer.
+         |
+         | Dibuatkan di sini, bukan di lemon: yang tahu alamat situs publiknya
+         | adalah aplikasi ini. Admin yang menyusun sendiri alamatnya lewat
+         | tempel-menempel pernah mengirimkan alamat localhost ke pelanggan.
+         |
+         | Alamatnya sengaja dibiarkan terbaca — bukan dipendekkan. Yang diminta
+         | di sini bukan mengunduh melainkan mengunggah bukti transfer, dan orang
+         | yang diminta menyerahkan bukti pembayaran pantas melihat ke mana ia
+         | dibawa sebelum mengetuk.
+         */
+        $data['konfirmasi_pembayaran_tautan'] = route('konfirmasi-pembayaran', [
+            'kode' => $penyewaan->kode,
         ]);
+
+        return response()->json(['data' => $data]);
     }
 
     public function ubahStatus(PenyewaanKendaraan $penyewaan, Request $request): JsonResponse
@@ -83,19 +151,37 @@ class PenyewaanController extends ApiController
             'WhatsApp' => $penyewaan->whatsapp,
         ]);
 
+        $nota = NotaSewa::untuk($penyewaan);
+
+        /*
+         | Angka besar di kepala nota adalah yang HARUS DIBAYAR penyewa, bukan
+         | total tagihannya.
+         |
+         | Selama yang dipajang totalnya, penyewa yang sudah menyetor uang muka
+         | membaca angka penuh dan mengira diminta membayar DP untuk kedua
+         | kalinya. Totalnya tetap ada — dirinci lengkap di bawah, lalu
+         | dikurangi pembayarannya baris demi baris.
+         */
+        $adaBayar = ! empty($nota['pembayaran']);
+
         $isi = BerkasKwitansi::buat(
             $sudahKembali ? 'Nota Akhir Sewa Kendaraan' : 'Rincian Pemesanan Sewa Kendaraan',
             $penyewaan->kode,
             $rincian,
             $penyewaan->catatan_denda ?: $penyewaan->catatan,
-            'Rp '.number_format($penyewaan->total_tagihan, 0, ',', '.'),
-            $sudahKembali ? 'Total termasuk denda' : 'Estimasi biaya sewa',
+            $adaBayar ? $nota['sisa'] : 'Rp '.number_format($penyewaan->total_tagihan, 0, ',', '.'),
+            match (true) {
+                $adaBayar && ($nota['lunas'] ?? false) => 'Sudah lunas',
+                $adaBayar => 'Sisa yang harus dibayar',
+                $sudahKembali => 'Total termasuk denda',
+                default => 'Estimasi biaya sewa',
+            },
             $sudahKembali ? 'Nota Akhir' : 'Belum Dibayar',
             // Biaya dan denda dijumlahkan di notanya sendiri. Sebelumnya denda
             // hanya jadi baris keterangan di antara data lain dan tidak pernah
             // ditambahkan, jadi penyewa harus menjumlahkan sendiri dari berkas
             // yang seharusnya menjawab itu.
-            nota: self::notaSewa($penyewaan),
+            nota: $nota,
         );
 
         abort_if($isi === null, 503, 'Kwitansi gagal dibuat.');
@@ -165,7 +251,7 @@ class PenyewaanController extends ApiController
             'Rp '.number_format($penyewaan->total_tagihan, 0, ',', '.'),
             'Total termasuk denda',
             'Nota Akhir',
-            nota: self::notaSewa($penyewaan),
+            nota: NotaSewa::untuk($penyewaan),
         );
 
         $adaDenda = $penyewaan->total_denda > 0;
@@ -192,56 +278,6 @@ class PenyewaanController extends ApiController
     }
 
     /**
-     * Baris nota sewa: biaya sewanya, lalu tiap denda yang benar-benar ada.
-     *
-     * Denda yang nol tidak ditampilkan — nota yang penuh baris "Rp 0" membuat
-     * yang benar-benar ditagih jadi sulit ditemukan.
-     *
-     * @return array<string, mixed>
-     */
-    public static function notaSewa(PenyewaanKendaraan $penyewaan): array
-    {
-        $rp = fn ($angka) => 'Rp '.number_format((int) $angka, 0, ',', '.');
-
-        $baris = [[
-            'label' => 'Biaya sewa',
-            'keterangan' => $penyewaan->durasi_label.' · '.($penyewaan->dengan_sopir ? 'dengan sopir' : 'lepas kunci'),
-            'nilai' => $rp($penyewaan->estimasi_biaya),
-        ]];
-
-        foreach ([
-            ['Denda keterlambatan', $penyewaan->denda_keterlambatan, $penyewaan->terlambat
-                ? floor($penyewaan->terlambat_menit / 60).' jam '.($penyewaan->terlambat_menit % 60).' menit lewat tenggat'
-                : null],
-            // Bagian mana yang ditagih diambil dari rincian yang sudah
-            // ditetapkan admin lebih dulu. Perbandingan kondisi hanya dipakai
-            // bila belum ada ketetapan — sesudah unit diperiksa ulang,
-            // perbandingan itu kosong, dan kwitansi tanpa keterangan bagian
-            // adalah kwitansi yang tidak bisa dijelaskan ke penyewa.
-            ['Denda kerusakan', $penyewaan->denda_kerusakan, collect($penyewaan->rincian_denda ?: $penyewaan->kerusakan_baru)
-                ->pluck('bagian')->filter()->implode(', ') ?: null],
-            ['Denda lain', $penyewaan->denda_lain, null],
-        ] as [$label, $nilai, $keterangan]) {
-            if ((int) $nilai <= 0) {
-                continue;
-            }
-
-            $baris[] = [
-                'label' => $label,
-                'keterangan' => $keterangan,
-                'nilai' => $rp($nilai),
-                'denda' => true,
-            ];
-        }
-
-        return [
-            'baris' => $baris,
-            'total' => $rp($penyewaan->total_tagihan),
-            'label_total' => 'Total tagihan',
-        ];
-    }
-
-    /**
      * Serah terima unit: saat diserahkan, dan saat kembali.
      *
      * Satu jalur untuk dua kejadian, karena bentuk datanya sama — kilometer,
@@ -255,7 +291,20 @@ class PenyewaanController extends ApiController
      */
     public function serahTerima(PenyewaanKendaraan $penyewaan, Request $request): JsonResponse
     {
-        $bagian = implode(',', array_keys(config('orcha.pemeriksaan_kendaraan')));
+        /*
+         | Bagian yang berlaku untuk jenis unit yang disewa.
+         |
+         | Yang SUDAH tersimpan di lembar ini ikut diizinkan walaupun bagiannya
+         | belakangan dinonaktifkan atau dicabut dari jenis ini. Tanpa itu,
+         | membuka lembar lama lalu menekan simpan akan menghapus diam-diam
+         | hasil pemeriksaan yang sudah dicatat — dan itulah satu-satunya bukti
+         | ketika penyewa membantah adanya kerusakan.
+         */
+        $bagian = array_unique(array_merge(
+            \App\Support\Pemeriksaan::kunci($penyewaan->kendaraan?->type),
+            array_keys($penyewaan->kondisi_awal ?? []),
+            array_keys($penyewaan->kondisi_akhir ?? []),
+        ));
         $kondisi = implode(',', array_keys(config('orcha.kondisi_pemeriksaan')));
 
         $data = $request->validate([
@@ -288,7 +337,7 @@ class PenyewaanController extends ApiController
         // kondisi awal dan akhir selalu memakai daftar yang sama.
         foreach (['kondisi_awal', 'kondisi_akhir'] as $kunci) {
             if (isset($data[$kunci])) {
-                $data[$kunci] = array_intersect_key($data[$kunci], array_flip(explode(',', $bagian)));
+                $data[$kunci] = array_intersect_key($data[$kunci], array_flip($bagian));
             }
         }
 

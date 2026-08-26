@@ -29,11 +29,24 @@ class PenyewaanResource extends JsonResource
                 // boleh berganti nama, catatan penyewaan lama tidak ikut berubah.
                 'nama' => $this->nama_kendaraan,
                 'transmisi' => $this->transmisi,
+                // Menentukan bagian mana yang muncul di ceklis serah terima:
+                // bus tidak punya ban serep sebagaimana mobil.
+                'jenis' => $this->kendaraan?->type,
                 'sebutan' => $this->kendaraan?->sebutan_lengkap,
                 'kapasitas' => $this->kendaraan?->capacity,
                 'kursi_total' => $this->kendaraan?->kursi_total,
-                'sopir_label' => $this->kendaraan?->sopir_label,
-                'operasional_label' => $this->kendaraan?->operasional_label,
+                // Dibaca menurut WILAYAH pesanan ini, bukan aturan dalam kota.
+                // Unit yang dalam kota diserahkan apa adanya bisa ditawarkan
+                // sepaket bersama sopir dan BBM untuk perjalanan luar kota —
+                // dan aturan yang salah wilayah menjanjikan hal yang tidak
+                // berlaku bagi penyewa yang memegang suratnya.
+                'sopir_label' => $this->kendaraan?->sopirLabel((bool) $this->luar_kota),
+                'operasional_label' => $this->kendaraan?->operasionalLabel((bool) $this->luar_kota),
+                // Bentuk daftar dari keterangan yang sama: yang ditanya di loket
+                // cuma "BBM ditanggung siapa", dan itu bisa dijawab dengan
+                // melirik, tanpa membaca kalimatnya sampai habis.
+                'termasuk' => $this->kendaraan
+                    ?->apaSajaTermasuk((bool) $this->luar_kota, (bool) $this->dengan_sopir) ?? [],
             ],
             'satuan' => $this->satuan,
             'satuan_label' => $this->satuan_label,
@@ -81,12 +94,29 @@ class PenyewaanResource extends JsonResource
             'kondisi_unit_terkini' => $this->kendaraan?->kondisi_terkini ?? [],
 
             'estimasi_biaya' => $this->estimasi_biaya,
+            // Asal angkanya, baris demi baris — tarif dikali lama sewa, sopir,
+            // BBM. Admin yang ditanya "kok segitu?" saat menagih tidak punya
+            // jawabannya kalau yang sampai ke lemon cuma satu bilangan.
+            // Kosong untuk pesanan lama, dibuat sebelum perinciannya disimpan.
+            'rincian_estimasi' => $this->rincian_estimasi ?? [],
             'denda_keterlambatan' => $this->denda_keterlambatan,
             'denda_kerusakan' => $this->denda_kerusakan,
             'denda_lain' => $this->denda_lain,
             'catatan_denda' => $this->catatan_denda,
             'total_denda' => $this->total_denda,
             'total_tagihan' => $this->total_tagihan,
+
+            // Posisi uangnya. Yang dihitung hanya bukti yang SUDAH DITERIMA —
+            // status pesanan tidak boleh maju karena klaim.
+            'tagihan' => \App\Support\TagihanPesanan::untuk($this->resource, hanyaDiterima: true),
+            // Dan yang masih menunggu dicek, dipisah. Inilah keterangan yang
+            // dicari admin di loket saat statusnya masih "Baru" padahal penyewa
+            // bersikeras sudah mentransfer: buktinya ada, belum sempat dibuka.
+            'menunggu_dicek' => \App\Support\TagihanPesanan::menungguDicek($this->resource),
+            // Uang yang sudah diterima, dipecah per jenis. Satu baris "sudah
+            // dibayar" menjawab berapa, tetapi tidak menjawab yang ditanyakan
+            // berikutnya: itu uang mukanya atau pelunasannya.
+            'pembayaran_diterima' => \App\Support\TagihanPesanan::diterimaPerJenis($this->resource),
 
             'catatan' => $this->catatan,
             'status' => $this->status,

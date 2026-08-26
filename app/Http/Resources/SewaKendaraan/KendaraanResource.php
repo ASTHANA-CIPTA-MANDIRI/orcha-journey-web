@@ -115,7 +115,7 @@ class KendaraanResource extends JsonResource
             'rincian' => collect($kondisi)
                 ->filter(fn ($nilai) => $nilai !== 'baik')
                 ->map(fn ($nilai, $bagian) => [
-                    'bagian' => config('orcha.pemeriksaan_kendaraan')[$bagian] ?? $bagian,
+                    'bagian' => \App\Support\Pemeriksaan::label()[$bagian] ?? $bagian,
                     'kondisi' => config('orcha.kondisi_pemeriksaan')[$nilai] ?? $nilai,
                     'nilai' => $nilai,
                 ])->values()->all(),

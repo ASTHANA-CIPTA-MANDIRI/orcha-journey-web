@@ -165,6 +165,73 @@ test('tujuan terkirim lewat resource ke admin lemon', function () {
     expect($baris['tujuan'])->toBe('Bromo');
 });
 
+test('perincian estimasi ikut terkirim ke admin lemon', function () {
+    $unit = unitSewa();
+    kirimSewa(isiSewa($unit, ['tujuan' => 'Bromo']))->assertHasNoErrors();
+
+    config()->set('orcha.api.kunci', 'kunci-rahasia-untuk-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    // Admin yang ditanya "kok segitu?" saat menagih tidak punya jawabannya
+    // kalau yang sampai ke lemon cuma satu bilangan.
+    $baris = $this->getJson('/api/v1/penyewaan', [
+        'X-Orcha-Key' => 'kunci-rahasia-untuk-uji',
+        'X-Orcha-Admin' => 'admin@phoenix.test', 'Accept' => 'application/json',
+    ])->assertOk()->json('data.0');
+
+    expect($baris['rincian_estimasi'])->not->toBeEmpty()
+        ->and($baris['rincian_estimasi'][0])->toHaveKeys(['label', 'keterangan', 'jumlah'])
+        ->and(array_sum(array_column($baris['rincian_estimasi'], 'jumlah')))
+        ->toBe($baris['estimasi_biaya']);
+});
+
+test('apa saja yang termasuk dibaca menurut wilayah pesanannya', function () {
+    // Unit yang DALAM kota diserahkan apa adanya, tetapi untuk luar kota
+    // ditawarkan sepaket bersama BBM. Aturan yang salah wilayah menjanjikan hal
+    // yang tidak berlaku bagi penyewa yang memegang suratnya.
+    $unit = unitSewa([
+        'termasuk_bbm' => false,
+        'luar_termasuk_bbm' => true,
+        'luar_biaya_bbm' => 300000,
+        'tarif_luar_kota' => 1500000,
+    ]);
+
+    kirimSewa(isiSewa($unit, ['tujuan' => 'Bromo', 'luarKota' => true]))->assertHasNoErrors();
+
+    config()->set('orcha.api.kunci', 'kunci-rahasia-untuk-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    $baris = $this->getJson('/api/v1/penyewaan', [
+        'X-Orcha-Key' => 'kunci-rahasia-untuk-uji',
+        'X-Orcha-Admin' => 'admin@phoenix.test', 'Accept' => 'application/json',
+    ])->assertOk()->json('data.0');
+
+    $bbm = collect($baris['kendaraan']['termasuk'])->firstWhere('label', 'BBM');
+
+    expect($bbm['termasuk'])->toBeTrue()
+        ->and($bbm['catatan'])->toContain('300.000');
+});
+
+test('sewa lepas kunci tidak menyebut sopir di daftar yang termasuk', function () {
+    $unit = unitSewa(['lepas_kunci' => true, 'termasuk_sopir' => false, 'harga_sopir' => 200000]);
+
+    kirimSewa(isiSewa($unit, ['denganSopir' => 'tidak', 'lokasiKembali' => 'Kantor Orcha']))
+        ->assertHasNoErrors();
+
+    config()->set('orcha.api.kunci', 'kunci-rahasia-untuk-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    $baris = $this->getJson('/api/v1/penyewaan', [
+        'X-Orcha-Key' => 'kunci-rahasia-untuk-uji',
+        'X-Orcha-Admin' => 'admin@phoenix.test', 'Accept' => 'application/json',
+    ])->assertOk()->json('data.0');
+
+    // Pada lepas kunci sopir bukan pos yang "tidak termasuk" melainkan pos yang
+    // tidak ada: unitnya memang disetir penyewa sendiri.
+    expect(collect($baris['kendaraan']['termasuk'])->pluck('label'))
+        ->not->toContain('Sopir');
+});
+
 test('lokasi pengembalian yang benar-benar diberikan tidak ditimpa', function () {
     $unit = unitSewa();
 

@@ -12,6 +12,25 @@
     $langit = '#7fb4d6';
     $emas = '#ffc74e';
     $kabut = '#f4f8fb';
+    // Hijau untuk uang yang SUDAH masuk — dibedakan dari merah denda dan navy
+    // tagihan, supaya baris pengurang tidak terbaca sebagai tagihan baru.
+    $hijau = '#1f7a44';
+
+    /*
+     | Huruf yang tidak ada di Helvetica diganti padanan ASCII-nya.
+     |
+     | Helvetica adalah huruf bawaan PDF: ia tidak ikut disisipkan ke berkasnya,
+     | dan hurufnya terbatas. Panah "→" dan minus "−" tidak ada di dalamnya, dan
+     | dompdf mencetak keduanya sebagai tanda tanya — persis di kalimat yang
+     | paling perlu dibaca penyewa, yaitu catatan denda yang menyebut bagian mana
+     | yang berubah.
+     |
+     | Memakai huruf lain (DejaVu) membengkakkan berkas ~1 MB hanya demi dua
+     | tanda, jadi tandanya yang mengalah.
+     */
+    $aman = fn ($teks) => strtr((string) $teks, [
+        '→' => '->', '←' => '<-', '−' => '-', '–' => '-', '\u{2022}' => '·',
+    ]);
     $logo = public_path('orcha-logo-surat.png');
 
     // Stempel dan tanda tangan bersifat pilihan: begitu berkasnya ditaruh di
@@ -34,6 +53,14 @@
     // Daftar bebas baris biaya + denda, ditutup satu baris total. Dipakai nota
     // sewa kendaraan, yang tagihannya tersusun dari beberapa hal sekaligus.
     $nota = $nota ?? [];
+
+    // Langkah pembayaran dipasang selama uangnya memang masih ditunggu.
+    //
+    // Dulu penandanya tabel biaya open trip, sehingga berkas pemesanan sewa —
+    // yang capnya jelas-jelas "Belum Dibayar" — malah diberi kalimat untuk
+    // kwitansi yang sudah lunas: "simpan berkas ini sampai perjalanan
+    // selesai", tanpa sepatah pun tentang cara membayarnya.
+    $menungguBayar = ! empty($biaya) || $capStatus === 'Belum Dibayar';
 @endphp
 
 <!DOCTYPE html>
@@ -324,7 +351,7 @@
                         <td>
                             {{ $baris['label'] }}
                             @if (! empty($baris['keterangan']))
-                                <div class="tempo">{{ $baris['keterangan'] }}</div>
+                                <div class="tempo">{{ $aman($baris['keterangan']) }}</div>
                             @endif
                         </td>
                         <td align="right" valign="top">
@@ -339,6 +366,42 @@
                     <td><span class="total-teks">{{ $nota['label_total'] ?? 'Total tagihan' }}</span></td>
                     <td align="right"><span class="total-angka">{{ $nota['total'] }}</span></td>
                 </tr>
+
+                {{-- Uang yang sudah diterima ikut dikurangkan.
+
+                     Tanpa ini nota berhenti di total dan menagih seluruhnya —
+                     padahal penyewa sudah membayar uang muka. Yang dibacanya:
+                     diminta membayar DP untuk kedua kalinya. Itu bukan salah
+                     paham yang bisa diluruskan belakangan; nota adalah dokumen
+                     yang ia pegang. --}}
+                @foreach ($nota['pembayaran'] ?? [] as $bayar)
+                    <tr>
+                        <td>
+                            <span style="color:{{ $hijau }};">{{ $bayar['label'] }}</span>
+                            @if (! empty($bayar['keterangan']))
+                                <div class="tempo">{{ $bayar['keterangan'] }}</div>
+                            @endif
+                        </td>
+                        <td align="right" valign="top">
+                            <span class="nilai" style="color:{{ $hijau }};">- {{ $bayar['nilai'] }}</span>
+                        </td>
+                    </tr>
+                @endforeach
+
+                @if (! empty($nota['pembayaran']))
+                    <tr class="total">
+                        <td>
+                            <span class="total-teks">
+                                {{ ($nota['lunas'] ?? false) ? 'Lunas' : 'Sisa yang harus dibayar' }}
+                            </span>
+                        </td>
+                        <td align="right">
+                            <span class="total-angka">
+                                {{ ($nota['lunas'] ?? false) ? '—' : $nota['sisa'] }}
+                            </span>
+                        </td>
+                    </tr>
+                @endif
             </table>
         @endif
 
@@ -381,7 +444,7 @@
                 <tr>
                     <td class="kotak-catatan">
                         <div class="label" style="color:{{ $ocean }};">Catatan</div>
-                        <div style="font-size:10.5px;color:#475569;padding-top:3px;">{!! nl2br(e($catatan)) !!}</div>
+                        <div style="font-size:10.5px;color:#475569;padding-top:3px;">{!! nl2br(e($aman($catatan))) !!}</div>
                     </td>
                 </tr>
             </table>
@@ -405,7 +468,7 @@
                                  di dalam kotak: bagian ini yang paling sering dibaca
                                  ulang sebelum orang menekan kirim di aplikasi banknya. --}}
                             <td class="kepala-bayar">
-                                {{ ! empty($biaya) ? 'Cara Pembayaran' : 'Perlu Diperhatikan' }}
+                                {{ $menungguBayar ? 'Cara Pembayaran' : 'Perlu Diperhatikan' }}
                             </td>
                         </tr>
                         <tr>
@@ -428,7 +491,7 @@
 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:11px;">
                                     @php
-                                        $langkah = ! empty($biaya)
+                                        $langkah = $menungguBayar
                                             ? [
                                                 'Transfer bank — tidak ada cara pembayaran lain.',
                                                 'Nomor rekening dikirim tim kami lewat WhatsApp.',

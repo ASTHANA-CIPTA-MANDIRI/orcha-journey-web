@@ -6,10 +6,70 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ $title ?? 'Orcha Journey — Open Trip, Private Trip, Study Tour & Sewa Kendaraan' }}</title>
-    <meta name="description"
-        content="Orcha Journey melayani open trip, private trip, study tour, serta sewa mobil, HiAce, dan bus pariwisata di Yogyakarta dan sekitarnya.">
+    @php
+        /*
+         | Keterangan halaman diambil per rute — lihat App\Support\Seo.
+         |
+         | $seoKeterangan dan $seoGambar boleh diisi halaman yang punya isi
+         | sendiri (paket wisata, destinasi): kalimat pemasaran paket jauh
+         | lebih berguna sebagai cuplikan hasil pencarian daripada kalimat
+         | umum tentang Orcha.
+         */
+        $judulHalaman = $title ?? 'Orcha Journey — Open Trip, Private Trip, Study Tour & Sewa Kendaraan';
+        $keterangan = \App\Support\Seo::keterangan(null, $seoKeterangan ?? null);
+        $kanonis = \App\Support\Seo::kanonis();
+        $gambarSeo = $seoGambar ?? asset('og-orcha.jpg');
+        $bolehIndeks = \App\Support\Seo::bolehDiindeks();
+    @endphp
+
+    <title>{{ $judulHalaman }}</title>
+    <meta name="description" content="{{ $keterangan }}">
     <meta name="theme-color" content="#001220">
+
+    {{-- Satu halaman bisa dicapai lewat beberapa alamat — dengan atau tanpa
+         garis miring, dengan tempelan ?utm_source. Tanpa kanonis, mesin pencari
+         memperlakukannya sebagai halaman berbeda dan nilai satu halaman
+         terpecah ke beberapa alamat. --}}
+    <link rel="canonical" href="{{ $kanonis }}">
+
+    {{-- Bukti kepemilikan situs untuk Google Search Console.
+
+         Ditaruh di layout, jadi melekat di SELURUH halaman publik — Google
+         memeriksanya di beranda, tetapi halaman yang kebetulan diperiksa lebih
+         dulu tidak boleh kehilangannya.
+
+         Tokennya bukan rahasia: ia memang dirancang untuk tampil di sumber
+         halaman. Yang perlu dijaga justru jangan sampai hilang — begitu
+         lenyap, Google mencabut verifikasinya dan laporannya ikut tertutup. --}}
+    @if (config('orcha.verifikasi_google'))
+        <meta name="google-site-verification" content="{{ config('orcha.verifikasi_google') }}">
+    @endif
+
+    {{-- Formulir dan halaman sekali pakai dijauhkan dari hasil pencarian.
+         Tidak ada yang mencarinya lewat Google, dan yang muncul justru
+         menyesatkan — halaman riwayat kesehatan bahkan memuat pertanyaan
+         medis peserta. --}}
+    @unless ($bolehIndeks)
+        <meta name="robots" content="noindex, nofollow">
+    @endunless
+
+    {{-- Pratinjau tautan saat dibagikan di WhatsApp, Facebook, dan X.
+         Sebagian besar pengunjung Orcha datang dari tautan yang diteruskan di
+         grup WhatsApp, dan tautan tanpa gambar serta judul hanya tampil
+         sebagai alamat mentah yang jarang diketuk. --}}
+    <meta property="og:type" content="{{ $seoJenis ?? 'website' }}">
+    <meta property="og:site_name" content="Orcha Journey">
+    <meta property="og:locale" content="id_ID">
+    <meta property="og:title" content="{{ $judulHalaman }}">
+    <meta property="og:description" content="{{ $keterangan }}">
+    <meta property="og:url" content="{{ $kanonis }}">
+    <meta property="og:image" content="{{ $gambarSeo }}">
+    <meta property="og:image:alt" content="{{ $judulHalaman }}">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ $judulHalaman }}">
+    <meta name="twitter:description" content="{{ $keterangan }}">
+    <meta name="twitter:image" content="{{ $gambarSeo }}">
 
 
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
@@ -22,6 +82,101 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800;900&family=Great+Vibes&display=swap"
         rel="stylesheet">
+
+    @php
+        /*
+         | Dirakit di blok @php lalu dikirim sebagai SATU variabel ke @json.
+         |
+         | Menaruh senarai bertingkat langsung di dalam @json(...) membuat
+         | Blade salah menghitung kurungnya dan berkas hasil kompilasinya
+         | tidak lagi sah — galatnya muncul sebagai "Unclosed [", jauh dari
+         | tempat sebenarnya.
+         */
+        $skemaSitus = [
+            '@context' => 'https://schema.org',
+            '@type' => 'TravelAgency',
+            'name' => 'Orcha Journey',
+            'url' => url('/'),
+            'image' => asset('og-orcha.jpg'),
+            'description' => \App\Support\Seo::keterangan('home'),
+            'telephone' => '+'.config('orcha.whatsapp'),
+            'email' => config('orcha.email'),
+            'areaServed' => ['Yogyakarta', 'Jawa Tengah', 'Jawa Timur'],
+            'address' => [
+                '@type' => 'PostalAddress',
+                'streetAddress' => config('orcha.alamat'),
+                'addressCountry' => 'ID',
+            ],
+            'sameAs' => array_values(array_filter([
+                config('orcha.instagram')
+                    ? 'https://instagram.com/'.ltrim(config('orcha.instagram'), '@')
+                    : null,
+            ])),
+        ];
+    @endphp
+
+    {{-- Data terstruktur: memberi tahu mesin pencari APA situs ini, bukan
+         sekadar kata-kata di halamannya. Yang dipakai TravelAgency, bukan
+         Organization umum — itu yang membuat Google boleh menampilkan alamat,
+         nomor telepon, dan wilayah layanan langsung di hasil pencarian.
+
+         Ditulis di layout supaya melekat di SELURUH halaman: mesin pencari
+         boleh mendarat di halaman mana pun lebih dulu, tidak selalu beranda. --}}
+    <script type="application/ld+json">
+        {!! json_encode($skemaSitus, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+    </script>
+
+    {{-- Data terstruktur khusus halaman ini, bila ada — paket wisata mengirim
+         TouristTrip berikut harganya, FAQ mengirim daftar tanyanya. --}}
+    @isset($seoSkema)
+        <script type="application/ld+json">
+            {!! json_encode($seoSkema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+        </script>
+    @endisset
+
+    {{-- ============ GOOGLE ANALYTICS ============
+
+         Dijalankan hanya bila TIGA hal terpenuhi sekaligus.
+
+         1. IDnya terisi.
+
+         2. Aplikasinya berjalan di production. Tanpa ini, tiap kali kita
+            membuka halaman di laptop sendiri angkanya ikut tercatat, dan
+            laporan yang dipakai mengambil keputusan tercampur lalu lintas
+            orang yang sedang mengoding.
+
+         3. Halamannya boleh diindeks. Ini bukan soal SEO melainkan PRIVASI:
+            halaman yang tidak boleh diindeks adalah formulir sekali pakai, dan
+            sebagian membawa data pelanggan DI ALAMATNYA —
+            /riwayat-kesehatan?kode=OT-1608-ZT8K&nama=... GA4 merekam alamat
+            halaman berikut seluruh query-nya, jadi menyalakannya di sana sama
+            dengan mengirim kode pesanan dan nama peserta ke Google.
+
+            Halaman riwayat kesehatan bahkan memuat jawaban pertanyaan medis.
+            Yang tidak dikirim tidak bisa bocor. --}}
+    @php
+        $analitik = config('orcha.analitik_google');
+        $bolehAnalitik = filled($analitik) && app()->isProduction() && $bolehIndeks;
+    @endphp
+
+    @if ($bolehAnalitik)
+        <script async src="https://www.googletagmanager.com/gtag/js?id={{ $analitik }}"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag() { dataLayer.push(arguments); }
+            gtag('js', new Date());
+            gtag('config', @json($analitik), {
+                // Alamat halaman dikirim TANPA query.
+                //
+                // Penjagaan lapis kedua: halaman jualan pun bisa membawa
+                // tempelan ?utm_source atau ?cari=..., dan yang terakhir itu
+                // ketikan pengunjung sendiri. Yang berguna bagi laporan cuma
+                // jalur halamannya.
+                page_location: window.location.origin + window.location.pathname,
+                anonymize_ip: true,
+            });
+        </script>
+    @endif
 
     @vite(['resources/css/new-homepage.css', 'resources/js/new-homepage.js'])
 </head>

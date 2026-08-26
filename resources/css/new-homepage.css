@@ -971,6 +971,90 @@ h6,
     }
 }
 
+/* Keterangan foto galeri — pil kaca, bukan teks telanjang.
+
+   Bentuk sebelumnya: tulisan putih di atas gradien gelap. Untuk keterangan
+   panjang itu terbaca; untuk yang pendek seperti "gass" ia justru tampak
+   seperti sisa yang lupa dibersihkan, bukan bagian dari desain. Pil punya tepi
+   sendiri, jadi sependek apa pun tulisannya ia tetap terbaca sebagai label. */
+.galeri-selubung {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    padding: 0.85rem;
+    background: linear-gradient(to top, rgba(9, 30, 51, 0.66) 0%, rgba(9, 30, 51, 0.14) 42%, transparent 70%);
+    pointer-events: none;
+}
+
+.galeri-keterangan {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: 100%;
+    padding: 0.4rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(15, 45, 74, 0.55);
+
+    /* Kacanya membuat tulisan tetap terbaca di atas foto seterang apa pun,
+       tanpa menutupi fotonya dengan kotak pekat. */
+    -webkit-backdrop-filter: blur(10px) saturate(1.3);
+    backdrop-filter: blur(10px) saturate(1.3);
+
+    color: #fff;
+    font-size: 0.76rem;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+    box-shadow: 0 6px 18px rgba(9, 30, 51, 0.35);
+
+    /* Sedikit membesar saat disentuh — penanda halus bahwa tilenya diperhatikan,
+       bukan syarat untuk membacanya. */
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Titik kecil di depan tulisan: penanda bahwa ini keterangan tempat/momen,
+   bukan tombol. Digambar CSS, jadi tidak menambah permintaan berkas. */
+.galeri-keterangan::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 50%;
+    background: #ffc74e;
+    box-shadow: 0 0 0 3px rgba(255, 199, 78, 0.25);
+}
+
+/* Tulisannya sendiri dipangkas satu baris: tile-nya 4:3, dan pil setinggi tiga
+   baris menutupi fotonya sendiri. */
+.galeri-keterangan span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Muncul saat disentuh? TIDAK — tampil terus, di layar mana pun.
+
+   Percobaan sebelumnya menyembunyikannya sampai kursor mendekat. Di ponsel
+   kursor itu tidak pernah ada, jadi keterangannya tidak akan pernah terbaca
+   siapa pun yang membuka dari telepon — dan justru dari sanalah kebanyakan
+   pengunjung datang. Aturan @media (hover: none) sempat menambalnya, tetapi
+   menambal berarti dua tampilan berbeda untuk satu hal yang sama.
+
+   Yang tersisa dari hover cuma penanda halus: pilnya membesar sedikit. */
+.group:hover .galeri-keterangan,
+.group:focus-within .galeri-keterangan {
+    transform: scale(1.04);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .galeri-selubung,
+    .galeri-keterangan {
+        transition: none;
+    }
+}
+
 /* ==========================================================
    9. SLIDER DESTINASI — scroll-snap, responsif tanpa scroll hijack
 ========================================================== */

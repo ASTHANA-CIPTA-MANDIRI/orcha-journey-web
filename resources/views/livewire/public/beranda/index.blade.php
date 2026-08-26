@@ -153,7 +153,19 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
          | Foto destinasi tetap dipakai sebagai cadangan supaya beranda yang
          | galerinya belum diisi tidak kosong melompong.
          */
-        $galleries = Galeri::tayang()->take(12)->pluck('foto')->all();
+        /*
+         | Berbentuk [foto, keterangan], bukan jalur telanjang.
+         |
+         | Keterangannya dipakai dua kali: sebagai alt gambar — yang dibaca
+         | pembaca layar dan mesin telusur, dan selama ini seragam "Dokumentasi
+         | perjalanan" untuk SEMUA foto — dan sebagai keterangan yang muncul
+         | saat tilenya disentuh. Foto cadangan tidak punya keterangan, jadi
+         | kolomnya null dan tidak ada yang ditampilkan.
+         */
+        $galleries = Galeri::tayang()->take(12)
+            ->get(['foto', 'keterangan'])
+            ->map(fn ($g) => ['foto' => $g->foto, 'keterangan' => $g->keterangan])
+            ->all();
 
         /*
          | Cadangan hanya dipakai saat galerinya BENAR-BENAR kosong.
@@ -173,13 +185,14 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                 ->flatMap(fn ($d) => array_merge([$d->main_photo], $d->others_photo ?? []))
                 ->filter()
                 ->take(8)
+                ->map(fn ($foto) => ['foto' => $foto, 'keterangan' => null])
                 ->values()
                 ->all();
         }
 
         if ($galleries === []) {
             $galleries = array_map(
-                fn ($file) => asset("images/$file"),
+                fn ($file) => ['foto' => asset("images/$file"), 'keterangan' => null],
                 ['pantai-wide.jpg', 'pantai-senja.jpg', 'gapura.jpg', 'pantai-ramai.jpg', 'laut.jpg', 'pantai-pinggir-laut.jpg', 'pantai-atas.jpg', 'pantai-pinggir.jpg'],
             );
         }
@@ -560,22 +573,46 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
             <div class="flex overflow-hidden">
                 <div class="marquee">
                     @foreach ($jalurGaleri as $img)
-                        <div
-                            class="relative overflow-hidden shadow-orcha rounded-2xl w-56 sm:w-72 lg:w-80 aspect-[4/3] shrink-0">
-                            <img src="{{ $img }}" alt="Dokumentasi perjalanan" loading="lazy"
-                                class="object-cover w-full h-full transition-transform duration-700 hover:scale-110">
-                        </div>
+                        <figure
+                            class="relative overflow-hidden shadow-orcha rounded-2xl w-56 sm:w-72 lg:w-80 aspect-[4/3] shrink-0 group">
+                            <img src="{{ $img['foto'] }}"
+                                alt="{{ $img['keterangan'] ?: 'Dokumentasi perjalanan Orcha Journey' }}"
+                                loading="lazy"
+                                class="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110">
+
+                            @if ($img['keterangan'])
+                                {{-- Muncul saat tilenya disentuh; pita berjalannya memang
+                                     berhenti saat itu, jadi kalimatnya sempat terbaca. Di
+                                     perangkat tanpa tetikus ia ditampilkan terus — lihat
+                                     .galeri-selubung di new-homepage.css. --}}
+                                <figcaption class="galeri-selubung">
+                                    <span class="galeri-keterangan"><span>{{ $img['keterangan'] }}</span></span>
+                                </figcaption>
+                            @endif
+                        </figure>
                     @endforeach
                 </div>
             </div>
             <div class="flex overflow-hidden">
                 <div class="marquee marquee-reverse marquee-slow">
                     @foreach (array_reverse($jalurGaleri) as $img)
-                        <div
-                            class="relative overflow-hidden shadow-orcha rounded-2xl w-56 sm:w-72 lg:w-80 aspect-[4/3] shrink-0">
-                            <img src="{{ $img }}" alt="Dokumentasi perjalanan" loading="lazy"
-                                class="object-cover w-full h-full transition-transform duration-700 hover:scale-110">
-                        </div>
+                        <figure
+                            class="relative overflow-hidden shadow-orcha rounded-2xl w-56 sm:w-72 lg:w-80 aspect-[4/3] shrink-0 group">
+                            <img src="{{ $img['foto'] }}"
+                                alt="{{ $img['keterangan'] ?: 'Dokumentasi perjalanan Orcha Journey' }}"
+                                loading="lazy"
+                                class="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110">
+
+                            @if ($img['keterangan'])
+                                {{-- Muncul saat tilenya disentuh; pita berjalannya memang
+                                     berhenti saat itu, jadi kalimatnya sempat terbaca. Di
+                                     perangkat tanpa tetikus ia ditampilkan terus — lihat
+                                     .galeri-selubung di new-homepage.css. --}}
+                                <figcaption class="galeri-selubung">
+                                    <span class="galeri-keterangan"><span>{{ $img['keterangan'] }}</span></span>
+                                </figcaption>
+                            @endif
+                        </figure>
                     @endforeach
                 </div>
             </div>

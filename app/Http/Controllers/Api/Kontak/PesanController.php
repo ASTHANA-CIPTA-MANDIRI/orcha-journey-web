@@ -36,6 +36,41 @@ class PesanController extends ApiController
         return response()->json($isi);
     }
 
+    /**
+     * Angka untuk penanda di bilah samping dan lonceng lemon.
+     *
+     * Dihitung dari yang BELUM DIBACA, bukan dari yang belum dibalas.
+     *
+     * Bukan karena itu ukuran yang paling tepat — yang sebenarnya ingin
+     * diketahui admin adalah mana yang belum dijawab — melainkan karena
+     * balasannya dikirim lewat WhatsApp, di luar sistem ini. Orcha tidak pernah
+     * tahu sebuah pesan sudah dibalas atau belum. Satu-satunya penutup yang
+     * benar-benar tercatat adalah "sudah dibaca", jadi itu yang dipakai, dan
+     * labelnya di lemon menyebutnya apa adanya.
+     *
+     * Dipecah menurut umur, meniru penanda sewa: yang baru masuk hari ini
+     * wajar masih menunggu, yang menganggur lewat sehari itulah yang menyakiti
+     * — dan keduanya perlu dibedakan supaya admin tahu mana yang didahulukan.
+     */
+    public function perhatian(): JsonResponse
+    {
+        $batas = now()->subDay();
+
+        $hitung = PesanKontak::belumDibaca()
+            ->selectRaw('sum(case when created_at < ? then 1 else 0 end) as lama, count(*) as semua', [$batas])
+            ->first();
+
+        $semua = (int) ($hitung->semua ?? 0);
+        $lama = (int) ($hitung->lama ?? 0);
+
+        return response()->json(['data' => [
+            'belum_dibaca' => $semua,
+            // Sisanya, supaya lemon tidak perlu mengurangi sendiri.
+            'baru' => $semua - $lama,
+            'lama' => $lama,
+        ]]);
+    }
+
     public function show(PesanKontak $pesan): JsonResponse
     {
         // Versi rinci: ikut membawa pesanan milik pengirim dan pesan-pesan

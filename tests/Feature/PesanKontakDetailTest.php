@@ -129,3 +129,46 @@ test('pesan tanpa nomor maupun email tidak mengaitkan pesanan siapa pun', functi
 
     expect($balasan['pesanan_terkait'])->toBe([]);
 });
+
+test('perhatian pesan memisahkan yang baru dari yang menganggur lewat sehari', function () {
+    /*
+     | Angka untuk penanda di bilah samping dan lonceng lemon.
+     |
+     | Dihitung dari yang BELUM DIBACA, bukan dari yang belum dibalas —
+     | balasannya dikirim lewat WhatsApp, di luar sistem ini, jadi Orcha tidak
+     | pernah tahu sebuah pesan sudah dijawab atau belum. Satu-satunya penutup
+     | yang benar-benar tercatat adalah "sudah dibaca".
+     */
+    kirimPesan(['nama' => 'Baru Masuk']);
+
+    // Sudah dibaca: tidak menuntut apa pun lagi
+    kirimPesan(['nama' => 'Sudah Dibaca', 'dibaca_pada' => now()]);
+
+    // Belum dibaca dan sudah lewat sehari: inilah yang menyakiti
+    $lama = kirimPesan(['nama' => 'Terlantar']);
+    $lama->forceFill(['created_at' => now()->subDays(3)])->save();
+
+    $data = $this->getJson('/api/v1/pesan/perhatian', kepalaPesan())
+        ->assertOk()->json('data');
+
+    expect($data['belum_dibaca'])->toBe(2)
+        ->and($data['baru'])->toBe(1)
+        ->and($data['lama'])->toBe(1);
+});
+
+test('pesan yang sudah dibaca tidak terhitung di perhatian', function () {
+    kirimPesan(['dibaca_pada' => now()]);
+    kirimPesan(['dibaca_pada' => now()->subWeek()]);
+
+    $data = $this->getJson('/api/v1/pesan/perhatian', kepalaPesan())
+        ->assertOk()->json('data');
+
+    expect($data)->toBe(['belum_dibaca' => 0, 'baru' => 0, 'lama' => 0]);
+});
+
+test('jalur perhatian tidak terbaca sebagai nomor pesan', function () {
+    // Rutenya harus terdaftar SEBELUM /pesan/{pesan}; kalau tidak, "perhatian"
+    // ditangkap sebagai nomor dan jawabannya 404.
+    $this->getJson('/api/v1/pesan/perhatian', kepalaPesan())
+        ->assertOk()->assertJsonStructure(['data' => ['belum_dibaca', 'baru', 'lama']]);
+});

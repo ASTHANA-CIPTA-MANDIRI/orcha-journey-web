@@ -9,6 +9,7 @@ use App\Models\OpenTrip\Pembatalan;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\Umum\TautanPendek;
 use App\Support\BerkasKwitansi;
+use App\Support\PerkiraanPotongan;
 use App\Support\RincianBiaya;
 use App\Support\SuratPenggantian;
 use App\Support\TagihanPesanan;
@@ -136,6 +137,21 @@ class PendaftaranController extends ApiController
 
         $pembatalan = Pembatalan::where('kode_pendaftaran', $pendaftaran->kode)->latest('id')->first();
 
+        /*
+         | Keputusan pengembaliannya ikut dikirim, bukan hanya nomor rekeningnya.
+         |
+         | Sebelumnya lemon hanya menerima 'rekening' dan menampilkannya apa
+         | adanya sebagai "Rekening pengembalian: ...". Pada pengajuan yang
+         | potongannya sebesar seluruh pembayaran — kembali Rp 0 — kalimat itu
+         | terbaca sebagai perintah mentransfer ke sana, padahal tidak ada yang
+         | perlu dikirim. Admin yang awam mengerjakannya.
+         |
+         | Yang menentukan bukan ada tidaknya rekening, melainkan ANGKANYA.
+         */
+        $perkiraan = $pembatalan
+            ? PerkiraanPotongan::untuk($pembatalan->pesanan(), $pembatalan->potongan_ditetapkan)
+            : null;
+
         $data['pembatalan'] = $pembatalan ? [
             'id' => $pembatalan->id,
             'nama_pemohon' => $pembatalan->nama_pemohon,
@@ -145,10 +161,56 @@ class PendaftaranController extends ApiController
             'rekening' => $pembatalan->bank.' · '.$pembatalan->nomor_rekening
                 .' a.n. '.$pembatalan->atas_nama_rekening,
             'status' => $pembatalan->status,
+            'status_label' => $pembatalan->status_label,
+            'perkiraan' => $perkiraan,
             'dibuat_pada' => $pembatalan->created_at?->toIso8601String(),
         ] : null;
 
         return response()->json(['data' => $data]);
+    }
+
+    /**
+     * Angka untuk penanda di bilah samping dan lonceng lemon.
+     *
+     * Dipecah per keadaan, bukan satu angka gabungan — tiap keadaan menuntut
+     * perbuatan yang berbeda, dan admin perlu tahu mana yang didahulukan:
+     *
+     *   baru        — belum disentuh siapa pun; pemesannya menunggu dijawab.
+     *   dihubungi   — sudah dihubungi, tetapi belum satu rupiah pun masuk.
+     *   telat_lunas — sudah DP, belum lunas, DAN tenggat pelunasannya sudah
+     *                 lewat. Ini yang paling mahal dibiarkan: kursinya tertahan
+     *                 atas nama orang yang belum tentu berangkat, dan makin
+     *                 dekat hari-H makin sulit dijual ulang.
+     *
+     * Yang lunas dan yang batal tidak dihitung — keduanya sudah selesai.
+     */
+    public function perhatian(): JsonResponse
+    {
+        $hitung = PendaftaranOpenTrip::selectRaw('status, count(*) as jumlah')
+            ->whereIn('status', ['baru', 'dihubungi'])
+            ->groupBy('status')
+            ->pluck('jumlah', 'status');
+
+        /*
+         | Tenggatnya dihitung dari tanggal berangkat, bukan disimpan sebagai
+         | kolom, jadi penyaringannya diselesaikan di PHP. Yang ditarik hanya
+         | yang belum lunas dan belum batal — jumlahnya kecil.
+         */
+        $batas = (int) config('orcha.pembayaran.pelunasan_hari_sebelum', 0);
+
+        $telat = $batas > 0
+            ? PendaftaranOpenTrip::where('status', 'dp_masuk')
+                ->whereNotNull('tanggal_berangkat')
+                ->get()
+                ->filter(fn (PendaftaranOpenTrip $p) => $p->tanggal_berangkat->copy()->subDays($batas)->isPast())
+                ->count()
+            : 0;
+
+        return response()->json(['data' => [
+            'baru' => (int) $hitung->get('baru', 0),
+            'dihubungi' => (int) $hitung->get('dihubungi', 0),
+            'telat_lunas' => $telat,
+        ]]);
     }
 
     /**

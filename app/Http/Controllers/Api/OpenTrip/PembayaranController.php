@@ -28,6 +28,27 @@ class PembayaranController extends ApiController
         return $this->halaman($daftar, PembayaranResource::class);
     }
 
+    /**
+     * Berapa bukti yang masih menunggu dicek.
+     *
+     * Jalur tersendiri, bukan menghitung dari daftar: yang dibutuhkan cuma satu
+     * bilangan, dan mengambil sehalaman penuh bukti berikut pesanan tiap
+     * barisnya hanya untuk membaca meta.total adalah pekerjaan yang jauh lebih
+     * berat daripada jawabannya.
+     *
+     * Dipanggil bilah samping lemon di SETIAP halaman admin, jadi murahnya
+     * bukan kemewahan.
+     */
+    public function menunggu(): JsonResponse
+    {
+        $menunggu = KonfirmasiPembayaran::menunggu();
+
+        return response()->json(['data' => [
+            'jumlah' => (int) (clone $menunggu)->count(),
+            'nominal' => (int) $menunggu->sum('nominal'),
+        ]]);
+    }
+
     public function show(KonfirmasiPembayaran $pembayaran): JsonResponse
     {
         return response()->json([

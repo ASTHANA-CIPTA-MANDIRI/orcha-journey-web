@@ -392,6 +392,211 @@ test('pemesanan sewa mengirim surat ke kantor dan penyewa', function () {
     });
 });
 
+test('memilih usulan menuliskan nama berikut alamatnya ke isian', function () {
+    Illuminate\Support\Facades\Http::fake(['*' => Illuminate\Support\Facades\Http::response([
+        ['lat' => '-7.87', 'lon' => '110.40', 'name' => 'SMAN 1 Pleret',
+            'display_name' => 'SMAN 1 Pleret, Jalan Nyi Truntum, Pleret, Bantul'],
+    ])]);
+
+    $mobil = buatMobil();
+
+    // Daftar usulan menampilkan dua baris — nama tempat dan alamatnya — lalu
+    // baris kedua hilang begitu dipilih, padahal justru itu yang membedakannya
+    // dari sekolah bernama sama di kabupaten lain. Yang tersimpan tinggal
+    // namanya, dan itulah satu-satunya yang dibaca sopir saat menjemput.
+    $k = Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $mobil->uuid)->set('denganSopir', 'ya')
+        ->call('cariTitik', 'jemput', 'SMAN 1 Pleret')
+        ->call('pilihTitik', 'jemput', 0);
+
+    expect($k->get('lokasiAntar'))->toBe('SMAN 1 Pleret — Jalan Nyi Truntum, Pleret, Bantul');
+
+    // Titiknya juga tergambar di peta, jadi yang terbaca sama dengan yang terlihat
+    expect($k->get('peta')['jemput']['lat'])->toBe(-7.87);
+});
+
+test('usulan tanpa alamat tambahan tidak menuliskan namanya dua kali', function () {
+    Illuminate\Support\Facades\Http::fake(['*' => Illuminate\Support\Facades\Http::response([
+        ['lat' => '-7.79', 'lon' => '110.36', 'display_name' => 'Borobudur'],
+    ])]);
+
+    $mobil = buatMobil();
+
+    $k = Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $mobil->uuid)->set('denganSopir', 'ya')
+        ->call('cariTitik', 'tujuan', 'Borobudur')
+        ->call('pilihTitik', 'tujuan', 0);
+
+    expect($k->get('tujuan'))->toBe('Borobudur');
+});
+
+test('alamat yang kepanjangan dipotong agar tetap lolos pemeriksaan isian', function () {
+    $panjang = 'Jalan '.str_repeat('Purwokerto Selatan ', 20);
+
+    Illuminate\Support\Facades\Http::fake(['*' => Illuminate\Support\Facades\Http::response([
+        ['lat' => '-7.42', 'lon' => '109.23', 'display_name' => 'Terminal Bulupitu, '.$panjang.', Banyumas'],
+    ])]);
+
+    $mobil = buatMobil();
+
+    // Isiannya dibatasi 191 huruf oleh kolom dan aturan pemeriksaannya. Tanpa
+    // pemotongan, memilih usulan justru membuat formulirnya gagal dikirim —
+    // ditolak karena tulisan yang ditaruh sistemnya sendiri.
+    $k = Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $mobil->uuid)->set('denganSopir', 'ya')
+        ->call('cariTitik', 'jemput', 'Terminal Bulupitu')
+        ->call('pilihTitik', 'jemput', 0);
+
+    expect(mb_strlen($k->get('lokasiAntar')))->toBeLessThanOrEqual(191)
+        // Yang dipotong ekor alamatnya, bukan nama tempatnya
+        ->and($k->get('lokasiAntar'))->toStartWith('Terminal Bulupitu — ');
+
+    $k->set('transmisi', 'Matic')->set('satuan', 'hari')->set('durasi', 2)
+        ->set('tanggalMulai', '2026-09-10')->set('jamMulai', '08:00')
+        ->set('nama', 'Budi Santoso')->set('whatsapp', '081234567890')
+        ->set('email', 'budi@contoh.test')
+        ->set('tujuan', 'Borobudur')->set('setuju', true)
+        ->call('pesan')->assertHasNoErrors();
+});
+
+test('pesanan baru menyimpan perincian estimasi, bukan cuma totalnya', function () {
+    $mobil = buatMobil(['harga_sopir' => 150000]);
+
+    Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $mobil->uuid)->set('transmisi', 'Matic')
+        ->set('satuan', 'hari')->set('durasi', 2)
+        ->set('tanggalMulai', '2026-09-10')->set('jamMulai', '08:00')
+        ->set('denganSopir', 'ya')
+        ->set('nama', 'Budi Santoso')->set('whatsapp', '081234567890')
+        ->set('email', 'budi@contoh.test')
+        ->set('lokasiAntar', 'Bandara YIA')->set('tujuan', 'Borobudur')
+        ->set('lokasiKembali', 'Kantor Orcha')->set('setuju', true)
+        ->call('pesan')->assertHasNoErrors();
+
+    $sewa = PenyewaanKendaraan::latest('id')->first();
+
+    // Disalin saat pesanan dibuat, bukan dihitung ulang belakangan: tarif unit
+    // bisa berubah kapan saja, dan perincian yang jumlahnya tidak lagi sama
+    // dengan total yang dipesan lebih membingungkan daripada tanpa perincian.
+    expect($sewa->rincian_estimasi)->toHaveCount(2)
+        ->and($sewa->rincian_estimasi[0]['label'])->toBe('Tarif sewa')
+        ->and($sewa->rincian_estimasi[1]['label'])->toBe('Sopir')
+        ->and(array_sum(array_column($sewa->rincian_estimasi, 'jumlah')))
+        ->toBe((int) $sewa->estimasi_biaya);
+
+    $mobil->update(['price_per_day' => 999000]);
+
+    // Tarifnya sudah naik; notanya tetap menceritakan harga yang dipesan
+    expect(App\Support\NotaSewa::untuk($sewa->fresh())['baris'][0]['nilai'])
+        ->toBe('Rp 700.000');
+});
+
+test('berkas pesanan baru memuat perincian biaya, bukan satu angka saja', function () {
+    Illuminate\Support\Facades\Mail::fake();
+    config()->set('orcha.email_pemberitahuan', 'halo@orchajourney.com');
+
+    $mobil = buatMobil(['harga_sopir' => 150000]);
+
+    Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $mobil->uuid)->set('transmisi', 'Matic')
+        ->set('satuan', 'hari')->set('durasi', 2)
+        ->set('tanggalMulai', '2026-09-10')->set('jamMulai', '08:00')
+        ->set('denganSopir', 'ya')
+        ->set('nama', 'Budi Santoso')->set('whatsapp', '081234567890')
+        ->set('email', 'budi@contoh.test')
+        ->set('lokasiAntar', 'Bandara YIA')->set('tujuan', 'Borobudur')
+        ->set('lokasiKembali', 'Kantor Orcha')->set('setuju', true)
+        ->call('pesan')->assertHasNoErrors();
+
+    // Angka tunggal tanpa perincian membuat penyewa bertanya "kok segitu?" —
+    // lalu menanyakannya lewat WhatsApp satu per satu. Perinciannya sudah ia
+    // lihat di layar sebelum memesan; berkas yang cuma menulis totalnya justru
+    // mencabut penjelasan yang tadi ada.
+    Illuminate\Support\Facades\Mail::assertSent(App\Mail\PemberitahuanFormulir::class, function ($surat) {
+        if (! $surat->untukPelanggan) {
+            return false;
+        }
+
+        $nota = $surat->berkasPdf ? true : false;
+
+        return $nota
+            // Badan suratnya menyebut angkanya, terbaca tanpa membuka lampiran
+            && str_contains($surat->render(), 'Rp 700.000')
+            && str_contains($surat->render(), 'Rp 300.000')
+            && str_contains($surat->render(), 'Estimasi total');
+    });
+});
+
+test('pesanan lama tanpa perincian tetap dapat satu baris seperti sedia kala', function () {
+    $mobil = buatMobil();
+
+    // Dibuat sebelum perinciannya ikut disimpan
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 2, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-12', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 700000, 'status' => 'baru',
+    ]);
+
+    expect(App\Support\NotaSewa::untuk($sewa)['baris'])->toHaveCount(1)
+        ->and(App\Support\NotaSewa::untuk($sewa)['baris'][0]['label'])->toBe('Biaya sewa');
+});
+
+test('perincian yang tidak lagi berjumlah sama dengan totalnya tidak dipakai', function () {
+    $mobil = buatMobil();
+
+    // Bisa terjadi bila totalnya disunting admin tanpa menyentuh perinciannya.
+    // Menampilkan keduanya berarti satu berkas menagih dua angka berbeda.
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 2, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-12', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 900000, 'status' => 'baru',
+        'rincian_estimasi' => [
+            ['label' => 'Tarif sewa', 'keterangan' => 'Rp 350.000 × 2 hari', 'jumlah' => 700000],
+        ],
+    ]);
+
+    $nota = App\Support\NotaSewa::untuk($sewa);
+
+    expect($nota['baris'])->toHaveCount(1)
+        ->and($nota['baris'][0]['label'])->toBe('Biaya sewa')
+        ->and($nota['baris'][0]['nilai'])->toBe('Rp 900.000');
+});
+
+test('berkas yang uangnya masih ditunggu memuat cara membayar', function () {
+    $mobil = buatMobil();
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 2, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-12', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 700000, 'status' => 'baru',
+    ]);
+
+    // Penanda dulunya tabel biaya open trip, sehingga berkas pemesanan sewa —
+    // yang capnya jelas-jelas "Belum Dibayar" — malah diberi kalimat kwitansi
+    // lunas: "simpan berkas ini sampai perjalanan selesai", tanpa sepatah pun
+    // tentang cara membayarnya.
+    $isi = Illuminate\Support\Facades\Blade::render(
+        file_get_contents(resource_path('views/pdf/kwitansi.blade.php')),
+        [
+            'judul' => 'Rincian Pemesanan Sewa Kendaraan', 'kode' => $sewa->kode,
+            'rincian' => ['Penyewa' => $sewa->nama], 'catatan' => null,
+            'jumlah' => 'Rp 700.000', 'jumlahLabel' => 'Estimasi biaya sewa',
+            'capStatus' => 'Belum Dibayar', 'biaya' => [], 'tagihan' => [],
+            'nota' => App\Support\NotaSewa::untuk($sewa), 'keadaan' => [], 'caraBayar' => true,
+        ]
+    );
+
+    expect($isi)->toContain('Cara Pembayaran')
+        ->toContain('Konfirmasi Pembayaran')
+        ->not->toContain('Simpan berkas ini sampai perjalanan selesai');
+});
+
 test('tanda terima pembayaran memuat posisi tagihan, bukan cuma nominalnya', function () {
     $paket = App\Models\PaketWisata\TravelPackage::create([
         'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip', 'price' => 1430000,
@@ -458,6 +663,217 @@ test('unit yang kembali tanpa kerusakan baru tidak diusulkan denda', function ()
         ->and($sewa->rincian_denda_kerusakan)->toBe([]);
 });
 
+test('sisa tagihan sewa ikut menghitung dendanya, bukan biaya sewanya saja', function () {
+    $mobil = buatMobil();
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-11', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 300000, 'denda_keterlambatan' => 1200000,
+        'denda_kerusakan' => 650000, 'status' => 'berjalan',
+    ]);
+
+    App\Models\OpenTrip\KonfirmasiPembayaran::create([
+        'kode' => $sewa->kode, 'jenis' => 'dp', 'nominal' => 90000,
+        'tanggal_transfer' => '2026-09-09', 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Budi', 'status' => 'diterima',
+    ]);
+
+    /*
+     | Denda keterlambatan dan kerusakan sama-sama ditagihkan ke penyewa dan
+     | sama-sama harus ia bayar.
+     |
+     | Selama yang dihitung hanya biaya sewa, halaman serah terima menyebut
+     | "Total tagihan Rp 2.150.000" sementara "Sisa tagihan" di kartu pembayaran
+     | menyebut Rp 210.000 — dua angka untuk satu tagihan yang sama, di layar
+     | yang sama.
+     */
+    $tagihan = App\Support\TagihanPesanan::untuk($sewa->fresh(), hanyaDiterima: true);
+
+    expect($tagihan['total'])->toBe(2150000)
+        ->and($tagihan['sudah'])->toBe(90000)
+        ->and($tagihan['sisa'])->toBe(2060000)
+        ->and($tagihan['lunas'])->toBeFalse();
+});
+
+test('pembayaran yang diterima dipecah menurut jenisnya', function () {
+    $mobil = buatMobil();
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic',
+        'satuan' => 'hari', 'durasi' => 1, 'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-11', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 3000000, 'status' => 'berjalan',
+    ]);
+
+    $bukti = fn (array $u) => App\Models\OpenTrip\KonfirmasiPembayaran::create(array_merge([
+        'kode' => $sewa->kode, 'tanggal_transfer' => '2026-09-09',
+        'bank_pengirim' => 'BCA', 'atas_nama_pengirim' => 'Budi', 'status' => 'diterima',
+    ], $u));
+
+    $bukti(['jenis' => 'dp', 'nominal' => 900000]);
+    $bukti(['jenis' => 'pelunasan', 'nominal' => 700000]);
+    $bukti(['jenis' => 'pelunasan', 'nominal' => 500000]);
+    // Yang belum dicek belum uang: tidak boleh ikut mengurangi tagihan
+    $bukti(['jenis' => 'pelunasan', 'nominal' => 999000, 'status' => 'menunggu']);
+
+    $perJenis = collect(App\Support\TagihanPesanan::diterimaPerJenis($sewa->fresh()))
+        ->keyBy('jenis');
+
+    expect($perJenis)->toHaveCount(2)
+        ->and($perJenis['dp']['nominal'])->toBe(900000)
+        ->and($perJenis['dp']['label'])->toBe('Uang Muka (DP)')
+        ->and($perJenis['pelunasan']['nominal'])->toBe(1200000)
+        ->and($perJenis['pelunasan']['berkas'])->toBe(2);
+});
+
+test('sewa yang perlu ditindak bisa dihitung sendiri lewat api', function () {
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    $mobil = buatMobil();
+
+    $sewa = fn (array $u) => PenyewaanKendaraan::create(array_merge([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic', 'satuan' => 'hari', 'durasi' => 1,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-11', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 300000,
+    ], $u));
+
+    // Dua pemesanan yang belum disentuh siapa pun
+    $sewa(['status' => 'baru']);
+    $sewa(['status' => 'baru']);
+
+    // Satu unit yang sudah lewat tenggat dan belum dicatat kembali
+    $sewa([
+        'status' => 'berjalan',
+        'tanggal_selesai' => now()->subWeek()->toDateString(), 'jam_selesai' => '08:00',
+    ]);
+
+    // Yang sudah kembali dan yang batal tidak menuntut apa pun lagi
+    $sewa([
+        'status' => 'selesai', 'dikembalikan_pada' => now()->subDay(),
+        'tanggal_selesai' => now()->subWeek()->toDateString(), 'jam_selesai' => '08:00',
+    ]);
+    $sewa(['status' => 'batal', 'tanggal_selesai' => now()->subWeek()->toDateString()]);
+
+    $data = $this->getJson('/api/v1/penyewaan/perhatian', [
+        'X-Orcha-Key' => 'kunci-uji', 'X-Orcha-Admin' => 'admin@phoenix.test',
+        'Accept' => 'application/json',
+    ])->assertOk()->json('data');
+
+    expect($data['baru'])->toBe(2)
+        ->and($data['telat'])->toBe(1);
+});
+
+test('nota mengurangi pembayaran yang sudah diterima, bukan menagih penuh', function () {
+    $mobil = buatMobil();
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic', 'satuan' => 'hari', 'durasi' => 1,
+        'tanggal_mulai' => '2026-08-16', 'jam_mulai' => '09:00',
+        'tanggal_selesai' => '2026-08-17', 'jam_selesai' => '09:00',
+        'dikembalikan_pada' => '2026-08-20 14:38',
+        'estimasi_biaya' => 300000, 'denda_keterlambatan' => 1200000,
+        'denda_kerusakan' => 650000, 'status' => 'dp_masuk',
+    ]);
+
+    App\Models\OpenTrip\KonfirmasiPembayaran::create([
+        'kode' => $sewa->kode, 'jenis' => 'dp', 'nominal' => 90000,
+        'tanggal_transfer' => '2026-08-16', 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Budi', 'status' => 'diterima',
+    ]);
+
+    /*
+     | Tanpa pengurangan ini nota berhenti di total dan menagih seluruhnya —
+     | padahal penyewa sudah membayar uang muka. Yang dibacanya: diminta
+     | membayar DP untuk kedua kalinya. Itu bukan salah paham yang bisa
+     | diluruskan belakangan; nota adalah dokumen yang ia pegang.
+     */
+    $nota = App\Support\NotaSewa::untuk($sewa->fresh());
+
+    expect($nota['total'])->toBe('Rp 2.150.000')
+        ->and($nota['sudah'])->toBe(90000)
+        ->and($nota['sisa'])->toBe('Rp 2.060.000')
+        ->and($nota['lunas'])->toBeFalse()
+        ->and($nota['pembayaran'][0]['label'])->toBe('Uang Muka (DP)')
+        ->and($nota['pembayaran'][0]['nilai'])->toBe('Rp 90.000');
+});
+
+test('bukti yang masih menunggu dicek tidak mengurangi nota', function () {
+    $mobil = buatMobil();
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic', 'satuan' => 'hari', 'durasi' => 1,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-11', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 300000, 'status' => 'baru',
+    ]);
+
+    App\Models\OpenTrip\KonfirmasiPembayaran::create([
+        'kode' => $sewa->kode, 'jenis' => 'dp', 'nominal' => 90000,
+        'tanggal_transfer' => '2026-09-09', 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Budi', 'status' => 'menunggu',
+    ]);
+
+    // Mengurangkannya berarti mengakui pembayaran berdasarkan gambar yang belum
+    // diperiksa siapa pun — dan nota adalah dokumen resmi.
+    $nota = App\Support\NotaSewa::untuk($sewa->fresh());
+
+    expect($nota['pembayaran'])->toBeEmpty()
+        ->and($nota['sudah'])->toBe(0);
+});
+
+test('unit yang kembalinya telat tapi dendanya sudah ditetapkan tidak dihitung', function () {
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    $mobil = buatMobil();
+
+    $sewa = fn (array $u) => PenyewaanKendaraan::create(array_merge([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic', 'satuan' => 'hari', 'durasi' => 1,
+        'tanggal_mulai' => now()->subWeeks(2)->toDateString(), 'jam_mulai' => '08:00',
+        'tanggal_selesai' => now()->subWeek()->toDateString(), 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 300000, 'status' => 'dp_masuk',
+        'dikembalikan_pada' => now()->subDays(3),
+    ], $u));
+
+    // Kembalinya telat, tetapi dendanya SUDAH ditetapkan: pekerjaan menagihnya
+    // selesai, tidak ada yang perlu ditindak lagi.
+    $sewa(['denda_keterlambatan' => 1200000]);
+
+    // Kembali juga telat, tetapi belum satu rupiah pun ditetapkan. Nota yang
+    // dikirim ke penyewa masih menyebut Rp 0.
+    $sewa([]);
+
+    $data = $this->getJson('/api/v1/penyewaan/perhatian', [
+        'X-Orcha-Key' => 'kunci-uji', 'X-Orcha-Admin' => 'admin@phoenix.test',
+        'Accept' => 'application/json',
+    ])->assertOk()->json('data');
+
+    expect($data['telat'])->toBe(0)
+        ->and($data['denda'])->toBe(1);
+});
+
+test('jalur perhatian tidak terbaca sebagai nomor penyewaan', function () {
+    config()->set('orcha.api.kunci', 'kunci-uji');
+    config()->set('orcha.api.ip_diizinkan', []);
+
+    // Rutenya harus terdaftar SEBELUM /penyewaan/{penyewaan}; kalau tidak,
+    // "perhatian" ditangkap sebagai nomor dan jawabannya 404.
+    $this->getJson('/api/v1/penyewaan/perhatian', [
+        'X-Orcha-Key' => 'kunci-uji', 'X-Orcha-Admin' => 'admin@phoenix.test',
+        'Accept' => 'application/json',
+    ])->assertOk()->assertJsonStructure(['data' => ['baru', 'telat']]);
+});
+
 test('nota akhir menjumlahkan biaya sewa dengan seluruh denda', function () {
     $mobil = buatMobil();
 
@@ -471,7 +887,7 @@ test('nota akhir menjumlahkan biaya sewa dengan seluruh denda', function () {
         'denda_kerusakan' => 900000, 'denda_lain' => 50000, 'status' => 'selesai',
     ]);
 
-    $nota = App\Http\Controllers\Api\SewaKendaraan\PenyewaanController::notaSewa($sewa);
+    $nota = App\Support\NotaSewa::untuk($sewa);
 
     // Sebelumnya denda hanya jadi baris keterangan dan tidak pernah dijumlahkan
     expect($nota['total'])->toBe('Rp 1.800.000')
@@ -481,7 +897,7 @@ test('nota akhir menjumlahkan biaya sewa dengan seluruh denda', function () {
 
     // Denda yang nol tidak ikut ditampilkan
     $sewa->update(['denda_lain' => 0]);
-    expect(App\Http\Controllers\Api\SewaKendaraan\PenyewaanController::notaSewa($sewa->fresh())['baris'])
+    expect(App\Support\NotaSewa::untuk($sewa->fresh())['baris'])
         ->toHaveCount(3);
 });
 

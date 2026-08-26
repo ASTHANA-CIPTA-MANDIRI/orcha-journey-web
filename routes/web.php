@@ -52,6 +52,12 @@ Route::get('/t/{kode}', [\App\Http\Controllers\OpenTrip\BerkasPelangganControlle
     ->name('tautan.pendek');
 
 // Halaman informasi & ketentuan
+/*
+| Peta situs dibuat saat diminta, bukan berkas statis yang harus diingat untuk
+| ditulis ulang tiap kali paket bertambah atau dihapus.
+*/
+Route::get('/sitemap.xml', \App\Http\Controllers\PetaSitusController::class)->name('peta-situs');
+
 Volt::route('/faq', 'public.informasi.faq')->name('faq');
 Volt::route('/syarat-ketentuan', 'public.informasi.syarat-ketentuan')->name('syarat-ketentuan');
 Volt::route('/ketentuan-pembayaran', 'public.informasi.ketentuan-pembayaran')->name('ketentuan-pembayaran');

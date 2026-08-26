@@ -44,6 +44,42 @@ function buatPendaftaran(array $ubah = []): PendaftaranOpenTrip
 
 /* ----------------------------- PENJAGAAN ----------------------------- */
 
+test('jumlah bukti yang menunggu dicek bisa ditanyakan sendiri', function () {
+    $bukti = fn (string $status) => App\Models\OpenTrip\KonfirmasiPembayaran::create([
+        'kode' => 'OT-1508-A7K3', 'jenis' => 'dp', 'nominal' => 500000,
+        'tanggal_transfer' => '2026-08-15', 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Budi', 'status' => $status,
+    ]);
+
+    $bukti('menunggu');
+    $bukti('menunggu');
+    $bukti('diterima');
+    $bukti('ditolak');
+
+    /*
+     | Jalur tersendiri, bukan menghitung dari daftar: yang dibutuhkan cuma satu
+     | bilangan, dan mengambil sehalaman penuh bukti berikut pesanan tiap
+     | barisnya hanya untuk membaca meta.total adalah pekerjaan yang jauh lebih
+     | berat daripada jawabannya.
+     |
+     | Dipanggil bilah samping lemon di SETIAP halaman admin.
+     */
+    $data = $this->getJson('/api/v1/pembayaran/menunggu', kirim())
+        ->assertOk()
+        ->json('data');
+
+    expect($data['jumlah'])->toBe(2)
+        ->and($data['nominal'])->toBe(1000000);
+});
+
+test('jalur menunggu tidak terbaca sebagai nomor bukti', function () {
+    // Rutenya harus terdaftar SEBELUM /pembayaran/{pembayaran}; kalau tidak,
+    // "menunggu" ditangkap sebagai nomor dan jawabannya 404.
+    $this->getJson('/api/v1/pembayaran/menunggu', kirim())
+        ->assertOk()
+        ->assertJsonStructure(['data' => ['jumlah', 'nominal']]);
+});
+
 test('tanpa kunci ditolak', function () {
     $this->getJson('/api/v1/dashboard')->assertStatus(401);
 });
@@ -1046,7 +1082,7 @@ test('rincian denda yang sudah ditetapkan tersimpan dan ikut di nota', function 
 
     // Nota harus tetap bisa menyebut bagian mana yang ditagih, walau
     // perbandingan kondisinya sudah tidak menyisakan selisih apa pun.
-    $nota = App\Http\Controllers\Api\SewaKendaraan\PenyewaanController::notaSewa($sewa->fresh());
+    $nota = App\Support\NotaSewa::untuk($sewa->fresh());
     $baris = collect($nota['baris'])->firstWhere('label', 'Denda kerusakan');
 
     expect($baris['keterangan'])->toContain('Bodi depan & bemper')
@@ -1497,6 +1533,27 @@ test('peserta yang belum mengisi dapat tautan pribadinya sendiri', function () {
         ->toContain('peserta=Rina');
 });
 
+test('dashboard membawa tren enam bulan, termasuk bulan yang kosong', function () {
+    buatPendaftaran();
+    buatPendaftaran();
+
+    $tren = $this->getJson('/api/v1/dashboard', kirim())
+        ->assertOk()->json('data.tren_bulanan');
+
+    /*
+     | Bulan tanpa data tetap dikirim bernilai nol. Melompatinya membuat jarak
+     | antarbatang berbohong tentang waktu — dua batang bersebelahan yang
+     | sebenarnya terpaut empat bulan terbaca seperti bulan berurutan.
+     */
+    expect($tren)->toHaveCount(6)
+        ->and($tren[5]['bulan'])->toBe(now()->format('Y-m'))
+        ->and($tren[5]['pendaftaran'])->toBe(2)
+        ->and($tren[0]['bulan'])->toBe(now()->startOfMonth()->subMonths(5)->format('Y-m'))
+        ->and($tren[0]['pendaftaran'])->toBe(0)
+        // Label pendek untuk sumbu, panjang untuk keterangan saat disentuh.
+        ->and($tren[0])->toHaveKeys(['label', 'label_panjang', 'penyewaan']);
+});
+
 /* ------------------------------- GALERI ------------------------------- */
 
 test('foto galeri disimpan sebagai webp, aslinya tidak ikut tersimpan', function () {
@@ -1641,8 +1698,23 @@ test('kode tautan tidak bisa ditebak dari nomor pendaftarannya', function () {
     // yang bisa dihitung ulang dari nomor pendaftaran berarti bisa ditebak.
     $kode = App\Models\Umum\TautanPendek::first()->kode;
 
-    expect($kode)->not->toContain((string) $daftar->id)
-        ->and(strlen($kode))->toBe(10);
+    // Diuji dengan membandingkan dua pendaftaran, bukan dengan memastikan kode
+    // tidak memuat angka id-nya.
+    //
+    // Pemeriksaan yang lama goyah: pada id satu angka, kode acak 10 huruf punya
+    // peluang ~15% memuat angka itu secara kebetulan — terukur 14,7% dari 2000
+    // percobaan. Ia gagal sesekali di rangkaian penuh dan lulus saat dijalankan
+    // sendiri, dan kegagalan seperti itu mengajari orang mengabaikan warna
+    // merah.
+    $lain = buatPendaftaran();
+    $this->getJson("/api/v1/pendaftaran/{$lain->id}", kirim())->assertOk();
+
+    $kodeLain = App\Models\Umum\TautanPendek::where('pendaftaran_id', $lain->id)->first()->kode;
+
+    expect(strlen($kode))->toBe(10)
+        ->and($kode)->not->toBe((string) $daftar->id)
+        // Dua pendaftaran berurutan menghasilkan kode yang sama sekali berbeda
+        ->and($kodeLain)->not->toBe($kode);
 
     $this->get('/t/'.$daftar->id)->assertStatus(404);
 });
@@ -1856,4 +1928,117 @@ test('titik jemput yang tidak berpindah disebut apa adanya di surat', function (
     // Menulis "Jogja dari Jogja ke Jogja" memaksa pembacanya membandingkan
     // sendiri, lalu ragu apakah itu salah cetak.
     expect($isi)->toContain('(tetap)');
+});
+
+test('daftar testimoni dipenggal per halaman dan dicari di server', function () {
+    foreach (range(1, 14) as $n) {
+        Testimoni::create([
+            'customer_name' => "Pelanggan {$n}",
+            'rating' => 5,
+            'testimonial' => $n === 7 ? 'Sopirnya ramah sekali.' : "Tripnya menyenangkan {$n}.",
+        ]);
+    }
+
+    $halaman = $this->getJson('/api/v1/testimoni?per_halaman=10', kirim())->assertOk()->json();
+
+    expect($halaman['data'])->toHaveCount(10)
+        ->and($halaman['meta']['total'])->toBe(14)
+        ->and($halaman['meta']['halaman_terakhir'])->toBe(2);
+
+    /*
+     | Pencariannya dikerjakan di sini, bukan di lemon.
+     |
+     | Penyaring di sisi lemon hanya melihat baris yang kebetulan sedang
+     | tampil, sehingga yang dicari admin akan "tidak ditemukan" padahal ada di
+     | halaman berikutnya — dan barisnya memang di halaman berikutnya di sini.
+     */
+    $cari = $this->getJson('/api/v1/testimoni?per_halaman=10&cari=Sopirnya', kirim())
+        ->assertOk()->json();
+
+    expect($cari['data'])->toHaveCount(1)
+        ->and($cari['data'][0]['nama'])->toBe('Pelanggan 7')
+        ->and($cari['meta']['total'])->toBe(1);
+
+    // Nama pengirimnya juga ikut dicari, bukan isinya saja
+    $nama = $this->getJson('/api/v1/testimoni?cari=Pelanggan 12', kirim())->assertOk()->json('data');
+
+    expect($nama)->toHaveCount(1)->and($nama[0]['nama'])->toBe('Pelanggan 12');
+});
+
+test('daftar partner dipenggal per halaman dan dicari di server', function () {
+    foreach (range(1, 12) as $n) {
+        Partner::create(['partner_name' => sprintf('Mitra %02d', $n)]);
+    }
+
+    Partner::create(['partner_name' => 'Rumah Makan Bu Sholeh']);
+
+    $halaman = $this->getJson('/api/v1/partner?per_halaman=9', kirim())->assertOk()->json();
+
+    expect($halaman['data'])->toHaveCount(9)
+        ->and($halaman['meta']['total'])->toBe(13)
+        ->and($halaman['meta']['halaman_terakhir'])->toBe(2)
+        // Urut menurut nama: daftar partner dibaca untuk mencari satu nama
+        ->and($halaman['data'][0]['nama'])->toBe('Mitra 01');
+
+    /*
+     | Pencariannya dikerjakan di sini. Penyaring di sisi lemon hanya melihat
+     | baris yang kebetulan sedang tampil — dan "Rumah Makan Bu Sholeh" memang
+     | ada di halaman kedua, jadi penyaring di sana akan menjawab "tidak
+     | ditemukan" untuk sesuatu yang ada.
+     */
+    $cari = $this->getJson('/api/v1/partner?per_halaman=9&cari=Sholeh', kirim())
+        ->assertOk()->json();
+
+    expect($cari['data'])->toHaveCount(1)
+        ->and($cari['data'][0]['nama'])->toBe('Rumah Makan Bu Sholeh')
+        ->and($cari['meta']['total'])->toBe(1);
+});
+
+test('perhatian pendaftaran memisahkan yang baru, yang dihubungi, dan yang telat lunas', function () {
+    $paket = ['nama_paket' => 'Open Trip Banyuwangi', 'whatsapp' => '0812', 'jumlah_peserta' => 1];
+
+    // Belum disentuh siapa pun
+    PendaftaranOpenTrip::create($paket + [
+        'nama' => 'Baru', 'status' => 'baru',
+        'tanggal_berangkat' => now()->addMonths(2)->toDateString(),
+    ]);
+
+    // Sudah dihubungi, belum satu rupiah pun masuk
+    PendaftaranOpenTrip::create($paket + [
+        'nama' => 'Dihubungi', 'status' => 'dihubungi',
+        'tanggal_berangkat' => now()->addMonths(2)->toDateString(),
+    ]);
+
+    // DP masuk, tenggat pelunasan (H-5) SUDAH lewat
+    PendaftaranOpenTrip::create($paket + [
+        'nama' => 'Telat', 'status' => 'dp_masuk',
+        'tanggal_berangkat' => now()->addDays(2)->toDateString(),
+    ]);
+
+    // DP masuk tetapi tenggatnya masih jauh — belum menuntut apa pun
+    PendaftaranOpenTrip::create($paket + [
+        'nama' => 'Masih Aman', 'status' => 'dp_masuk',
+        'tanggal_berangkat' => now()->addMonths(3)->toDateString(),
+    ]);
+
+    // Sudah selesai: tidak dihitung
+    PendaftaranOpenTrip::create($paket + [
+        'nama' => 'Lunas', 'status' => 'lunas',
+        'tanggal_berangkat' => now()->addDays(2)->toDateString(),
+    ]);
+    PendaftaranOpenTrip::create($paket + [
+        'nama' => 'Batal', 'status' => 'batal',
+        'tanggal_berangkat' => now()->addDays(2)->toDateString(),
+    ]);
+
+    $data = $this->getJson('/api/v1/pendaftaran/perhatian', kirim())->assertOk()->json('data');
+
+    expect($data)->toBe(['baru' => 1, 'dihubungi' => 1, 'telat_lunas' => 1]);
+});
+
+test('jalur perhatian tidak terbaca sebagai nomor pendaftaran', function () {
+    // Rutenya harus terdaftar SEBELUM /pendaftaran/{pendaftaran}; kalau tidak,
+    // "perhatian" ditangkap sebagai nomor dan jawabannya 404.
+    $this->getJson('/api/v1/pendaftaran/perhatian', kirim())
+        ->assertOk()->assertJsonStructure(['data' => ['baru', 'dihubungi', 'telat_lunas']]);
 });

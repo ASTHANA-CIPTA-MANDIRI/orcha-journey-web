@@ -422,6 +422,53 @@ class Car extends Model
      * Dirakit di satu tempat supaya kartu publik, halaman pemesanan, dan admin
      * menyebutkan hal yang sama.
      */
+    /**
+     * Apa saja yang sudah tercakup harga sewanya, pos demi pos.
+     *
+     * Kalimat sepanjang operasionalLabel() menjawab pertanyaan yang sama, tetapi
+     * harus dibaca dulu sampai habis. Yang ditanya penyewa di loket — dan admin
+     * yang menjawabnya — cuma satu: BBM ditanggung siapa. Bentuk daftar bisa
+     * dijawab dengan melirik.
+     *
+     * Sopir hanya disebut pada sewa bersopir. Pada lepas kunci ia bukan pos yang
+     * "tidak termasuk" melainkan pos yang tidak ada: unitnya memang disetir
+     * penyewa sendiri, dan menyebutnya hanya menimbulkan pertanyaan baru.
+     *
+     * @return array<int, array{label: string, termasuk: bool, catatan: string|null}>
+     */
+    public function apaSajaTermasuk(bool $luarKota = false, bool $denganSopir = false): array
+    {
+        $daftar = [];
+
+        if ($denganSopir) {
+            // Pada sewa bersopir, sopirnya selalu tercakup harga — yang berbeda
+            // hanya caranya: sudah menyatu di tarif, atau ditambahkan sebagai
+            // baris tersendiri. Keduanya sama-sama dibayar penyewa lewat kami,
+            // jadi menandainya "tidak termasuk" justru menyesatkan.
+            $daftar[] = [
+                'label' => 'Sopir',
+                'termasuk' => true,
+                'catatan' => $this->termasukSopir($luarKota)
+                    ? 'sudah menyatu di tarif'
+                    : ($this->hargaSopir($luarKota)
+                        ? 'ditagihkan terpisah, '.$this->rupiah($this->hargaSopir($luarKota)).'/hari'
+                        : null),
+            ];
+        }
+
+        foreach ($this->rincianOperasional($luarKota) as $pos) {
+            $daftar[] = [
+                'label' => $pos['label'],
+                'termasuk' => $pos['termasuk'],
+                'catatan' => $pos['termasuk'] && $pos['biaya'] > 0
+                    ? 'terhitung '.$this->rupiah((int) $pos['biaya']).'/hari'
+                    : null,
+            ];
+        }
+
+        return $daftar;
+    }
+
     public function operasionalLabel(bool $luarKota = false): string
     {
         $rincian = collect($this->rincianOperasional($luarKota));

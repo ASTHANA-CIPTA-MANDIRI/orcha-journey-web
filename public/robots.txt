@@ -1,2 +1,26 @@
+# Orcha Journey — https://orchajourney.com
+#
+# Yang dilarang hanya halaman yang memang tidak pantas muncul di hasil
+# pencarian: layar admin di balik login, formulir sekali pakai, dan tautan
+# pendek yang isinya berkas milik satu pelanggan.
+
 User-agent: *
-Disallow:
+
+# Layar admin dan pengaturan akun — di balik login, tidak ada gunanya diindeks.
+Disallow: /admin/
+Disallow: /login
+Disallow: /register
+Disallow: /settings/
+
+# Formulir dan halaman sekali pakai. Halaman riwayat kesehatan bahkan memuat
+# pertanyaan medis peserta.
+Disallow: /pendaftaran-open-trip
+Disallow: /riwayat-kesehatan
+Disallow: /pembatalan
+Disallow: /konfirmasi-pembayaran
+Disallow: /sewa-kendaraan/pesan
+
+# Tautan pendek berkas pelanggan: satu alamat untuk satu orang.
+Disallow: /t/
+
+Sitemap: https://orchajourney.com/sitemap.xml

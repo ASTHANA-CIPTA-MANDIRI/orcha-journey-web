@@ -17,6 +17,37 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Verifikasi Kepemilikan Situs
+    |--------------------------------------------------------------------------
+    |
+    | Token dari Google Search Console. BUKAN rahasia — token verifikasi memang
+    | dirancang untuk tampil di sumber halaman, dan Google membacanya dari
+    | sana. Yang dijaga bukan kerahasiaannya melainkan JANGAN SAMPAI HILANG:
+    | begitu tokennya lenyap dari halaman, Google mencabut verifikasinya dan
+    | seluruh laporan Search Console ikut tertutup.
+    |
+    | Boleh dikosongkan bila verifikasinya ditempuh lewat catatan TXT di DNS —
+    | dua-duanya sah, dan memasang keduanya sekaligus juga tidak masalah.
+    |
+    */
+    'verifikasi_google' => env('ORCHA_VERIFIKASI_GOOGLE', 'RpB6fBxOB5bVDAfIyP89lUjwcsFmEGSn0vJJvg5L1Ts'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Google Analytics 4
+    |--------------------------------------------------------------------------
+    |
+    | ID pengukuran aliran data web. Seperti token verifikasi, ini BUKAN
+    | rahasia — ia memang tampil di sumber halaman.
+    |
+    | Yang perlu diingat justru di mana ia TIDAK boleh dijalankan; lihat
+    | catatan di layout publik.
+    |
+    */
+    'analitik_google' => env('ORCHA_ANALITIK_GOOGLE', 'G-9MHGYZHE0Z'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Kategori Paket Wisata
     |--------------------------------------------------------------------------
     |
@@ -881,7 +912,6 @@ return [
     | Bisa dimatikan tanpa mengubah kode bila suatu saat perlu.
     */
     'email_salinan_pelanggan' => (bool) env('ORCHA_EMAIL_SALINAN_PELANGGAN', true),
-
 
     /*
     |--------------------------------------------------------------------------
