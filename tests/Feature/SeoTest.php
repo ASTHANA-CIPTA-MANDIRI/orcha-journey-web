@@ -100,6 +100,16 @@ test('peta situs memuat halaman jualan dan paket yang tayang saja', function () 
         ->assertHeader('Content-Type', 'application/xml')
         ->getContent();
 
+    /*
+     | Namespace-nya dituntut PERSIS.
+     |
+     | Sempat saya tulis "http://www.w3.org/1999/sitemap/0.9" — alamat yang
+     | tidak pernah ada. XML-nya tetap sah dan tetap bisa dibaca, jadi tidak
+     | ada yang gagal di sini; Google yang menolaknya dengan "Namespace tidak
+     | benar", dan itu baru ketahuan setelah peta situsnya dikirim.
+     */
+    expect($isi)->toContain('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"');
+
     expect($isi)->toContain(route('home'))
         ->toContain(route('paket-wisata'))
         ->toContain(route('paket-detail', $tayang->uuid))
