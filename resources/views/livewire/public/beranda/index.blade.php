@@ -193,7 +193,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
         if ($galleries === []) {
             $galleries = array_map(
                 fn ($file) => ['foto' => asset("images/$file"), 'keterangan' => null],
-                ['pantai-wide.jpg', 'pantai-senja.jpg', 'gapura.jpg', 'pantai-ramai.jpg', 'laut.jpg', 'pantai-pinggir-laut.jpg', 'pantai-atas.jpg', 'pantai-pinggir.jpg'],
+                ['pantai-wide.webp', 'pantai-senja.webp', 'gapura.webp', 'pantai-ramai.webp', 'laut.webp', 'pantai-pinggir-laut.webp', 'pantai-atas.webp', 'pantai-pinggir.webp'],
             );
         }
 

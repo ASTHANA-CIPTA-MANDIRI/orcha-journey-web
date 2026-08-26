@@ -136,14 +136,14 @@ test('galeri beranda memakai foto admin walau baru sedikit', function () {
      */
     $isi = $this->get('/')->assertOk()->getContent();
 
-    // Diukur di dalam bagian galerinya saja: pantai-wide.jpg juga dipakai
+    // Diukur di dalam bagian galerinya saja: pantai-wide.webp juga dipakai
     // sebagai poster video hero, jadi mencarinya di seluruh halaman tidak
     // mengukur apa pun tentang galeri.
     $galeri = substr($isi, strpos($isi, 'id="galeri"'));
 
     expect($galeri)
         ->toContain('/storage/galeri/rombongan.webp')
-        ->not->toContain('images/pantai-wide.jpg');
+        ->not->toContain('images/pantai-wide.webp');
 });
 
 test('galeri yang benar-benar kosong tetap memakai foto cadangan', function () {
@@ -152,7 +152,7 @@ test('galeri yang benar-benar kosong tetap memakai foto cadangan', function () {
     $isi = $this->get('/')->assertOk()->getContent();
 
     expect(substr($isi, strpos($isi, 'id="galeri"')))
-        ->toContain('pantai-wide.jpg');
+        ->toContain('pantai-wide.webp');
 });
 
 test('keterangan galeri ikut tampil dan jadi alt gambarnya', function () {
@@ -243,3 +243,54 @@ test('gambar yang dirujuk lewat asset() tetap ringan', function () {
     expect($hilang)->toBe([], 'Gambar dirujuk tampilan tetapi berkasnya tidak ada: '.implode(', ', $hilang));
     expect($berat)->toBe([], 'Gambar melebihi '.round($batas / 1024).' KB, ringkas dulu sebelum dipakai: '.implode(', ', $berat));
 });
+
+test('halaman publik tidak pernah memuat gambar mentah', function (string $rute) {
+    // Penjaga yang membaca HALAMAN JADI, bukan teks kodenya.
+    //
+    // Penjaga sebelumnya memindai berkas kode dan mencari asset('...') yang
+    // jalurnya tertulis utuh. Itu melewatkan satu tempat yang justru sedang
+    // dipakai produksi: cadangan galeri merakit jalurnya saat halaman dibuka
+    //
+    //     fn ($file) => asset("images/$file")
+    //
+    // sehingga teks "images/pantai-senja.jpg" tidak pernah ada di berkas mana
+    // pun. Delapan foto seberat 400-800 KB tetap terkirim ke pengunjung, dan
+    // tidak ada satu pun galat yang muncul — halamannya tampak benar.
+    //
+    // Yang dibaca di sini jalur yang BENAR-BENAR sampai ke peramban, jadi
+    // dirakit atau tidak, tersimpan di basis data atau tidak, sama saja.
+    $html = $this->get($rute)->assertOk()->getContent();
+
+    preg_match_all('/(?:src|href)="([^"]*\/(?:images|build)\/[^"]+\.(?:webp|jpe?g|png|gif|avif))"/i', $html, $cocok);
+
+    $jalur = array_values(array_unique($cocok[1]));
+
+    $hilang = [];
+    $berat = [];
+    $batas = 300 * 1024;
+
+    foreach ($jalur as $url) {
+        // Jalur yang menunjuk keluar (foto unggahan di storage, gambar dari
+        // layanan lain) tidak bisa diukur dari sini dan bukan urusan tes ini.
+        $relatif = ltrim(parse_url($url, PHP_URL_PATH) ?? '', '/');
+
+        if ($relatif === '' || ! str_starts_with($relatif, 'images/')) {
+            continue;
+        }
+
+        $berkas = public_path($relatif);
+
+        if (! file_exists($berkas)) {
+            $hilang[] = $relatif;
+
+            continue;
+        }
+
+        if (filesize($berkas) > $batas) {
+            $berat[] = $relatif.' ('.round(filesize($berkas) / 1024).' KB)';
+        }
+    }
+
+    expect($hilang)->toBe([], "[$rute] gambar dirujuk tetapi berkasnya tidak ada: ".implode(', ', $hilang));
+    expect($berat)->toBe([], "[$rute] gambar melebihi 300 KB: ".implode(', ', $berat));
+})->with(['/', '/paket-wisata', '/sewa-kendaraan', '/destinasi', '/kontak', '/tentang-kami']);
