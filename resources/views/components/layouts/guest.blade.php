@@ -79,9 +79,32 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800;900&family=Great+Vibes&display=swap"
-        rel="stylesheet">
+
+    {{-- Foto layar muat, diminta dari <head>.
+
+         Tanpa baris ini peramban baru mengetahui foto ini setelah membaca
+         ratusan kilobita penanda halaman dan menunggu berkas tampilan tiba —
+         padahal foto inilah yang pertama terlihat. Diminta dari sini, ia
+         berangkat berbarengan dengan yang lain, bukan mengantre di belakang. --}}
+    <link rel="preload" as="image" href="{{ asset('images/HERO/destinasi.webp') }}"
+        type="image/webp" fetchpriority="high">
+
+    {{-- Huruf dimuat TANPA menahan halaman tergambar.
+
+         Berkas tampilan biasa menahan: peramban menolak menggambar apa pun
+         sampai berkas itu tiba, dan berkas ini datang dari server lain yang
+         perlu dicari alamatnya lalu disalami dulu. Diberi media="print",
+         peramban tetap mengunduhnya tetapi tidak lagi menganggapnya syarat
+         untuk menggambar; begitu tiba, onload mengembalikannya ke "all".
+
+         Aman karena hurufnya sudah memakai display=swap: tulisan tampil
+         seketika dengan huruf bawaan perangkat, lalu berganti sendiri. --}}
+    @php
+        $tautanHuruf = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800;900&family=Great+Vibes&display=swap';
+    @endphp
+    <link rel="preload" as="style" href="{{ $tautanHuruf }}">
+    <link rel="stylesheet" href="{{ $tautanHuruf }}" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="{{ $tautanHuruf }}"></noscript>
 
     @php
         /*
@@ -268,7 +291,7 @@
              biasa tidak: yang harus tiba lebih dulu cuma 834 bita yang sudah
              ikut di dalam CSS. --}}
         <div class="preloader-foto" aria-hidden="true">
-            <img src="{{ asset('images/HERO/destinasi.jpg') }}" alt="" decoding="async"
+            <img src="{{ asset('images/HERO/destinasi.webp') }}" alt="" decoding="async"
                 onload="this.classList.add('siap')">
         </div>
 

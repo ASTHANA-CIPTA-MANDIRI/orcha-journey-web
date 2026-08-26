@@ -36,13 +36,13 @@ test('kepala halaman memakai aksen kaligrafi', function () {
 });
 
 test('hero sewa kendaraan memakai foto armada sendiri', function () {
-    $berkas = public_path('images/HERO/sewa-kendaraan.jpg');
+    $berkas = public_path('images/HERO/sewa-kendaraan.webp');
 
     expect(file_exists($berkas))->toBeTrue();
 
     $this->get(route('sewa-kendaraan'))
         ->assertOk()
-        ->assertSee('images/HERO/sewa-kendaraan.jpg', false);
+        ->assertSee('images/HERO/sewa-kendaraan.webp', false);
 });
 
 test('setiap hero yang dirujuk tampilan ada berkasnya dan tidak dikirim mentah', function () {
@@ -190,4 +190,56 @@ test('foto tanpa keterangan tidak menampilkan pita kosong', function () {
         ->not->toContain('galeri-selubung')
         // altnya kembali ke kalimat umum, bukan kosong.
         ->toContain('alt="Dokumentasi perjalanan Orcha Journey"');
+});
+
+test('gambar yang dirujuk lewat asset() tetap ringan', function () {
+    // Penjaga untuk kesalahan yang PERNAH terjadi dan tidak menimbulkan galat
+    // apa pun: berkas gambar masuk pada ukuran aslinya.
+    //
+    // Logo situs sempat berupa PNG 1500x1500 seberat 815 KB, padahal
+    // ditampilkan 40-64 piksel. Halaman tetap terbuka dan tampak benar — yang
+    // rusak cuma kecepatannya, dan itu tidak terlihat dari layar mana pun.
+    // Beratnya baru ketahuan dari alat ukur di luar, berbulan-bulan kemudian.
+    //
+    // Diperiksa dari jalur yang BENAR-BENAR tertulis di tampilan, bukan dari
+    // daftar nama: daftar nama tidak ikut bertambah saat ada gambar baru.
+    $dirujuk = [];
+
+    foreach (\Illuminate\Support\Facades\File::allFiles(resource_path('views')) as $tampilan) {
+        preg_match_all(
+            '/asset\(\s*\x27([^\x27{$]+\.(?:webp|jpe?g|png|gif|avif))\x27\s*\)/i',
+            $tampilan->getContents(),
+            $cocok
+        );
+        $dirujuk = array_merge($dirujuk, $cocok[1]);
+    }
+
+    $dirujuk = array_values(array_unique($dirujuk));
+
+    expect($dirujuk)->not->toBeEmpty();
+
+    // 300 KB. Foto layar penuh yang sudah diringkas ke WebP berada di
+    // 100-160 KB, jadi angka ini memberi kelonggaran hampir dua kali lipat
+    // sambil tetap menangkap berkas yang masuk mentah.
+    $batas = 300 * 1024;
+
+    $hilang = [];
+    $berat = [];
+
+    foreach ($dirujuk as $jalur) {
+        $berkas = public_path(ltrim($jalur, '/'));
+
+        if (! file_exists($berkas)) {
+            $hilang[] = $jalur;
+
+            continue;
+        }
+
+        if (filesize($berkas) > $batas) {
+            $berat[] = $jalur.' ('.round(filesize($berkas) / 1024).' KB)';
+        }
+    }
+
+    expect($hilang)->toBe([], 'Gambar dirujuk tampilan tetapi berkasnya tidak ada: '.implode(', ', $hilang));
+    expect($berat)->toBe([], 'Gambar melebihi '.round($batas / 1024).' KB, ringkas dulu sebelum dipakai: '.implode(', ', $berat));
 });

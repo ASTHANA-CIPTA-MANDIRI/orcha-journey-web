@@ -2,7 +2,7 @@
     'title',
     'subtitle' => null,
     'eyebrow' => 'Informasi',
-    'image' => 'images/pantai-senja.jpg',
+    'image' => 'images/pantai-senja.webp',
     'diperbarui' => null,
     'sections' => [],
 ])

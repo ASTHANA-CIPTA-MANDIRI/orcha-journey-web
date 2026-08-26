@@ -24,7 +24,7 @@
 <body class="min-h-screen antialiased">
     {{-- Latar bertema laut supaya halaman masuk/daftar tetap terasa Orcha --}}
     <div class="relative flex items-center justify-center min-h-screen px-4 py-10 overflow-hidden bg-orcha-navy">
-        <img src="{{ asset('images/laut.jpg') }}" alt=""
+        <img src="{{ asset('images/laut.webp') }}" alt=""
             class="absolute inset-0 object-cover w-full h-full opacity-25">
 
         <div class="relative w-full max-w-md">

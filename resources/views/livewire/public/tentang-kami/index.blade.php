@@ -58,7 +58,7 @@ new #[Layout('components.layouts.guest')] #[Title('Tentang Kami — Orcha Journe
 <div>
     <x-page-hero title="Tentang Kami" eyebrow="Kenali Orcha Journey"
         subtitle="{{ config('orcha.slogan') }} Kami mengurus perjalanan dari rencana sampai pulang, supaya Anda tinggal menikmatinya."
-        image="images/HERO/tentang-kami.jpg" posisi="center 62%" />
+        image="images/HERO/tentang-kami.webp" posisi="center 62%" />
 
     {{-- Cerita --}}
     <section class="bg-white section-orcha">
@@ -107,13 +107,13 @@ new #[Layout('components.layouts.guest')] #[Title('Tentang Kami — Orcha Journe
                          kotak sependek h-40, yang tersisa justru pita tulisannya,
                          bukan fotonya. --}}
                     <div class="grid grid-cols-2 gap-4">
-                        <img src="{{ asset('images/tentang-kami/web1.jpg') }}" alt="Menyusuri pantai bersama rombongan"
+                        <img src="{{ asset('images/tentang-kami/web1.webp') }}" alt="Menyusuri pantai bersama rombongan"
                             loading="lazy" class="object-cover w-full h-56 sm:h-72 rounded-3xl shadow-orcha">
-                        <img src="{{ asset('images/tentang-kami/web9.jpg') }}" alt="Pantai yang kami kunjungi" loading="lazy"
+                        <img src="{{ asset('images/tentang-kami/web9.webp') }}" alt="Pantai yang kami kunjungi" loading="lazy"
                             class="object-cover w-full h-56 mt-8 sm:h-72 rounded-3xl shadow-orcha">
-                        <img src="{{ asset('images/tentang-kami/web10.jpg') }}" alt="Tebing dan laut di pagi hari" loading="lazy"
+                        <img src="{{ asset('images/tentang-kami/web10.webp') }}" alt="Tebing dan laut di pagi hari" loading="lazy"
                             class="object-cover w-full h-40 sm:h-52 rounded-3xl shadow-orcha">
-                        <img src="{{ asset('images/tentang-kami/web11.jpg') }}" alt="Destinasi budaya" loading="lazy"
+                        <img src="{{ asset('images/tentang-kami/web11.webp') }}" alt="Destinasi budaya" loading="lazy"
                             class="object-cover w-full h-40 mt-8 sm:h-52 rounded-3xl shadow-orcha">
                     </div>
                 </div>
@@ -231,7 +231,7 @@ new #[Layout('components.layouts.guest')] #[Title('Tentang Kami — Orcha Journe
 
     {{-- CTA --}}
     <section class="relative overflow-hidden bg-orcha-navy">
-        <img src="{{ asset('images/FOOTER/tentang-kami.jpg') }}" alt="" loading="lazy"
+        <img src="{{ asset('images/FOOTER/tentang-kami.webp') }}" alt="" loading="lazy"
             class="absolute inset-0 object-cover w-full h-full opacity-25">
         <div class="relative container-orcha py-16 sm:py-24">
             <div class="max-w-3xl mx-auto text-center">

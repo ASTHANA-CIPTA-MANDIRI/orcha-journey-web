@@ -600,7 +600,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
              sampai di sini dengan menekan "Pesan unit ini" dari sana, dan
              kepala halaman yang berganti gambar membuat perpindahan itu terasa
              seperti pindah ke situs lain. --}}
-        image="images/HERO/sewa-kendaraan.jpg" />
+        image="images/HERO/sewa-kendaraan.webp" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">

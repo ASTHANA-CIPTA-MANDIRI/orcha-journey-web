@@ -138,7 +138,7 @@ new #[Layout('components.layouts.guest')] #[Title('Syarat & Ketentuan — Orcha 
 
 <x-halaman-ketentuan title="Syarat & Ketentuan" eyebrow="Ketentuan Layanan"
     subtitle="Aturan main pemesanan, pelaksanaan perjalanan, dan penyewaan kendaraan di Orcha Journey."
-    image="images/pantai-pinggir.jpg" diperbarui="14 Agustus 2026" :sections="$sections">
+    image="images/pantai-pinggir.webp" diperbarui="14 Agustus 2026" :sections="$sections">
     <p>
         Mohon dibaca sebelum melakukan pemesanan. Ketentuan di halaman ini berlaku untuk seluruh layanan Orcha Journey,
         baik paket wisata maupun sewa kendaraan.

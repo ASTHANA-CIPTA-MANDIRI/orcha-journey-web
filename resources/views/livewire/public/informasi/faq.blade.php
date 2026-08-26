@@ -138,7 +138,7 @@ new #[Layout('components.layouts.guest')] #[Title('FAQ — Pertanyaan yang Serin
 <div>
     <x-page-hero title="Pertanyaan yang Sering Diajukan" eyebrow="FAQ"
         subtitle="Jawaban singkat soal pemesanan, pembayaran, sewa kendaraan, sampai pembatalan perjalanan."
-        image="images/gapura.jpg" />
+        image="images/gapura.webp" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">

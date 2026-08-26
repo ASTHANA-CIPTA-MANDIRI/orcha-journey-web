@@ -89,7 +89,7 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
 <div>
     <x-page-hero title="Destinasi Populer" eyebrow="Seluruh Indonesia"
         subtitle="Dari Pulau Weh sampai Raja Ampat. Tempat-tempat yang paling sering diminta pelanggan kami, lengkap dengan jumlah pengunjung yang sudah kami antar."
-        image="images/HERO/destinasi.jpg" />
+        image="images/HERO/destinasi.webp" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">
@@ -154,7 +154,7 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                     @foreach ($destinations as $dest)
                         <article class="flex flex-col overflow-hidden card-orcha group">
             <div class="relative overflow-hidden aspect-[4/3]">
-                                <img src="{{ $dest->main_photo ?: asset('images/pantai-senja.jpg') }}"
+                                <img src="{{ $dest->main_photo ?: asset('images/pantai-senja.webp') }}"
                                     alt="{{ $dest->destination_name }}" loading="lazy"
                                     class="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110">
                                 <div

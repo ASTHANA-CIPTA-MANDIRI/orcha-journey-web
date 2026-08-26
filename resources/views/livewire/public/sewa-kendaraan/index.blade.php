@@ -52,7 +52,7 @@ new #[Layout('components.layouts.guest')] #[Title('Sewa Kendaraan — Mobil, HiA
 
 <div>
     <x-page-hero :title="$judul" eyebrow="Sewa Kendaraan" :subtitle="$keterangan"
-        image="images/HERO/sewa-kendaraan.jpg" />
+        image="images/HERO/sewa-kendaraan.webp" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">

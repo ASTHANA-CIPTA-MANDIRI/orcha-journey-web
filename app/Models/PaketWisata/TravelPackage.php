@@ -92,7 +92,7 @@ class TravelPackage extends Model
 
         return file_exists(public_path($ilustrasi))
             ? asset($ilustrasi)
-            : asset('images/pantai-wide.jpg');
+            : asset('images/pantai-wide.webp');
     }
 
     /**

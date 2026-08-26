@@ -84,12 +84,12 @@ class NewLandingPage extends Component
 
         // Data Galeri (Menggunakan gambar lokal untuk performa / testing)
         $this->galleries = [
-            asset('images/pantai-atas.jpg'),
-            asset('images/pantai-atas.jpg'),
-            asset('images/pantai-atas.jpg'),
-            asset('images/pantai-atas.jpg'),
-            asset('images/pantai-atas.jpg'),
-            asset('images/pantai-atas.jpg'),
+            asset('images/pantai-atas.webp'),
+            asset('images/pantai-atas.webp'),
+            asset('images/pantai-atas.webp'),
+            asset('images/pantai-atas.webp'),
+            asset('images/pantai-atas.webp'),
+            asset('images/pantai-atas.webp'),
         ];
     }
 

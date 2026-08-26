@@ -235,12 +235,12 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
         <div class="hero-media hero-parallax">
             @if ($heroVideo)
                 <video autoplay muted loop playsinline preload="metadata"
-                    poster="{{ asset('images/pantai-wide.jpg') }}">
+                    poster="{{ asset('images/pantai-wide.webp') }}">
                     <source src="{{ asset($heroVideo) }}"
                         type="video/{{ str_ends_with($heroVideo, '.webm') ? 'webm' : 'mp4' }}">
                 </video>
             @else
-                <img src="{{ asset('images/pantai-wide.jpg') }}" alt="Panorama pantai" fetchpriority="high"
+                <img src="{{ asset('images/pantai-wide.webp') }}" alt="Panorama pantai" fetchpriority="high"
                     class="hero-breathe">
             @endif
         </div>
@@ -434,7 +434,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                 @foreach ($destinations as $dest)
                     <article
                         class="relative overflow-hidden group rounded-3xl w-[78vw] sm:w-[52vw] lg:w-[30vw] xl:w-[24vw] aspect-[3/4] shadow-orcha-lg">
-                        <img src="{{ $dest->main_photo ?: asset('images/pantai-senja.jpg') }}"
+                        <img src="{{ $dest->main_photo ?: asset('images/pantai-senja.webp') }}"
                             alt="{{ $dest->destination_name }}" loading="lazy"
                             class="absolute inset-0 object-cover w-full h-full transition-transform duration-700 group-hover:scale-110">
                         <div
@@ -624,7 +624,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
     =================================================================== --}}
     @if ($testimonials->isNotEmpty())
         <section id="testimoni" class="relative overflow-hidden section-orcha scroll-mt-20">
-            <img src="{{ asset('images/pantai-senja.jpg') }}" alt="" loading="lazy"
+            <img src="{{ asset('images/pantai-senja.webp') }}" alt="" loading="lazy"
                 class="absolute inset-0 object-cover w-full h-full">
             <div class="absolute inset-0 bg-gradient-to-br from-orcha-navy/95 via-orcha-navy/85 to-orcha-abyss/85">
             </div>
@@ -750,7 +750,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
          CTA PENUTUP
     =================================================================== --}}
     <section class="relative overflow-hidden bg-orcha-navy">
-        <img src="{{ asset('images/FOOTER/beranda.jpg') }}" alt="" loading="lazy"
+        <img src="{{ asset('images/FOOTER/beranda.webp') }}" alt="" loading="lazy"
             class="absolute inset-0 object-cover w-full h-full opacity-30">
         <div class="relative container-orcha py-16 sm:py-24">
             <div class="max-w-3xl mx-auto text-center reveal">

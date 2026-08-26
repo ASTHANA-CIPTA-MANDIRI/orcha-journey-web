@@ -61,7 +61,7 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
 <div>
     <x-page-hero title="Testimoni Pelanggan" eyebrow="Apa Kata Mereka"
         subtitle="Semua ulasan dari peserta open trip, private trip, study tour, dan penyewa armada Orcha Journey."
-        image="images/pantai-ramai.jpg" />
+        image="images/pantai-ramai.webp" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">

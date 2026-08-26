@@ -38,7 +38,7 @@ new #[Layout('components.layouts.guest')] class extends Component {
 <div>
     <x-page-hero :title="$paket->name" :eyebrow="$paket->category_label"
         :subtitle="$paket->jadwal_label ? 'Keberangkatan ' . $paket->jadwal_label : $paket->duration"
-        image="images/HERO/paket-trip.jpg" />
+        image="images/HERO/paket-trip.webp" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">

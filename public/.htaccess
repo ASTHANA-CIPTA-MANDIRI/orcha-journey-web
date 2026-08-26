@@ -23,3 +23,38 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# ============ MASA SIMPAN DI PERAMBAN ============
+#
+# Tanpa ini pengunjung mengunduh ULANG seluruh gambar dan berkas tampilan
+# setiap kali kembali — 3,5 MB yang sebenarnya sudah ada di perangkatnya.
+#
+# Dibungkus <IfModule>: kalau modulnya tidak ada di server, seluruh blok ini
+# diabaikan begitu saja. Berkas .htaccess yang memuat perintah tak dikenal
+# membuat SELURUH situs balas galat 500, bukan cuma bagian ini.
+<IfModule mod_headers.c>
+
+    # Berkas hasil build memuat sidik jari isinya PADA NAMANYA
+    # (new-homepage-B2PbO7xz.css). Begitu isinya berubah namanya ikut berubah,
+    # jadi yang tersimpan di peramban tidak mungkin basi — dan "immutable"
+    # memberitahu peramban untuk tidak repot-repot menanyakannya lagi.
+    <FilesMatch "\.(css|js)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+
+    # Gambar TIDAK diberi setahun, dan itu disengaja.
+    #
+    # Namanya tetap sama saat isinya diganti (images/HERO/kontak.webp), jadi
+    # setahun berarti pengunjung lama bisa melihat foto usang selama setahun
+    # penuh tanpa cara memaksanya menyegarkan. Tiga puluh hari sudah
+    # menghapus hampir seluruh unduhan ulang, sambil menyisakan jalan keluar
+    # bila fotonya perlu diganti.
+    <FilesMatch "\.(webp|jpe?g|png|gif|svg|ico|avif)$">
+        Header set Cache-Control "public, max-age=2592000"
+    </FilesMatch>
+
+    <FilesMatch "\.(woff2?|ttf|otf|eot)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+
+</IfModule>

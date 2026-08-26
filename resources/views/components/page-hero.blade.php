@@ -2,7 +2,7 @@
     'title',
     'subtitle' => null,
     'eyebrow' => null,
-    'image' => 'images/pantai-senja.jpg',
+    'image' => 'images/pantai-senja.webp',
     'posisi' => 'center',
     'gambarPenuh' => null,
     'kelas' => '',

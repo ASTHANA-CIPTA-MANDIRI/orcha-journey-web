@@ -338,7 +338,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
 <div>
     <x-page-hero title="Pendaftaran Open Trip" eyebrow="Formulir Pendaftaran"
         subtitle="Pilih trip yang jadwalnya sudah kami tetapkan, isi data Anda, dan kami balas dengan ketersediaan kursi di hari yang sama."
-        image="images/HERO/form-pendaftaran-trip.jpg" posisi="center top" />
+        image="images/HERO/form-pendaftaran-trip.webp" posisi="center top" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">
