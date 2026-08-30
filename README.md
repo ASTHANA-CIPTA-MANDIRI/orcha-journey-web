@@ -143,6 +143,14 @@ Ragam desain publik ada di `resources/css/new-homepage.css`:
 
 Pakai ulang kelas-kelas ini, jangan membuat gaya baru untuk hal yang sudah ada.
 
+**Layar muat** berdiri sendiri di `resources/views/partials/orcha-loader.blade.php` —
+markup, gaya, dan perilakunya satu berkas dengan awalan `.orc-*`, mengikuti pola loader
+Phoenix Digital. Ia sengaja **tidak** bergantung pada GSAP atau `new-homepage.js`: kalau
+berkas itu gagal dimuat, layar muat tetap tahu cara menyingkir. Tiga jalan keluarnya —
+`load`, jaring pengaman 8 detik, dan aturan `.no-js .orc-loader` untuk saat skrip sama
+sekali tidak jalan — dijaga `TampilanTest`; menghapus salah satunya berarti satu berkas
+gagal dimuat sama dengan situs tampak mati total.
+
 ---
 
 ## Fitur
@@ -161,6 +169,7 @@ Pakai ulang kelas-kelas ini, jangan membuat gaya baru untuk hal yang sudah ada.
 | Riwayat kesehatan peserta | `/riwayat-kesehatan` |
 | Pengajuan pembatalan | `/pembatalan` |
 | Destinasi, testimoni, kontak | `/destinasi`, `/testimoni`, `/kontak` |
+| Blog (daftar / artikel) | `/blog`, `/blog/{slug}` |
 | Informasi | `/faq`, `/syarat-ketentuan`, `/ketentuan-pembayaran`, `/kebijakan-pengembalian`, `/kebijakan-privasi` |
 
 Halaman publik memakai **UUID**, bukan id angka, supaya jumlah data tidak bisa ditebak
@@ -217,14 +226,51 @@ Laporannya ada di dashboard lemon (menu *Keuntungan Paket*), datanya lewat
 
 Modal tidak pernah tampil di halaman publik — kolomnya `$hidden`, dan ada uji yang menjaganya.
 
-### Admin
+### Blog
+
+`/blog` menampilkan daftar artikel — tulisan terbaru sebagai sorotan, tab kategori
+berikut jumlahnya, pencarian, dan penomoran halaman. Penyaringnya ikut di alamat
+(`/blog?kategori=panduan&cari=bromo`) supaya daftar yang tersaring bisa dikirim ke orang
+lain apa adanya.
+
+Alamat artikel memakai **slug**, bukan UUID seperti halaman publik lain. Alasan UUID di
+tempat lain adalah supaya jumlah data tidak bisa ditebak; untuk artikel itu memang bukan
+rahasia, sementara ongkosnya nyata — mesin pencari dan orang yang menempelkan tautan
+sama-sama membaca alamatnya. Slug dibuat sendiri dari judul dan dijaga unik
+(`judul-yang-sama-2`).
+
+Tayang ditentukan **dua** kolom sekaligus, dan keduanya diperiksa hanya di
+`Artikel::scopeTayang()` — halaman daftar, halaman detail, dan peta situs semuanya lewat
+sana:
+
+| Kolom | Arti |
+| --- | --- |
+| `status` | keputusan penulis: `draf` atau `tayang` |
+| `terbit_pada` | kapan artikel boleh mulai terlihat (boleh dijadwalkan ke depan) |
+
+Artikel ber-status `tayang` tetapi `terbit_pada` kosong dianggap **belum** tayang.
+Draf dan artikel terjadwal menjawab 404 bila alamatnya ditebak, bukan sekadar hilang dari
+daftar.
+
+Isi artikel disimpan sebagai HTML dan dicetak apa adanya, digayakan `.isi-artikel` di
+`new-homepage.css` — jadi admin bisa menulis judul bagian, daftar, kutipan, dan tabel
+tanpa tahu satu pun nama kelas. **Konsekuensinya:** siapa pun yang bisa menyunting artikel
+bisa menyisipkan skrip ke halaman publik, jadi formulir admin nanti wajib dijaga izin.
+
+Kategori artikel ada di `config('orcha.kategori_artikel')`. Kuncinya ikut di alamat, jadi
+menggantinya mematikan tautan yang sudah beredar — ganti labelnya saja bila yang dimaksud
+cuma penyebutan di layar.
+
+### Admin (cadangan, dimatikan)
 
 `/admin/dashboard` beserta pengelolaan paket wisata, armada, destinasi, testimoni,
 partner, pesan masuk, pendaftaran open trip, sewa masuk, dan pembatalan.
 
-> **Perlu diperhatikan:** rute `/admin/*` baru dijaga `auth`, belum ada penjagaan peran,
-> sementara `/register` masih terbuka untuk umum. Sebelum naik ke server produksi,
-> tutup pendaftaran atau tambahkan penjagaan peran.
+> **Halaman ini tidak aktif.** Seluruh `/admin/*`, `/login`, dan `/register` menjawab 404;
+> pengelolaan sudah pindah ke dashboard lemon lewat API di bawah. Berkas komponennya
+> sengaja dibiarkan sebagai cadangan bila lemon bermasalah — cara menyalakannya ada di
+> bagian berikutnya. Panel ini belum punya penjagaan peran (hanya `auth`) dan `/register`
+> ikut terbuka saat dinyalakan, jadi nyalakan seperlunya lalu matikan lagi.
 
 ---
 
@@ -262,6 +308,34 @@ atau PNG; `App\Support\GambarWebp` mengubahnya, mengecilkan sisi terpanjang ke
 ukuran aslinya. Bila server tidak mendukung WebP, berkasnya disimpan apa adanya
 supaya unggahan tidak pernah hilang.
 
+Jalurnya **satu** untuk semua unggahan gambar — API dashboard, panel admin bawaan,
+maupun bukti transfer dari pengunjung. Jangan memanggil `->store()` langsung atas
+berkas unggahan; `GambarWebp::simpan($berkas, $folder)` sudah mengembalikan jalur
+`/storage/...` yang siap disimpan ke kolom, jadi tidak perlu merangkai awalannya
+sendiri. Ada uji yang menolak `->store()` mentah di komponen Volt
+(`GambarRinganTest`), karena pernah terjadi jalur API sudah WebP sementara panel
+admin diam-diam masih menyimpan berkas asli.
+
+### Cara memuat gambar di halaman publik
+
+Halaman publik menampilkan berpuluh foto sekaligus (kartu paket, armada,
+destinasi, galeri) dan jumlahnya ikut bertambah setiap admin mengunggah. Aturannya
+dua baris:
+
+| Letak gambar | Atribut |
+| --- | --- |
+| Di luar layar pertama — kartu, galeri, avatar, logo kaki halaman | `loading="lazy" decoding="async"` |
+| Di dalam layar pertama — hero, preloader, logo bilah atas | `fetchpriority="high"` (**jangan** lazy) |
+
+Baris kedua sama pentingnya dengan yang pertama. Foto hero hampir selalu jadi
+elemen yang diukur LCP; menandainya `lazy` membuat peramban menundanya sampai tata
+letak selesai dihitung, sehingga halaman justru terasa **lebih lambat** — kebalikan
+dari maksudnya. `x-show` juga bukan pengganti lazy: gambar yang disembunyikan
+Alpine tetap ikut diunduh kalau tidak ditandai.
+
+`GambarRinganTest` menolak `<img>` yang tidak menyatakan salah satu dari keduanya,
+jadi gambar baru tidak bisa lolos tanpa keputusan yang disengaja.
+
 Foto sampul paket dipakai sebagai latar hero di halaman paket. Pita hero itu
 lebar dan pendek, jadi bagian atas & bawah foto pasti terpotong — **ukuran yang
 pas 1600 × 600** (paling kecil 1200 × 450), dengan bagian penting di tengah.
@@ -296,6 +370,8 @@ Berkas uji di `tests/Feature/`:
 | `TampilanTest` | hal-hal tampilan yang gampang jebol (aset, ikon, tipografi) |
 | `AdminPagesTest` | halaman admin |
 | `ApiDashboardTest` | API dashboard: penjagaan kunci, daftar, ubah status |
+| `GambarRinganTest` | unggahan jadi WebP di semua jalur, dan gambar publik menyatakan cara muatnya |
+| `BlogTest` | artikel tayang/draf/terjadwal, slug unik, penyaring, dan peta situs |
 
 ---
 
