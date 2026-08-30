@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Blog\Artikel;
 use App\Models\PaketWisata\TravelPackage;
 use Illuminate\Http\Response;
 
@@ -27,6 +28,7 @@ class PetaSitusController extends Controller
         ['paket-wisata', 'daily', '0.9'],
         ['sewa-kendaraan', 'daily', '0.9'],
         ['destinasi', 'weekly', '0.8'],
+        ['blog', 'weekly', '0.7'],
         ['tentang-kami', 'monthly', '0.6'],
         ['testimoni', 'weekly', '0.6'],
         ['kontak', 'monthly', '0.6'],
@@ -72,6 +74,30 @@ class PetaSitusController extends Controller
 
         foreach (array_keys(config('orcha.jenis_kendaraan', [])) as $jenis) {
             $baris[] = [route('sewa-kendaraan', $jenis), null, 'weekly', '0.7'];
+        }
+
+        /*
+         | Artikel blog: lewat scopeTayang() yang SAMA dengan halaman publiknya,
+         | dengan alasan yang sama seperti paket di atas. Artikel yang masih draf
+         | atau dijadwalkan terbit minggu depan tidak boleh diberikan ke mesin
+         | pencari — alamat yang menjawab 404 membuat situs ini dikunjungi lebih
+         | jarang.
+         |
+         | changefreq-nya 'yearly': artikel yang sudah terbit hampir tidak pernah
+         | disunting lagi, dan menyatakan sebaliknya membuat perayap membuang
+         | kunjungannya pada halaman yang isinya sama.
+         */
+        foreach (Artikel::query()->tayang()->get() as $artikel) {
+            $baris[] = [
+                route('blog.detail', $artikel),
+                $artikel->updated_at,
+                'yearly',
+                '0.6',
+            ];
+        }
+
+        foreach (array_keys(\App\Models\Blog\KategoriArtikel::daftar()) as $kategori) {
+            $baris[] = [route('blog', ['kategori' => $kategori]), null, 'weekly', '0.5'];
         }
 
         return response()

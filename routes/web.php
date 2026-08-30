@@ -25,6 +25,17 @@ Volt::route('/paket-wisata/{kategori?}', 'public.paket-wisata.index')->name('pak
 Volt::route('/sewa-kendaraan/pesan', 'public.sewa-kendaraan.pemesanan')->name('sewa-kendaraan.pesan');
 Volt::route('/sewa-kendaraan/{jenis?}', 'public.sewa-kendaraan.index')->name('sewa-kendaraan');
 
+/*
+ | Blog.
+ |
+ | Rute detail didaftarkan LEBIH DULU daripada /blog supaya keduanya tidak
+ | saling menutupi, dan kuncinya slug — bukan uuid seperti paket — karena
+ | alamat artikel dibaca manusia dan mesin pencari. Alasannya ditulis lengkap
+ | di migrasi tbl_artikel.
+ */
+Volt::route('/blog/{artikel:slug}', 'public.blog.detail')->name('blog.detail');
+Volt::route('/blog', 'public.blog.index')->name('blog');
+
 // Destinasi, testimoni, kontak
 Volt::route('/destinasi', 'public.destinasi.index')->name('destinasi');
 Volt::route('/testimoni', 'public.testimoni.index')->name('testimoni');

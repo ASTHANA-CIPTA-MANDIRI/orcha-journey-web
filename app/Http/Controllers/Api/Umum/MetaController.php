@@ -68,6 +68,9 @@ class MetaController extends ApiController
                 'status_pembayaran' => config('orcha.status_pembayaran'),
                 'jenis_pembayaran' => config('orcha.jenis_pembayaran'),
                 'kategori_paket' => config('orcha.kategori_paket'),
+                // Dipakai pemilih kategori di layar Blog pada lemon, supaya
+                // daftarnya tidak disalin-tempel ke sana.
+                'kategori_artikel' => \App\Models\Blog\KategoriArtikel::daftar(),
                 'jenis_kendaraan' => config('orcha.jenis_kendaraan'),
                 // Merek & model untuk dropdown formulir armada, digabung dengan
                 // yang sudah dipakai armada sendiri supaya unit lama tidak

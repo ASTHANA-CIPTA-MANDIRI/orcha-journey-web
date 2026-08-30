@@ -409,221 +409,14 @@ h6,
 }
 
 /* ==========================================================
-   7. PRELOADER
+   7. LAYAR MUAT
+   Gayanya ikut di dalam resources/views/partials/orcha-loader.blade.php
+   supaya satu berkas memuat markup, gaya, dan perilakunya sekaligus —
+   seperti loader Phoenix. Yang tersisa di sini cuma kunci gulir, karena
+   ia mengenai <body> milik halaman, bukan milik layar muat.
 ========================================================== */
-/* Seluruh isi layar pemuat digerakkan SATU angka: --maju, 0 sampai 1, yang
-   ditulis skrip dari nilai progres yang sama dengan angka persennya.
-
-   Sengaja satu sumber. Kalau angka, batang, dan isian hurufnya masing-masing
-   dianimasikan sendiri, ketiganya akan berselisih di jaringan lambat — batangnya
-   penuh sementara angkanya masih 70%, dan yang terbaca bukan kemajuan melainkan
-   hiasan yang kebetulan bergerak.
-
-   Tidak ada transition di sifat mana pun yang turun dari --maju: GSAP sudah
-   menulisnya tiap bingkai, dan menaruh peredam CSS di atasnya berarti dua
-   peredam bertumpuk — nilainya dikejar-kejar dan geraknya justru tersendat. */
-#preloader {
-    --maju: 0;
-    will-change: transform;
+body.orc-terkunci {
     overflow: hidden;
-}
-
-/* JS gagal dimuat -> preloader tidak boleh menutupi halaman selamanya */
-.no-js #preloader {
-    display: none;
-}
-
-/* Foto latar: pratinjau seketika, foto tajam menyusul.
-
-   ::before memuat pratinjau 28x15 piksel yang tertulis di dalam berkas gaya ini
-   sebagai data — 834 bita, tanpa permintaan ke server. Diperbesar dan
-   diburamkan, ia jadi bidang berwarna yang sudah menyerupai fotonya sejak
-   bingkai pertama.
-
-   Skalanya lebih dari satu supaya tepi buramnya keluar bingkai; tanpa itu
-   pinggiran gambar terlihat memudar jadi kotak. */
-.preloader-foto {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    animation: preloader-dekat 18s ease-out forwards;
-}
-
-.preloader-foto::before {
-    content: "";
-    position: absolute;
-    inset: -6%;
-    background: url("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAHKADAAQAAAABAAAADwAAAAD/wAARCAAPABwDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9sAQwAICAgICAgOCAgOFA4ODhQbFBQUFBsiGxsbGxsiKiIiIiIiIioqKioqKioqMjIyMjIyOjo6OjpBQUFBQUFBQUFB/9sAQwEKCwsRDxEcDw8cRC4mLkRERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERE/90ABAAC/9oADAMBAAIRAxEAPwD0yfUNNgthMys2eyqTWJc6lobWzXM5aNV4O5SOa4AeLAbVIssByasJJHqloTfNiLPGQScj09OtcdOMurOypKO0VctXuoaAYTPG4ZQe2SfpiuJuNdiMp8q3O3tk4/SoNS/s+GRXs2JyNu0rgDHf3NczLdjedtdEZPoc00uqP//Z") center / cover no-repeat;
-    filter: blur(26px) saturate(1.15);
-    transform: scale(1.06);
-}
-
-.preloader-foto img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    opacity: 0;
-    transition: opacity .9s ease;
-}
-
-/* Dimunculkan lewat onload, bukan lewat animasi berjangka: animasi akan
-   memunculkannya pada detik yang sudah ditentukan, entah fotonya sudah datang
-   atau belum — dan yang muncul bisa jadi bidang kosong. */
-.preloader-foto img.siap {
-    opacity: 1;
-}
-
-/* Mendekat perlahan. Satu-satunya gerak di layar ini yang tidak menyatakan
-   kemajuan; tugasnya menjaga layar tidak terlihat membeku saat muatan
-   tersendat. */
-@keyframes preloader-dekat {
-    from { transform: scale(1); }
-    to { transform: scale(1.09); }
-}
-
-/* Tirai gelap di atas fotonya. Tanpa ini tulisan putih jatuh di atas langit
-   terang dan tidak terbaca; dengan ini fotonya tetap terlihat sebagai foto,
-   bukan sebagai latar abu. */
-.preloader-tirai {
-    position: absolute;
-    inset: 0;
-    background:
-        linear-gradient(to top,
-            rgba(0, 18, 32, .92) 0%,
-            rgba(0, 18, 32, .62) 42%,
-            rgba(0, 18, 32, .72) 100%),
-        radial-gradient(ellipse farthest-side at 18% 88%,
-            rgba(0, 18, 32, .55) 0%,
-            rgba(0, 18, 32, 0) 100%);
-    pointer-events: none;
-}
-
-/* Garis tegak setipis rambut — memberi bidang ini rasa terukur, seperti kisi
-   rancangan, tanpa menambah apa pun yang harus dibaca. */
-.preloader-kisi {
-    position: absolute;
-    inset: 0;
-    background-image: repeating-linear-gradient(to right,
-        rgba(232, 247, 253, .05) 0 1px,
-        transparent 1px 12.5%);
-    /* Dipudarkan di tepi atas dan bawah supaya kisinya tidak berhenti mendadak
-       di batas layar. */
-    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent);
-    mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent);
-    pointer-events: none;
-}
-
-/* Isinya menempel ke dasar, bidang atasnya dibiarkan lapang.
-
-   Tulisan "Orcha Journey" pernah ada di kiri atas sini dan sudah dibuang.
-   Bukan karena jelek, melainkan karena mengulang: sedetik kemudian layar ini
-   terangkat dan logo yang sama muncul di sudut yang hampir sama pada navbar.
-   Nama yang sama disebut dua kali dalam dua detik terbaca sebagai kedipan,
-   bukan sebagai sambutan. */
-.preloader-content {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    height: 100%;
-    padding: clamp(1.5rem, 5vw, 3.5rem);
-}
-
-.preloader-bawah {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 1.5rem;
-}
-
-/* Angkanya sendiri yang jadi takaran: warnanya dipotong bentuk huruf, dan
-   batas isinya naik mengikuti --maju. Bagian yang belum terisi tetap terbaca
-   samar, jadi angkanya utuh sejak awal — bukan muncul sepotong-sepotong. */
-.preloader-angka {
-    display: flex;
-    align-items: baseline;
-    font-family: var(--font-heading, inherit);
-    font-size: clamp(4.5rem, 17vw, 13rem);
-    font-weight: 900;
-    line-height: .82;
-    letter-spacing: -.04em;
-    /* Warnanya dipotong bentuk huruf, dan batas isinya naik mengikuti --maju.
-       Bagian yang belum terisi tetap terbaca samar, jadi angkanya utuh sejak
-       0% — bukan muncul sepotong-sepotong.
-
-       Isian ini PENANDA, bukan takaran presisi: gradasinya membentang setinggi
-       kotak elemen, sedangkan glifnya menjulur sedikit keluar kotak karena
-       line-height .82, jadi batas isinya tidak persis di persentase yang
-       sama. Dicoba dipatok ke tinggi huruf dengan background-size .72em, dan
-       hasilnya lebih buruk — isinya jadi pita di tengah angka, karena letak
-       garis dasar font ini tidak sama dengan yang saya andaikan. Angka
-       persisnya toh tertulis sebagai angka, tepat di situ. */
-    background-image: linear-gradient(to top,
-        #ffc74e 0%,
-        #1ab0e2 calc(var(--maju) * 100%),
-        rgba(232, 247, 253, .16) calc(var(--maju) * 100%),
-        rgba(232, 247, 253, .16) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-}
-
-.preloader-angka .persen {
-    font-size: .3em;
-    letter-spacing: 0;
-    margin-left: .1em;
-}
-
-/* Di layar sempit keduanya ditumpuk. Berdampingan, keterangannya terdorong
-   keluar layar oleh angka yang lebarnya hampir seluruh bidang — terukur pada
-   390px: yang terbaca cuma "ME" dan "PERJALA". */
-@media (max-width: 640px) {
-    .preloader-bawah {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: .9rem;
-    }
-
-    .preloader-tulisan {
-        text-align: left;
-        margin: 0;
-    }
-}
-
-.preloader-tulisan {
-    margin: 0 0 .6rem;
-    text-align: right;
-    font-size: .7rem;
-    font-weight: 600;
-    letter-spacing: .28em;
-    line-height: 1.9;
-    text-transform: uppercase;
-    color: rgba(232, 247, 253, .45);
-}
-
-/* Batang setipis rambut di dasar layar, selebar penuh. Mengulang angka yang
-   sama untuk yang hanya melirik. */
-.preloader-garis {
-    position: absolute;
-    inset-inline: 0;
-    bottom: 0;
-    height: 2px;
-    background: rgba(232, 247, 253, .1);
-}
-
-.preloader-garis > span {
-    display: block;
-    height: 100%;
-    transform: scaleX(var(--maju));
-    transform-origin: left center;
-    background: linear-gradient(to right, #1ab0e2, #ffc74e);
-    box-shadow: 0 0 14px rgba(26, 176, 226, .55);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .preloader-foto { animation: none; }
 }
 
 /* Kartu paket yang disorot.
@@ -1591,3 +1384,332 @@ input[type="radio"] {
 .isian-orcha.uppercase::placeholder {
     text-transform: none;
 }
+
+/* ==========================================================
+   ISI ARTIKEL BLOG
+   Isi artikel adalah HTML mentah yang ditulis admin — tanpa kelas
+   satu pun pada tag-nya. Tailwind tidak memberi gaya bawaan apa pun
+   (preflight justru menghapusnya), jadi tanpa aturan di bawah ini
+   sebuah artikel tampil sebagai satu blok teks: <h2> seukuran <p>,
+   daftar tanpa butir, dan paragraf tanpa jarak.
+
+   Diberi gaya lewat pemilih turunan, bukan @apply per tag, supaya
+   admin tidak perlu tahu satu pun nama kelas untuk menulis.
+========================================================== */
+.isi-artikel {
+    color: #475569;
+    line-height: 1.85;
+}
+
+.isi-artikel > * + * {
+    margin-top: 1.15em;
+}
+
+.isi-artikel h2,
+.isi-artikel h3,
+.isi-artikel h4 {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    color: var(--color-orcha-navy);
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+}
+
+/* Jarak di ATAS judul bagian lebih besar daripada di bawahnya, supaya
+   judul terbaca menempel pada teks yang dijelaskannya — bukan
+   mengambang di tengah dua blok yang jaraknya sama. */
+.isi-artikel h2 { font-size: 1.6rem; margin-top: 2.2em; margin-bottom: .1em; }
+.isi-artikel h3 { font-size: 1.25rem; margin-top: 1.9em; margin-bottom: .1em; }
+.isi-artikel h4 { font-size: 1.05rem; margin-top: 1.6em; margin-bottom: .1em; }
+
+.isi-artikel h2:first-child,
+.isi-artikel h3:first-child { margin-top: 0; }
+
+.isi-artikel a {
+    color: var(--color-orcha-ocean);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--color-orcha-mist);
+    text-underline-offset: 3px;
+}
+
+.isi-artikel a:hover { color: var(--color-orcha-wave); }
+
+.isi-artikel strong { color: var(--color-orcha-navy); font-weight: 700; }
+
+.isi-artikel ul,
+.isi-artikel ol {
+    padding-left: 1.4em;
+}
+
+.isi-artikel ul { list-style: disc; }
+.isi-artikel ol { list-style: decimal; }
+.isi-artikel li + li { margin-top: .45em; }
+.isi-artikel li::marker { color: var(--color-orcha-wave); }
+
+/* Gambar di dalam artikel: dibatasi lebar wadahnya supaya foto besar
+   yang ditempel admin tidak memaksa halaman menggulung ke samping. */
+.isi-artikel img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 1rem;
+    margin-block: 1.6em;
+}
+
+/* Tabel ikut menggulung di dalam kotaknya sendiri, bukan mendorong
+   lebar halaman — sama seperti aturan tabel di halaman ketentuan. */
+.isi-artikel table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: .95rem;
+}
+
+.isi-artikel th,
+.isi-artikel td {
+    border: 1px solid var(--color-orcha-foam);
+    padding: .6rem .8rem;
+    text-align: left;
+}
+
+.isi-artikel th {
+    background: var(--color-orcha-foam);
+    color: var(--color-orcha-navy);
+    font-weight: 700;
+}
+
+.isi-artikel code {
+    background: var(--color-orcha-foam);
+    color: var(--color-orcha-abyss);
+    padding: .15em .4em;
+    border-radius: .35rem;
+    font-size: .9em;
+}
+
+/* ==========================================================
+   HALAMAN ARTIKEL BLOG
+   Tata letaknya menyalin halaman artikel Phoenix Digital — dua
+   kolom, sampul di dalam artikel, meta sebaris, tombol bagikan,
+   dan kolom samping berisi bacaan lain + ajakan. Warnanya saja
+   yang mengikuti palet Orcha.
+========================================================== */
+/* Selebar layar: memakai lebar penuh .container-orcha, sama dengan seluruh
+   halaman publik Orcha lain — bukan lagi dipatok 1120px sendiri. */
+.orc-art-lebar {
+    max-width: none;
+}
+
+.orc-art-kisi {
+    display: grid;
+    /* Kolom samping ikut melebar sedikit supaya di layar lebar ia tidak
+       terlihat seperti pita tipis di sebelah artikel yang jauh lebih besar. */
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 24vw, 400px);
+    gap: clamp(40px, 4vw, 72px);
+    align-items: start;
+}
+
+/*
+ | Isi artikel ikut selebar kolomnya, tanpa batas panjang baris.
+ |
+ | Sempat dibatasi 78ch demi kenyamanan membaca, lalu dilepas atas permintaan
+ | setelah dilihat langsung di layar lebar.
+ |
+ | Ada alasan kedua yang membuat pelepasannya memang benar: gambar di dalam
+ | artikel ditempel admin di DALAM paragraf (<p><span><img></span></p>), jadi
+ | batas pada <p> ikut mengecilkan gambarnya — padahal justru gambar yang
+ | paling menikmati ruang lebar. Membatasi teks tanpa ikut mengecilkan gambar
+ | berarti harus mengeluarkan setiap <img> dari paragrafnya lebih dulu.
+ |
+ | Kalau suatu saat baris terasa terlalu panjang di layar besar, cara yang
+ | tidak mengorbankan gambar: batasi lebar KOLOM artikelnya di .orc-art-kisi,
+ | bukan membatasi anak-anak .isi-artikel satu per satu.
+ */
+
+/* ---------- Remah roti ---------- */
+.orc-remah { margin: 2px 0 20px; }
+.orc-remah ol { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0; font-size: .84rem; color: #64748b; }
+.orc-remah li:not(:last-child)::after { content: "/"; margin-left: 8px; color: #cbd5e1; }
+.orc-remah a { color: var(--color-orcha-ocean); text-decoration: none; }
+.orc-remah a:hover { color: var(--color-orcha-wave); }
+.orc-remah .kini { color: #64748b; }
+
+/* ---------- Kepala artikel ---------- */
+.orc-art-kat {
+    display: inline-flex; align-items: center; gap: .4rem;
+    background: var(--color-orcha-foam); color: var(--color-orcha-ocean);
+    font-family: var(--font-heading); font-weight: 700; font-size: .72rem;
+    padding: .34rem .85rem; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: .06em; text-decoration: none;
+}
+.orc-art-kat:hover { background: var(--color-orcha-mist); }
+
+.orc-art-judul {
+    font-family: var(--font-heading); font-weight: 800;
+    font-size: clamp(1.8rem, 3.4vw, 2.5rem);
+    color: var(--color-orcha-navy); line-height: 1.2;
+    letter-spacing: -.015em; margin: .9rem 0;
+}
+
+.orc-art-meta {
+    display: flex; flex-wrap: wrap; gap: 1.2rem;
+    color: #64748b; font-size: .88rem;
+    padding-bottom: 1.3rem; border-bottom: 1px solid var(--color-orcha-foam);
+    margin-bottom: 1.6rem;
+}
+.orc-art-meta span { display: inline-flex; align-items: center; gap: .4rem; }
+.orc-art-kat-tautan {
+    display: inline-flex; align-items: center; gap: .4rem;
+    color: var(--color-orcha-ocean); font-weight: 700; text-decoration: none;
+}
+.orc-art-kat-tautan:hover { color: var(--color-orcha-wave); }
+.orc-art-meta svg { color: var(--color-orcha-ocean); flex-shrink: 0; }
+
+.orc-art-sampul {
+    border-radius: 18px; overflow: hidden; margin-bottom: 1.8rem;
+    box-shadow: 0 12px 30px rgba(0, 18, 32, .10);
+    aspect-ratio: 16/9; background: var(--color-orcha-foam);
+}
+.orc-art-sampul img { width: 100%; height: 100%; object-fit: cover; }
+
+
+/* ---------- Kaki artikel: bagikan & kembali ---------- */
+.orc-art-kaki {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 1rem; margin-top: 2.4rem; padding-top: 1.4rem;
+    border-top: 1px solid var(--color-orcha-foam);
+}
+.orc-bagi { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
+.orc-bagi .label { font-family: var(--font-heading); font-weight: 700; color: var(--color-orcha-navy); font-size: .9rem; margin-right: .2rem; }
+.orc-bagi a, .orc-bagi button {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #fff; border: none; transition: transform .2s ease; cursor: pointer;
+}
+.orc-bagi a:hover, .orc-bagi button:hover { transform: translateY(-3px); }
+.orc-bagi .wa { background: #25d366; }
+.orc-bagi .fb { background: #1877f2; }
+.orc-bagi .tw { background: #111827; }
+.orc-bagi .salin { background: linear-gradient(135deg, var(--color-orcha-sky), var(--color-orcha-ocean)); }
+.orc-bagi .salin.tersalin { background: #16a34a; }
+
+.orc-kembali {
+    display: inline-flex; align-items: center; gap: .45rem;
+    color: var(--color-orcha-ocean); font-family: var(--font-heading);
+    font-weight: 700; font-size: .9rem; text-decoration: none;
+}
+.orc-kembali:hover svg { transform: translateX(-4px); }
+.orc-kembali svg { transition: transform .2s ease; }
+
+/* ---------- Kolom samping ---------- */
+.orc-art-samping { position: sticky; top: 92px; display: flex; flex-direction: column; gap: 22px; }
+
+.orc-kartu-samping {
+    background: #fff; border: 1px solid var(--color-orcha-foam);
+    border-radius: 18px; padding: 1.3rem 1.3rem 1.4rem;
+    box-shadow: 0 8px 24px rgba(0, 18, 32, .05);
+}
+.orc-kartu-samping .judul {
+    font-family: var(--font-heading); font-weight: 800; font-size: 1.02rem;
+    color: var(--color-orcha-navy); display: flex; align-items: center;
+    gap: .5rem; margin-bottom: 1rem;
+}
+.orc-kartu-samping .judul svg { color: var(--color-orcha-ocean); }
+
+.orc-samping-pos {
+    display: flex; gap: .8rem; align-items: center; text-decoration: none;
+    padding: .55rem 0; border-top: 1px solid var(--color-orcha-foam);
+}
+.orc-samping-pos:first-of-type { border-top: none; padding-top: 0; }
+.orc-samping-pos .gambar { flex-shrink: 0; width: 74px; aspect-ratio: 16/9; border-radius: 10px; overflow: hidden; background: var(--color-orcha-foam); }
+.orc-samping-pos .gambar img { width: 100%; height: 100%; object-fit: cover; }
+.orc-samping-pos .tanggal { font-size: .72rem; color: #64748b; display: block; margin-bottom: 2px; }
+.orc-samping-pos .nama { font-family: var(--font-heading); font-weight: 600; font-size: .88rem; color: var(--color-orcha-navy); line-height: 1.35; display: block; }
+.orc-samping-pos:hover .nama { color: var(--color-orcha-ocean); }
+
+.orc-kartu-ajakan {
+    position: relative; overflow: hidden; border-radius: 18px;
+    padding: 1.5rem 1.4rem; color: #fff;
+    background: linear-gradient(135deg, var(--color-orcha-sky), var(--color-orcha-abyss));
+    box-shadow: 0 12px 30px rgba(0, 109, 168, .28);
+}
+.orc-kartu-ajakan::after { content: ""; position: absolute; right: -40px; top: -40px; width: 140px; height: 140px; border-radius: 50%; background: rgba(255, 255, 255, .14); }
+.orc-kartu-ajakan h4 { font-family: var(--font-heading); font-weight: 800; font-size: 1.1rem; margin-bottom: .4rem; position: relative; }
+.orc-kartu-ajakan p { font-size: .86rem; opacity: .95; margin-bottom: 1rem; position: relative; }
+.orc-kartu-ajakan .tombol {
+    position: relative; display: inline-flex; align-items: center; gap: .45rem;
+    background: #fff; color: var(--color-orcha-ocean); font-family: var(--font-heading);
+    font-weight: 700; font-size: .88rem; padding: .6rem 1.1rem; border-radius: 999px; text-decoration: none;
+}
+.orc-kartu-ajakan .wa { position: relative; display: inline-flex; align-items: center; gap: .4rem; color: #fff; font-size: .82rem; margin-top: .7rem; text-decoration: none; opacity: .95; }
+
+/* ---------- Layar sempit ---------- */
+@media (max-width: 991.98px) {
+    .orc-art-kisi { grid-template-columns: minmax(0, 1fr); gap: 34px; }
+    /* Kolom samping berhenti menempel: di layar sempit ia berada DI BAWAH
+       artikel, dan elemen sticky di sana justru mengambang mengikuti gulir. */
+    .orc-art-samping { position: static; }
+}
+
+/* ==========================================================
+   ISI ARTIKEL — penyempurnaan agar setara halaman Phoenix
+========================================================== */
+
+/* Huruf kapital besar di paragraf pertama. */
+.isi-artikel > p:first-of-type::first-letter {
+    float: left;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: .82;
+    padding: .3rem .55rem 0 0;
+    color: var(--color-orcha-ocean);
+}
+
+/* Judul bagian ditandai batang gradasi, bukan sekadar ukuran huruf —
+   pembaca bisa memindai strukturnya tanpa membaca. */
+.isi-artikel h2 {
+    padding-left: 14px;
+    position: relative;
+}
+.isi-artikel h2::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: .18em;
+    bottom: .18em;
+    width: 5px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, var(--color-orcha-sky), var(--color-orcha-ocean));
+}
+
+/* Kutipan bertanda petik besar, bukan sekadar garis tepi. */
+/* Satu-satunya aturan kutipan. Yang lama — bergaris tepi emas — dibuang,
+   bukan dibiarkan tertimpa: aturan mati membuat orang berikutnya menyunting
+   yang salah lalu bingung kenapa tampilannya tidak berubah. */
+.isi-artikel blockquote {
+    border: none;
+    position: relative;
+    background: var(--color-orcha-foam);
+    padding: 1.2rem 1.4rem 1.2rem 3rem;
+    border-radius: 14px;
+    margin: 1.6rem 0;
+    color: var(--color-orcha-abyss);
+    font-style: italic;
+    line-height: 1.65;
+}
+.isi-artikel blockquote::before {
+    content: "\201C";
+    position: absolute;
+    left: .9rem;
+    top: .35rem;
+    font-family: Georgia, serif;
+    font-size: 2.8rem;
+    /* Biru, bukan emas. Kutipan sudah berlatar biru muda; tanda petik
+       berwarna krem menambah warna ketiga pada satu blok kecil dan terbaca
+       sebagai tempelan, bukan bagian dari kutipannya. */
+    color: var(--color-orcha-sky);
+    line-height: 1;
+}
+
+.isi-artikel hr { border: none; border-top: 1px solid var(--color-orcha-foam); margin: 2rem 0; }

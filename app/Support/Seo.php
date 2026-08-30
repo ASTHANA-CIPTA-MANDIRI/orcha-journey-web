@@ -61,6 +61,7 @@ class Seo
         'ketentuan-pembayaran' => 'Ketentuan uang muka, batas pelunasan, dan cara pembayaran untuk paket wisata dan sewa kendaraan Orcha Journey.',
         'kebijakan-pengembalian' => 'Kebijakan pembatalan dan pengembalian dana Orcha Journey, lengkap dengan besaran potongan menurut jarak waktu ke keberangkatan.',
         'kebijakan-privasi' => 'Bagaimana Orcha Journey mengumpulkan, memakai, dan menjaga data pribadi pelanggan.',
+        'blog' => 'Panduan perjalanan, cerita destinasi, dan tips persiapan dari tim Orcha Journey — untuk yang sedang menimbang mau berangkat ke mana.',
     ];
 
     private const BAWAAN = 'Orcha Journey melayani open trip, private trip, study tour, serta sewa mobil, HiAce, dan bus pariwisata di Yogyakarta dan sekitarnya.';

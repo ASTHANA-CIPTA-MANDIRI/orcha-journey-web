@@ -45,7 +45,7 @@ test('landing page menampilkan data dari database', function () {
     DestinationPopuler::create([
         'destination_name' => 'Destinasi Uji',
         'total_visitor' => 1200,
-        'main_photo' => '/images/laut.jpg',
+        'main_photo' => '/images/laut.webp',
         'others_photo' => [],
     ]);
 

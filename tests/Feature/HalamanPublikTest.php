@@ -100,11 +100,11 @@ test('jenis kendaraan yang tidak dikenal menghasilkan 404', function () {
 test('halaman destinasi menampilkan data dan bisa dicari', function () {
     DestinationPopuler::create([
         'destination_name' => 'Pantai Contoh', 'total_visitor' => 5000,
-        'main_photo' => '/images/laut.jpg', 'others_photo' => [],
+        'main_photo' => '/images/laut.webp', 'others_photo' => [],
     ]);
     DestinationPopuler::create([
         'destination_name' => 'Candi Contoh', 'total_visitor' => 9000,
-        'main_photo' => '/images/gapura.jpg', 'others_photo' => [],
+        'main_photo' => '/images/gapura.webp', 'others_photo' => [],
     ]);
 
     $this->get(route('destinasi'))

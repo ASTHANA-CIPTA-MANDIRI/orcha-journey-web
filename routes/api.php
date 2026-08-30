@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\Blog\ArtikelController;
+use App\Http\Controllers\Api\Blog\KategoriArtikelController;
 use App\Http\Controllers\Api\Etalase\EtalaseController;
 use App\Http\Controllers\Api\Etalase\ProvinsiController;
 use App\Http\Controllers\Api\Kontak\PesanController;
@@ -127,6 +129,35 @@ Route::prefix('v1')
         Route::post('/paket-wisata', [PaketWisataController::class, 'store']);
         Route::match(['put', 'post'], '/paket-wisata/{paket}', [PaketWisataController::class, 'update']);
         Route::delete('/paket-wisata/{paket}', [PaketWisataController::class, 'destroy']);
+
+        /* -------------------------------- BLOG --------------------------------
+         | Dipakai layar Blog di mode Orcha pada lemon.
+         |
+         | Daftarnya sengaja memuat draf juga — admin justru sedang mengerjakan
+         | itu. Penyaring status disediakan sebagai pilihan, bukan penyaring
+         | bawaan yang tersembunyi.
+         */
+        // Rubrik dikelola admin sendiri, seperti kategori blog Phoenix.
+        Route::get('/kategori-artikel', [KategoriArtikelController::class, 'index']);
+        Route::post('/kategori-artikel', [KategoriArtikelController::class, 'store']);
+        Route::delete('/kategori-artikel/{kategori}', [KategoriArtikelController::class, 'destroy']);
+
+        // Sebelum /{artikel}: tanpa ini "slug" terbaca sebagai nomor artikel.
+        Route::get('/artikel/slug', [ArtikelController::class, 'slug']);
+        Route::get('/artikel', [ArtikelController::class, 'index']);
+        /*
+         | {artikel:id}, bukan {artikel}.
+         |
+         | Artikel::getRouteKeyName() mengembalikan 'slug' demi alamat publik
+         | yang enak dibaca. Untuk jalur admin itu justru berbahaya: slug ikut
+         | berubah begitu judulnya disunting, sehingga lemon yang menyimpan slug
+         | akan menjawab 404 pada permintaan berikutnya. Nomor id tidak pernah
+         | berubah.
+         */
+        Route::get('/artikel/{artikel:id}', [ArtikelController::class, 'show']);
+        Route::post('/artikel', [ArtikelController::class, 'store']);
+        Route::match(['put', 'post'], '/artikel/{artikel:id}', [ArtikelController::class, 'update']);
+        Route::delete('/artikel/{artikel:id}', [ArtikelController::class, 'destroy']);
 
         /* ------------------------------ ETALASE ------------------------------ */
         Route::get('/destinasi', [EtalaseController::class, 'destinasi']);
