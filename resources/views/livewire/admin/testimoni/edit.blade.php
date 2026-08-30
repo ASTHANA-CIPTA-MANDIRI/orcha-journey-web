@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Etalase\Testimoni;
+use App\Support\GambarWebp;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Rule;
@@ -48,8 +49,7 @@ new
                         Storage::disk('public')->delete($oldPath);
                     }
 
-                    $url = $this->avatar->store('testimoni', 'public');
-                    $data['avatar'] = "/storage/$url";
+                    $data['avatar'] = GambarWebp::simpan($this->avatar, 'testimoni');
                 }
 
                 $testimoniData->update($data);

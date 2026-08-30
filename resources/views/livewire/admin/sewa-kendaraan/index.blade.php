@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\SewaKendaraan\Car;
+use App\Support\GambarWebp;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
@@ -114,8 +115,7 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | Mobil')] class extend
                         $oldPath = str_replace('/storage/', '', $car->image);
                         Storage::disk('public')->delete($oldPath);
                     }
-                    $url = $this->photo->store('cars', 'public');
-                    $this->photo = "/storage/$url";
+                    $this->photo = GambarWebp::simpan($this->photo, 'cars');
                 } else {
                     // Jika tidak upload baru, pakai yang lama untuk disimpan di variabel (agar tidak null saat update)
                     $this->photo = $car->image;
@@ -141,8 +141,7 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | Mobil')] class extend
             } else {
                 $imageUrl = null;
                 if ($this->photo) {
-                    $url = $this->photo->store('cars', 'public');
-                    $imageUrl = "/storage/$url";
+                    $imageUrl = GambarWebp::simpan($this->photo, 'cars');
                 }
 
                 Car::create([

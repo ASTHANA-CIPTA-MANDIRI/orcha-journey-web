@@ -22,7 +22,16 @@
      dirakit di sini — Tailwind membaca berkas sumber apa adanya, dan kelas
      yang dirangkai dari variabel tidak pernah ikut terbangun. --}}
 <section class="relative overflow-hidden bg-orcha-navy {{ $kelas }}">
+    {{-- JANGAN diberi loading="lazy".
+
+         Foto ini memenuhi layar pertama di setiap halaman yang memakainya, jadi
+         ia hampir selalu jadi elemen terbesar yang diukur LCP. Menandainya lazy
+         membuat peramban menundanya sampai tata letak selesai dihitung — halaman
+         justru terasa LEBIH lambat, kebalikan dari maksudnya. fetchpriority high
+         menaikkannya di antrean unduh, karena peramban tidak tahu sendiri bahwa
+         gambar berposisi absolut ini yang paling penting. --}}
     <img src="{{ $gambarPenuh ?: asset($image) }}" alt=""
+        fetchpriority="high" decoding="async"
         class="absolute inset-0 object-cover w-full h-full opacity-60"
         style="object-position: {{ $posisi }};">
     <div class="absolute inset-0 bg-gradient-to-br from-orcha-navy/85 via-orcha-navy/55 to-orcha-abyss/70"></div>

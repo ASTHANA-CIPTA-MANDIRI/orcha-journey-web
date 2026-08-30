@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Etalase\Testimoni;
+use App\Support\GambarWebp;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Rule;
@@ -29,8 +30,7 @@ new
             $this->validate();
             try {
                 if ($this->avatar) {
-                    $url = $this->avatar->store('testimoni', 'public');
-                    $this->avatar = "/storage/$url";
+                    $this->avatar = GambarWebp::simpan($this->avatar, 'testimoni');
                 }
 
                 Testimoni::create([

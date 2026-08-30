@@ -498,6 +498,7 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
 
                                     @if ($bukti)
                                         <img src="{{ $bukti->temporaryUrl() }}" alt="Pratinjau bukti transfer"
+                                            loading="lazy" decoding="async"
                                             class="mt-3 border rounded-2xl border-orcha-foam max-h-64">
                                     @endif
                                 </div>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Etalase\Partner;
+use App\Support\GambarWebp;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
@@ -42,8 +43,7 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | Partner')] class exte
                         $oldPath = str_replace('/storage/', '', $partnerData->foto);
                         Storage::disk('public')->delete($oldPath);
                     }
-                    $url = $this->partnerLogo->store('partner', 'public');
-                    $this->partnerLogo = "/storage/$url";
+                    $this->partnerLogo = GambarWebp::simpan($this->partnerLogo, 'partner');
                 }
                 $partnerData->update([
                     'partner_name' => $this->partnerName,
@@ -52,8 +52,7 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | Partner')] class exte
                 $this->success('berhasil edit data partner');
             } else {
                 if ($this->partnerLogo) {
-                    $url = $this->partnerLogo->store('partner', 'public');
-                    $this->partnerLogo = "/storage/$url";
+                    $this->partnerLogo = GambarWebp::simpan($this->partnerLogo, 'partner');
                 }
                 Partner::create([
                     'partner_name' => $this->partnerName,

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Etalase\DestinationPopuler;
+use App\Support\GambarWebp;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Rule;
@@ -213,7 +214,7 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
                 if ($this->isEdit && $destinationData->main_photo) {
                     Storage::disk('public')->delete(str_replace('/storage/', '', $destinationData->main_photo));
                 }
-                $dataToSave['main_photo'] = '/storage/' . $this->mainPhoto->store('destinasi_populer/utama', 'public');
+                $dataToSave['main_photo'] = GambarWebp::simpan($this->mainPhoto, 'destinasi_populer/utama');
             }
 
             // Gambar tambahan DITAMBAHKAN pada yang sudah ada, tidak menggantinya.
@@ -224,7 +225,7 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
             $tersimpan = array_values($this->existingOthersPhoto);
 
             foreach ($this->othersPhoto ?: [] as $photo) {
-                $tersimpan[] = '/storage/' . $photo->store('destinasi_populer/tambahan', 'public');
+                $tersimpan[] = GambarWebp::simpan($photo, 'destinasi_populer/tambahan');
             }
 
             if ($this->isEdit || $tersimpan) {

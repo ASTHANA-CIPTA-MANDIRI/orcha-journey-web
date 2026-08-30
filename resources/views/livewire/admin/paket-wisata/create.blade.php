@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\PaketWisata\TravelPackage;
+use App\Support\GambarWebp;
 use App\Support\PaketWisata\ItineraryTeks;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Rule;
@@ -71,7 +72,7 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | Create Bundling')]  c
                 'catatan_promo' => $this->catatanPromo ?: null,
                 'fasilitas' => $this->fasilitas ?: null,
                 'itinerary' => ItineraryTeks::keArray($this->itineraryTeks) ?: null,
-                ...($this->foto ? ['foto' => '/storage/' . $this->foto->store('paket', 'public')] : []),
+                ...($this->foto ? ['foto' => GambarWebp::simpan($this->foto, 'paket')] : []),
 
                 'price' => $this->price,
                 'original_price' => $this->originalPrice,

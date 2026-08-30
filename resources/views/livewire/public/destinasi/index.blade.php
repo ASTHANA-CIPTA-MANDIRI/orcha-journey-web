@@ -306,7 +306,7 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                 <div class="relative bg-orcha-foam aspect-[16/10]">
                     @forelse ($galeri as $urutan => $foto)
                         <img src="{{ $foto }}" alt="{{ $detail->destination_name }}"
-                            x-show="aktif === {{ $urutan }}" x-cloak
+                            x-show="aktif === {{ $urutan }}" x-cloak loading="lazy" decoding="async"
                             class="absolute inset-0 object-cover w-full h-full">
                     @empty
                         <div class="flex items-center justify-center w-full h-full text-slate-400">
@@ -356,7 +356,8 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                 :class="aktif === {{ $urutan }} ? 'ring-2 ring-orcha-ocean' : 'ring-1 ring-orcha-foam opacity-70'"
                                 class="overflow-hidden rounded-xl shrink-0"
                                 aria-label="Lihat foto {{ $urutan + 1 }}">
-                                <img src="{{ $foto }}" alt="" class="object-cover w-16 h-16">
+                                <img src="{{ $foto }}" alt="" loading="lazy" decoding="async"
+                                    class="object-cover w-16 h-16">
                             </button>
                         @endforeach
                     </div>
