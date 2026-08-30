@@ -116,7 +116,7 @@ new #[Layout('components.layouts.guest')] #[Title('Kebijakan Privasi — Orcha J
 
 <x-halaman-ketentuan title="Kebijakan Privasi" eyebrow="Privasi"
     subtitle="Data apa yang kami kumpulkan, untuk apa dipakai, dan hak Anda atas data tersebut."
-    image="images/pantai-atas.webp" diperbarui="14 Agustus 2026" :sections="$sections">
+    image="images/HERO/kebijakan-privasi.webp" posisi="center 100%" diperbarui="14 Agustus 2026" :sections="$sections">
     <p>
         Orcha Journey hanya meminta data yang benar-benar diperlukan untuk menjalankan perjalanan Anda,
         dan tidak membagikannya kepada pihak yang tidak berkepentingan.

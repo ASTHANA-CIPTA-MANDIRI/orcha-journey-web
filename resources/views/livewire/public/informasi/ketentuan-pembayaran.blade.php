@@ -110,7 +110,7 @@ new #[Layout('components.layouts.guest')] #[Title('Ketentuan Pembayaran & DP —
 
 <x-halaman-ketentuan title="Ketentuan Pembayaran & DP" eyebrow="Pembayaran"
     subtitle="Besaran uang muka, tenggat pelunasan, metode pembayaran, dan cara mengirim bukti transfer."
-    image="images/laut.webp" diperbarui="14 Agustus 2026" :sections="$sections">
+    image="images/HERO/ketentuan-pembayaran.webp" posisi="center 80%" diperbarui="14 Agustus 2026" :sections="$sections">
     <p>
         Halaman ini merangkum seluruh aturan pembayaran di Orcha Journey. Bila ada perbedaan dengan penawaran tertulis
         yang Anda terima, yang berlaku adalah penawaran tertulis tersebut.

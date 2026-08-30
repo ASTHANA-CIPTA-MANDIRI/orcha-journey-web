@@ -145,7 +145,7 @@ new #[Layout('components.layouts.guest')] #[Title('Kebijakan Pembatalan & Pengem
 
 <x-halaman-ketentuan title="Kebijakan Pembatalan & Pengembalian Dana" eyebrow="Refund"
     subtitle="Besaran pengembalian dana, cara mengajukan, dan berapa lama prosesnya."
-    image="images/pantai-pinggir-laut.webp" diperbarui="14 Agustus 2026" :sections="$sections">
+    image="images/HERO/kebijakan-pengembalian.webp" posisi="center 78%" diperbarui="14 Agustus 2026" :sections="$sections">
     <p>
         Kami berusaha membuat aturan pembatalan sejelas mungkin supaya tidak ada kejutan di kemudian hari.
         Semua angka di halaman ini berlaku untuk pemesanan yang dilakukan setelah tanggal pembaruan terakhir.

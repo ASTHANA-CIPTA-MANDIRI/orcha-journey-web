@@ -69,19 +69,47 @@ new #[Layout('components.layouts.guest')] #[Title('Tentang Kami — Orcha Journe
                     <h2 class="mt-3 title-orcha">Travel agent Yogyakarta yang <span class="text-gradient-orcha">tidak
                             bikin repot</span></h2>
                     <p class="mt-5 leading-relaxed text-slate-600">
-                        Orcha Journey berdiri karena satu keluhan yang selalu sama: merencanakan liburan itu melelahkan.
-                        Mencari armada, menawar harga, menyusun rute, memastikan semua peserta terangkut — semuanya
-                        memakan waktu yang seharusnya dipakai untuk menikmati perjalanan.
+                        Liburan sering sudah melelahkan sebelum berangkat. Membandingkan harga sewa, menawar armada,
+                        menyusun rute yang masuk akal, memastikan tidak ada yang tertinggal di titik jemput — semua itu
+                        memakan malam-malam yang seharusnya dipakai untuk membayangkan tujuannya.
+                        <strong class="text-orcha-navy">Orcha Journey</strong> berdiri dari keluhan yang selalu sama
+                        itu.
                     </p>
                     <p class="mt-4 leading-relaxed text-slate-600">
-                        Kami mengambil alih bagian merepotkan itu. Anda cukup menyebutkan tujuan, tanggal, dan jumlah
-                        peserta; sisanya kami yang susun — mulai dari itinerary, armada, pemandu, sampai titik jemput
-                        yang paling masuk akal.
+                        Bagian yang merepotkan kami yang ambil. Anda cukup menyebutkan tujuan, tanggal, dan berapa orang
+                        yang ikut; sisanya kami susun — itinerary, armada, pemandu, sampai titik jemput yang paling
+                        masuk akal untuk rombongan Anda. Yang sampai ke tangan Anda sudah berupa rencana yang tinggal
+                        dijalani, bukan setumpuk pilihan yang masih harus dipilah sendiri.
                     </p>
                     <p class="mt-4 leading-relaxed text-slate-600">
-                        Nama <strong class="text-orcha-navy">Orcha</strong> diambil dari orca, si penjelajah samudra
-                        yang selalu bergerak dalam kelompok dan tidak pernah meninggalkan anggotanya. Begitu juga cara
-                        kami menemani perjalanan Anda.
+                        Nama <strong class="text-orcha-navy">Orcha</strong> diambil dari orca — penjelajah samudra yang
+                        menempuh ribuan kilometer, selalu bergerak dalam kelompok, dan tidak pernah meninggalkan satu
+                        pun anggotanya. Itu ukuran yang kami pakai untuk diri sendiri: rombongan berangkat utuh, pulang
+                        utuh.
+                    </p>
+
+                    {{-- Badan hukumnya disebut di sini, bukan sekadar di baris hak cipta.
+
+                         Calon peserta menyerahkan uang muka ke pihak yang baru
+                         ditemuinya lewat internet, dan penipuan berkedok open trip
+                         cukup sering terjadi. Nama badan hukum yang bisa ditelusuri
+                         sendiri adalah salah satu dari sedikit hal yang bisa ia
+                         periksa sebelum mentransfer — jadi ia ditaruh di halaman
+                         yang memang dibuka orang saat menimbang, tepat sebelum dua
+                         tombol ajakan di bawahnya, lengkap dengan tautan ke situs
+                         resminya supaya bisa dicek tanpa perlu percaya begitu saja.
+
+                         Dibaca dari config supaya sekali ubah berlaku juga di
+                         footer; ejaan penerima transfer sengaja tetap terpisah,
+                         alasannya ada di config/orcha.php. --}}
+                    <p class="mt-4 leading-relaxed text-slate-600">
+                        Kami bukan usaha yang berdiri sendiri. Orcha Journey berada di bawah naungan
+                        <a href="{{ config('orcha.perusahaan_situs') }}" target="_blank" rel="noopener"
+                            class="font-semibold underline text-orcha-ocean decoration-orcha-mist underline-offset-4 hover:text-orcha-wave">{{ config('orcha.perusahaan') }}</a>,
+                        perusahaan yang bergerak di bidang pariwisata dan teknologi — di sisi digitalnya ada
+                        Reka Teknologi, saudara satu atap kami. Badan hukum itu pula yang tercantum sebagai penerima
+                        setiap pembayaran, jadi nama yang Anda baca di halaman ini sama dengan nama yang Anda temukan
+                        saat mentransfer.
                     </p>
 
                     <div class="flex flex-col gap-3 mt-8 sm:flex-row">

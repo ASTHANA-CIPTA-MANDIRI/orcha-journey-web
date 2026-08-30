@@ -3,15 +3,29 @@
     'subtitle' => null,
     'eyebrow' => 'Informasi',
     'image' => 'images/pantai-senja.webp',
+    'posisi' => 'center',
     'diperbarui' => null,
     'sections' => [],
 ])
+
+{{-- JANGAN menaruh komentar // atau /* */ di dalam @props([...]) di atas.
+
+     @props menyisipkan teks mentah di antara kurungnya apa adanya ke dalam PHP
+     hasil kompilasi, dan pengurai argumen Blade tidak mengerti komentar. Satu
+     baris // di sana membuat kompilasi berputar tanpa henti: halamannya tidak
+     menjawab sama sekali sampai batas waktu PHP habis, lalu membalas 500 —
+     tanpa satu pun pesan yang menyebut komentar sebagai sebabnya.
+     Sudah pernah terjadi di berkas ini. Tulis keterangan prop di sini saja.
+
+     `posisi` diteruskan ke <x-page-hero>. Tanpa itu keempat halaman ketentuan
+     tidak bisa mengatur bagian foto mana yang tampil setelah dipotong jadi pita
+     lebar — dan pita itu memang membuang atas dan bawahnya. --}}
 
 {{-- Kerangka bersama untuk halaman ketentuan/kebijakan: kepala halaman,
      daftar isi yang menempel, lalu isi teks. Isi ditulis sebagai HTML di
      berkas halaman masing-masing. --}}
 <div>
-    <x-page-hero :title="$title" :subtitle="$subtitle" :eyebrow="$eyebrow" :image="$image" />
+    <x-page-hero :title="$title" :subtitle="$subtitle" :eyebrow="$eyebrow" :image="$image" :posisi="$posisi" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">

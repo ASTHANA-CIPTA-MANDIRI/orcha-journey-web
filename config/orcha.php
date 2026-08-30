@@ -16,6 +16,21 @@ return [
     'alamat' => env('ORCHA_ALAMAT', 'Perumahan GWI, Jl. Durian No. 115, Banguntapan, Bantul, Yogyakarta'),
 
     /*
+    | Badan hukum di balik merek Orcha Journey, dipakai di baris hak cipta.
+    |
+    | Sengaja TERPISAH dari 'pembayaran.atas_nama' yang mengeja nama yang sama.
+    | Yang itu harus persis seperti tertulis di rekening — huruf besar semua —
+    | karena tugasnya jadi patokan pelanggan memeriksa penerima transfer.
+    | Menyatukan keduanya berarti sekali seseorang merapikan huruf di footer,
+    | nama di halaman pembayaran ikut berubah dan patokannya tidak lagi cocok
+    | dengan yang tertera di aplikasi bank.
+    */
+    'perusahaan' => env('ORCHA_PERUSAHAAN', 'PT Asthana Cipta Mandiri'),
+    // Ditautkan dari halaman Tentang Kami: badan hukum yang bisa ditelusuri
+    // sendiri jauh lebih menenangkan daripada nama yang cuma tertulis.
+    'perusahaan_situs' => env('ORCHA_PERUSAHAAN_SITUS', 'https://asthanaciptamandiri.com/'),
+
+    /*
     |--------------------------------------------------------------------------
     | Verifikasi Kepemilikan Situs
     |--------------------------------------------------------------------------
@@ -74,6 +89,33 @@ return [
     | Dipakai admin (dropdown form paket) dan landing page (tab filter paket).
     |
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Kategori Artikel Blog
+    |--------------------------------------------------------------------------
+    |
+    | Dipakai tab penyaring di /blog dan label di tiap kartu. Kuncinya ikut di
+    | alamat halaman (/blog?kategori=panduan), jadi mengganti kunci berarti
+    | mematikan tautan yang sudah beredar — ganti labelnya saja bila yang
+    | dimaksud cuma penyebutan di layar.
+    |
+    */
+    'kategori_artikel' => [
+        'panduan' => 'Panduan Perjalanan',
+        'destinasi' => 'Cerita Destinasi',
+        'tips' => 'Tips & Persiapan',
+        'kabar' => 'Kabar Orcha',
+    ],
+
+    /*
+    | Berapa artikel per halaman di /blog.
+    |
+    | Sembilan, sama dengan halaman destinasi: kartunya tiga kolom di layar
+    | lebar, jadi angka kelipatan tiga tidak meninggalkan baris terakhir yang
+    | timpang.
+    */
+    'artikel_per_halaman' => 9,
+
     'kategori_paket' => [
         'open_trip' => 'Open Trip',
         'private_trip' => 'Private Trip',

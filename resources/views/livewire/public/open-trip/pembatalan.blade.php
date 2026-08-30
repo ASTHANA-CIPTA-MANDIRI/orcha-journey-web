@@ -269,7 +269,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
 <div>
     <x-page-hero title="Pengajuan Pembatalan" eyebrow="Formulir Pembatalan"
         subtitle="Ajukan pembatalan open trip maupun sewa kendaraan di sini. Besaran pengembalian dana mengikuti jarak waktu pembatalan terhadap tanggal keberangkatan atau tanggal mulai sewa."
-        image="images/pantai-pinggir-laut.webp" posisi="center 60%" />
+        image="images/HERO/pengajuan-pembatalan.webp" posisi="center 100%" />
 
     <section class="bg-white section-orcha">
         <div class="container-orcha">

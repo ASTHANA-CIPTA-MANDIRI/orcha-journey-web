@@ -294,3 +294,114 @@ test('halaman publik tidak pernah memuat gambar mentah', function (string $rute)
     expect($hilang)->toBe([], "[$rute] gambar dirujuk tetapi berkasnya tidak ada: ".implode(', ', $hilang));
     expect($berat)->toBe([], "[$rute] gambar melebihi 300 KB: ".implode(', ', $berat));
 })->with(['/', '/paket-wisata', '/sewa-kendaraan', '/destinasi', '/kontak', '/tentang-kami']);
+
+/*
+ | Layar muat.
+ |
+ | Bentuknya mengikuti loader Phoenix Digital, tetapi memakai logo dan warna
+ | Orcha. Yang dijaga di sini bukan seleranya, melainkan hal-hal yang membuat
+ | layar muat berbahaya kalau jebol: ia menutupi SELURUH halaman, jadi kalau ia
+ | tidak tahu cara menyingkir, situsnya tampak mati total.
+ */
+test('layar muat tampil di halaman publik dengan logo Orcha', function (string $url) {
+    $this->get($url)
+        ->assertOk()
+        ->assertSee('orcha-loader', false)
+        // Logonya logo Orcha, bukan logo Phoenix.
+        ->assertSee('orcha-logo-only.png', false)
+        ->assertDontSee('phoenix-mark', false);
+})->with(['/', '/paket-wisata', '/destinasi', '/kontak']);
+
+test('layar muat punya dua jalan keluar yang berdiri sendiri', function () {
+    $partial = file_get_contents(resource_path('views/partials/orcha-loader.blade.php'));
+
+    // 1. Jalan biasa: menyingkir setelah halaman selesai dimuat.
+    expect($partial)->toContain("window.addEventListener('load', hide)");
+
+    // 2. Jaring pengaman: menyingkir walau 'load' tidak pernah datang.
+    expect($partial)->toContain('8000');
+
+    /*
+     | 3. Yang paling penting, dan yang tidak dipunyai loader Phoenix:
+     |    kalau skripnya sama sekali tidak jalan, kedua jalan di atas ikut
+     |    mati — penghitung 8 detik pun tidak pernah dinyalakan. Aturan CSS
+     |    ini yang menanganinya, dan ia tidak bergantung pada JavaScript apa
+     |    pun. Menghapusnya berarti satu berkas gagal dimuat = situs tampak
+     |    mati total.
+     */
+    expect($partial)->toContain('.no-js .orc-loader');
+
+    // Penanda no-js memang dipasang di <html> dan baru dilepas oleh skrip.
+    expect(file_get_contents(resource_path('views/components/layouts/guest.blade.php')))
+        ->toContain('class="no-js scroll-smooth"');
+    expect(file_get_contents(resource_path('js/new-homepage.js')))
+        ->toContain('classList.remove("no-js")');
+});
+
+test('layar muat menghormati pengguna yang mengurangi animasi', function () {
+    // Tanpa ini, lencana berdenyut dan cincin berputar terus untuk orang yang
+    // secara khusus meminta gerak dikurangi.
+    expect(file_get_contents(resource_path('views/partials/orcha-loader.blade.php')))
+        ->toContain('prefers-reduced-motion: reduce');
+});
+
+test('kunci gulir layar muat selalu dilepas kembali', function () {
+    // Layar muat mengunci gulir <body> selama tampil. Kalau ada satu jalan
+    // keluar saja yang lupa melepasnya, halaman termuat sempurna tetapi tidak
+    // bisa digulung sama sekali — dan itu tidak menimbulkan galat apa pun.
+    $partial = file_get_contents(resource_path('views/partials/orcha-loader.blade.php'));
+
+    $dikunci = substr_count($partial, "classList.add('orc-terkunci')");
+    $dilepas = substr_count($partial, "classList.remove('orc-terkunci')");
+
+    expect($dilepas)->toBeGreaterThanOrEqual($dikunci);
+
+    // Kelasnya harus benar-benar ada di gaya, bukan sekadar dipasang di skrip.
+    expect(file_get_contents(resource_path('css/new-homepage.css')))
+        ->toContain('body.orc-terkunci');
+});
+
+test('baris hak cipta menyebut merek sekaligus badan hukumnya', function () {
+    // Nama badan hukum di footer gampang hilang tanpa disadari saat tata letak
+    // kaki halaman dirapikan — dan tidak ada yang menimbulkan galat.
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('Orcha Journey', false)
+        ->assertSee(config('orcha.perusahaan'), false)
+        ->assertSee('Seluruh hak cipta dilindungi', false);
+});
+
+test('nama penerima transfer terpisah dari nama di footer', function () {
+    /*
+     | Keduanya mengeja badan hukum yang sama, tetapi punya tugas berbeda:
+     | 'pembayaran.atas_nama' harus PERSIS seperti tertulis di rekening karena
+     | itulah yang dicocokkan pelanggan sebelum mentransfer. Kalau suatu saat
+     | keduanya disatukan, sekali seseorang merapikan huruf di footer, patokan
+     | anti-penipuan di halaman pembayaran ikut berubah.
+     */
+    expect(config('orcha.pembayaran.atas_nama'))->toBe('PT ASTHANA CIPTA MANDIRI')
+        ->and(config('orcha.perusahaan'))->not->toBe(config('orcha.pembayaran.atas_nama'));
+});
+
+test('halaman tentang kami menyebut badan hukum yang menaungi', function () {
+    $this->get(route('tentang-kami'))
+        ->assertOk()
+        ->assertSee('di bawah naungan', false)
+        ->assertSee(config('orcha.perusahaan'), false);
+});
+
+test('klaim di tentang kami benar: nama penerima memang dipajang ke pelanggan', function (string $url) {
+    /*
+     | Halaman Tentang Kami menjanjikan "nama yang Anda baca di halaman ini sama
+     | dengan nama yang Anda temukan saat mentransfer". Itu janji yang bisa
+     | jadi bohong tanpa ada yang sadar — cukup seseorang merapikan halaman
+     | pembayaran dan mencopot nama penerimanya.
+     |
+     | Bukan sekadar soal kerapian: nama penerima adalah satu-satunya hal yang
+     | bisa dicek pelanggan sebelum menyerahkan uang muka ke pihak yang baru
+     | ditemuinya lewat internet.
+     */
+    $this->get($url)
+        ->assertOk()
+        ->assertSee(config('orcha.pembayaran.atas_nama'), false);
+})->with(['/ketentuan-pembayaran', '/konfirmasi-pembayaran', '/faq']);
