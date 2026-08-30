@@ -5,8 +5,13 @@ gsap.registerPlugin(ScrollTrigger);
 
 /**
  * Halaman ditandai `no-js` dari HTML. Begitu modul ini jalan, tandanya dilepas
- * sehingga preloader & animasi masuk aktif. Kalau modul gagal dimuat, `no-js`
- * tetap menempel: preloader disembunyikan CSS dan semua konten langsung tampil.
+ * sehingga animasi masuk aktif. Kalau modul gagal dimuat, `no-js` tetap
+ * menempel dan seluruh isi halaman langsung tampil.
+ *
+ * Layar muat tidak ikut bergantung pada berkas ini — ia punya skripnya sendiri
+ * di partials/orcha-loader.blade.php. Tetapi aturan `.no-js .orc-loader` di
+ * sana tetap perlu: kalau skrip mana pun gagal, layar muat harus menyingkir
+ * sendiri, bukan menutupi halaman selamanya.
  */
 document.documentElement.classList.remove("no-js");
 
@@ -14,9 +19,6 @@ const prefersReducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)",
 ).matches;
 
-/* ==========================================================
-   1. PRELOADER — progres berdasarkan gambar yang selesai dimuat
-========================================================== */
 /* ==========================================================
    0. PETA RUTE — hanya di halaman yang memakainya
    Leaflet beserta gayanya sekitar 45 KB; halaman lain tidak perlu
@@ -26,131 +28,18 @@ if (document.querySelector(".peta-rute-kanvas")) {
     import("./peta-rute.js");
 }
 
-function initPreloader() {
-    const preloader = document.getElementById("preloader");
-    if (!preloader) return;
+/* ==========================================================
+   1. LAYAR MUAT
+   Layar muatnya sendiri berdiri sendiri di partials/orcha-loader.blade.php:
+   markup, gaya, dan perilakunya satu berkas, tanpa bergantung pada GSAP —
+   kalau berkas ini gagal dimuat, layar muat tetap tahu cara pergi.
 
-    const percentageEl = document.getElementById("preloader-percentage");
-    const contentEl = preloader.querySelector(".preloader-content");
-
-    document.body.classList.add("overflow-hidden");
-
-    const MIN_DISPLAY_MS = 1200;
-    const HARD_TIMEOUT_MS = 6000;
-    const startedAt = performance.now();
-
-    const progress = { value: 0 };
-    let assetsReady = false;
-    let exitStarted = false;
-
-    // Satu tulisan untuk semuanya: angka persennya, dan --maju yang dibaca CSS
-    // untuk jalur, pesawat, dan fajarnya. Kalau masing-masing digerakkan
-    // sendiri, ketiganya akan berselisih di jaringan lambat — pesawatnya sampai
-    // di ujung sementara angkanya masih 70%.
-    const renderProgress = () => {
-        const value = progress.value;
-        if (percentageEl) percentageEl.textContent = Math.round(value);
-        preloader.style.setProperty("--maju", (value / 100).toFixed(4));
-    };
-
-    const finish = () => {
-        if (exitStarted) return;
-        exitStarted = true;
-        document.body.classList.remove("overflow-hidden");
-
-        if (prefersReducedMotion) {
-            preloader.remove();
-            ScrollTrigger.refresh();
-            return;
-        }
-
-        // Keluarnya dibaca sebagai "berangkat", bukan sebagai panel yang
-        // hilang: pesawat dan jalurnya meluncur ke depan lebih dulu, isinya
-        // menepi, baru layarnya terangkat.
-        const garis = preloader.querySelector(".preloader-garis");
-
-        gsap.timeline({
-            defaults: { ease: "power3.inOut" },
-            onComplete: () => {
-                preloader.remove();
-                ScrollTrigger.refresh();
-            },
-        })
-            .to(contentEl, { opacity: 0, y: -18, duration: 0.4, ease: "power2.in" }, 0)
-            .to(garis, { opacity: 0, duration: 0.3, ease: "power2.in" }, 0.15)
-            .to(preloader, { yPercent: -100, duration: 0.95, ease: "power4.inOut" }, 0.25);
-    };
-
-    const animateTo = (target, duration) => {
-        gsap.to(progress, {
-            value: target,
-            duration: prefersReducedMotion ? 0 : duration,
-            ease: "power1.out",
-            overwrite: true,
-            onUpdate: renderProgress,
-            onComplete: () => {
-                renderProgress();
-                if (target >= 100) finish();
-            },
-        });
-    };
-
-    const checkReady = () => {
-        if (!assetsReady) return;
-        const remaining = Math.max(
-            0,
-            MIN_DISPLAY_MS - (performance.now() - startedAt),
-        );
-        animateTo(100, Math.max(remaining / 1000, 0.25));
-    };
-
-    // Hanya menunggu gambar yang benar-benar terlihat di layar awal.
-    //
-    // Yang TIDAK dihitung:
-    // - gambar bertanda loading="lazy", supaya preloader tidak menahan halaman
-    //   karena galeri di bagian bawah;
-    // - gambar milik preloader itu sendiri. Foto latarnya hiasan layar ini,
-    //   bukan isi halaman — kalau ikut dihitung, layar muat menunggu dirinya
-    //   sendiri dan justru memperlambat yang seharusnya ia tutupi.
-    const images = Array.from(document.images).filter(
-        (img) => img.loading !== "lazy" && !preloader.contains(img),
-    );
-
-    if (images.length === 0) {
-        assetsReady = true;
-        checkReady();
-    } else {
-        let loaded = 0;
-        images.forEach((img) => {
-            const onDone = () => {
-                loaded += 1;
-                animateTo((loaded / images.length) * 100, 0.35);
-                if (loaded === images.length) {
-                    assetsReady = true;
-                    checkReady();
-                }
-            };
-            if (img.complete) {
-                onDone();
-            } else {
-                img.addEventListener("load", onDone, { once: true });
-                img.addEventListener("error", onDone, { once: true });
-            }
-        });
-    }
-
-    window.addEventListener("load", () => {
-        assetsReady = true;
-        checkReady();
-    });
-
-    // Jaring pengaman: apa pun yang terjadi, preloader tidak menahan halaman.
-    setTimeout(() => {
-        assetsReady = true;
-        checkReady();
-        finish();
-    }, HARD_TIMEOUT_MS);
-}
+   Yang tersisa di sini cuma satu sambungan: ScrollTrigger menghitung posisi
+   pemicu gulir saat halaman masih tertutup layar muat, dan tinggi halaman
+   berubah begitu layar itu pergi. Tanpa perhitungan ulang, animasi masuk di
+   bagian bawah halaman terpicu pada posisi yang salah.
+========================================================== */
+window.addEventListener("orcha:loader-selesai", () => ScrollTrigger.refresh());
 
 /* ==========================================================
    2. REVEAL — elemen ber-class .reveal muncul saat masuk viewport
@@ -231,7 +120,6 @@ function initAnchorOffset() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    initPreloader();
     initReveal();
     initHeroParallax();
     initAnchorOffset();

@@ -259,67 +259,34 @@
         ['label' => 'Paket Wisata', 'url' => route('paket-wisata'), 'aktif' => request()->routeIs('paket-wisata'), 'ikon' => 'heroicon-o-map'],
         ['label' => 'Sewa Kendaraan', 'url' => route('sewa-kendaraan'), 'aktif' => request()->routeIs('sewa-kendaraan'), 'ikon' => 'heroicon-o-truck'],
         ['label' => 'Destinasi', 'url' => route('destinasi'), 'aktif' => request()->routeIs('destinasi'), 'ikon' => 'heroicon-o-map-pin'],
+        ['label' => 'Blog', 'url' => route('blog'), 'aktif' => request()->routeIs('blog*'), 'ikon' => 'heroicon-o-newspaper'],
         ['label' => 'Kontak', 'url' => route('kontak'), 'aktif' => request()->routeIs('kontak'), 'ikon' => 'heroicon-o-chat-bubble-left-right'],
     ];
 @endphp
 
 <body class="antialiased text-slate-700 bg-white overflow-x-hidden">
 
-    {{-- ============ PRELOADER ============ --}}
-    <div id="preloader" class="fixed inset-0 z-[9999] bg-orcha-navy">
-        {{-- Tidak ada satu pun berkas gambar di sini, dan itu disengaja.
-
-             Gambar butuh permintaan tersendiri ke server. Pada layar MUAT itu
-             jalan buntu: berkasnya sendiri harus tiba lebih dulu, padahal
-             kedatangan berkas-berkas itulah yang sedang ditunggu. Semua yang
-             ada di bawah ini tergambar seketika bersama halamannya — teks,
-             gradasi, dan garis. --}}
-
-        {{-- Foto latar, dengan cara yang tidak menahan apa pun.
-
-             Lapis pertama: pratinjau 28x15 piksel yang ditulis LANGSUNG di
-             dalam CSS sebagai data. Besarnya 834 bita, tidak butuh permintaan
-             ke server, dan tergambar seketika bersama halamannya — jadi layar
-             ini berfoto sejak bingkai pertama, bukan hitam menunggu.
-
-             Lapis kedua: fotonya yang sebenarnya, dipasang tembus pandang dan
-             baru dimunculkan setelah benar-benar termuat (onload). Kalau
-             lambat, atau tidak datang sama sekali, yang terlihat tetap
-             pratinjau buramnya — bukan bidang kosong.
-
-             Inilah sebabnya foto bisa dipakai di sini sementara berkas gambar
-             biasa tidak: yang harus tiba lebih dulu cuma 834 bita yang sudah
-             ikut di dalam CSS. --}}
-        <div class="preloader-foto" aria-hidden="true">
-            <img src="{{ asset('images/HERO/destinasi.webp') }}" alt="" decoding="async"
-                onload="this.classList.add('siap')">
-        </div>
-
-        <div class="preloader-tirai" aria-hidden="true"></div>
-        <div class="preloader-kisi" aria-hidden="true"></div>
-
-        <div class="preloader-content">
-            <div class="preloader-bawah">
-                {{-- Angkanya TERISI dari bawah seiring muatannya: warnanya
-                     dipotong huruf, jadi digitnya sendiri yang jadi takarannya.
-                     Batang di dasar layar mengulang hal yang sama untuk yang
-                     melihat sekilas. --}}
-                <div class="preloader-angka">
-                    <span id="preloader-percentage">0</span><span class="persen">%</span>
-                </div>
-
-                <p class="preloader-tulisan">
-                    Menyiapkan<br>perjalanan Anda
-                </p>
-            </div>
-        </div>
-
-        <div class="preloader-garis" aria-hidden="true"><span></span></div>
-    </div>
+    {{-- ============ LAYAR MUAT ============
+         Bentuknya mengikuti loader Phoenix Digital; rinciannya beserta
+         alasan setiap penyesuaian ada di dalam partial-nya. --}}
+    @include('partials.orcha-loader')
 
     {{-- ============ NAVBAR ============ --}}
-    <nav x-data="{ open: false, scrolled: false }" x-init="scrolled = window.scrollY > 20"
-        @scroll.window="scrolled = window.scrollY > 20" @keydown.escape.window="open = false"
+    {{-- $navbarPadat: halaman yang TIDAK punya hero gelap memaksanya padat.
+
+         Bilah ini transparan sebelum digulung karena hampir semua halaman
+         dibuka oleh foto hero gelap. Halaman artikel blog tidak — isinya
+         langsung putih, dan tulisan putih di atas putih membuat menunya
+         lenyap sama sekali.
+
+         Bawaannya false, jadi seluruh halaman lain berperilaku persis seperti
+         sebelumnya. --}}
+    @php $navbarPadat = $navbarSolid ?? false; @endphp
+
+    <nav x-data="{ open: false, scrolled: @js($navbarPadat) }"
+        x-init="scrolled = scrolled || window.scrollY > 20"
+        @scroll.window="scrolled = @js($navbarPadat) || window.scrollY > 20"
+        @keydown.escape.window="open = false"
         :class="(scrolled || open) ? 'bg-white/95 backdrop-blur-md shadow-lg shadow-orcha-navy/5' : 'bg-transparent'"
         class="fixed inset-x-0 top-0 z-[900] transition-all duration-300">
 
@@ -329,6 +296,7 @@
 
                 <a href="#beranda" class="flex items-center gap-2 shrink-0 sm:gap-3 group">
                     <img src="{{ asset('orcha-logo-only.png') }}" alt="Logo Orcha Journey" width="56" height="56"
+                        fetchpriority="high" decoding="async"
                         class="object-contain w-10 h-10 transition-transform duration-300 sm:w-12 sm:h-12 group-hover:scale-105">
                     <span class="text-lg font-black tracking-tight uppercase sm:text-xl lg:text-2xl font-heading"
                         :class="(scrolled || open) ? 'text-orcha-navy' : 'text-white'">
@@ -482,7 +450,7 @@
                 <div class="lg:col-span-4">
                     <div class="flex items-center justify-center gap-3 mb-5 sm:justify-start">
                         <img src="{{ asset('orcha-logo-only.png') }}" alt="Orcha Journey" width="48" height="48"
-                            class="object-contain w-12 h-12">
+                            loading="lazy" decoding="async" class="object-contain w-12 h-12">
                         <span class="text-xl font-black tracking-tight text-white uppercase font-heading">Orcha <span
                                 class="text-orcha-sky">Journey</span></span>
                     </div>
@@ -536,6 +504,7 @@
                         </li>
                         <li><a href="{{ route('testimoni') }}" class="transition hover:text-orcha-sky">Testimoni</a>
                         </li>
+                        <li><a href="{{ route('blog') }}" class="transition hover:text-orcha-sky">Blog</a></li>
                         <li><a href="{{ route('pendaftaran-open-trip') }}"
                                 class="transition hover:text-orcha-sky">Daftar Open Trip</a></li>
                         <li><a href="{{ route('kontak') }}" class="transition hover:text-orcha-sky">Kontak</a></li>
@@ -595,7 +564,8 @@
 
             <div
                 class="flex flex-col items-center gap-2 pt-8 mt-12 text-xs text-center border-t border-white/10 text-slate-500 sm:flex-row sm:justify-between sm:text-left">
-                <p>&copy; {{ date('Y') }} Orcha Journey. Seluruh hak cipta dilindungi.</p>
+                <p>&copy; {{ date('Y') }} Orcha Journey &mdash; {{ config('orcha.perusahaan') }}.
+                    Seluruh hak cipta dilindungi.</p>
                 {{-- Slogannya, bukan nama kota: kotanya sudah tersebut di blok
                      alamat tepat di atas baris ini. --}}
                 <p>{{ config('orcha.slogan') }}</p>
