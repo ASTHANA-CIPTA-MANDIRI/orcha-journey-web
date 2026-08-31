@@ -206,6 +206,16 @@ Route::prefix('v1')
         Route::match(['put', 'post'], '/testimoni/{testimoni}', [EtalaseController::class, 'perbaruiTestimoni']);
         Route::delete('/testimoni/{testimoni}', [EtalaseController::class, 'hapusTestimoni']);
 
+        /*
+         | Menyetujui atau menolak testimoni yang dikirim pelanggan.
+         |
+         | Terpisah dari perbaruiTestimoni: yang ini keputusan tayang/tidak,
+         | bukan penyuntingan isi. Menggabungkannya berarti tiap persetujuan
+         | ikut mengirim seluruh isi testimoni kembali ke server — dan isi yang
+         | ikut terkirim adalah isi yang bisa berubah tanpa disengaja.
+         */
+        Route::patch('/testimoni/{testimoni}/status', [EtalaseController::class, 'ubahStatusTestimoni']);
+
         Route::get('/partner', [EtalaseController::class, 'partner']);
         Route::post('/partner', [EtalaseController::class, 'simpanPartner']);
         Route::match(['put', 'post'], '/partner/{partner}', [EtalaseController::class, 'perbaruiPartner']);

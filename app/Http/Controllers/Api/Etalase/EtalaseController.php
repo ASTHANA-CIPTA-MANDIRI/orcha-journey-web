@@ -263,6 +263,13 @@ class EtalaseController extends ApiController
                 'isi' => $testimoni->testimonial,
                 'rating' => $testimoni->rating,
                 'foto' => $testimoni->avatar,
+
+                // Yang menunggu persetujuan harus bisa dibedakan di daftar
+                // admin — kalau tidak, testimoni yang dikirim pelanggan
+                // menumpuk tanpa ada yang tahu ia menunggu.
+                'status' => $testimoni->status,
+                'kode_pesanan' => $testimoni->kode_pesanan,
+                'terverifikasi' => $testimoni->terverifikasi,
             ])->all());
     }
 
@@ -275,11 +282,42 @@ class EtalaseController extends ApiController
             'rating' => $data['rating'],
             'testimonial' => $data['isi'],
             'avatar' => $this->simpanGambar($request, 'testimoni'),
+            // Admin yang mengetikkan testimoni bermaksud menayangkannya —
+            // tidak ada gunanya ia menyetujui tulisannya sendiri. Bawaan
+            // 'menunggu' di basis data hanya untuk yang dikirim pelanggan.
+            'status' => 'tayang',
         ]);
 
         $this->catat($request, 'tambah testimoni', ['nama' => $data['nama']]);
 
         return response()->json(['pesan' => 'Testimoni ditambahkan.'], 201);
+    }
+
+    /**
+     * Menayangkan atau menolak testimoni yang dikirim pelanggan.
+     *
+     * Terpisah dari perbaruiTestimoni: yang ini keputusan tayang/tidak, bukan
+     * penyuntingan isi. Digabung, tiap persetujuan ikut mengirim seluruh isi
+     * testimoni kembali ke server — dan isi yang ikut terkirim adalah isi yang
+     * bisa berubah tanpa disengaja.
+     */
+    public function ubahStatusTestimoni(Testimoni $testimoni, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'status' => 'required|in:menunggu,tayang,ditolak',
+        ]);
+
+        $sebelum = $testimoni->status;
+        $testimoni->update($data);
+
+        $this->catat($request, 'ubah status testimoni', [
+            'nama' => $testimoni->customer_name,
+            'kode' => $testimoni->kode_pesanan,
+            'dari' => $sebelum,
+            'ke' => $data['status'],
+        ]);
+
+        return response()->json(['pesan' => 'Status testimoni diperbarui.']);
     }
 
     public function perbaruiTestimoni(Testimoni $testimoni, Request $request): JsonResponse

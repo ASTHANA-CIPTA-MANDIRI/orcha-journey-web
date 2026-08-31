@@ -25,6 +25,9 @@ test('halaman testimoni menampilkan seluruh ulasan dengan paginasi', function ()
             'customer_name' => "Pelanggan $i",
             'rating' => ($i % 5) + 1,
             'testimonial' => "Ulasan nomor $i dari pelanggan.",
+            // Bawaan basis datanya 'menunggu' — itu untuk yang dikirim
+            // pelanggan lewat formulir publik, yang harus disetujui dulu.
+            'status' => 'tayang',
         ]);
     }
 

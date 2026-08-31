@@ -17,7 +17,7 @@ new #[Layout('components.layouts.guest')] #[Title('Tentang Kami — Orcha Journe
                 ['label' => 'Destinasi dilayani', 'nilai' => DestinationPopuler::count()],
                 ['label' => 'Armada siap jalan', 'nilai' => Car::where('is_available', true)->count()],
                 ['label' => 'Paket wisata', 'nilai' => TravelPackage::count()],
-                ['label' => 'Ulasan pelanggan', 'nilai' => Testimoni::count()],
+                ['label' => 'Ulasan pelanggan', 'nilai' => Testimoni::tayang()->count()],
             ],
             'nilaiKami' => [
                 [

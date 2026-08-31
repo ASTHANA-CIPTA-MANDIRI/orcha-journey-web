@@ -53,6 +53,9 @@ test('landing page menampilkan data dari database', function () {
         'customer_name' => 'Pelanggan Uji',
         'rating' => 5,
         'testimonial' => 'Pelayanannya bagus.',
+        // Bawaan basis datanya 'menunggu': yang dikirim pelanggan lewat
+        // formulir publik harus disetujui dulu sebelum tampil.
+        'status' => 'tayang',
     ]);
 
     Partner::create(['partner_name' => 'Partner Uji']);

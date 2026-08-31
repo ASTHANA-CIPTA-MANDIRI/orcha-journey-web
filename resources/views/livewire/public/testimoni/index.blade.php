@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Etalase\Testimoni;
+use App\Support\PemilikPesanan;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -32,12 +33,84 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
         $this->resetPage();
     }
 
+    /* ------------------------- Kirim testimoni ------------------------- */
+
+    public string $kode = '';
+
+    public string $empatDigit = '';
+
+    public string $isi = '';
+
+    public int $nilai = 5;
+
+    public bool $terkirim = false;
+
+    /**
+     * Testimoni hanya boleh ditulis yang pesanannya terbukti.
+     *
+     * Kode ditambah empat digit terakhir nomor — penjagaan yang sama dengan
+     * halaman lacak pesanan. Itu menyelesaikan dua hal sekaligus: spam tidak
+     * punya jalan masuk, dan testimoninya boleh ditandai terverifikasi secara
+     * jujur, karena memang bisa ditelusuri ke sebuah pesanan nyata.
+     */
+    public function kirim(): void
+    {
+        $this->validate([
+            'kode' => ['required', 'string', 'max:30'],
+            'empatDigit' => ['required', 'digits:4'],
+            'isi' => ['required', 'string', 'min:20', 'max:1000'],
+            'nilai' => ['required', 'integer', 'min:1', 'max:5'],
+        ], [], [
+            'kode' => 'kode pesanan',
+            'empatDigit' => '4 digit WhatsApp',
+            'isi' => 'cerita perjalanan',
+            'nilai' => 'penilaian',
+        ]);
+
+        $pesanan = PemilikPesanan::cariTerbatas($this->kode, $this->empatDigit, request()->ip());
+
+        if (! $pesanan) {
+            // Satu pesan untuk kedua kegagalan — pembeda apa pun mengubah
+            // halaman ini jadi alat pemeriksa kode.
+            $this->addError('kode', 'Kode pesanan dan empat digit WhatsApp tidak cocok. Keduanya ada di email yang Anda terima saat memesan.');
+
+            return;
+        }
+
+        /*
+         | Satu pesanan, satu testimoni.
+         |
+         | Tanpa ini satu orang bisa mengirim berkali-kali dan memenuhi halaman
+         | dengan suaranya sendiri — dan karena semuanya terverifikasi, tidak
+         | ada satu pun tanda bahwa itu orang yang sama.
+         */
+        if (Testimoni::where('kode_pesanan', $pesanan->kode)->exists()) {
+            $this->addError('kode', 'Testimoni untuk pesanan ini sudah pernah dikirim. Terima kasih!');
+
+            return;
+        }
+
+        Testimoni::create([
+            'customer_name' => $pesanan->nama,
+            'rating' => $this->nilai,
+            'testimonial' => $this->isi,
+            'kode_pesanan' => $pesanan->kode,
+            // Menunggu disetujui, bukan langsung tayang. Bukan karena
+            // penulisnya diragukan — ia sudah membuktikan pesanannya —
+            // melainkan karena halaman ini terbaca sebagai suara perusahaan.
+            'status' => 'menunggu',
+        ]);
+
+        $this->reset(['kode', 'empatDigit', 'isi', 'nilai']);
+        $this->terkirim = true;
+    }
+
     public function with(): array
     {
-        $semua = Testimoni::query();
+        $semua = Testimoni::query()->tayang();
 
         return [
-            'testimonials' => Testimoni::query()
+            'testimonials' => Testimoni::query()->tayang()
                 ->when($this->search, fn ($q) => $q->where(fn ($sub) => $sub->where('customer_name', 'like', "%{$this->search}%")
                     ->orWhere('testimonial', 'like', "%{$this->search}%")))
                 ->when($this->rating, fn ($q) => $q->where('rating', (int) $this->rating))
@@ -48,7 +121,7 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
             'sebaran' => collect(range(5, 1))
                 ->map(fn ($bintang) => [
                     'bintang' => $bintang,
-                    'jumlah' => Testimoni::where('rating', $bintang)->count(),
+                    'jumlah' => Testimoni::tayang()->where('rating', $bintang)->count(),
                 ]),
         ];
     }
@@ -159,7 +232,22 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                                     </span>
                                 @endif
                                 <div>
-                                    <p class="text-sm font-bold text-orcha-navy">{{ $testimoni->customer_name }}</p>
+                                    <p class="flex items-center gap-1.5 text-sm font-bold text-orcha-navy">
+                                        {{ $testimoni->customer_name }}
+
+                                        {{-- Ditandai hanya bila benar-benar bisa ditelusuri ke
+                                             sebuah pesanan. Testimoni yang jelas dikurasi penjual
+                                             dibaca sebagai bahan pemasaran; yang terverifikasi
+                                             dibaca sebagai kesaksian — dan bedanya justru yang
+                                             dicari calon pembeli. --}}
+                                        @if ($testimoni->terverifikasi)
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[.65rem] font-bold rounded-full text-emerald-700 bg-emerald-100"
+                                                title="Ditulis pelanggan yang pesanannya terverifikasi">
+                                                <x-heroicon-s-check-badge class="w-3 h-3" />
+                                                Terverifikasi
+                                            </span>
+                                        @endif
+                                    </p>
                                     <p class="text-xs text-slate-400">
                                         {{ $testimoni->created_at?->translatedFormat('d F Y') }}</p>
                                 </div>
@@ -173,18 +261,96 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                 </div>
             @endif
 
-            {{-- Ajakan kirim testimoni --}}
-            <div
-                class="flex flex-col items-center gap-4 p-8 mt-12 text-center sm:flex-row sm:text-left sm:justify-between rounded-3xl bg-orcha-foam/70">
-                <div>
+            {{-- Formulir kirim testimoni.
+
+                 Sebelumnya bagian ini cuma tombol WhatsApp: pelanggan mengetik
+                 ceritanya di sana, lalu admin menyalin dan mengetikkannya ulang
+                 di panel. Pekerjaan itu selalu kalah prioritas dibanding pesanan
+                 yang sedang berjalan, jadi sebagian besar cerita tidak pernah
+                 sampai ke halaman ini.
+
+                 Kode pesanan dipakai sebagai syarat, bukan formulir terbuka.
+                 Penulisnya membuktikan ia memang pernah memesan — dan itu
+                 menyelesaikan dua hal sekaligus: spam tidak punya jalan masuk,
+                 dan testimoninya boleh ditandai terverifikasi secara jujur. --}}
+            <div class="p-6 mt-12 sm:p-8 rounded-3xl bg-orcha-foam/70" id="kirim-testimoni">
+                @if ($terkirim)
+                    <div class="text-center">
+                        <p class="text-lg font-bold font-heading text-orcha-navy">Terima kasih — ceritanya sudah kami
+                            terima.</p>
+                        <p class="mt-2 text-sm text-slate-600">
+                            Tim kami membacanya dulu sebelum ditayangkan di halaman ini. Biasanya tidak sampai satu
+                            hari kerja.
+                        </p>
+                    </div>
+                @else
                     <p class="text-lg font-bold font-heading text-orcha-navy">Sudah jalan bersama kami?</p>
-                    <p class="mt-1 text-sm text-slate-600">Kirimkan cerita Anda lewat WhatsApp, akan kami tayangkan di
-                        halaman ini.</p>
-                </div>
-                <a href="{{ $wa }}" target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-primary">
-                    <x-bi-whatsapp class="w-5 h-5" />
-                    Kirim Testimoni
-                </a>
+                    <p class="mt-1 text-sm text-slate-600">
+                        Tuliskan ceritanya di sini. Kami perlu kode pesanan Anda supaya yang tayang di halaman ini
+                        benar-benar datang dari yang pernah berangkat.
+                    </p>
+
+                    <div class="grid gap-4 mt-6 sm:grid-cols-2">
+                        <div>
+                            <label for="ts-kode" class="label-orcha">Kode pesanan <x-wajib /></label>
+                            <input id="ts-kode" type="text" wire:model="kode" maxlength="30"
+                                placeholder="OT-3108-K7QMXV" class="uppercase isian-orcha @error('kode') isian-galat @enderror">
+                            @error('kode')
+                                <p class="galat-orcha">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div>
+                            <label for="ts-digit" class="label-orcha">4 digit terakhir WhatsApp <x-wajib /></label>
+                            <input id="ts-digit" type="text" inputmode="numeric" wire:model="empatDigit" maxlength="4"
+                                placeholder="7890"
+                                class="isian-orcha tracking-[.4em] font-bold sm:max-w-[9rem] @error('empatDigit') isian-galat @enderror">
+                            @error('empatDigit')
+                                <p class="galat-orcha">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="label-orcha">Penilaian <x-wajib /></label>
+                        {{-- Bintangnya tombol sungguhan, bukan gambar yang diklik:
+                             yang memakai papan ketik dan pembaca layar harus bisa
+                             memilih nilainya juga. --}}
+                        <div class="flex gap-1 mt-1" role="group" aria-label="Penilaian">
+                            @foreach (range(1, 5) as $bintang)
+                                <button type="button" wire:click="$set('nilai', {{ $bintang }})"
+                                    aria-label="{{ $bintang }} bintang"
+                                    aria-pressed="{{ $nilai >= $bintang ? 'true' : 'false' }}"
+                                    class="text-2xl transition {{ $nilai >= $bintang ? 'text-orcha-sun' : 'text-slate-300 hover:text-slate-400' }}">
+                                    &#9733;
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label for="ts-isi" class="label-orcha">Cerita perjalanan Anda <x-wajib /></label>
+                        <textarea id="ts-isi" wire:model="isi" rows="4" maxlength="1000"
+                            placeholder="Apa yang paling berkesan? Bagaimana sopir dan armadanya?"
+                            class="isian-orcha @error('isi') isian-galat @enderror"></textarea>
+                        @error('isi')
+                            <p class="galat-orcha">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3 mt-5">
+                        <button type="button" wire:click="kirim" class="btn-orcha btn-orcha-primary">
+                            <span wire:loading.remove wire:target="kirim">Kirim Testimoni</span>
+                            <span wire:loading wire:target="kirim">Mengirim…</span>
+                        </button>
+
+                        <a href="{{ $wa }}" target="_blank" rel="noopener noreferrer"
+                            class="btn-orcha btn-orcha-outline">
+                            <x-bi-whatsapp class="w-5 h-5" />
+                            Lewat WhatsApp
+                        </a>
+                    </div>
+                @endif
             </div>
         </div>
     </section>
