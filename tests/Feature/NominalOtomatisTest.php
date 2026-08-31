@@ -57,6 +57,7 @@ test('belum ada pembayaran: yang ditawarkan uang mukanya', function () {
 
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '5432')
         ->assertSet('jenis', 'dp')
         ->assertSet('nominal', '858000')
         ->assertSet('nominalTeks', '858.000');
@@ -67,6 +68,7 @@ test('dp sudah masuk: yang ditawarkan sisanya', function () {
 
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '5432')
         ->assertSet('jenis', 'pelunasan')
         // 2.860.000 − 858.000
         ->assertSet('nominal', '2002000')
@@ -96,6 +98,7 @@ test('pembayaran sebagian tetap menawarkan sisa sebenarnya', function () {
 
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '5432')
         ->assertSet('nominal', '2060000');
 });
 
@@ -104,6 +107,7 @@ test('angka yang sudah diketik pelanggan tidak ditimpa', function () {
     // setelah diketik membuat orang berhenti mempercayai formulirnya.
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '5432')
         ->set('nominalTeks', '900000')
         ->set('jenis', 'pelunasan')
         ->assertSet('nominal', '900000');
@@ -112,6 +116,7 @@ test('angka yang sudah diketik pelanggan tidak ditimpa', function () {
 test('ganti jenis pembayaran mengubah angka yang ditawarkan', function () {
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '5432')
         ->assertSet('nominal', '858000')
         ->set('jenis', 'pelunasan')
         // Belum ada yang masuk, jadi pelunasannya sebesar seluruh tagihan
@@ -133,6 +138,7 @@ test('kode yang tidak dikenal tidak mengarang angka', function () {
 
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', 'OT-9999-ZZZZ')
+        ->set('empatDigit', '5432')
         ->assertSet('nominal', '')
         ->assertSet('nominalTeks', '');
 });
@@ -143,11 +149,23 @@ test('paket tanpa harga tidak mengarang angka', function () {
     expect(TagihanPesanan::untuk($this->pendaftaran->fresh()))->toBe([]);
 });
 
-test('halaman menampilkan posisi tagihannya', function () {
+test('posisi tagihan baru terbuka setelah nomornya cocok', function () {
     catatBayar($this->pendaftaran->kode, 858000);
 
+    /*
+     | Tautan yang cuma membawa kode TIDAK lagi membuka apa pun. Tautan itu
+     | ikut tersalin ke mana-mana — diteruskan ke grup, tertangkap tangkapan
+     | layar — dan sisa tagihan seseorang bukan hal yang boleh terbaca siapa
+     | pun yang kebetulan memegangnya.
+     */
     $this->get(route('konfirmasi-pembayaran', ['kode' => $this->pendaftaran->kode]))
         ->assertOk()
+        ->assertDontSee('Total tagihan')
+        ->assertDontSee('Rp 2.002.000');
+
+    Volt::test('public.open-trip.konfirmasi-pembayaran')
+        ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '5432')
         ->assertSee('Total tagihan')
         ->assertSee('Rp 2.860.000')
         ->assertSee('Sudah dilaporkan')

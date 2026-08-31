@@ -56,9 +56,49 @@ test('bukti transfer tersimpan sebagai webp', function () {
 test('kode pesanan menampilkan ringkasan pesanannya', function () {
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $this->pendaftaran->kode)
+        // Kunci kedua: empat digit terakhir nomor pemesan.
+        ->set('empatDigit', '7890')
         ->assertSee('Pesanan ditemukan')
         ->assertSee('Budi Santoso')
         ->assertSee('Open Trip Banyuwangi');
+});
+
+test('kode yang benar dengan nomor yang salah tidak membuka ringkasan', function () {
+    /*
+     | Halaman ini menampilkan nama pemesan, nama trip, DAN mengisikan nominal
+     | tagihannya begitu kodenya dikenali. Tanpa kunci kedua, kode yang ditebak
+     | dengan beruntung memberi tahu siapa orangnya, ia ikut trip apa, dan
+     | berapa sisa utangnya.
+     */
+    Volt::test('public.open-trip.konfirmasi-pembayaran')
+        ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '0000')
+        ->assertDontSee('Pesanan ditemukan')
+        ->assertDontSee('Budi Santoso')
+        ->assertDontSee('Open Trip Banyuwangi')
+        // Nominal tagihannya pun tidak ikut terisi.
+        ->assertSet('nominal', '');
+});
+
+test('pencarian kode yang gagal berulang kali ikut dibatasi', function () {
+    /*
+     | Pembatas yang sudah ada hanya menjaga PENGIRIMAN formulir. Kode diketik
+     | dengan wire:model.live, dan tiap ketikan memanggil pencarian tanpa
+     | pernah menyentuh pembatas mana pun — justru jalur itulah yang dipakai
+     | untuk menebak kode satu per satu.
+     */
+    $halaman = Volt::test('public.open-trip.konfirmasi-pembayaran');
+
+    for ($i = 0; $i < 16; $i++) {
+        $halaman->set('kode', 'OT-1508-XX'.str_pad((string) $i, 2, '0', STR_PAD_LEFT))
+            ->set('empatDigit', '0000');
+    }
+
+    // Batas tercapai: kode yang BENAR pun tidak lagi dibuka, sampai jamnya
+    // berganti. Yang dilindungi bukan satu pesanan, melainkan seluruh daftar.
+    $halaman->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '7890')
+        ->assertDontSee('Budi Santoso');
 });
 
 test('kode yang tidak dikenal tetap boleh dikirim, dengan peringatan', function () {

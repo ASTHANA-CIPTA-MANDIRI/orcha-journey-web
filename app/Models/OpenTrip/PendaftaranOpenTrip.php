@@ -6,7 +6,6 @@ use App\Models\PaketWisata\TravelPackage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Str;
 
 class PendaftaranOpenTrip extends Model
 {
@@ -51,7 +50,7 @@ class PendaftaranOpenTrip extends Model
         static::creating(function (self $pendaftaran) {
             if (blank($pendaftaran->kode)) {
                 do {
-                    $kode = 'OT-'.now()->format('dm').'-'.Str::upper(Str::random(4));
+                    $kode = \App\Support\KodePesanan::untuk('OT');
                 } while (static::where('kode', $kode)->exists());
 
                 $pendaftaran->kode = $kode;

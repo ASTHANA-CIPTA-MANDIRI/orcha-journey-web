@@ -136,6 +136,8 @@ test('pengajuan pembatalan mengirim surat dengan tanda terima pdf', function () 
 
     Volt::test('public.open-trip.pembatalan')
         ->set('kode', $pendaftaran->kode)
+        // Kunci kedua: empat digit terakhir nomor pemesan.
+        ->set('empatDigit', '5432')
         ->set('nama', 'Siti Aminah')
         ->set('whatsapp', '081298765432')
         ->set('alasan', 'kondisi_kesehatan')
@@ -502,6 +504,7 @@ test('alamat kosong berarti tidak ada surat yang dikirim', function () {
 
     Volt::test('public.open-trip.pembatalan')
         ->set('kode', PendaftaranOpenTrip::first()->kode)
+        ->set('empatDigit', '5432')
         ->set('nama', 'Siti Aminah')
         ->set('whatsapp', '081298765432')
         ->set('alasan', 'kendala_biaya')

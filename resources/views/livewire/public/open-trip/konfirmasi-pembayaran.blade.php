@@ -8,6 +8,7 @@ use App\Support\BerkasKwitansi;
 use App\Support\KirimPemberitahuan;
 use App\Support\SalinanPelanggan;
 use App\Support\TagihanPesanan;
+use App\Support\PemilikPesanan;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -18,6 +19,13 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
     use WithFileUploads;
 
     public string $kode = '';
+
+    /**
+     * Empat digit terakhir nomor WhatsApp pemesan — kunci kedua.
+     *
+     * Lihat App\Support\PemilikPesanan untuk alasannya.
+     */
+    public string $empatDigit = '';
 
     public string $jenis = 'dp';
 
@@ -110,6 +118,12 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
         ];
     }
 
+    /** Digitnya diketik belakangan, jadi pemeriksaannya harus ikut berjalan. */
+    public function updatedEmpatDigit(): void
+    {
+        $this->updatedKode();
+    }
+
     public function updatedKode(): void
     {
         $this->kode = strtoupper(trim($this->kode));
@@ -163,17 +177,17 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
         $this->nominalOtomatis = $angka;
     }
 
+    /**
+     * Pesanan yang kodenya cocok DAN nomornya cocok.
+     *
+     * Kode saja tidak cukup. Halaman ini mengisikan nominal tagihan begitu
+     * kodenya dikenali, jadi kode yang ditebak dengan beruntung ikut memberi
+     * tahu berapa sisa utang orang lain — dan kodenya memang bisa ditebak
+     * (lihat App\Support\PemilikPesanan).
+     */
     private function pesanan(): PendaftaranOpenTrip|PenyewaanKendaraan|null
     {
-        $kode = trim($this->kode);
-
-        if ($kode === '') {
-            return null;
-        }
-
-        return str_starts_with($kode, 'SK-')
-            ? PenyewaanKendaraan::where('kode', $kode)->first()
-            : PendaftaranOpenTrip::with('paket')->where('kode', $kode)->first();
+        return PemilikPesanan::cariTerbatas($this->kode, $this->empatDigit, request()->ip());
     }
 
     /** Ketikan apa pun jadi angka polos, lalu ditampilkan kembali bertitik. */
@@ -344,6 +358,29 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
                                         Kode yang Anda terima saat mendaftar open trip atau memesan sewa kendaraan.
                                     </p>
                                     @error('kode')
+                                        <p class="galat-orcha">{{ $message }}</p>
+                                    @enderror
+                                </div>
+
+                                {{-- Kunci kedua.
+
+                                     Kotak di bawah menampilkan nama pemesan dan trip yang
+                                     diikutinya, lalu mengisikan nominal tagihannya. Kode saja
+                                     tidak boleh cukup untuk membuka semua itu: kodenya bisa
+                                     ditebak, dan yang menebaknya jadi tahu siapa orangnya,
+                                     ikut trip apa, dan berapa sisa utangnya. --}}
+                                <div class="mt-4">
+                                    <label for="kb-digit" class="label-orcha">
+                                        4 digit terakhir WhatsApp Anda <x-wajib />
+                                    </label>
+                                    <input id="kb-digit" type="text" inputmode="numeric" required maxlength="4"
+                                        wire:model.live.debounce.500ms="empatDigit" placeholder="7890"
+                                        class="isian-orcha tracking-[.5em] font-bold max-w-[9rem] @error('empatDigit') isian-galat @enderror">
+                                    <p class="mt-1.5 text-sm text-slate-500">
+                                        Nomor yang Anda pakai saat memesan. Untuk 0812-3456-<strong>7890</strong>,
+                                        isi <strong>7890</strong>.
+                                    </p>
+                                    @error('empatDigit')
                                         <p class="galat-orcha">{{ $message }}</p>
                                     @enderror
                                 </div>

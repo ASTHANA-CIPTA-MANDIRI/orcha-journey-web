@@ -5,7 +5,6 @@ namespace App\Models\SewaKendaraan;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Str;
 
 /**
  * Pemesanan sewa kendaraan yang masuk lewat formulir publik.
@@ -80,7 +79,7 @@ class PenyewaanKendaraan extends Model
         static::creating(function (self $sewa) {
             if (blank($sewa->kode)) {
                 do {
-                    $kode = 'SK-'.now()->format('dm').'-'.Str::upper(Str::random(4));
+                    $kode = \App\Support\KodePesanan::untuk('SK');
                 } while (static::where('kode', $kode)->exists());
 
                 $sewa->kode = $kode;

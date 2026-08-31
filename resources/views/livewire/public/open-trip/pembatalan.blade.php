@@ -6,6 +6,7 @@ use App\Support\KirimPemberitahuan;
 use App\Support\SalinanPelanggan;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\NomorTelepon;
+use App\Support\PemilikPesanan;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -17,6 +18,14 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
     public string $nama = '';
 
     public string $whatsapp = '';
+
+    /**
+     * Empat digit terakhir nomor WhatsApp yang dipakai saat memesan.
+     *
+     * Kunci kedua. Tanpa ini kode pesanan adalah satu-satunya penjaga, dan
+     * kode itu bisa ditebak — lihat App\Support\PemilikPesanan.
+     */
+    public string $empatDigit = '';
 
     public string $email = '';
 
@@ -57,9 +66,18 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
             // hanya tabel pendaftaran yang diperiksa, jadi penyewa kendaraan
             // yang ingin membatalkan selalu ditolak "kode tidak ditemukan"
             // padahal kodenya benar.
-            'kode' => ['required', 'string', 'max:20', fn ($atribut, $nilai, $gagal) => Pembatalan::milik($nilai)
+            /*
+             | Kode DAN empat digit diperiksa sebagai satu syarat, dengan satu
+             | pesan yang sama untuk kedua kegagalan.
+             |
+             | Pesan yang membedakan "kode tidak ada" dari "nomor salah" akan
+             | mengubah halaman ini jadi alat pemeriksa kode: penebak cukup
+             | melihat pesan mana yang muncul untuk tahu kodenya sudah benar.
+             */
+            'kode' => ['required', 'string', 'max:20', fn ($atribut, $nilai, $gagal) => PemilikPesanan::cari($nilai, $this->empatDigit)
                 ? null
-                : $gagal('Kode pesanan tidak ditemukan. Periksa kembali kode yang Anda terima saat memesan.')],
+                : $gagal('Kode pesanan dan empat digit terakhir WhatsApp tidak cocok. Periksa kembali keduanya.')],
+            'empatDigit' => ['required', 'digits:4'],
             'nama' => 'required|string|min:3|max:120',
             'whatsapp' => ['required', 'string', 'max:25', fn ($atribut, $nilai, $gagal) => NomorTelepon::sah($nilai)
                 ? null
@@ -103,9 +121,15 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
      * Yang terisi tetap bisa diubah: rekening pengembalian kadang memang atas
      * nama orang lain, dan nomor WhatsApp bisa saja sudah berganti.
      */
+    /** Digitnya diketik belakangan, jadi pemeriksaannya harus ikut berjalan. */
+    public function updatedEmpatDigit(): void
+    {
+        $this->updatedKode();
+    }
+
     public function updatedKode(): void
     {
-        $pesanan = Pembatalan::milik($this->kode);
+        $pesanan = PemilikPesanan::cariTerbatas($this->kode, $this->empatDigit, request()->ip());
 
         if (! $pesanan) {
             return;
@@ -212,7 +236,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
 
     public function with(): array
     {
-        $pesanan = Pembatalan::milik($this->kode);
+        $pesanan = PemilikPesanan::cariTerbatas($this->kode, $this->empatDigit, request()->ip());
         $sewa = $pesanan instanceof PenyewaanKendaraan;
 
         // Dua jenis pesanan diringkas jadi satu bentuk yang sama, supaya
@@ -323,6 +347,30 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
                                     Kode ada di email dan tanda terima yang Anda terima saat memesan — diawali
                                     <strong>OT-</strong> untuk open trip, <strong>SK-</strong> untuk sewa kendaraan.
                                 </p>
+
+                                {{-- Kunci kedua.
+
+                                     Kode saja tidak cukup: siapa pun yang menebaknya bisa
+                                     melihat nama, trip, dan tanggal berangkat orang lain, lalu
+                                     mengajukan pembatalan berikut rekening tujuan dananya
+                                     sendiri. Empat digit terakhir nomor sendiri dipilih karena
+                                     pemiliknya selalu tahu tanpa perlu mencari, sedangkan
+                                     penebak kode tidak. --}}
+                                <div class="mt-5">
+                                    <label for="pb-digit" class="label-orcha">
+                                        4 digit terakhir WhatsApp Anda <x-wajib />
+                                    </label>
+                                    <input id="pb-digit" type="text" inputmode="numeric" required
+                                        wire:model.live.debounce.500ms="empatDigit" maxlength="4" placeholder="7890"
+                                        class="isian-orcha tracking-[.5em] font-bold max-w-[9rem] @error('empatDigit') isian-galat @enderror">
+                                    @error('empatDigit')
+                                        <p class="galat-orcha">{{ $message }}</p>
+                                    @enderror
+                                    <p class="mt-2 text-xs text-slate-500">
+                                        Nomor yang Anda pakai saat memesan. Contoh: untuk 0812-3456-<strong>7890</strong>,
+                                        isi <strong>7890</strong>.
+                                    </p>
+                                </div>
 
                                 @if ($pesanan)
                                     <div class="p-5 mt-3 rounded-2xl bg-orcha-foam/70">

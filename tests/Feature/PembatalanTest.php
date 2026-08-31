@@ -26,6 +26,7 @@ test('halaman pembatalan bisa dibuka publik', function () {
 test('pengajuan pembatalan yang sah tersimpan', function () {
     Volt::test('public.open-trip.pembatalan')
         ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '7890')
         ->set('nama', 'Budi Santoso')
         ->set('whatsapp', '081234567890')
         ->set('alasan', 'kondisi_kesehatan')
@@ -52,6 +53,7 @@ test('pengajuan pembatalan yang sah tersimpan', function () {
 test('pengajuan pembatalan menolak isian tidak lengkap', function () {
     Volt::test('public.open-trip.pembatalan')
         ->set('kode', 'OT-0000-XXXX')
+        ->set('empatDigit', '7890')
         ->set('nama', 'A')
         ->call('ajukan')
         ->assertHasErrors(['kode', 'nama', 'whatsapp', 'alasan', 'bank', 'nomorRekening', 'atasNama', 'setuju']);
@@ -62,6 +64,7 @@ test('pengajuan pembatalan menolak isian tidak lengkap', function () {
 test('kode pendaftaran menampilkan data pemesanan di formulir pembatalan', function () {
     Volt::test('public.open-trip.pembatalan')
         ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '7890')
         ->assertSee('Pemesanan ditemukan')
         ->assertSee('Budi Santoso')
         ->assertSee('Open Trip Banyuwangi');
@@ -85,6 +88,7 @@ test('sewa kendaraan juga bisa diajukan pembatalannya', function () {
     // pendaftaran open trip yang diperiksa — padahal kodenya benar.
     Volt::test('public.open-trip.pembatalan')
         ->set('kode', $sewa->kode)
+        ->set('empatDigit', '5432')
         ->assertSee('Pesanan sewa ditemukan')
         ->assertSee('Avanza Uji')
         // Satu unit tidak bisa dibatalkan sebagian, jadi isiannya tidak ada
@@ -123,6 +127,7 @@ test('tangga pengembalian yang tampil mengikuti jenis pesanannya', function () {
     // sekadar keliru di layar — ia menyesatkan keputusan uang.
     Volt::test('public.open-trip.pembatalan')
         ->set('kode', $sewa->kode)
+        ->set('empatDigit', '5432')
         ->assertSee('Lebih dari 7 hari sebelum mulai sewa')
         ->assertSee('25% dari total biaya')
         ->assertSee('Tidak datang tanpa kabar')
@@ -132,6 +137,7 @@ test('tangga pengembalian yang tampil mengikuti jenis pesanannya', function () {
 
     Volt::test('public.open-trip.pembatalan')
         ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '7890')
         ->assertSee('Lebih dari 30 hari sebelum keberangkatan')
         ->assertDontSee('sebelum mulai sewa');
 });
@@ -170,6 +176,7 @@ test('aturan potongan ikut tampil di formulir pembatalan', function () {
     // kebijakan yang jarang dibuka.
     Volt::test('public.open-trip.pembatalan')
         ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '7890')
         ->assertSee('Melunasi lebih awal tidak menghapus potongan')
         ->assertSee('tidak pernah melebihi jumlah yang sudah Anda bayarkan');
 });
@@ -180,6 +187,7 @@ test('isian pemohon terisi sendiri dari pesanan yang ditemukan', function () {
     // dan nomor yang salah berarti perhitungan pengembalian tidak sampai.
     Volt::test('public.open-trip.pembatalan')
         ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '7890')
         ->assertSet('nama', 'Budi Santoso')
         ->assertSet('whatsapp', '0812-3456-7890')
         ->assertSet('atasNama', 'Budi Santoso')
@@ -187,21 +195,65 @@ test('isian pemohon terisi sendiri dari pesanan yang ditemukan', function () {
         ->assertSet('jumlahDibatalkan', 3);
 });
 
-test('kode dari tautan email langsung mengisi data pemohon', function () {
-    // Orang yang datang lewat tautan justru yang paling tidak perlu mengetik
-    // apa pun; kodenya sudah dibawa tautannya.
-    // Diperiksa lewat permintaan sungguhan, karena kodenya datang dari query
-    // string — bukan dari parameter mount.
-    //
-    // Yang dilihat bukan tulisan di layar (nama pemesan juga muncul di kartu
-    // ringkasan, jadi tidak membuktikan apa-apa), melainkan keadaan awal
-    // komponen yang tertanam di halaman: isian atas nama rekening hanya
-    // terisi bila pengisian otomatisnya benar-benar jalan.
+test('tautan email mengisi kodenya, tetapi datanya baru terbuka setelah nomor cocok', function () {
+    /*
+     | Dulu tautan di email langsung membuka seluruh data pemesanan. Enak
+     | dipakai, tetapi tautan itu ikut tersalin ke mana-mana — diteruskan ke
+     | grup, dikirim ulang, tertangkap tangkapan layar — dan siapa pun yang
+     | memegangnya melihat nama, trip, dan tanggal berangkat pemesan.
+     |
+     | Sekarang tautannya tetap mengisikan kodenya (bagian yang merepotkan
+     | untuk diketik), sedangkan yang membuka datanya tetap harus tahu empat
+     | digit terakhir nomor pemesan.
+     */
     $this->get(route('pembatalan', ['kode' => $this->pendaftaran->kode]))
         ->assertOk()
-        ->assertSee('Pemesanan ditemukan')
-        ->assertSee('&quot;atasNama&quot;:&quot;Budi Santoso&quot;', false)
-        ->assertSee('&quot;jumlahDibatalkan&quot;:3', false);
+        ->assertDontSee('Pemesanan ditemukan')
+        ->assertDontSee('&quot;atasNama&quot;:&quot;Budi Santoso&quot;', false);
+
+    Volt::test('public.open-trip.pembatalan', ['kode' => $this->pendaftaran->kode])
+        ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '7890')
+        ->assertSet('atasNama', 'Budi Santoso')
+        ->assertSet('jumlahDibatalkan', 3);
+});
+
+test('kode yang benar dengan nomor yang salah tidak membuka apa pun', function () {
+    /*
+     | Inti perbaikannya. Kode pesanan bisa ditebak — 'OT-' + tanggal-bulan +
+     | empat karakter yang hanya punya 36 kemungkinan per huruf — dan tidak ada
+     | pembatasan percobaan di grup web.
+     |
+     | Tanpa kunci kedua, penebak yang beruntung melihat nama, trip, dan
+     | tanggal berangkat orang lain, lalu boleh mengajukan pembatalan berikut
+     | nomor rekening tujuan dananya sendiri.
+     */
+    Volt::test('public.open-trip.pembatalan')
+        ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '0000')
+        ->assertDontSee('Pemesanan ditemukan')
+        ->assertDontSee('Budi Santoso')
+        // Isian otomatis pun tidak berjalan: tidak ada satu pun data pesanan
+        // yang menyeberang ke layar.
+        ->assertSet('atasNama', '')
+        ->assertSet('nama', '');
+});
+
+test('pesan gagalnya tidak membedakan kode salah dari nomor salah', function () {
+    /*
+     | Pesan yang berbeda akan mengubah halaman ini jadi alat pemeriksa kode:
+     | penebak cukup melihat pesan mana yang muncul untuk tahu kodenya sudah
+     | benar, lalu menyisakan empat digit saja untuk ditebak.
+     */
+    $kodeSalah = Volt::test('public.open-trip.pembatalan')
+        ->set('kode', 'OT-0000-XXXX')->set('empatDigit', '7890')
+        ->call('ajukan')->errors()->get('kode');
+
+    $nomorSalah = Volt::test('public.open-trip.pembatalan')
+        ->set('kode', $this->pendaftaran->kode)->set('empatDigit', '0000')
+        ->call('ajukan')->errors()->get('kode');
+
+    expect($kodeSalah)->toBe($nomorSalah)->not->toBeEmpty();
 });
 
 test('isian yang sudah diketik pemohon tidak ditimpa isian otomatis', function () {
@@ -211,6 +263,7 @@ test('isian yang sudah diketik pemohon tidak ditimpa isian otomatis', function (
         ->set('nama', 'Siti Aminah')
         ->set('atasNama', 'Siti Aminah')
         ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '7890')
         ->assertSet('nama', 'Siti Aminah')
         ->assertSet('atasNama', 'Siti Aminah');
 });
