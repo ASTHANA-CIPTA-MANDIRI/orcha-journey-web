@@ -83,16 +83,59 @@ test('paket tanpa kuota tidak pernah penuh', function () {
         ->and($paket->fresh()->kursi_habis)->toBeFalse();
 });
 
-test('sisa kursi yang masih banyak tidak diumumkan', function () {
+test('sisa kursi tidak pernah muncul di halaman publik', function () {
     /*
-     | "Sisa 38 kursi" tidak mendorong siapa pun, dan justru memberi tahu bahwa
-     | tripnya sepi. Angkanya hanya berguna ketika sisanya benar-benar sedikit.
+     | Kuotanya dipakai, angkanya tidak diumumkan.
+     |
+     | Ketersediaan dibicarakan lewat WhatsApp, dan angka yang muncul di layar
+     | akan dibandingkan orang dengan yang dikatakan tim di percakapan — dua
+     | angka yang berbeda melemahkan keduanya.
+     |
+     | Diperiksa pada tiga keadaan sekaligus (lega, tinggal sedikit, penuh)
+     | karena yang paling mungkin merembes justru keadaan "tinggal sedikit":
+     | itu yang paling menggoda untuk ditampilkan.
      */
-    $lega = paketBerkuota(40);
-    $tipis = paketBerkuota(4);
+    foreach ([[40, 2], [5, 3], [3, 3]] as [$kuota, $terisi]) {
+        $paket = paketBerkuota($kuota);
+        daftarkan($paket, $terisi);
 
-    expect($lega->sisa_kursi_mendesak)->toBeNull()
-        ->and($tipis->sisa_kursi_mendesak)->toBe(4);
+        $isi = $this->get(route('paket-detail', $paket->uuid))->assertOk()->getContent();
+
+        expect($isi)
+            ->not->toContain('Tinggal')
+            ->not->toContain('kursi tersisa')
+            ->not->toContain('sisa kursi')
+            // Angka sisanya sendiri tidak boleh terbaca di mana pun.
+            ->not->toMatch('/\b'.($kuota - $terisi).' kursi\b/');
+    }
+});
+
+test('paket penuh berhenti menerima pendaftaran tanpa mengumumkan sebabnya', function () {
+    /*
+     | Yang tetap dikerjakan: berhenti menerima pendaftaran saat armadanya
+     | memang penuh, lalu mengantar orangnya ke WhatsApp. Menerima pendaftaran
+     | yang tidak muat bukan menjaga peluang — ia menunda kabar buruknya sampai
+     | orang itu sudah mentransfer.
+     */
+    $paket = paketBerkuota(3);
+    daftarkan($paket, 3);
+
+    $isi = $this->get(route('paket-detail', $paket->uuid))->assertOk()->getContent();
+
+    expect($isi)
+        ->toContain('Pendaftaran online untuk trip ini sedang kami tutup')
+        ->not->toContain('Daftar Sekarang')
+        // Tidak menyebut "habis" — itu ikut mengumumkan keadaan kuotanya.
+        ->not->toContain('sudah habis');
+});
+
+test('paket yang masih lega tetap menampilkan tombol daftar', function () {
+    $paket = paketBerkuota(20);
+    daftarkan($paket, 2);
+
+    $this->get(route('paket-detail', $paket->uuid))
+        ->assertOk()
+        ->assertSee('Daftar Sekarang');
 });
 
 test('pendaftaran melebihi sisa kursi ditolak di server', function () {
@@ -115,6 +158,19 @@ test('pendaftaran melebihi sisa kursi ditolak di server', function () {
         ->call('daftar')
         ->assertHasErrors('jumlahPeserta');
 
+    // Pesannya mengantar ke WhatsApp, TIDAK menyebut berapa yang tersisa.
+    $galat = Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $paket->uuid)
+        ->set('jumlahPeserta', 3)
+        ->set('nama', 'Budi Santoso')
+        ->set('whatsapp', '081234567890')
+        ->set('peserta', [['nama' => 'Budi Santoso'], ['nama' => 'Siti Aminah'], ['nama' => 'Joko Susilo']])
+        ->set('setuju', true)
+        ->call('daftar')
+        ->errors()->get('jumlahPeserta')[0];
+
+    expect($galat)->toContain('WhatsApp')->not->toMatch('/\d+ kursi/');
+
     // Yang muat tetap boleh masuk.
     Volt::test('public.open-trip.pendaftaran')
         ->set('paketId', $paket->uuid)
@@ -125,29 +181,4 @@ test('pendaftaran melebihi sisa kursi ditolak di server', function () {
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors('jumlahPeserta');
-});
-
-test('halaman paket yang penuh mengganti tombol daftar, bukan mematikannya', function () {
-    /*
-     | Tombol mati yang tetap terlihat seperti tombol ditekan berkali-kali oleh
-     | orang yang mengira halamannya rusak. Dan kursi habis bukan jalan buntu:
-     | pembatalan memang terjadi.
-     */
-    $paket = paketBerkuota(3);
-    daftarkan($paket, 3);
-
-    $this->get(route('paket-detail', $paket->uuid))
-        ->assertOk()
-        ->assertSee('Kursi trip ini sudah habis')
-        ->assertDontSee('Daftar Sekarang');
-});
-
-test('sisa kursi yang tinggal sedikit tampil di halaman paket', function () {
-    $paket = paketBerkuota(5);
-    daftarkan($paket, 3);
-
-    $this->get(route('paket-detail', $paket->uuid))
-        ->assertOk()
-        ->assertSee('Tinggal 2 kursi')
-        ->assertSee('Daftar Sekarang');
 });

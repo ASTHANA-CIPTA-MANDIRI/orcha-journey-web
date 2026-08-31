@@ -93,9 +93,20 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                     }
 
                     if ((int) $nilai > $paket->sisa_kursi) {
-                        $gagal($paket->sisa_kursi > 0
-                            ? 'Kursi tersisa tinggal '.$paket->sisa_kursi.'. Kurangi jumlah pesertanya, atau hubungi kami lewat WhatsApp.'
-                            : 'Kursi untuk trip ini sudah habis. Hubungi kami lewat WhatsApp — kadang ada kursi yang batal.');
+                        /*
+                         | Pesannya TIDAK menyebut berapa kursi yang tersisa.
+                         |
+                         | Sisa kursi bukan angka publik: ketersediaan dibicarakan
+                         | lewat WhatsApp, dan angka yang muncul di layar akan
+                         | dibandingkan orang dengan yang dikatakan tim di
+                         | percakapan. Dua angka yang berbeda melemahkan keduanya.
+                         |
+                         | Yang tetap dikerjakan pemeriksaan ini: menahan
+                         | pendaftaran yang tidak muat. Menerimanya bukan menjaga
+                         | peluang — ia menunda kabar buruknya sampai orang itu
+                         | sudah mentransfer.
+                         */
+                        $gagal('Jumlah peserta ini belum bisa kami proses lewat formulir. Hubungi kami lewat WhatsApp — tim kami cek ketersediaannya langsung.');
                     }
                 }],
             'peserta' => 'required|array|min:1',

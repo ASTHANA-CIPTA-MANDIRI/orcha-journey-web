@@ -187,7 +187,15 @@ class TravelPackage extends Model
             ->sum('jumlah_peserta');
     }
 
-    /** Sisa kursi; null bila kuotanya memang belum ditetapkan. */
+    /**
+     * Sisa kursi; null bila kuotanya memang belum ditetapkan.
+     *
+     * DIPAKAI DI SISI DALAM SAJA — pemeriksaan pendaftaran dan layar admin.
+     * Angkanya sengaja tidak pernah ditampilkan di halaman publik: ketersediaan
+     * dibicarakan lewat WhatsApp, dan angka di layar yang berbeda dari yang
+     * dikatakan tim di percakapan melemahkan keduanya. Pernah ada aksesor
+     * khusus untuk mengumumkannya; dibuang atas alasan itu.
+     */
     public function getSisaKursiAttribute(): ?int
     {
         if (! $this->kuota) {
@@ -207,20 +215,6 @@ class TravelPackage extends Model
     public function getKursiHabisAttribute(): bool
     {
         return $this->sisa_kursi !== null && $this->sisa_kursi <= 0;
-    }
-
-    /**
-     * Sisa kursi yang layak DIUMUMKAN.
-     *
-     * Angka besar tidak diumumkan: "sisa 38 kursi" tidak mendorong siapa pun,
-     * dan justru memberi tahu bahwa tripnya sepi. Yang berguna hanya ketika
-     * sisanya benar-benar sedikit.
-     */
-    public function getSisaKursiMendesakAttribute(): ?int
-    {
-        $sisa = $this->sisa_kursi;
-
-        return $sisa !== null && $sisa > 0 && $sisa <= 5 ? $sisa : null;
     }
 
     public function scopeTayang($query)

@@ -360,29 +360,27 @@ new #[Layout('components.layouts.guest')] class extends Component
                             <div class="p-6 space-y-3 sm:p-7">
                                 @if ($paket->category === 'open_trip')
                                     @if ($paket->kursi_habis)
-                                        {{-- Tombolnya diganti, bukan dinonaktifkan.
+                                        {{-- Kursinya penuh, tetapi ANGKANYA tidak disebut.
 
-                                             Tombol mati yang tetap terlihat seperti tombol
-                                             ditekan berkali-kali oleh orang yang mengira
-                                             halamannya rusak. Dan kursi habis bukan jalan
-                                             buntu: pembatalan memang terjadi, jadi yang
-                                             ditawarkan tempat bertanya. --}}
-                                        <div class="p-4 text-sm text-center rounded-2xl bg-rose-50 text-rose-800">
-                                            <strong>Kursi trip ini sudah habis.</strong>
-                                            <span class="block mt-1">Kadang ada kursi yang batal — tanyakan lewat
-                                                WhatsApp, kami kabari bila ada yang kosong.</span>
+                                             Sisa kursi sengaja tidak diumumkan di halaman
+                                             publik: urusan ketersediaan dibicarakan lewat
+                                             WhatsApp, dan angka di layar yang berbeda dari
+                                             yang dikatakan tim di percakapan justru
+                                             melemahkan keduanya.
+
+                                             Yang tetap dilakukan halaman ini: berhenti
+                                             menerima pendaftaran ketika armadanya memang
+                                             sudah penuh, lalu mengantar orangnya ke tempat
+                                             pertanyaannya bisa dijawab. Menerima pendaftaran
+                                             yang tidak muat bukan menjaga peluang — ia
+                                             menunda kabar buruknya sampai orang itu sudah
+                                             mentransfer. --}}
+                                        <div class="p-4 text-sm text-center rounded-2xl bg-orcha-foam text-orcha-navy">
+                                            <strong>Pendaftaran online untuk trip ini sedang kami tutup.</strong>
+                                            <span class="block mt-1">Tanyakan ketersediaan terbaru lewat WhatsApp —
+                                                jadwal dan kursi masih bisa berubah.</span>
                                         </div>
                                     @else
-                                        @if ($paket->sisa_kursi_mendesak)
-                                            {{-- Hanya diumumkan saat sisanya benar-benar sedikit.
-                                                 "Sisa 38 kursi" tidak mendorong siapa pun, dan
-                                                 justru memberi tahu bahwa tripnya sepi. --}}
-                                            <p class="flex items-center justify-center gap-1.5 text-sm font-bold text-rose-700">
-                                                <x-heroicon-s-fire class="w-4 h-4" />
-                                                Tinggal {{ $paket->sisa_kursi_mendesak }} kursi
-                                            </p>
-                                        @endif
-
                                         <a href="{{ route('pendaftaran-open-trip', ['paket' => $paket->uuid]) }}"
                                             class="w-full btn-orcha btn-orcha-primary">
                                             <x-heroicon-o-pencil-square class="w-5 h-5" />
