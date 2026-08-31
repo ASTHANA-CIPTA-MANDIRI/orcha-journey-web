@@ -387,8 +387,15 @@ new #[Layout('components.layouts.guest')] class extends Component
                                              menunda kabar buruknya sampai orang itu sudah
                                              mentransfer. --}}
                                         <div class="p-5 text-center rounded-2xl bg-orcha-foam">
-                                            <p class="flex items-center justify-center gap-1.5 text-base font-bold text-orcha-navy">
-                                                <x-heroicon-s-fire class="w-5 h-5 text-orcha-sun" />
+                                            {{-- Tanpa ikon api.
+
+                                                 Ikon api berwarna di sebelah kalimat pemasaran
+                                                 terbaca sebagai emoji, bukan sebagai bagian
+                                                 tampilan — dan itu membuat halamannya terasa
+                                                 dirakit cepat. Kalimatnya sendiri sudah cukup
+                                                 tegas; yang menguatkannya huruf tebal, bukan
+                                                 gambar di sebelahnya. --}}
+                                            <p class="text-base font-bold text-center text-orcha-navy">
                                                 Kuota untuk trip ini sudah habis
                                             </p>
                                             <p class="mt-1.5 text-sm leading-relaxed text-slate-600">

@@ -321,8 +321,16 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                                 <button type="button" wire:click="$set('nilai', {{ $bintang }})"
                                     aria-label="{{ $bintang }} bintang"
                                     aria-pressed="{{ $nilai >= $bintang ? 'true' : 'false' }}"
-                                    class="text-2xl transition {{ $nilai >= $bintang ? 'text-orcha-sun' : 'text-slate-300 hover:text-slate-400' }}">
-                                    &#9733;
+                                    class="transition {{ $nilai >= $bintang ? 'text-orcha-sun' : 'text-slate-300 hover:text-slate-400' }}">
+                                    {{-- Ikon, bukan karakter bintang Unicode (&#9733;).
+
+                                         Karakter itu digambar oleh fon sistem, jadi bentuk dan
+                                         tebalnya berubah-ubah antar perangkat — di sebagian
+                                         ponsel ia bahkan dirender sebagai emoji berwarna.
+                                         Bintang di daftar ulasan sudah memakai ikon; memakai
+                                         yang sama di sini membuat keduanya benar-benar
+                                         sebentuk. --}}
+                                    <x-heroicon-s-star class="w-7 h-7" />
                                 </button>
                             @endforeach
                         </div>

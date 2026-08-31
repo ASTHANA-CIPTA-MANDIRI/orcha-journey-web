@@ -174,7 +174,12 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                 @elseif ($dest->created_at?->gt(now()->subDays(30)))
                                     <span
                                         class="absolute inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-white rounded-full top-3 left-3 bg-orcha-sky">
-                                        <x-heroicon-s-sparkles class="w-4 h-4" />
+                                        {{-- Jam, bukan kilau: yang ditandai lencana ini "baru
+                                             dicatat", dan kilau terbaca sebagai hiasan emoji
+                                             alih-alih keterangan. Lencana pengunjung di
+                                             sebelahnya juga memakai ikon yang menerangkan
+                                             isinya, bukan yang menghiasinya. --}}
+                                        <x-heroicon-s-clock class="w-4 h-4" />
                                         Baru
                                     </span>
                                 @endif
