@@ -1,10 +1,13 @@
 <?php
 
 use App\Models\PaketWisata\TravelPackage;
+use App\Support\Seo;
+use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
-new #[Layout('components.layouts.guest')] class extends Component {
+new #[Layout('components.layouts.guest')] class extends Component
+{
     public TravelPackage $paket;
 
     public function mount(TravelPackage $paket): void
@@ -14,6 +17,71 @@ new #[Layout('components.layouts.guest')] class extends Component {
         abort_unless($paket->sedang_tayang, 404);
 
         $this->paket = $paket;
+    }
+
+    /**
+     * Keterangan halaman untuk mesin pencari dan pratinjau tautan.
+     *
+     * Halaman ini SUDAH didaftarkan di peta situs sejak lama, tetapi tidak
+     * pernah mengirim judul maupun keterangannya sendiri. Akibatnya tiap paket
+     * muncul di Google dengan judul dan kalimat yang persis sama dengan
+     * beranda — "Orcha Journey — Open Trip, Private Trip, Study Tour & Sewa
+     * Kendaraan" — sehingga sepuluh hasil pencarian yang berbeda terbaca
+     * sebagai sepuluh salinan halaman yang sama, dan tidak satu pun menyebut
+     * paket mana yang sedang dilihat.
+     *
+     * Itu lebih merugikan daripada halaman yang belum ada sama sekali:
+     * halamannya sudah diberikan ke mesin pencari, hanya tanpa identitas.
+     */
+    public function rendering(View $view): void
+    {
+        $paket = $this->paket;
+
+        // Kategorinya ikut di judul karena itu yang diketik orang: yang
+        // mencari "study tour bromo" tidak mengetik nama paketnya.
+        $view->title($paket->name.' — '.$paket->category_label.' | Orcha Journey');
+
+        $view->layoutData([
+            'seoKeterangan' => Seo::keterangan(khusus: $this->kalimatSeo()),
+            'seoGambar' => $paket->sampul,
+        ]);
+    }
+
+    /**
+     * Kalimat cuplikan di hasil pencarian.
+     *
+     * Disusun dari yang MEMBEDAKAN satu paket dari paket lain — jadwal, lama
+     * perjalanan, harga, tempat yang didatangi — bukan kalimat pemasaran umum.
+     * Bagian yang datanya belum diisi dilewati begitu saja, sehingga paket yang
+     * tanggalnya belum ditetapkan tetap punya kalimat yang utuh, bukan kalimat
+     * berlubang.
+     */
+    private function kalimatSeo(): string
+    {
+        $paket = $this->paket;
+
+        $bagian = array_filter([
+            $paket->category_label.' '.$paket->name,
+            $paket->jadwal_label ? 'Berangkat '.$paket->jadwal_label : null,
+            filled($paket->duration) ? $paket->duration : null,
+            $paket->price > 0 ? 'Rp '.number_format((float) $paket->price, 0, ',', '.').' per orang' : null,
+        ]);
+
+        $kalimat = implode('. ', $bagian).'.';
+
+        // Daftar tempatnya ditaruh terakhir: bagian inilah yang paling mungkin
+        // terpotong oleh batas panjang, dan kehilangan ekor daftar tempat jauh
+        // lebih ringan daripada kehilangan harga atau tanggalnya.
+        $tempat = collect($paket->destination_list ?? [])
+            ->map(fn ($satu) => is_array($satu) ? ($satu['nama'] ?? $satu['name'] ?? null) : $satu)
+            ->filter()
+            ->take(4);
+
+        if ($tempat->isNotEmpty()) {
+            $kalimat .= ' Mengunjungi '.$tempat->implode(', ').'.';
+        }
+
+        return $kalimat;
     }
 
     public function with(): array
@@ -29,6 +97,55 @@ new #[Layout('components.layouts.guest')] class extends Component {
 }; ?>
 
 @php
+    /*
+     | Data terstruktur TouristTrip.
+     |
+     | Yang membedakannya dari sekadar meta description: harga, mata uang, dan
+     | ketersediaan dikirim sebagai DATA, bukan kalimat — itu yang membuat
+     | Google boleh menampilkan harga langsung di bawah tautan, bukan menebaknya
+     | dari teks halaman.
+     |
+     | Ditulis di sini, bukan lewat seoSkema di layout, karena hanya bagian
+     | tampilan ini yang tahu bentuk akhir datanya. Layout tetap menggambar
+     | skema TravelAgency untuk situsnya; keduanya berdampingan dan memang
+     | boleh — yang satu menerangkan penjualnya, yang satu barangnya.
+     */
+    $skemaPaket = array_filter([
+        '@context' => 'https://schema.org',
+        '@type' => 'TouristTrip',
+        'name' => $paket->name,
+        'description' => $paket->category_label . ' ' . $paket->name
+            . ($paket->duration ? ' — ' . $paket->duration : ''),
+        'image' => $paket->sampul,
+        'url' => route('paket-detail', $paket->uuid),
+        'provider' => [
+            '@type' => 'TravelAgency',
+            'name' => 'Orcha Journey',
+            'url' => route('home'),
+        ],
+        // Tanggal keberangkatan hanya dikirim bila memang sudah ditetapkan.
+        // Menyebut tanggal yang belum pasti lebih buruk daripada tidak
+        // menyebutnya: yang tertulis di hasil pencarian akan dipegang orang.
+        'startDate' => $paket->tanggal_berangkat?->toDateString(),
+        'endDate' => $paket->tanggal_pulang?->toDateString(),
+        'itinerary' => collect($paket->destination_list ?? [])
+            ->map(fn ($satu) => is_array($satu) ? ($satu['nama'] ?? $satu['name'] ?? null) : $satu)
+            ->filter()
+            ->values()
+            ->map(fn ($nama) => ['@type' => 'TouristAttraction', 'name' => $nama])
+            ->all() ?: null,
+        'offers' => $paket->price > 0 ? array_filter([
+            '@type' => 'Offer',
+            'price' => (string) (int) $paket->price,
+            'priceCurrency' => 'IDR',
+            'url' => route('paket-detail', $paket->uuid),
+            // sedang_tayang sudah dijamin oleh mount(): halaman ini menjawab
+            // 404 untuk paket yang tidak tayang, jadi yang sampai di sini
+            // pasti sedang dijual.
+            'availability' => 'https://schema.org/InStock',
+        ]) : null,
+    ], fn ($nilai) => $nilai !== null && $nilai !== [] && $nilai !== '');
+
     $rupiah = fn ($angka) => 'Rp ' . number_format((float) $angka, 0, ',', '.');
     $wa = 'https://api.whatsapp.com/send?phone=' . config('orcha.whatsapp') . '&text=' . rawurlencode("Halo Orcha Journey, saya ingin bertanya soal {$paket->name}.");
     $dp = config('orcha.pembayaran.dp_persen');
@@ -36,6 +153,8 @@ new #[Layout('components.layouts.guest')] class extends Component {
 @endphp
 
 <div>
+    <script type="application/ld+json">{!! json_encode($skemaPaket, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+
     <x-page-hero :title="$paket->name" :eyebrow="$paket->category_label"
         :subtitle="$paket->jadwal_label ? 'Keberangkatan ' . $paket->jadwal_label : $paket->duration"
         image="images/HERO/paket-trip.webp" />

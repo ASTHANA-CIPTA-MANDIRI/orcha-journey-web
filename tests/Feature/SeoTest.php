@@ -279,3 +279,149 @@ test('kedua pelacak memakai penjagaan yang sama, tidak mungkin salah satu lolos'
     expect($isi)->not->toContain('fbevents.js')
         ->not->toContain('googletagmanager');
 });
+
+/*
+ |--------------------------------------------------------------------------
+ | Halaman yang punya isi sendiri
+ |--------------------------------------------------------------------------
+ |
+ | Halaman paket dan halaman destinasi berjumlah puluhan dan isinya berbeda
+ | satu sama lain. Keterangan per-rute di App\Support\Seo tidak bisa melayani
+ | keduanya — satu kalimat untuk "halaman paket" akan sama untuk semua paket —
+ | jadi keduanya mengirim judul dan keterangannya sendiri.
+ */
+
+test('halaman paket memakai nama paketnya sendiri, bukan judul beranda', function () {
+    $paket = App\Models\PaketWisata\TravelPackage::create([
+        'name' => 'Open Trip Bromo Midnight',
+        'category' => 'open_trip',
+        'price' => 750000,
+        'status' => 'terbit',
+        'duration' => '2 hari 1 malam',
+    ]);
+
+    $isi = $this->get(route('paket-detail', $paket->uuid))->assertOk()->getContent();
+
+    /*
+     | Halaman ini SUDAH lama didaftarkan di peta situs, tetapi tidak pernah
+     | mengirim judul maupun keterangannya sendiri — jadi tiap paket muncul di
+     | hasil pencarian dengan judul dan kalimat yang persis sama dengan
+     | beranda. Sepuluh hasil yang berbeda terbaca sebagai sepuluh salinan
+     | halaman yang sama, dan tidak satu pun menyebut paket mana yang dilihat.
+     */
+    expect($isi)
+        ->toContain('<title>Open Trip Bromo Midnight — Open Trip | Orcha Journey</title>')
+        ->not->toContain('<title>Orcha Journey — Open Trip, Private Trip, Study Tour');
+
+    preg_match('/<meta name="description" content="([^"]*)"/', $isi, $ket);
+
+    // Yang MEMBEDAKAN paket ini dari paket lain: harga dan lamanya, bukan
+    // kalimat pemasaran umum yang sama untuk semuanya.
+    expect($ket[1])->toContain('Rp 750.000')->toContain('2 hari 1 malam');
+});
+
+test('halaman paket mengirim harga sebagai data, bukan hanya kalimat', function () {
+    $paket = App\Models\PaketWisata\TravelPackage::create([
+        'name' => 'Private Trip Dieng',
+        'category' => 'private_trip',
+        'price' => 1250000,
+        'status' => 'terbit',
+    ]);
+
+    $isi = $this->get(route('paket-detail', $paket->uuid))->assertOk()->getContent();
+
+    /*
+     | Harga yang dikirim sebagai data terstruktur boleh ditampilkan Google
+     | langsung di bawah tautan; harga yang cuma tertulis di kalimat harus
+     | ditebaknya sendiri dari teks halaman, dan sering tidak ditampilkan sama
+     | sekali.
+     */
+    expect($isi)
+        ->toContain('"@type":"TouristTrip"')
+        ->toContain('"price":"1250000"')
+        ->toContain('"priceCurrency":"IDR"');
+});
+
+test('tiap destinasi punya halaman dan judulnya sendiri', function () {
+    $destinasi = App\Models\Etalase\DestinationPopuler::create([
+        'destination_name' => 'Raja Ampat',
+        'wilayah' => 'papua',
+        'provinsi' => 'Papua Barat Daya',
+        'daerah' => 'Raja Ampat',
+        'deskripsi' => 'Gugusan karst di atas laut paling jernih di Indonesia.',
+    ]);
+
+    /*
+     | Sebelumnya nama destinasi hanya muncul sebagai teks di tengah satu
+     | halaman daftar yang panjang: tidak ada alamat yang bisa diberikan ke
+     | mesin pencari, jadi "Raja Ampat" tidak pernah bisa menjadi hasil
+     | pencariannya sendiri.
+     */
+    $isi = $this->get(route('destinasi.detail', $destinasi))->assertOk()->getContent();
+
+    expect($isi)
+        ->toContain('Raja Ampat — Raja Ampat, Papua Barat Daya | Orcha Journey')
+        ->toContain('Gugusan karst di atas laut paling jernih di Indonesia.')
+        // TouristAttraction, bukan sekadar halaman yang menyebut nama tempat.
+        ->toContain('"@type":"TouristAttraction"')
+        ->toContain('"addressRegion":"Papua Barat Daya"');
+});
+
+test('slug destinasi tidak berubah saat namanya disunting', function () {
+    $destinasi = App\Models\Etalase\DestinationPopuler::create([
+        'destination_name' => 'Pantai Indrayanti',
+        'wilayah' => 'jawa',
+    ]);
+
+    expect($destinasi->slug)->toBe('pantai-indrayanti');
+
+    /*
+     | Alamatnya sudah beredar — dibagikan di WhatsApp, dicatat mesin pencari.
+     | Memperbaiki ejaan nama tidak sepadan dengan mematikan semua tautan yang
+     | sudah tersebar, jadi slugnya sengaja tidak ikut berubah.
+     */
+    $destinasi->update(['destination_name' => 'Pantai Indrayanti Gunungkidul']);
+
+    expect($destinasi->fresh()->slug)->toBe('pantai-indrayanti');
+});
+
+test('destinasi bernama sama tetap dapat alamat masing-masing', function () {
+    $satu = App\Models\Etalase\DestinationPopuler::create([
+        'destination_name' => 'Pantai Selatan', 'wilayah' => 'jawa',
+    ]);
+
+    // Dua tempat boleh bernama sama di kabupaten yang berbeda. Tanpa akhiran
+    // angka, yang kedua ditolak kunci unik saat admin menekan simpan.
+    $dua = App\Models\Etalase\DestinationPopuler::create([
+        'destination_name' => 'Pantai Selatan', 'wilayah' => 'jawa',
+    ]);
+
+    expect($satu->slug)->toBe('pantai-selatan')
+        ->and($dua->slug)->toBe('pantai-selatan-2');
+});
+
+test('nama destinasi di daftar bisa diikuti mesin pencari', function () {
+    $destinasi = App\Models\Etalase\DestinationPopuler::create([
+        'destination_name' => 'Kawah Ijen', 'wilayah' => 'jawa',
+    ]);
+
+    $isi = $this->get(route('destinasi'))->assertOk()->getContent();
+
+    /*
+     | Tombol "Lihat Detail" membuka panel di halaman yang sama — itu memang
+     | disengaja. Tetapi tombol bukan tautan: mesin pencari tidak menekannya,
+     | sehingga tanpa <a> pada namanya tidak ada satu pun jalan menuju halaman
+     | destinasi selain peta situs.
+     */
+    expect($isi)->toContain('href="'.route('destinasi.detail', $destinasi).'"');
+});
+
+test('peta situs memuat tiap destinasi', function () {
+    $destinasi = App\Models\Etalase\DestinationPopuler::create([
+        'destination_name' => 'Labuan Bajo', 'wilayah' => 'nusa-tenggara',
+    ]);
+
+    $isi = $this->get('/sitemap.xml')->assertOk()->getContent();
+
+    expect($isi)->toContain(route('destinasi.detail', $destinasi));
+});

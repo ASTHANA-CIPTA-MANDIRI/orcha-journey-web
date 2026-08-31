@@ -36,6 +36,19 @@ Volt::route('/sewa-kendaraan/{jenis?}', 'public.sewa-kendaraan.index')->name('se
 Volt::route('/blog/{artikel:slug}', 'public.blog.detail')->name('blog.detail');
 Volt::route('/blog', 'public.blog.index')->name('blog');
 
+/*
+ | Destinasi.
+ |
+ | Halaman per destinasi didaftarkan LEBIH DULU daripada /destinasi, dengan
+ | alasan yang sama seperti blog di atas. Kuncinya slug: nama destinasi justru
+ | yang diketik orang di mesin pencari, jadi ia harus terbaca di alamatnya.
+ |
+ | Panel detail di halaman daftar TIDAK digantikan — lihat alasannya di sana.
+ | Yang ini untuk yang datang dari luar: mesin pencari dan tautan yang
+ | dibagikan, keduanya butuh alamat yang berdiri sendiri.
+ */
+Volt::route('/destinasi/{destinasi:slug}', 'public.destinasi.detail')->name('destinasi.detail');
+
 // Destinasi, testimoni, kontak
 Volt::route('/destinasi', 'public.destinasi.index')->name('destinasi');
 Volt::route('/testimoni', 'public.testimoni.index')->name('testimoni');

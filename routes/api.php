@@ -160,8 +160,20 @@ Route::prefix('v1')
         Route::delete('/artikel/{artikel:id}', [ArtikelController::class, 'destroy']);
 
         /* ------------------------------ ETALASE ------------------------------ */
+        /*
+         | Kuncinya {destinasi:id}, BUKAN slug.
+         |
+         | Halaman publik memakai slug supaya alamatnya terbaca manusia dan
+         | mesin pencari, jadi getRouteKeyName() model ini mengembalikan 'slug'.
+         | Tetapi lemon memanggil API ini dengan id — itu yang ia simpan dan
+         | tampilkan di daftarnya — sehingga tanpa :id di sini seluruh
+         | penyuntingan destinasi dari lemon menjawab "tidak ditemukan".
+         |
+         | Pola yang sama dipakai artikel blog, dengan alasan yang bersaudara:
+         | yang dipegang admin bukan slug.
+         */
         Route::get('/destinasi', [EtalaseController::class, 'destinasi']);
-        Route::get('/destinasi/{destinasi}', [EtalaseController::class, 'satuDestinasi']);
+        Route::get('/destinasi/{destinasi:id}', [EtalaseController::class, 'satuDestinasi']);
         // Provinsi tambahan: daftar bawaan boleh dilengkapi tanpa menunggu rilis.
         // Usulan provinsi dari nama destinasi — hasilnya boleh kosong.
         Route::get('/cari-lokasi', [ProvinsiController::class, 'cariLokasi']);
@@ -174,8 +186,8 @@ Route::prefix('v1')
         Route::post('/provinsi', [ProvinsiController::class, 'store']);
         Route::delete('/provinsi/{provinsi}', [ProvinsiController::class, 'destroy']);
         Route::post('/destinasi', [EtalaseController::class, 'simpanDestinasi']);
-        Route::match(['put', 'post'], '/destinasi/{destinasi}', [EtalaseController::class, 'perbaruiDestinasi']);
-        Route::delete('/destinasi/{destinasi}', [EtalaseController::class, 'hapusDestinasi']);
+        Route::match(['put', 'post'], '/destinasi/{destinasi:id}', [EtalaseController::class, 'perbaruiDestinasi']);
+        Route::delete('/destinasi/{destinasi:id}', [EtalaseController::class, 'hapusDestinasi']);
 
         Route::get('/testimoni', [EtalaseController::class, 'testimoni']);
         Route::post('/testimoni', [EtalaseController::class, 'simpanTestimoni']);

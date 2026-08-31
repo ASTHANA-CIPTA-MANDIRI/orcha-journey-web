@@ -185,8 +185,18 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                 </span>
 
                                 <div class="absolute bottom-4 left-4 right-4">
+                                    {{-- Namanya tautan sungguhan ke halaman destinasinya.
+
+                                         Tombol "Lihat Detail" di bawah membuka panel di halaman
+                                         ini — itu tetap, alasannya ada di panelnya. Tetapi
+                                         tombol bukan tautan: mesin pencari tidak menekannya,
+                                         sehingga tanpa <a> di sini tidak ada satu pun jalan
+                                         menuju halaman destinasi selain peta situs. --}}
                                     <h2 class="text-xl font-bold leading-tight text-white font-heading sm:text-2xl">
-                                        {{ $dest->destination_name }}
+                                        <a href="{{ route('destinasi.detail', $dest) }}" wire:navigate
+                                            class="transition hover:text-orcha-sun">
+                                            {{ $dest->destination_name }}
+                                        </a>
                                     </h2>
                                     @if ($dest->alamat_singkat)
                                         {{-- Daerahnya disebut lebih dulu: itu yang dicari dan

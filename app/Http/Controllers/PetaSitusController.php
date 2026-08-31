@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Blog\Artikel;
+use App\Models\Etalase\DestinationPopuler;
 use App\Models\PaketWisata\TravelPackage;
 use Illuminate\Http\Response;
 
@@ -92,6 +93,24 @@ class PetaSitusController extends Controller
                 route('blog.detail', $artikel),
                 $artikel->updated_at,
                 'yearly',
+                '0.6',
+            ];
+        }
+
+        /*
+         | Destinasi: tidak ada penyaring "tayang" seperti paket dan artikel —
+         | destinasi yang tercatat memang seluruhnya tampil di halaman daftar,
+         | jadi menyaringnya di sini akan menyembunyikan halaman yang hidup.
+         |
+         | changefreq-nya 'monthly': keterangan sebuah tempat jarang berubah,
+         | dan menyatakan sebaliknya membuat perayap membuang kunjungannya pada
+         | halaman yang isinya sama.
+         */
+        foreach (DestinationPopuler::query()->get() as $destinasi) {
+            $baris[] = [
+                route('destinasi.detail', $destinasi),
+                $destinasi->updated_at,
+                'monthly',
                 '0.6',
             ];
         }

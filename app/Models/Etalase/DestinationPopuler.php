@@ -4,6 +4,7 @@ namespace App\Models\Etalase;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class DestinationPopuler extends Model
 {
@@ -13,6 +14,7 @@ class DestinationPopuler extends Model
 
     protected $fillable = [
         'destination_name',
+        'slug',
         'wilayah',
         'provinsi',
         'daerah',
@@ -25,6 +27,45 @@ class DestinationPopuler extends Model
     protected $casts = [
         'others_photo' => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $destinasi) {
+            if (blank($destinasi->slug)) {
+                $destinasi->slug = static::slugUnik($destinasi->destination_name, $destinasi->id);
+            }
+        });
+    }
+
+    /**
+     * Slug dibuat SEKALI, saat barisnya belum punya.
+     *
+     * Sengaja tidak ikut berubah ketika namanya disunting. Alamat destinasi
+     * sudah beredar — dibagikan di WhatsApp, dicatat mesin pencari — dan
+     * memperbaiki ejaan nama tidak sepadan dengan mematikan semua tautan yang
+     * sudah tersebar. Pola yang sama dipakai slug artikel.
+     */
+    public static function slugUnik(string $nama, ?int $kecuali = null): string
+    {
+        $dasar = Str::slug($nama) ?: 'destinasi';
+        $slug = $dasar;
+        $n = 2;
+
+        while (static::query()
+            ->where('slug', $slug)
+            ->when($kecuali, fn ($q) => $q->whereKeyNot($kecuali))
+            ->exists()) {
+            $slug = "$dasar-$n";
+            $n++;
+        }
+
+        return $slug;
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
 
     /**
      * Label wilayah yang tampil di kartu destinasi & admin.

@@ -149,8 +149,20 @@
         {!! json_encode($skemaSitus, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
     </script>
 
-    {{-- Data terstruktur khusus halaman ini, bila ada — paket wisata mengirim
-         TouristTrip berikut harganya, FAQ mengirim daftar tanyanya. --}}
+    {{-- Data terstruktur khusus halaman ini, bila ada.
+
+         Komentar ini pernah menyebut paket wisata mengirim TouristTrip dan FAQ
+         mengirim daftar tanyanya, padahal tidak satu pun halaman pernah
+         mengisi $seoSkema — rencana yang tidak jadi, lalu komentarnya
+         tertinggal dan terbaca seperti sudah dikerjakan.
+
+         Halaman yang punya data terstruktur sendiri sekarang menggambarnya di
+         berkasnya masing-masing: paket wisata (TouristTrip berikut harganya),
+         destinasi (TouristAttraction), dan artikel blog (BlogPosting). Yang
+         tahu bentuk akhir datanya memang halamannya, bukan layout.
+
+         Jalur ini dibiarkan tetap ada untuk halaman yang lebih pas
+         mengirimkannya lewat sini. --}}
     @isset($seoSkema)
         <script type="application/ld+json">
             {!! json_encode($seoSkema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}

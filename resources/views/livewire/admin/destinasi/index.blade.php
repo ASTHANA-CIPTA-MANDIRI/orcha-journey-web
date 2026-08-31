@@ -90,8 +90,22 @@ new #[Layout('components.layouts.admin')] #[Title('Admin | destination')] class 
         $this->showDeleteModal = false;
     }
 
-    public function edit(DestinationPopuler $destination): void
+    /**
+     | Menerima ID, bukan model yang diikat otomatis.
+     *
+     * Sejak destinasi punya alamat publiknya sendiri, getRouteKeyName() model
+     * ini mengembalikan 'slug' — supaya /destinasi/raja-ampat terbaca manusia
+     * dan mesin pencari. Livewire memakai kunci yang sama untuk mengikat
+     * parameter metode, sedangkan tombol di daftar ini mengirim id.
+     *
+     * Akibatnya tombol sunting menjawab "tidak ditemukan" untuk SETIAP
+     * destinasi. Modelnya diambil di sini supaya kuncinya tidak lagi ikut
+     * berubah bersama alamat publiknya.
+     */
+    public function edit(int $destinationId): void
     {
+        $destination = DestinationPopuler::findOrFail($destinationId);
+
         $this->resetForm();
         $this->isEdit = true;
         $this->destinationName = $destination->destination_name;
