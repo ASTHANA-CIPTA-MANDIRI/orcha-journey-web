@@ -116,6 +116,31 @@ class KirimPemberitahuan
         ));
     }
 
+    /**
+     * Mencatat surat yang gagal terkirim ke jejak audit.
+     *
+     * Gagalnya pencatatan ini pun diam: yang sedang ditangani sudah sebuah
+     * kegagalan, dan menambahkan kegagalan kedua di atasnya tidak menolong
+     * siapa pun.
+     */
+    private static function catatGagal(string $judul, string $kode, \Throwable $e): void
+    {
+        try {
+            $permintaan = \Illuminate\Http\Request::create('/', 'POST');
+            $permintaan->attributes->set('admin_pemanggil', 'Sistem');
+
+            \App\Models\JejakAudit::catat(
+                $permintaan,
+                'surat gagal terkirim',
+                'Surat "'.$judul.'" gagal terkirim. Pelanggan kemungkinan besar '
+                    .'belum menerima kabar apa pun. Sebab: '.$e->getMessage(),
+                $kode,
+            );
+        } catch (\Throwable) {
+            // Sengaja dibiarkan — lihat alasannya di atas.
+        }
+    }
+
     private static function coba(string $tujuan, string $judul, string $kode, \Closure $surat): bool
     {
         try {
@@ -129,6 +154,28 @@ class KirimPemberitahuan
                 'tujuan' => $tujuan,
                 'galat' => $e->getMessage(),
             ]);
+
+            /*
+             | Kegagalannya ikut masuk JEJAK AUDIT, bukan berhenti di berkas log.
+             |
+             | Sebelum ini nilai balik false-nya tidak pernah dibaca siapa pun
+             | dan lognya tidak pernah dibuka. Akibatnya: saat SMTP mati,
+             | pendaftaran tetap tersimpan, pelanggan tidak pernah menerima kode
+             | pesanannya, dan tidak ada satu pun tanda di layar admin. Kodenya
+             | cuma ada di layar pelanggan saat itu — tertutup tab, hilang — dan
+             | ia lalu menghubungi WhatsApp menanyakan kode yang seharusnya
+             | sudah dikirim.
+             |
+             | Jejak audit dipilih karena halamannya SUDAH ada dan sudah bisa
+             | dicari per kode pesanan. Tabel baru berikut layarnya sendiri
+             | hanya menambah tempat yang harus diingat orang untuk dibuka.
+             |
+             | Alamat tujuannya sengaja TIDAK ikut dicatat: itu data pribadi
+             | pelanggan, dan jejak audit dibaca lebih banyak orang daripada
+             | yang perlu melihat alamat surelnya. Kodenya sudah cukup untuk
+             | menemukan orangnya.
+             */
+            self::catatGagal($judul, $kode, $e);
 
             return false;
         }

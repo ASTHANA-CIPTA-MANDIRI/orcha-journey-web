@@ -2,6 +2,7 @@
 
 use App\Models\Etalase\DestinationPopuler;
 use App\Models\JejakAudit;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -128,4 +129,53 @@ test('gagalnya pencatatan tidak menggagalkan pekerjaan yang dicatat', function (
         ->assertOk();
 
     expect(DestinationPopuler::count())->toBe(0);
+});
+
+test('surat yang gagal terkirim tercatat di jejak audit', function () {
+    /*
+     | Sebelum ini kegagalannya cuma masuk berkas log, dan nilai balik false-nya
+     | tidak pernah dibaca siapa pun. Saat SMTP mati: pendaftaran tetap
+     | tersimpan, pelanggan tidak pernah menerima kode pesanannya, dan tidak ada
+     | satu pun tanda di layar admin. Kodenya cuma ada di layar pelanggan saat
+     | itu — tertutup tab, hilang.
+     */
+    Mail::shouldReceive('to')->andThrow(new RuntimeException('SMTP menolak sambungan'));
+
+    config()->set('orcha.email_pemberitahuan', 'kantor@contoh.test');
+
+    App\Support\KirimPemberitahuan::kirim(
+        'Pendaftaran Open Trip Baru',
+        'OT-3108-K7QMXV',
+        ['Nama' => 'Budi Santoso'],
+    );
+
+    $jejak = App\Models\JejakAudit::where('aksi', 'surat gagal terkirim')->first();
+
+    expect($jejak)->not->toBeNull()
+        ->and($jejak->kode)->toBe('OT-3108-K7QMXV')
+        ->and($jejak->ringkasan)->toContain('SMTP menolak sambungan')
+        // Pelakunya Sistem: tidak ada admin yang bisa disalahkan untuk ini.
+        ->and($jejak->admin)->toBe('Sistem');
+});
+
+test('alamat surel pelanggan tidak ikut tercatat di jejak', function () {
+    /*
+     | Jejak audit dibaca lebih banyak orang daripada yang perlu melihat alamat
+     | surel pelanggan. Kode pesanannya sudah cukup untuk menemukan orangnya.
+     */
+    Mail::shouldReceive('to')->andThrow(new RuntimeException('gagal'));
+
+    config()->set('orcha.email_pemberitahuan', 'kantor@contoh.test');
+
+    App\Support\KirimPemberitahuan::kirim(
+        'Uji', 'OT-3108-K7QMXV', [],
+        pelanggan: new App\Support\SalinanPelanggan(
+            email: 'rahasia@contoh.test',
+            judul: 'Uji',
+        ),
+    );
+
+    $semua = App\Models\JejakAudit::pluck('ringkasan')->implode(' ');
+
+    expect($semua)->not->toContain('rahasia@contoh.test');
 });

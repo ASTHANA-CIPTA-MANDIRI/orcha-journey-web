@@ -766,6 +766,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Berapa lama data kesehatan peserta disimpan
+    |--------------------------------------------------------------------------
+    |
+    | Formulir kesehatan menyimpan riwayat penyakit, riwayat operasi, alergi,
+    | obat rutin, dan golongan darah. Itu data pribadi bersifat spesifik: bocor
+    | sekali, akibatnya melekat pada orangnya seumur hidup, dan tidak ada cara
+    | menariknya kembali.
+    |
+    | Sebelum ada setelan ini, tidak ada batasnya sama sekali — data medis
+    | peserta yang sudah pulang berbulan-bulan lalu masih tersimpan utuh dan
+    | akan terus tersimpan.
+    |
+    | Dihitung dari TANGGAL KEBERANGKATAN, bukan tanggal pengisian: gunanya
+    | data ini di hari perjalanan, dan yang menentukan kapan ia tidak
+    | diperlukan lagi adalah kapan perjalanannya selesai.
+    |
+    | 90 hari dipilih supaya masih menutupi klaim asuransi atau pertanyaan
+    | susulan yang muncul setelah trip, lalu berhenti. Kalau aturan Anda
+    | berbeda, ubah angkanya di sini — seluruh sistem membacanya dari satu
+    | tempat ini.
+    */
+    'kesehatan' => [
+        'simpan_hari' => 90,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Ketentuan Pembayaran & DP
     |--------------------------------------------------------------------------
     |
