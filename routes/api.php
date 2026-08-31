@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\SewaKendaraan\KatalogKendaraanController;
 use App\Http\Controllers\Api\SewaKendaraan\KendaraanController;
 use App\Http\Controllers\Api\SewaKendaraan\PenyewaanController;
 use App\Http\Controllers\Api\Umum\DashboardController;
+use App\Http\Controllers\Api\Umum\JejakAuditController;
 use App\Http\Controllers\Api\Umum\MetaController;
 use Illuminate\Support\Facades\Route;
 
@@ -42,6 +43,17 @@ Route::prefix('v1')
         Route::get('/menu', [MetaController::class, 'menu']);
         Route::get('/rujukan', [MetaController::class, 'rujukan']);
         Route::get('/dashboard', DashboardController::class);
+
+        /*
+         | Jejak audit — HANYA membaca.
+         |
+         | Tidak ada endpoint untuk menyunting atau menghapusnya. Catatan audit
+         | yang bisa dihapus lewat API bukan catatan audit: ia cuma daftar yang
+         | kebetulan berisi kejadian, dan baris yang pertama dihapus justru
+         | yang paling perlu dibaca.
+         */
+        Route::get('/jejak-audit', [JejakAuditController::class, 'index']);
+        Route::get('/jejak-audit/admin', [JejakAuditController::class, 'admin']);
 
         /* ----------------------------- OPEN TRIP ----------------------------- */
         Route::get('/pendaftaran', [PendaftaranController::class, 'index']);
