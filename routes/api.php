@@ -214,7 +214,7 @@ Route::prefix('v1')
          | ikut mengirim seluruh isi testimoni kembali ke server — dan isi yang
          | ikut terkirim adalah isi yang bisa berubah tanpa disengaja.
          */
-        Route::patch('/testimoni/{testimoni}/status', [EtalaseController::class, 'ubahStatusTestimoni']);
+        Route::match(['put', 'patch'], '/testimoni/{testimoni}/status', [EtalaseController::class, 'ubahStatusTestimoni']);
 
         Route::get('/partner', [EtalaseController::class, 'partner']);
         Route::post('/partner', [EtalaseController::class, 'simpanPartner']);
