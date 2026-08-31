@@ -72,7 +72,32 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                 : $gagal('Nomor WhatsApp belum benar. Contoh: 0812-3456-7890.')],
             'email' => 'nullable|email|max:150',
             'paketId' => 'required|exists:tbl_travel_package,uuid',
-            'jumlahPeserta' => 'required|integer|min:1|max:60',
+
+            /*
+             | Kursi yang tersisa diperiksa DI SERVER, saat menyimpan.
+             |
+             | Tulisan "sisa 2 kursi" di layar sudah basi sejak digambar: dua
+             | orang bisa membuka halaman yang sama pada menit yang sama, dan
+             | keduanya melihat angka yang sama. Yang menentukan bukan yang
+             | dilihat, melainkan yang tersisa saat tombolnya ditekan.
+             |
+             | Paket tanpa kuota tidak pernah penuh — perilakunya persis
+             | seperti sebelum kolom kuota ada.
+             */
+            'jumlahPeserta' => ['required', 'integer', 'min:1', 'max:60',
+                function ($atribut, $nilai, $gagal) {
+                    $paket = TravelPackage::where('uuid', $this->paketId)->first();
+
+                    if (! $paket || $paket->sisa_kursi === null) {
+                        return;
+                    }
+
+                    if ((int) $nilai > $paket->sisa_kursi) {
+                        $gagal($paket->sisa_kursi > 0
+                            ? 'Kursi tersisa tinggal '.$paket->sisa_kursi.'. Kurangi jumlah pesertanya, atau hubungi kami lewat WhatsApp.'
+                            : 'Kursi untuk trip ini sudah habis. Hubungi kami lewat WhatsApp — kadang ada kursi yang batal.');
+                    }
+                }],
             'peserta' => 'required|array|min:1',
             'peserta.*.nama' => 'required|string|min:3|max:120',
             // Titik jemput hanya ditanya bila paketnya memang menawarkan

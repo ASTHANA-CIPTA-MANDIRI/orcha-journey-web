@@ -99,6 +99,18 @@ class PaketWisataController extends ApiController
             'tanggal_pulang' => 'nullable|date|after_or_equal:tanggal_berangkat',
             'titik_jemput' => 'nullable|string|max:191',
             'minimal_peserta' => 'required|integer|min:1|max:200',
+
+            /*
+             | Kuota boleh kosong, dan kosong berarti "belum ditetapkan" —
+             | bukan nol. Paket lama seluruhnya belum punya angka ini, dan
+             | memperlakukan kosong sebagai nol akan menutup pendaftaran semua
+             | paket yang sedang tayang.
+             |
+             | Batas bawahnya minimal_peserta: kuota yang lebih kecil daripada
+             | jumlah minimum keberangkatan berarti tripnya tidak akan pernah
+             | bisa berangkat, dan itu pasti salah ketik.
+             */
+            'kuota' => 'nullable|integer|min:1|max:500|gte:minimal_peserta',
             'catatan_promo' => 'nullable|string|max:191',
             'harga' => 'required|numeric|min:0',
             'harga_asli' => 'nullable|numeric|min:0',
@@ -131,6 +143,7 @@ class PaketWisataController extends ApiController
             'tanggal_pulang' => $data['tanggal_pulang'] ?? null,
             'titik_jemput' => $data['titik_jemput'] ?? null,
             'minimal_peserta' => $data['minimal_peserta'],
+            'kuota' => ($data['kuota'] ?? null) === null ? null : (int) $data['kuota'],
             'catatan_promo' => $data['catatan_promo'] ?? null,
             'price' => $data['harga'],
             'original_price' => $data['harga_asli'] ?? $data['harga'],

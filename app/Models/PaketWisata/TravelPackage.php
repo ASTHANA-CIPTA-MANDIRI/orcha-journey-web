@@ -27,6 +27,7 @@ class TravelPackage extends Model
         'tanggal_pulang',
         'titik_jemput',
         'minimal_peserta',
+        'kuota',
         'price',
         'original_price',
         'harga_modal',
@@ -48,6 +49,7 @@ class TravelPackage extends Model
         'tanggal_berangkat' => 'date',
         'tanggal_pulang' => 'date',
         'minimal_peserta' => 'integer',
+        'kuota' => 'integer',
         'tayang_mulai' => 'datetime',
         'tayang_sampai' => 'datetime',
         'berakhir_otomatis' => 'boolean',
@@ -166,6 +168,59 @@ class TravelPackage extends Model
     public function getPunyaPilihanJemputAttribute(): bool
     {
         return count($this->titik_jemput_list) > 1;
+    }
+
+    /**
+     * Kursi yang sudah terpakai.
+     *
+     * Dihitung dari jumlah peserta pada pendaftaran yang BELUM batal —
+     * termasuk yang statusnya masih "baru". Kursi yang sedang ditunggu
+     * pembayarannya tetap kursi yang tidak boleh dijual dua kali; menghitung
+     * hanya yang sudah lunas berarti menjual kursi yang sama kepada orang
+     * kedua selama orang pertama belum sempat mentransfer.
+     */
+    public function getKursiTerpakaiAttribute(): int
+    {
+        return (int) \App\Models\OpenTrip\PendaftaranOpenTrip::query()
+            ->where('travel_package_id', $this->id)
+            ->where('status', '!=', 'batal')
+            ->sum('jumlah_peserta');
+    }
+
+    /** Sisa kursi; null bila kuotanya memang belum ditetapkan. */
+    public function getSisaKursiAttribute(): ?int
+    {
+        if (! $this->kuota) {
+            return null;
+        }
+
+        return max(0, $this->kuota - $this->kursi_terpakai);
+    }
+
+    /**
+     * Kursinya habis?
+     *
+     * Paket tanpa kuota TIDAK pernah penuh — perilakunya persis seperti
+     * sebelum kolom ini ada. Itu yang membuat migrasinya aman untuk paket lama
+     * yang seluruhnya belum punya angka kuota.
+     */
+    public function getKursiHabisAttribute(): bool
+    {
+        return $this->sisa_kursi !== null && $this->sisa_kursi <= 0;
+    }
+
+    /**
+     * Sisa kursi yang layak DIUMUMKAN.
+     *
+     * Angka besar tidak diumumkan: "sisa 38 kursi" tidak mendorong siapa pun,
+     * dan justru memberi tahu bahwa tripnya sepi. Yang berguna hanya ketika
+     * sisanya benar-benar sedikit.
+     */
+    public function getSisaKursiMendesakAttribute(): ?int
+    {
+        $sisa = $this->sisa_kursi;
+
+        return $sisa !== null && $sisa > 0 && $sisa <= 5 ? $sisa : null;
     }
 
     public function scopeTayang($query)

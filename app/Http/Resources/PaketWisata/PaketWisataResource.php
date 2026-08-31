@@ -33,6 +33,14 @@ class PaketWisataResource extends JsonResource
             'sudah_lewat' => $this->sudah_lewat,
             'titik_jemput' => $this->titik_jemput,
             'minimal_peserta' => $this->minimal_peserta,
+
+            // Kuota beserta hitungannya: lemon perlu ketiganya untuk
+            // memperlihatkan "12 dari 20 kursi terisi" tanpa menghitung
+            // sendiri — dua tempat yang menghitung sendiri-sendiri akan
+            // berbeda angkanya suatu saat.
+            'kuota' => $this->kuota,
+            'kursi_terpakai' => $this->kursi_terpakai,
+            'sisa_kursi' => $this->sisa_kursi,
             'harga' => $this->price,
             'harga_asli' => $this->original_price,
 

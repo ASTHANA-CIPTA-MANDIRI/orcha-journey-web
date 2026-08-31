@@ -359,11 +359,36 @@ new #[Layout('components.layouts.guest')] class extends Component
 
                             <div class="p-6 space-y-3 sm:p-7">
                                 @if ($paket->category === 'open_trip')
-                                    <a href="{{ route('pendaftaran-open-trip', ['paket' => $paket->uuid]) }}"
-                                        class="w-full btn-orcha btn-orcha-primary">
-                                        <x-heroicon-o-pencil-square class="w-5 h-5" />
-                                        Daftar Sekarang
-                                    </a>
+                                    @if ($paket->kursi_habis)
+                                        {{-- Tombolnya diganti, bukan dinonaktifkan.
+
+                                             Tombol mati yang tetap terlihat seperti tombol
+                                             ditekan berkali-kali oleh orang yang mengira
+                                             halamannya rusak. Dan kursi habis bukan jalan
+                                             buntu: pembatalan memang terjadi, jadi yang
+                                             ditawarkan tempat bertanya. --}}
+                                        <div class="p-4 text-sm text-center rounded-2xl bg-rose-50 text-rose-800">
+                                            <strong>Kursi trip ini sudah habis.</strong>
+                                            <span class="block mt-1">Kadang ada kursi yang batal — tanyakan lewat
+                                                WhatsApp, kami kabari bila ada yang kosong.</span>
+                                        </div>
+                                    @else
+                                        @if ($paket->sisa_kursi_mendesak)
+                                            {{-- Hanya diumumkan saat sisanya benar-benar sedikit.
+                                                 "Sisa 38 kursi" tidak mendorong siapa pun, dan
+                                                 justru memberi tahu bahwa tripnya sepi. --}}
+                                            <p class="flex items-center justify-center gap-1.5 text-sm font-bold text-rose-700">
+                                                <x-heroicon-s-fire class="w-4 h-4" />
+                                                Tinggal {{ $paket->sisa_kursi_mendesak }} kursi
+                                            </p>
+                                        @endif
+
+                                        <a href="{{ route('pendaftaran-open-trip', ['paket' => $paket->uuid]) }}"
+                                            class="w-full btn-orcha btn-orcha-primary">
+                                            <x-heroicon-o-pencil-square class="w-5 h-5" />
+                                            Daftar Sekarang
+                                        </a>
+                                    @endif
                                 @endif
 
                                 <a href="{{ $wa }}" target="_blank" rel="noopener noreferrer"
