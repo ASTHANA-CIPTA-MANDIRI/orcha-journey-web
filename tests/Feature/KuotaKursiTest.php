@@ -110,12 +110,19 @@ test('sisa kursi tidak pernah muncul di halaman publik', function () {
     }
 });
 
-test('paket penuh berhenti menerima pendaftaran tanpa mengumumkan sebabnya', function () {
+test('paket yang kuotanya habis mengatakannya, tanpa menyebut angka', function () {
     /*
-     | Yang tetap dikerjakan: berhenti menerima pendaftaran saat armadanya
-     | memang penuh, lalu mengantar orangnya ke WhatsApp. Menerima pendaftaran
-     | yang tidak muat bukan menjaga peluang — ia menunda kabar buruknya sampai
-     | orang itu sudah mentransfer.
+     | Habisnya kuota DIKATAKAN apa adanya, dan itu memang benar saat kalimat
+     | ini muncul — kuotanya betul-betul tercapai.
+     |
+     | Kalimat yang melunakkannya ("masih sering ada tempat yang terbuka")
+     | pernah dipakai di sini dan justru menghapus akibat yang berguna: yang
+     | terlambat tidak merasa kehilangan apa-apa, jadi ia tidak punya alasan
+     | bergegas pada keberangkatan berikutnya.
+     |
+     | Yang ditawarkan tanggal berikutnya, bukan sisa tempat di trip ini —
+     | supaya penyesalannya berujung pendaftaran, bukan berhenti sebagai
+     | kekecewaan.
      */
     $paket = paketBerkuota(3);
     daftarkan($paket, 3);
@@ -123,10 +130,12 @@ test('paket penuh berhenti menerima pendaftaran tanpa mengumumkan sebabnya', fun
     $isi = $this->get(route('paket-detail', $paket->uuid))->assertOk()->getContent();
 
     expect($isi)
-        ->toContain('Pendaftaran online untuk trip ini sedang kami tutup')
+        ->toContain('Kuota untuk trip ini sudah habis')
+        ->toContain('Tanya Tanggal Berikutnya')
         ->not->toContain('Daftar Sekarang')
-        // Tidak menyebut "habis" — itu ikut mengumumkan keadaan kuotanya.
-        ->not->toContain('sudah habis');
+        // Yang tetap tidak boleh keluar: ANGKANYA.
+        ->not->toContain('Tinggal')
+        ->not->toMatch('/\d+ kursi\b/');
 });
 
 test('paket yang masih lega tetap menampilkan tombol daftar', function () {

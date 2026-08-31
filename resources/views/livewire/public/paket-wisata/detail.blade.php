@@ -148,6 +148,17 @@ new #[Layout('components.layouts.guest')] class extends Component
 
     $rupiah = fn ($angka) => 'Rp ' . number_format((float) $angka, 0, ',', '.');
     $wa = 'https://api.whatsapp.com/send?phone=' . config('orcha.whatsapp') . '&text=' . rawurlencode("Halo Orcha Journey, saya ingin bertanya soal {$paket->name}.");
+
+    /*
+     | Pesan terpisah untuk trip yang kuotanya sudah habis.
+     |
+     | Isinya menanyakan TANGGAL BERIKUTNYA, bukan sisa tempat di trip ini.
+     | Pertanyaan "masih ada tempat?" mengundang jawaban yang melunakkan
+     | kabarnya, dan begitu dilunakkan, orang yang terlambat tidak punya alasan
+     | bergegas lain kali. Yang ditawarkan keberangkatan berikutnya — di situ
+     | ia masih bisa memutuskan cepat.
+     */
+    $waPenuh = 'https://api.whatsapp.com/send?phone=' . config('orcha.whatsapp') . '&text=' . rawurlencode("Halo Orcha Journey, saya terlambat mendaftar {$paket->name}. Kapan keberangkatan berikutnya?");
     $dp = config('orcha.pembayaran.dp_persen');
     $pelunasan = config('orcha.pembayaran.pelunasan_hari_sebelum');
 @endphp
@@ -360,7 +371,7 @@ new #[Layout('components.layouts.guest')] class extends Component
                             <div class="p-6 space-y-3 sm:p-7">
                                 @if ($paket->category === 'open_trip')
                                     @if ($paket->kursi_habis)
-                                        {{-- Kursinya penuh, tetapi ANGKANYA tidak disebut.
+                                        {{-- Kuotanya habis dan itu DISEBUT; yang tidak disebut angkanya.
 
                                              Sisa kursi sengaja tidak diumumkan di halaman
                                              publik: urusan ketersediaan dibicarakan lewat
@@ -375,10 +386,26 @@ new #[Layout('components.layouts.guest')] class extends Component
                                              yang tidak muat bukan menjaga peluang — ia
                                              menunda kabar buruknya sampai orang itu sudah
                                              mentransfer. --}}
-                                        <div class="p-4 text-sm text-center rounded-2xl bg-orcha-foam text-orcha-navy">
-                                            <strong>Pendaftaran online untuk trip ini sedang kami tutup.</strong>
-                                            <span class="block mt-1">Tanyakan ketersediaan terbaru lewat WhatsApp —
-                                                jadwal dan kursi masih bisa berubah.</span>
+                                        <div class="p-5 text-center rounded-2xl bg-orcha-foam">
+                                            <p class="flex items-center justify-center gap-1.5 text-base font-bold text-orcha-navy">
+                                                <x-heroicon-s-fire class="w-5 h-5 text-orcha-sun" />
+                                                Kuota untuk trip ini sudah habis
+                                            </p>
+                                            <p class="mt-1.5 text-sm leading-relaxed text-slate-600">
+                                                Jangan sampai terlewat lagi — tanggal berikutnya biasanya cepat penuh
+                                                juga.
+                                            </p>
+
+                                            {{-- Tombolnya di dalam kotak, bukan menyerahkan orang ke
+                                                 tombol WhatsApp umum di bawah: yang ini membawa pesan
+                                                 pembuka yang sudah menanyakan tanggal berikutnya,
+                                                 sehingga percakapannya mulai dari tempat yang masih
+                                                 bisa ditutup jadi pendaftaran. --}}
+                                            <a href="{{ $waPenuh }}" target="_blank" rel="noopener noreferrer"
+                                                class="w-full mt-4 btn-orcha btn-orcha-primary">
+                                                <x-bi-whatsapp class="w-5 h-5" />
+                                                Tanya Tanggal Berikutnya
+                                            </a>
                                         </div>
                                     @else
                                         <a href="{{ route('pendaftaran-open-trip', ['paket' => $paket->uuid]) }}"
