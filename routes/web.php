@@ -57,6 +57,15 @@ Volt::route('/kontak', 'public.kontak.index')->name('kontak');
 // Open trip: pendaftaran, riwayat kesehatan, pembatalan
 Volt::route('/pendaftaran-open-trip', 'public.open-trip.pendaftaran')->name('pendaftaran-open-trip');
 Volt::route('/riwayat-kesehatan', 'public.open-trip.riwayat-kesehatan')->name('riwayat-kesehatan');
+/*
+ | Lacak pesanan.
+ |
+ | Menjawab "pesanan saya sekarang bagaimana?" — pertanyaan yang selama ini
+ | hanya bisa dijawab manusia lewat WhatsApp, padahal jawabannya sudah
+ | tersimpan seluruhnya.
+ */
+Volt::route('/lacak-pesanan', 'public.open-trip.lacak-pesanan')->name('lacak-pesanan');
+
 Volt::route('/pembatalan', 'public.open-trip.pembatalan')->name('pembatalan');
 Volt::route('/konfirmasi-pembayaran', 'public.open-trip.konfirmasi-pembayaran')->name('konfirmasi-pembayaran');
 

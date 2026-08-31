@@ -535,6 +535,11 @@
                                 class="transition hover:text-orcha-sky">Pengembalian Dana</a></li>
                         <li><a href="{{ route('kebijakan-privasi') }}" class="transition hover:text-orcha-sky">Kebijakan
                                 Privasi</a></li>
+                        {{-- Paling atas di kelompok ini: "pesanan saya bagaimana?"
+                             ditanyakan jauh lebih sering daripada ketiga formulir di
+                             bawahnya, dan halaman ini juga pintu menuju ketiganya. --}}
+                        <li><a href="{{ route('lacak-pesanan') }}" class="transition hover:text-orcha-sky">Lacak
+                                Pesanan Saya</a></li>
                         <li><a href="{{ route('riwayat-kesehatan') }}" class="transition hover:text-orcha-sky">Riwayat
                                 Kesehatan Peserta</a></li>
                         <li><a href="{{ route('konfirmasi-pembayaran') }}"

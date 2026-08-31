@@ -390,6 +390,19 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                 </a>
                             </div>
 
+                            {{-- Disebut di sini, saat kodenya masih di layar.
+
+                                 Pertanyaan "pesanan saya bagaimana?" baru muncul
+                                 berhari-hari kemudian — dan kalau saat itu ia tidak
+                                 tahu halaman ini ada, satu-satunya jalan yang
+                                 terpikir adalah bertanya lewat WhatsApp. --}}
+                            <p class="mt-5 text-sm text-slate-600">
+                                Ingin melihat status, sisa tagihan, dan bukti yang sudah Anda kirim kapan saja?
+                                <a href="{{ route('lacak-pesanan', ['kode' => $kodeTerdaftar]) }}"
+                                    class="font-semibold text-orcha-ocean hover:underline">Lacak pesanan Anda</a>
+                                memakai kode di atas dan 4 digit terakhir nomor WhatsApp Anda.
+                            </p>
+
                             <button type="button" wire:click="daftarLagi"
                                 class="mt-5 text-sm font-semibold text-orcha-ocean hover:underline">
                                 Daftarkan rombongan lain
