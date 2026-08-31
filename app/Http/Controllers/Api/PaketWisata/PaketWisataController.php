@@ -21,6 +21,9 @@ class PaketWisataController extends ApiController
     public function index(Request $request): JsonResponse
     {
         $daftar = TravelPackage::query()
+            // Kursi terpakai dihitung sekali untuk seluruh halaman, bukan satu
+            // query per baris — lihat scope-nya di model.
+            ->denganKursiTerpakai()
             ->withCount('pendaftaran')
             ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where('name', 'like', "%{$cari}%"))
             ->ofCategory($request->string('kategori')->toString() ?: null)

@@ -779,6 +779,22 @@ return [
         'dp_persen_study_tour' => 25,
         // Uang muka mengunci kursi, dibayar segera setelah konfirmasi.
         'dp_batas_jam' => 24,
+
+        /*
+         | Berapa jam sebelum kursinya DILEPAS sistem — sengaja lebih longgar
+         | daripada dp_batas_jam di atas.
+         |
+         | Yang 24 jam itu janji kepada pelanggan; yang ini tindakan sistem.
+         | Keduanya memang tidak sama, dan bedanya disengaja: orang mentransfer
+         | di akhir pekan, bank sedang gangguan, bukti tertahan di ponsel yang
+         | lowbat. Melepas kursi tepat di jam ke-24 membuang pemesanan yang
+         | sebenarnya masih hidup, dan yang hilang bukan cuma satu kursi
+         | melainkan orang yang sudah niat berangkat.
+         |
+         | Tiga hari cukup panjang untuk semua itu, dan masih cukup pendek
+         | supaya kursinya tidak mati sebulan seperti sebelum ini ada.
+         */
+        'dp_lepas_jam' => 72,
         // Pelunasan paling lambat H-5 sebelum keberangkatan.
         'pelunasan_hari_sebelum' => 5,
         'pelunasan_sewa_kendaraan' => 'saat unit diserahkan',

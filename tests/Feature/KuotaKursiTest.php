@@ -2,6 +2,7 @@
 
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
+use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Volt;
 
 /**
@@ -202,4 +203,67 @@ test('pendaftaran melebihi sisa kursi ditolak di server', function () {
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors('jumlahPeserta');
+});
+
+test('kursi terpakai dihitung sekali untuk seluruh halaman, bukan per baris', function () {
+    /*
+     | Aksesor PHP biasa TIDAK disinggahi Eloquent: tiap kali dibaca ia
+     | menembak satu query lagi. Daftar paket di panel admin membaca
+     | kursi_terpakai dan sisa_kursi untuk tiap baris — dan sisa_kursi membaca
+     | kursi_terpakai lagi — sehingga dua belas paket menghasilkan 51 query.
+     |
+     | Yang diuji: jumlah query TIDAK bertambah seiring jumlah paket. Menguji
+     | angka mutlaknya akan rapuh terhadap perubahan yang tidak ada
+     | hubungannya; yang berbahaya pertumbuhannya.
+     */
+    $hitungQuery = function (int $jumlahPaket): int {
+        DB::flushQueryLog();
+
+        foreach (range(1, $jumlahPaket) as $i) {
+            $paket = paketBerkuota(20);
+            daftarkan($paket, 2);
+        }
+
+        DB::enableQueryLog();
+
+        App\Models\PaketWisata\TravelPackage::denganKursiTerpakai()->get()
+            ->each(function ($paket) {
+                // Persis yang dilakukan resource API: keduanya dibaca.
+                $paket->kursi_terpakai;
+                $paket->sisa_kursi;
+            });
+
+        $n = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $n;
+    };
+
+    $sedikit = $hitungQuery(3);
+    $banyak = $hitungQuery(12);
+
+    // Satu query untuk seluruh daftar, berapa pun barisnya.
+    expect($sedikit)->toBe(1)->and($banyak)->toBe(1);
+});
+
+test('paket tanpa pendaftaran juga tidak menambah query', function () {
+    /*
+     | withSum mengembalikan NULL — bukan nol — untuk paket yang belum punya
+     | satu pun pendaftaran. Penjaga yang memeriksa `!== null` membuat justru
+     | paket-paket kosong itu jatuh kembali ke query per baris, dan
+     | perbaikannya cuma bekerja separuh.
+     */
+    foreach (range(1, 5) as $i) {
+        paketBerkuota(20);
+    }
+
+    DB::enableQueryLog();
+
+    App\Models\PaketWisata\TravelPackage::denganKursiTerpakai()->get()
+        ->each(fn ($paket) => $paket->kursi_terpakai);
+
+    $n = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($n)->toBe(1);
 });

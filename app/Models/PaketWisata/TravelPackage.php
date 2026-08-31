@@ -181,11 +181,61 @@ class TravelPackage extends Model
      */
     public function getKursiTerpakaiAttribute(): int
     {
-        return (int) \App\Models\OpenTrip\PendaftaranOpenTrip::query()
+        /*
+         | Hasilnya diingat selama objek ini hidup.
+         |
+         | Aksesor PHP biasa TIDAK disinggahi Eloquent, jadi tiap kali dibaca ia
+         | menembak satu query lagi. Daftar paket di panel admin membaca
+         | kursi_terpakai dan sisa_kursi untuk tiap baris — dan sisa_kursi
+         | membaca kursi_terpakai lagi — sehingga dua belas paket menghasilkan
+         | 51 query. Terukur, bukan dikira.
+         |
+         | Belum terasa pada dua belas paket; pada enam puluh ia jadi ratusan
+         | query untuk satu halaman, di server yang sama yang melayani halaman
+         | publik.
+         */
+        if ($this->kursiTerpakaiTersinggahi !== null) {
+            return $this->kursiTerpakaiTersinggahi;
+        }
+
+        /*
+         | Kalau daftarnya sudah menghitungnya sekaligus lewat scope
+         | denganKursiTerpakai(), angkanya dipakai apa adanya — tidak ada query
+         | tambahan sama sekali.
+         |
+         | Singgahan per-objek saja tidak cukup: ia menekan dua query per baris
+         | jadi satu, tetapi satu-per-baris tetap tumbuh seiring jumlah paket.
+         | Yang benar-benar menyelesaikannya menghitung SEMUANYA dalam satu
+         | query, dan itu yang dilakukan scope tersebut.
+         */
+        if (array_key_exists('kursi_terpakai_agregat', $this->getAttributes())) {
+            /*
+             | Yang diperiksa KEBERADAAN atributnya, bukan nilainya.
+             |
+             | withSum mengembalikan null — bukan nol — untuk paket yang belum
+             | punya satu pun pendaftaran. Memeriksa `!== null` membuat justru
+             | paket-paket kosong itu jatuh kembali ke query per baris, dan
+             | perbaikannya cuma bekerja separuh. Terukur: masih 4 query
+             | tersisa untuk 5 paket sebelum baris ini dibetulkan.
+             */
+            return $this->kursiTerpakaiTersinggahi = (int) ($this->getAttributes()['kursi_terpakai_agregat'] ?? 0);
+        }
+
+        return $this->kursiTerpakaiTersinggahi = (int) \App\Models\OpenTrip\PendaftaranOpenTrip::query()
             ->where('travel_package_id', $this->id)
             ->where('status', '!=', 'batal')
             ->sum('jumlah_peserta');
     }
+
+    /**
+     * Singgahan kursi_terpakai, berumur sepanjang objeknya saja.
+     *
+     * Sengaja tidak lebih lama dari itu: angka ini berubah tiap kali ada yang
+     * mendaftar atau batal, dan singgahan yang bertahan antar permintaan akan
+     * membuat pemeriksaan kuota memutuskan dengan angka basi — persis pada
+     * keadaan yang paling menentukan, saat kursinya tinggal sedikit.
+     */
+    protected ?int $kursiTerpakaiTersinggahi = null;
 
     /**
      * Sisa kursi; null bila kuotanya memang belum ditetapkan.
@@ -215,6 +265,21 @@ class TravelPackage extends Model
     public function getKursiHabisAttribute(): bool
     {
         return $this->sisa_kursi !== null && $this->sisa_kursi <= 0;
+    }
+
+    /**
+     * Menghitung kursi terpakai untuk SELURUH baris dalam satu query.
+     *
+     * Dipakai daftar yang menampilkan banyak paket sekaligus — panel admin.
+     * Tanpa ini tiap baris menembak query sendiri, dan halaman daftar tumbuh
+     * dari puluhan jadi ratusan query seiring bertambahnya paket.
+     */
+    public function scopeDenganKursiTerpakai($query)
+    {
+        return $query->withSum(
+            ['pendaftaran as kursi_terpakai_agregat' => fn ($q) => $q->where('status', '!=', 'batal')],
+            'jumlah_peserta'
+        );
     }
 
     public function scopeTayang($query)

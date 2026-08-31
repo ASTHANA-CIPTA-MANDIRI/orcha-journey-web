@@ -10,6 +10,18 @@ new #[Layout('components.layouts.guest')] #[Title('Ketentuan Pembayaran & DP —
         $dp = config('orcha.pembayaran.dp_persen');
         $dpStudy = config('orcha.pembayaran.dp_persen_study_tour');
         $batasDp = config('orcha.pembayaran.dp_batas_jam');
+
+        /*
+         | Batas yang DIJANJIKAN (24 jam) berbeda dari saat kursinya benar-benar
+         | dilepas sistem (72 jam), dan keduanya disebut apa adanya di halaman
+         | ini.
+         |
+         | Menyembunyikan tenggang tiga harinya akan membuat kalimatnya lebih
+         | tegas tetapi tidak benar — dan yang membacanya justru orang yang
+         | sedang menghitung kapan ia harus mentransfer.
+         */
+        $lepasJam = config('orcha.pembayaran.dp_lepas_jam');
+        $lepasHari = (int) round($lepasJam / 24);
         $pelunasan = config('orcha.pembayaran.pelunasan_hari_sebelum');
         $sewa = config('orcha.pembayaran.pelunasan_sewa_kendaraan');
         $metode = config('orcha.pembayaran.metode');
@@ -41,7 +53,7 @@ new #[Layout('components.layouts.guest')] #[Title('Ketentuan Pembayaran & DP —
                                 <tr><td>Sewa kendaraan</td><td>{$dp}% dari total sewa</td><td>{$batasDp} jam setelah konfirmasi</td></tr>
                             </tbody>
                         </table></div>
-                        <p>Bila uang muka tidak diterima dalam batas waktu di atas, kursi atau armada otomatis dilepas kembali untuk pemesan lain tanpa pemberitahuan ulang.</p>
+                        <p>Bila uang muka tidak diterima dalam batas waktu di atas, kami masih menahan kursi Anda hingga <strong>{$lepasJam} jam</strong> ({$lepasHari} hari) sejak pemesanan. Lewat itu, kursinya dilepas kembali untuk pemesan lain secara otomatis dan kami kabari lewat email — pemesanan Anda bisa diulang selama kursinya masih tersedia.</p>
                     ",
                 ],
                 [
