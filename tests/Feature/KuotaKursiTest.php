@@ -133,6 +133,16 @@ test('paket yang kuotanya habis mengatakannya, tanpa menyebut angka', function (
         ->toContain('Kuota untuk trip ini sudah habis')
         ->toContain('Tanya Tanggal Berikutnya')
         ->not->toContain('Daftar Sekarang')
+        /*
+         | Hanya SATU tombol WhatsApp.
+         |
+         | Tombol umum "Tanya via WhatsApp" tetap tergambar di bawah kotak ini
+         | dan menghasilkan dua tombol bersusun. Bukan cuma berulang: yang
+         | kedua membatalkan maksud yang pertama, karena pesan pembukanya
+         | mengembalikan percakapan ke "tanya-tanya soal trip ini" — trip yang
+         | justru sudah tidak bisa diikuti.
+         */
+        ->not->toContain('Tanya via WhatsApp')
         // Yang tetap tidak boleh keluar: ANGKANYA.
         ->not->toContain('Tinggal')
         ->not->toMatch('/\d+ kursi\b/');
@@ -144,7 +154,9 @@ test('paket yang masih lega tetap menampilkan tombol daftar', function () {
 
     $this->get(route('paket-detail', $paket->uuid))
         ->assertOk()
-        ->assertSee('Daftar Sekarang');
+        ->assertSee('Daftar Sekarang')
+        // Tombol WhatsApp umum tetap ada selama tripnya masih bisa diikuti.
+        ->assertSee('Tanya via WhatsApp');
 });
 
 test('pendaftaran melebihi sisa kursi ditolak di server', function () {

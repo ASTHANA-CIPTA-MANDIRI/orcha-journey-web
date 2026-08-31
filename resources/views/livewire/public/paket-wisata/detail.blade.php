@@ -416,11 +416,23 @@ new #[Layout('components.layouts.guest')] class extends Component
                                     @endif
                                 @endif
 
-                                <a href="{{ $wa }}" target="_blank" rel="noopener noreferrer"
-                                    class="w-full btn-orcha btn-orcha-outline">
-                                    <x-bi-whatsapp class="w-5 h-5" />
-                                    Tanya via WhatsApp
-                                </a>
+                                {{-- Tombol WhatsApp umum, TIDAK digambar saat kuotanya habis.
+
+                                     Kotak di atas sudah punya tombol WhatsApp sendiri, dan yang
+                                     itu membawa pesan pembuka yang lebih tepat: menanyakan
+                                     tanggal berikutnya, bukan bertanya umum soal paket yang
+                                     sudah tidak bisa diikuti.
+
+                                     Dua tombol WhatsApp bersusun bukan cuma berulang — yang
+                                     kedua justru membatalkan maksud yang pertama, karena ia
+                                     mengembalikan percakapan ke "tanya-tanya soal trip ini". --}}
+                                @unless ($paket->category === 'open_trip' && $paket->kursi_habis)
+                                    <a href="{{ $wa }}" target="_blank" rel="noopener noreferrer"
+                                        class="w-full btn-orcha btn-orcha-outline">
+                                        <x-bi-whatsapp class="w-5 h-5" />
+                                        Tanya via WhatsApp
+                                    </a>
+                                @endunless
 
                                 <div class="pt-4 mt-4 text-xs border-t border-orcha-foam text-slate-500">
                                     <p>Uang muka <strong class="text-orcha-navy">{{ $dp }}%</strong> saat pemesanan.
