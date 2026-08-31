@@ -25,7 +25,7 @@ class PembayaranResource extends JsonResource
             'tanggal_transfer' => $this->tanggal_transfer?->toDateString(),
             'bank_pengirim' => $this->bank_pengirim,
             'atas_nama_pengirim' => $this->atas_nama_pengirim,
-            'bukti' => $this->bukti,
+            'bukti' => \App\Support\BerkasRahasia::tautan($this->bukti),
             'catatan' => $this->catatan,
             'status' => $this->status,
             'status_label' => $this->status_label,

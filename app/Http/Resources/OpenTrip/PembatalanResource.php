@@ -85,7 +85,7 @@ class PembatalanResource extends JsonResource
                     'tanggal_transfer' => $bayar->tanggal_transfer?->toDateString(),
                     'bank_pengirim' => $bayar->bank_pengirim,
                     'atas_nama_pengirim' => $bayar->atas_nama_pengirim,
-                    'bukti' => $bayar->bukti,
+                    'bukti' => \App\Support\BerkasRahasia::tautan($bayar->bukti),
                     'status' => $bayar->status,
                     'status_label' => $bayar->status_label,
                     'catatan_admin' => $bayar->catatan_admin,

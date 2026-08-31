@@ -37,10 +37,19 @@ class GambarWebp
         $nama = Str::uuid().'.webp';
         $tujuan = trim($folder, '/').'/'.$nama;
 
+        /*
+         | Folder rahasia (bukti transfer, jaminan sewa) tidak pernah masuk disk
+         | publik. Jalur yang DIKEMBALIKAN tetap berbentuk "/storage/..." supaya
+         | seluruh basis data dan pemanggil lama tidak perlu ikut berubah —
+         | yang menafsirkannya BerkasRahasia saat jalurnya hendak dikirim ke
+         | panel admin.
+         */
+        $disk = BerkasRahasia::rahasia('/'.$tujuan) ? 'rahasia' : 'public';
+
         $gambar = self::baca($berkas);
 
         if (! $gambar) {
-            return '/storage/'.$berkas->store($folder, 'public');
+            return '/storage/'.$berkas->store($folder, $disk);
         }
 
         $gambar = self::kecilkan($gambar);
@@ -51,10 +60,10 @@ class GambarWebp
         imagedestroy($gambar);
 
         if (! $berhasil || $isi === '' || $isi === false) {
-            return '/storage/'.$berkas->store($folder, 'public');
+            return '/storage/'.$berkas->store($folder, $disk);
         }
 
-        Storage::disk('public')->put($tujuan, $isi);
+        Storage::disk($disk)->put($tujuan, $isi);
 
         return '/storage/'.$tujuan;
     }

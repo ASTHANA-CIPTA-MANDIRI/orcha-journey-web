@@ -8,6 +8,7 @@ use Livewire\Volt\Volt;
 
 beforeEach(function () {
     Storage::fake('public');
+    Storage::fake('rahasia');
 
     $this->pendaftaran = PendaftaranOpenTrip::create([
         'nama' => 'Budi Santoso',
@@ -50,7 +51,18 @@ test('bukti transfer tersimpan sebagai webp', function () {
         ->and($bayar->nominal_formatted)->toBe('Rp 500.000')
         ->and($bayar->bukti)->toEndWith('.webp');
 
-    Storage::disk('public')->assertExists(str_replace('/storage/', '', $bayar->bukti));
+    /*
+     | Buktinya ada di disk RAHASIA, dan tidak ada di disk publik.
+     |
+     | Dulu ia disimpan di disk public yang di-symlink ke public/storage,
+     | sehingga tangkapan layar mutasi bank — berikut nama pemilik rekening,
+     | bank, dan nominalnya — bisa diambil siapa pun yang memegang alamatnya,
+     | tanpa login dan tanpa batas waktu.
+     */
+    $relatif = str_replace('/storage/', '', $bayar->bukti);
+
+    Storage::disk('rahasia')->assertExists($relatif);
+    Storage::disk('public')->assertMissing($relatif);
 });
 
 test('kode pesanan menampilkan ringkasan pesanannya', function () {

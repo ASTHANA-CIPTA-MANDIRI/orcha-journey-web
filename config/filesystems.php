@@ -38,6 +38,18 @@ return [
             'report' => false,
         ],
 
+        /*
+         | Berkas yang tidak boleh dibuka tanpa tanda tangan: bukti transfer
+         | dan berkas jaminan sewa. Sengaja TIDAK di-symlink ke public/, dan
+         | tidak punya 'url' — supaya tidak ada satu pun jalan langsung ke
+         | sana. Lihat App\Support\BerkasRahasia.
+         */
+        'rahasia' => [
+            'driver' => 'local',
+            'root' => storage_path('app/rahasia'),
+            'throw' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

@@ -16,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'kunci.orcha' => \App\Http\Middleware\PeriksaKunciApi::class,
         ]);
+
+        // Header keamanan untuk SELURUH jawaban, termasuk berkas dan API —
+        // bukan hanya halaman web. Lihat alasannya di kelasnya.
+        $middleware->append(\App\Http\Middleware\HeaderKeamanan::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

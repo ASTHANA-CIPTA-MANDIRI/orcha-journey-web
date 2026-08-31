@@ -8,6 +8,8 @@ use App\Support\NomorTelepon;
 use App\Support\SalinanPelanggan;
 use App\Support\RincianBiaya;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
@@ -231,26 +233,55 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
 
         $paket = TravelPackage::where('uuid', $this->paketId)->firstOrFail();
 
-        // Tanggal dan titik jemput diambil dari paket — bukan dari isian
-        // pengunjung — supaya tidak ada pendaftaran dengan jadwal karangan.
-        $pendaftaran = PendaftaranOpenTrip::create([
-            'travel_package_id' => $paket->id,
-            'nama_paket' => $paket->name,
-            'nama' => $this->nama,
-            'whatsapp' => $this->whatsapp,
-            'email' => $this->email ?: null,
-            'jumlah_peserta' => $this->jumlahPeserta,
-            'daftar_peserta' => collect($this->peserta)->map(fn ($satu) => [
-                'nama' => trim($satu['nama']),
-                'titik_jemput' => trim($satu['titik_jemput'] ?? ''),
-            ])->all(),
-            'tanggal_berangkat' => $paket->tanggal_berangkat,
-            // Yang disimpan titik yang benar-benar dipakai rombongan ini,
-            // bukan seluruh titik yang ditawarkan paket.
-            'titik_jemput' => collect($this->peserta)->pluck('titik_jemput')
-                ->filter()->unique()->implode(', ') ?: $paket->titik_jemput,
-            'catatan' => $this->catatan ?: null,
-        ]);
+        /*
+         | Kuotanya diperiksa ULANG di dalam transaksi, dengan barisnya dikunci.
+         |
+         | Pemeriksaan di aturan validasi berjalan sebelum ini, dan di antara
+         | keduanya ada jeda. Dua pendaftaran yang masuk pada detik yang sama
+         | sama-sama membaca "sisa 2", sama-sama lolos, dan keduanya tersimpan —
+         | kursinya jadi minus tanpa satu pun galat.
+         |
+         | Jarang terjadi, tetapi paling mungkin justru pada trip yang sedang
+         | diperebutkan: saat kursinya tinggal sedikit dan beberapa orang
+         | menekan tombol berbarengan.
+         |
+         | lockForUpdate menahan baris paketnya sampai transaksi ini selesai,
+         | sehingga pendaftaran kedua menunggu lalu membaca angka yang sudah
+         | memperhitungkan yang pertama.
+         */
+        $pendaftaran = DB::transaction(function () use ($paket) {
+            $terkunci = TravelPackage::whereKey($paket->id)->lockForUpdate()->first();
+
+            if ($terkunci->kuota !== null && $this->jumlahPeserta > $terkunci->sisa_kursi) {
+                // Pesannya sama persis dengan yang di aturan validasi: tidak
+                // menyebut angka, dan mengantar ke WhatsApp.
+                throw ValidationException::withMessages([
+                    'jumlahPeserta' => 'Jumlah peserta ini belum bisa kami proses lewat formulir. '
+                        .'Hubungi kami lewat WhatsApp — tim kami cek ketersediaannya langsung.',
+                ]);
+            }
+
+            // Tanggal dan titik jemput diambil dari paket — bukan dari isian
+            // pengunjung — supaya tidak ada pendaftaran dengan jadwal karangan.
+            return PendaftaranOpenTrip::create([
+                'travel_package_id' => $paket->id,
+                'nama_paket' => $paket->name,
+                'nama' => $this->nama,
+                'whatsapp' => $this->whatsapp,
+                'email' => $this->email ?: null,
+                'jumlah_peserta' => $this->jumlahPeserta,
+                'daftar_peserta' => collect($this->peserta)->map(fn ($satu) => [
+                    'nama' => trim($satu['nama']),
+                    'titik_jemput' => trim($satu['titik_jemput'] ?? ''),
+                ])->all(),
+                'tanggal_berangkat' => $paket->tanggal_berangkat,
+                // Yang disimpan titik yang benar-benar dipakai rombongan ini,
+                // bukan seluruh titik yang ditawarkan paket.
+                'titik_jemput' => collect($this->peserta)->pluck('titik_jemput')
+                    ->filter()->unique()->implode(', ') ?: $paket->titik_jemput,
+                'catatan' => $this->catatan ?: null,
+            ]);
+        });
 
         $rincian = [
             'Paket' => $paket->name,

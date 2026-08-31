@@ -89,6 +89,21 @@ Route::get('/t/{kode}', [\App\Http\Controllers\OpenTrip\BerkasPelangganControlle
 | Peta situs dibuat saat diminta, bukan berkas statis yang harus diingat untuk
 | ditulis ulang tiap kali paket bertambah atau dihapus.
 */
+/*
+ | Bukti transfer & berkas jaminan.
+ |
+ | Alamatnya bertanda tangan dan kedaluwarsa; berkasnya sendiri ada di disk
+ | privat, di luar public/storage. Sebelum ini keduanya bisa diambil siapa pun
+ | yang memegang alamatnya, tanpa login dan tanpa batas waktu.
+ |
+ | Jalurnya memakai .* supaya garis miring di dalamnya ikut tertangkap
+ | ("bukti-bayar/x.webp"), bukan terpotong di ruas pertama.
+ */
+Route::get('/berkas-rahasia/{jalur}', \App\Http\Controllers\BerkasRahasiaController::class)
+    ->where('jalur', '.*')
+    ->middleware('signed')
+    ->name('berkas.rahasia');
+
 Route::get('/sitemap.xml', \App\Http\Controllers\PetaSitusController::class)->name('peta-situs');
 
 Volt::route('/faq', 'public.informasi.faq')->name('faq');

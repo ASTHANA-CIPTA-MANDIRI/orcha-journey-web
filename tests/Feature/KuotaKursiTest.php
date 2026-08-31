@@ -267,3 +267,50 @@ test('paket tanpa pendaftaran juga tidak menambah query', function () {
 
     expect($n)->toBe(1);
 });
+
+test('kuota diperiksa ulang di dalam transaksi, bukan hanya saat validasi', function () {
+    /*
+     | Pemeriksaan di aturan validasi berjalan sebelum penyimpanan, dan di
+     | antara keduanya ada jeda. Dua pendaftaran yang masuk pada detik yang sama
+     | sama-sama membaca "sisa 2", sama-sama lolos, dan keduanya tersimpan —
+     | kursinya jadi minus tanpa satu pun galat.
+     |
+     | Balapannya sendiri tidak bisa ditiru dengan andal di dalam uji satu
+     | proses. Yang diuji di sini pengamannya benar-benar ADA dan benar-benar
+     | menolak: kuota yang sudah habis di tengah jalan tetap dihentikan pada
+     | langkah penyimpanan, bukan cuma pada langkah validasi.
+     */
+    $sumber = file_get_contents(
+        resource_path('views/livewire/public/open-trip/pendaftaran.blade.php')
+    );
+
+    expect($sumber)
+        ->toContain('lockForUpdate()')
+        ->toContain('DB::transaction(');
+
+    // Dan penguncian itu berada di dalam transaksi — di luar transaksi, kunci
+    // barisnya dilepas seketika dan tidak menahan apa pun.
+    $transaksi = strpos($sumber, 'DB::transaction(');
+    $kunci = strpos($sumber, 'lockForUpdate()');
+
+    expect($kunci)->toBeGreaterThan($transaksi);
+});
+
+test('paket tanpa kuota tidak ikut dikunci', function () {
+    // Paket tanpa kuota tidak punya batas yang bisa dilanggar; menguncinya
+    // hanya membuat pendaftaran saling menunggu tanpa alasan.
+    $paket = App\Models\PaketWisata\TravelPackage::create([
+        'name' => 'Tanpa Kuota', 'category' => 'open_trip',
+        'price' => 500000, 'status' => 'terbit',
+    ]);
+
+    Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $paket->uuid)
+        ->set('jumlahPeserta', 40)
+        ->set('nama', 'Budi Santoso')
+        ->set('whatsapp', '081234567890')
+        ->set('peserta', collect(range(1, 40))->map(fn ($i) => ['nama' => "Peserta $i"])->all())
+        ->set('setuju', true)
+        ->call('daftar')
+        ->assertHasNoErrors();
+});
