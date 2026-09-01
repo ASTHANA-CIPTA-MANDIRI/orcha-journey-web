@@ -569,3 +569,39 @@ test('kode yang sudah membayar tetap menampilkan tripnya', function () {
         ->assertSee('Open Trip Terbuka')
         ->assertDontSee('setelah uang muka kami terima');
 });
+
+test('isian kesehatan tersembunyi sampai kodenya sah dan sudah membayar', function () {
+    /*
+     | Kalimat peringatan saja tidak cukup. Kalimat yang bisa dilewati akan
+     | dilewati: orang mengisi tiga puluh isian, menekan simpan, lalu baru
+     | ditolak — dan seluruh pekerjaannya hangus. Menyembunyikan isiannya
+     | membuat urutannya tidak bisa salah.
+     */
+    $belum = PendaftaranOpenTrip::create([
+        'nama' => 'A', 'whatsapp' => '0812', 'jumlah_peserta' => 1,
+        'nama_paket' => 'Trip X', 'status' => 'baru',
+    ]);
+
+    $sudah = PendaftaranOpenTrip::create([
+        'nama' => 'B', 'whatsapp' => '0812', 'jumlah_peserta' => 1,
+        'nama_paket' => 'Trip Y', 'status' => 'dp_masuk',
+    ]);
+
+    // Kode kosong: isiannya belum terbuka, dan sebabnya diterangkan supaya
+    // tidak terbaca sebagai halaman yang gagal dimuat.
+    Volt::test('public.open-trip.riwayat-kesehatan')
+        ->assertDontSee('Data Peserta')
+        ->assertSee('Isi kode pendaftarannya dulu');
+
+    // Belum bayar: tetap tertutup, dengan sebab yang berbeda.
+    Volt::test('public.open-trip.riwayat-kesehatan')
+        ->set('kode', $belum->kode)
+        ->assertDontSee('Data Peserta')
+        ->assertSee('setelah uang muka kami terima');
+
+    // Sudah bayar: barulah isiannya terbuka.
+    Volt::test('public.open-trip.riwayat-kesehatan')
+        ->set('kode', $sudah->kode)
+        ->assertSee('Data Peserta')
+        ->assertDontSee('setelah uang muka kami terima');
+});

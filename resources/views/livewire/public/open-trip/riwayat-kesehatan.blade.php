@@ -448,6 +448,17 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                                     <p class="mt-1 text-xs text-slate-500">Kode yang Anda terima setelah mengisi
                                         formulir pendaftaran open trip.</p>
 
+                                @if (blank($kode))
+                                    {{-- Keadaan awal: isiannya belum terbuka, dan itu perlu
+                                         terbaca sebagai disengaja. Formulir yang tiba-tiba
+                                         pendek tanpa penjelasan terbaca sebagai halaman yang
+                                         belum selesai dimuat. --}}
+                                    <p class="mt-3 text-sm text-slate-500">
+                                        Isi kode pendaftarannya dulu — formulir kesehatannya terbuka
+                                        setelah kodenya kami kenali.
+                                    </p>
+                                @endif
+
                                 @if ($belumBayar)
                                     {{-- Menerangkan, lalu mengantar.
 
@@ -565,6 +576,17 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                                 @endif
                             </div>
 
+                            {{-- SELURUH isian di bawah ini baru muncul setelah kodenya sah
+                                 dan uang mukanya masuk.
+
+                                 Sebelumnya isiannya tetap terbuka dan hanya ada kalimat
+                                 peringatan di atasnya. Kalimat yang bisa dilewati akan
+                                 dilewati: orang mengisi tiga puluh isian, menekan simpan,
+                                 lalu baru ditolak — dan pekerjaannya hangus.
+
+                                 Menyembunyikannya membuat urutannya tidak bisa salah:
+                                 satu isian dulu, dan sisanya terbuka sendiri. --}}
+                            @if ($pendaftaran)
                             <hr class="border-orcha-foam">
 
                             <div>
@@ -870,6 +892,7 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                                 <span wire:loading.remove wire:target="simpan">Simpan Data Kesehatan</span>
                                 <span wire:loading wire:target="simpan">Menyimpan…</span>
                             </button>
+                            @endif
                         </form>
                     @endif
                 </div>
