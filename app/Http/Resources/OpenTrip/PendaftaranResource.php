@@ -70,6 +70,16 @@ class PendaftaranResource extends JsonResource
                 'modal_satuan' => $this->modal_satuan,
                 'margin_satuan' => $this->margin_satuan,
                 'omzet' => $this->omzet,
+
+                /*
+                 | Potongan promonya ikut dikirim.
+                 |
+                 | Tanpa ini omzet terlihat lebih kecil daripada harga dikali
+                 | jumlah peserta, dan admin yang menghitung sendiri menyangka
+                 | ada yang salah. Angka yang tidak bisa dijelaskan lebih buruk
+                 | daripada angka yang tidak ditampilkan.
+                 */
+                'potongan_promo' => (int) ($this->potongan_promo ?? 0),
                 'modal' => $this->modal_total,
                 'untung' => $this->keuntungan,
                 'modal_terisi' => $this->modal_satuan !== null,

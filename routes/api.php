@@ -205,6 +205,18 @@ Route::prefix('v1')
          | config, tiap perubahan kecil berarti menunggu ada yang menyunting
          | kode dan menaikkannya ke server.
          */
+        /*
+         | Peminat yang menunggu kursi terbuka.
+         |
+         | Sistem mengabari mereka sendiri saat kursi dilepas, tetapi admin
+         | tetap perlu melihat daftarnya: untuk tahu seberapa besar permintaan
+         | yang tertahan pada satu trip, dan untuk menghubungi yang tidak
+         | mencantumkan surel — nomor WhatsApp yang wajib di formulir, bukan
+         | surelnya.
+         */
+        Route::get('/daftar-tunggu', [\App\Http\Controllers\Api\PaketWisata\DaftarTungguController::class, 'index']);
+        Route::delete('/daftar-tunggu/{tunggu:id}', [\App\Http\Controllers\Api\PaketWisata\DaftarTungguController::class, 'destroy']);
+
         Route::get('/promo-rombongan', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'index']);
         Route::post('/promo-rombongan', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'store']);
         Route::match(['put', 'post'], '/promo-rombongan/{tingkat:id}', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'update']);
