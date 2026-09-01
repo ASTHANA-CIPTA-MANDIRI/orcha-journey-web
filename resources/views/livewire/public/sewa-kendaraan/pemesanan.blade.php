@@ -553,7 +553,25 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                     .'keterlambatan '.config('orcha.denda_sewa.persen_tarif_harian_per_jam')
                     .'% tarif harian per jam.'."\n\n"
                     .'Biaya di lampiran masih perkiraan — BBM, tol, dan biaya lokasi dihitung terpisah, '
-                    .'dan tim kami mengabari angka pastinya lewat WhatsApp.',
+                    .'dan tim kami mengabari angka pastinya lewat WhatsApp.'."\n\n"
+
+                    /*
+                     | Spesifikasi unitnya disebut sebagai PATOKAN, bukan janji.
+                     |
+                     | Rinciannya menyebut merek, tipe, varian, tahun, dan cc —
+                     | setepat itu. Padahal unitnya dicarikan dari vendor rekanan,
+                     | jadi yang datang bisa berbeda tahun atau cc-nya.
+                     |
+                     | Yang dihindari bukan kekecewaan kecil, melainkan selisih
+                     | paham di pagi keberangkatan: penyewa memegang surat
+                     | bertuliskan "2022", unit yang datang 2021, dan
+                     | perdebatannya terjadi saat semua orang sudah siap
+                     | berangkat. Menyebutnya sekarang, satu kalimat, jauh lebih
+                     | murah daripada menjelaskannya di sana.
+                     */
+                    .'Spesifikasi unit di lampiran adalah patokan kelas kendaraannya. Unit yang '
+                    .'kami siapkan bisa berbeda tahun atau variannya, dengan kapasitas dan '
+                    .'kenyamanan setara — kami kabari sebelum hari keberangkatan.',
             ),
         );
 

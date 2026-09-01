@@ -303,7 +303,62 @@ class TravelPackage extends Model
     /** Apakah paket ini sedang tampil di website sekarang. */
     public function getSedangTayangAttribute(): bool
     {
-        return static::whereKey($this->getKey())->tayang()->exists();
+        /*
+         | Dihitung dari atribut yang SUDAH dimuat, bukan dengan menembak query
+         | lagi.
+         |
+         | Bentuk lamanya `static::whereKey($this->getKey())->tayang()->exists()`
+         | — satu query untuk tiap baris yang dibaca. Terukur pada daftar paket
+         | di panel admin: lima paket menghasilkan lima query hanya untuk
+         | menjawab pertanyaan yang datanya sudah ada di tangan.
+         |
+         | Aturannya sengaja menyalin scopeTayang(), dan penyalinan itu memang
+         | risiko: dua tempat yang memutuskan hal sama bisa berbeda jawabannya
+         | suatu saat. Karena itu ada uji yang membandingkan keduanya pada
+         | delapan keadaan sekaligus — kalau salah satunya diubah tanpa yang
+         | lain, ujinya merah sebelum sampai ke pengguna.
+         */
+        /*
+         | Kalau atributnya belum ada di objek ini, bertanya ke basis data.
+         |
+         | Model yang baru dibuat dengan create() belum memuat nilai bawaan
+         | yang datang dari basis data — status dan berakhir_otomatis di
+         | antaranya. Menghitung dari atribut yang belum ada menghasilkan
+         | jawaban yang SALAH, bukan sekadar lambat, dan itu jauh lebih mahal
+         | daripada satu query yang dihemat.
+         |
+         | Jadi jalur cepatnya hanya dipakai saat datanya memang sudah di
+         | tangan — yaitu pada daftar yang dibaca dari basis data, yang justru
+         | satu-satunya tempat N+1 ini terasa.
+         */
+        foreach (['status', 'berakhir_otomatis'] as $perlu) {
+            if (! array_key_exists($perlu, $this->getAttributes())) {
+                return static::whereKey($this->getKey())->tayang()->exists();
+            }
+        }
+
+        if ($this->status !== 'terbit') {
+            return false;
+        }
+
+        $sekarang = now();
+
+        if ($this->tayang_mulai && $this->tayang_mulai->gt($sekarang)) {
+            return false;
+        }
+
+        if ($this->tayang_sampai && $this->tayang_sampai->lt($sekarang)) {
+            return false;
+        }
+
+        if (! $this->berakhir_otomatis || ! $this->tanggal_berangkat) {
+            return true;
+        }
+
+        // Dibandingkan dengan awal hari besok — alasan yang sama dengan yang
+        // ditulis di scopeTayang(): paket yang berangkat HARI INI tidak lagi
+        // tayang.
+        return $this->tanggal_berangkat->gte($sekarang->copy()->addDay()->startOfDay());
     }
 
     /**

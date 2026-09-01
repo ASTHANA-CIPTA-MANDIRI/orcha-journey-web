@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\PaketWisata\TravelPackage;
+use Illuminate\Support\Facades\DB;
 
 function buatPaket(array $ubah = []): TravelPackage
 {
@@ -178,4 +179,57 @@ test('harga jual tidak lebih murah berarti tidak ada lencana hemat', function ()
         ->assertOk()
         ->assertSee('Paket Tanpa Diskon')
         ->assertDontSee('Hemat 75%');
+});
+
+test('sedang_tayang menjawab sama persis dengan scopeTayang', function () {
+    /*
+     | sedang_tayang tidak lagi menembak query sendiri — ia menghitung dari
+     | atribut yang sudah dimuat, sebab bentuk lamanya menghasilkan satu query
+     | untuk TIAP baris yang dibaca.
+     |
+     | Konsekuensinya aturan yang sama tertulis di dua tempat. Uji ini yang
+     | menahannya: kalau salah satu diubah tanpa yang lain, ia merah sebelum
+     | sampai ke pengguna.
+     */
+    $keadaan = [
+        ['terbit', null, null, false, null],
+        ['draf', null, null, false, null],
+        ['arsip', null, null, false, null],
+        ['terbit', now()->addWeek(), null, false, null],          // dijadwalkan
+        ['terbit', now()->subWeek(), null, false, null],           // sudah mulai
+        ['terbit', null, now()->subDay(), false, null],            // sudah lewat
+        ['terbit', null, null, true, now()->addWeek()],            // berangkat nanti
+        ['terbit', null, null, true, now()],                       // berangkat hari ini
+        ['terbit', null, null, true, now()->subDay()],             // sudah berangkat
+    ];
+
+    foreach ($keadaan as [$status, $mulai, $sampai, $otomatis, $berangkat]) {
+        $paket = App\Models\PaketWisata\TravelPackage::create([
+            'name' => 'Uji', 'category' => 'open_trip', 'price' => 100000,
+            'status' => $status, 'tayang_mulai' => $mulai, 'tayang_sampai' => $sampai,
+            'berakhir_otomatis' => $otomatis, 'tanggal_berangkat' => $berangkat,
+        ]);
+
+        $lewatScope = App\Models\PaketWisata\TravelPackage::whereKey($paket->id)->tayang()->exists();
+
+        expect($paket->fresh()->sedang_tayang)->toBe(
+            $lewatScope,
+            "Beda jawaban untuk status=$status, otomatis=".var_export($otomatis, true)
+        );
+    }
+});
+
+test('sedang_tayang tidak menembak query tambahan', function () {
+    $paket = collect(range(1, 5))->map(fn () => App\Models\PaketWisata\TravelPackage::create([
+        'name' => 'Uji', 'category' => 'open_trip', 'price' => 100000, 'status' => 'terbit',
+    ]));
+
+    $dimuat = App\Models\PaketWisata\TravelPackage::whereIn('id', $paket->pluck('id'))->get();
+
+    DB::enableQueryLog();
+    $dimuat->each(fn ($p) => $p->sedang_tayang);
+    $n = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($n)->toBe(0);
 });
