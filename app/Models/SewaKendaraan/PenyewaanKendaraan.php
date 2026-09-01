@@ -164,6 +164,29 @@ class PenyewaanKendaraan extends Model
             ->values();
     }
 
+    /**
+     * Perlu dicarikan unit dari vendor rekanan?
+     *
+     * Armada di katalog bukan unit milik sendiri melainkan contoh: begitu ada
+     * yang memesan, unitnya dicarikan. Dua pesanan pada unit dan tanggal yang
+     * sama karena itu bukan kesalahan — ia cuma berarti yang kedua perlu
+     * dicarikan dari vendor lain.
+     *
+     * Dihitung saat dibaca, bukan disimpan sebagai kolom. Alasannya jawabannya
+     * BERUBAH: begitu pesanan yang bentrok dibatalkan, yang tersisa tidak lagi
+     * perlu dicarikan. Kolom yang ditulis sekali akan terus menyuruh tim
+     * mencari unit yang sebenarnya sudah bebas.
+     */
+    public function getPerluDicarikanAttribute(): bool
+    {
+        if (! $this->car_id || ! $this->jadwal_mulai || ! $this->jadwal_selesai) {
+            return false;
+        }
+
+        return static::bentrok($this->car_id, $this->jadwal_mulai, $this->jadwal_selesai, $this->id)
+            ->isNotEmpty();
+    }
+
     public function getJadwalMulaiAttribute(): ?Carbon
     {
         return $this->tanggal_mulai

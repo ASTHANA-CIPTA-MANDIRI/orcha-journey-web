@@ -82,6 +82,10 @@ class PenyewaanResource extends JsonResource
             'kilometer_akhir' => $this->kilometer_akhir,
             'bahan_bakar_awal' => $this->bahan_bakar_awal,
             'bahan_bakar_akhir' => $this->bahan_bakar_akhir,
+            // Tanda untuk tim: unitnya bentrok dengan pesanan lain, jadi
+            // perlu dicarikan dari vendor rekanan. Dihitung saat dibaca —
+            // lihat aksesornya di model.
+            'perlu_dicarikan' => $this->perlu_dicarikan,
             'jaminan' => $this->jaminan,
             'berkas_jaminan' => \App\Support\BerkasRahasia::tautan($this->berkas_jaminan),
             'kondisi_awal' => $this->kondisi_awal ?? [],

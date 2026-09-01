@@ -387,24 +387,27 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             $this->tanggalMulai, $this->jamMulai, $this->satuan, (int) $this->durasi
         );
 
-        // Unit yang sudah dipesan orang lain di rentang waktu yang sama ditolak
-        // di sini, bukan diketahui pagi keberangkatan saat mobilnya sudah
-        // dibawa orang pertama.
+        /*
+         | Unit yang bentrok TIDAK lagi menolak pemesanannya.
+         |
+         | Armada di katalog ini bukan unit milik sendiri melainkan contoh:
+         | begitu ada yang memesan, unitnya dicarikan dari vendor rekanan. Jadi
+         | dua pesanan pada unit dan tanggal yang sama bukan hal mustahil — ia
+         | cuma berarti yang kedua perlu dicarikan dari vendor lain.
+         |
+         | Sebelumnya yang kedua ditolak mentah-mentah dengan "Unit ini sudah
+         | dipesan sampai ...". Yang terjadi: pelanggan yang sebenarnya BISA
+         | dilayani disuruh pergi memilih tanggal lain — dan sebagian dari
+         | mereka tidak kembali. Itu pesanan yang hilang tanpa alasan.
+         |
+         | Bentroknya tetap dideteksi, tetapi jadi kabar untuk tim, bukan
+         | penolakan untuk pelanggan.
+         */
         $bentrok = PenyewaanKendaraan::bentrok(
             $mobil->id,
             PenyewaanKendaraan::hitungSelesai($this->tanggalMulai, $this->jamMulai, $this->satuan, 0),
             $selesai,
         );
-
-        if ($bentrok->isNotEmpty()) {
-            $lain = $bentrok->first();
-
-            $this->addError('tanggalMulai', 'Unit ini sudah dipesan sampai '
-                .$lain->jadwal_selesai->translatedFormat('j F Y, H:i')
-                .'. Pilih tanggal lain, atau unit lain yang sejenis.');
-
-            return;
-        }
 
         $sewa = PenyewaanKendaraan::create([
             'car_id' => $mobil->id,
@@ -513,8 +516,26 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                 ])
             : $rincian;
 
+        /*
+         | Ditaruh di BARIS PERTAMA rincian surat, bukan disisipkan di tengah.
+         |
+         | Ini satu-satunya hal di surat itu yang menuntut perbuatan sebelum
+         | tanggalnya tiba; kalau terselip di antara sepuluh baris keterangan
+         | lain, ia akan terbaca setelah unitnya telanjur dijanjikan.
+         */
+        if ($bentrok->isNotEmpty()) {
+            $lain = $bentrok->first();
+
+            $rincianSurat = array_merge(
+                ['PERLU DICARIKAN' => 'Unit ini sudah dipesan '.$lain->kode.' sampai '
+                    .$lain->jadwal_selesai->translatedFormat('j F Y, H:i')
+                    .'. Carikan unit sejenis dari vendor rekanan.'],
+                $rincianSurat,
+            );
+        }
+
         KirimPemberitahuan::kirim(
-            'Pemesanan Sewa Kendaraan Baru',
+            'Pemesanan Sewa Kendaraan Baru'.($bentrok->isNotEmpty() ? ' — PERLU DICARIKAN' : ''),
             $sewa->kode,
             $rincianSurat,
             $sewa->catatan,

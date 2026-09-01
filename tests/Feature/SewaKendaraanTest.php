@@ -940,7 +940,18 @@ test('unit yang kembali mengirim nota akhir ke penyewa', function () {
     });
 });
 
-test('unit yang sudah dipesan tidak bisa dipesan lagi di waktu bertabrakan', function () {
+test('unit yang bentrok tetap diterima, lalu ditandai perlu dicarikan', function () {
+    /*
+     | Armada di katalog bukan unit milik sendiri melainkan contoh: begitu ada
+     | yang memesan, unitnya dicarikan dari vendor rekanan. Dua pesanan pada
+     | unit dan tanggal yang sama karena itu BUKAN hal mustahil — yang kedua
+     | cuma perlu dicarikan dari vendor lain.
+     |
+     | Dulu yang kedua ditolak mentah-mentah. Yang terjadi: pelanggan yang
+     | sebenarnya bisa dilayani disuruh pergi memilih tanggal lain, dan
+     | sebagian dari mereka tidak kembali. Itu pesanan yang hilang tanpa
+     | alasan.
+     */
     $mobil = buatMobil();
 
     PenyewaanKendaraan::create([
@@ -969,9 +980,64 @@ test('unit yang sudah dipesan tidak bisa dipesan lagi di waktu bertabrakan', fun
         ->set('lokasiKembali', 'Kantor Orcha')
         ->set('setuju', true)
         ->call('pesan')
-        ->assertHasErrors('tanggalMulai');
+        ->assertHasNoErrors();
 
-    expect(PenyewaanKendaraan::count())->toBe(1);
+    // Pesanannya masuk...
+    expect(PenyewaanKendaraan::count())->toBe(2);
+
+    // ...dan yang kedua ditandai supaya tim tahu harus mencarikan unitnya.
+    $kedua = PenyewaanKendaraan::where('nama', 'Penyewa Kedua')->firstOrFail();
+    expect($kedua->perlu_dicarikan)->toBeTrue();
+});
+
+test('unit yang tidak bentrok tidak ditandai perlu dicarikan', function () {
+    // Tanda yang muncul pada pesanan yang sebenarnya aman akan membuat tim
+    // berhenti mempercayainya, lalu mengabaikannya juga saat benar-benar perlu.
+    $mobil = buatMobil();
+
+    Volt::test('public.sewa-kendaraan.pemesanan')
+        ->set('unit', $mobil->uuid)->set('transmisi', 'Matic')
+        ->set('satuan', 'hari')->set('durasi', 2)
+        ->set('tanggalMulai', '2026-09-12')->set('jamMulai', '08:00')
+        ->set('denganSopir', 'ya')->set('nama', 'Penyewa Sendirian')
+        ->set('whatsapp', '081234567890')->set('email', 'sendiri@contoh.test')
+        ->set('lokasiAntar', 'Bandara YIA')->set('tujuan', 'Borobudur')
+        ->set('lokasiKembali', 'Kantor Orcha')->set('setuju', true)
+        ->call('pesan')
+        ->assertHasNoErrors();
+
+    expect(PenyewaanKendaraan::firstOrFail()->perlu_dicarikan)->toBeFalse();
+});
+
+test('tanda perlu dicarikan hilang setelah pesanan yang bentrok dibatalkan', function () {
+    /*
+     | Dihitung saat dibaca, bukan disimpan sebagai kolom — sebab jawabannya
+     | berubah. Kolom yang ditulis sekali akan terus menyuruh tim mencari unit
+     | yang sebenarnya sudah bebas.
+     */
+    $mobil = buatMobil();
+
+    $pertama = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Pertama',
+        'whatsapp' => '0812', 'transmisi' => 'Matic', 'satuan' => 'hari', 'durasi' => 3,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-13', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 1050000, 'status' => 'dp_masuk',
+    ]);
+
+    $kedua = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Kedua',
+        'whatsapp' => '0813', 'transmisi' => 'Matic', 'satuan' => 'hari', 'durasi' => 2,
+        'tanggal_mulai' => '2026-09-12', 'jam_mulai' => '08:00',
+        'tanggal_selesai' => '2026-09-14', 'jam_selesai' => '08:00',
+        'estimasi_biaya' => 700000, 'status' => 'baru',
+    ]);
+
+    expect($kedua->perlu_dicarikan)->toBeTrue();
+
+    $pertama->update(['status' => 'batal']);
+
+    expect($kedua->fresh()->perlu_dicarikan)->toBeFalse();
 });
 
 test('unit bebas dipesan lagi tepat setelah yang sebelumnya selesai', function () {
