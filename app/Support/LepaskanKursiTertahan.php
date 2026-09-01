@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\JejakAudit;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Models\PaketWisata\DaftarTunggu;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -74,6 +75,7 @@ class LepaskanKursiTertahan
 
             self::catat($daftar, $jam);
             self::kabari($daftar);
+            self::kabariAntrean($daftar);
 
             $dilepas[] = $daftar->kode;
         }
@@ -83,6 +85,81 @@ class LepaskanKursiTertahan
             'dilepas' => count($dilepas),
             'kode' => $dilepas,
         ];
+    }
+
+    /**
+     * Mengabari yang menunggu bahwa kursinya terbuka.
+     *
+     * Inilah yang mengubah pelepasan kursi dari sekadar pembersihan jadi
+     * penjualan. Kursi yang kembali tersedia tidak berguna kalau tidak ada
+     * yang tahu — dan yang paling mungkin langsung mengambilnya adalah orang
+     * yang sudah menyatakan minat pada trip yang sama.
+     *
+     * Yang dikabari HANYA sebanyak kursi yang benar-benar terbuka, urut dari
+     * yang paling lama menunggu. Mengabari seluruh antrean untuk dua kursi
+     * membuat sebagian besar dari mereka datang ke kursi yang sudah diambil
+     * orang lain — dan kekecewaan itu lebih mahal daripada satu email yang
+     * tidak terkirim.
+     */
+    private static function kabariAntrean(PendaftaranOpenTrip $daftar): void
+    {
+        if (! $daftar->travel_package_id) {
+            return;
+        }
+
+        $terbuka = (int) $daftar->jumlah_peserta;
+
+        $antre = DaftarTunggu::query()
+            ->where('travel_package_id', $daftar->travel_package_id)
+            ->belumDikabari()
+            ->get()
+            // Rombongan yang lebih besar daripada kursi yang terbuka dilewati,
+            // bukan dikabari setengah: mengabarinya berarti menawarkan sesuatu
+            // yang belum tentu bisa ditepati.
+            ->filter(fn (DaftarTunggu $a) => $a->jumlah_peserta <= $terbuka);
+
+        foreach ($antre as $satu) {
+            if ($terbuka <= 0) {
+                break;
+            }
+
+            $terbuka -= $satu->jumlah_peserta;
+            $satu->update(['dikabari_pada' => now()]);
+
+            if (blank($satu->email)) {
+                // Tanpa surel ia tidak bisa dikabari lewat jalur ini, tetapi
+                // tetap ditandai supaya tim melihatnya di daftar dan bisa
+                // menghubunginya lewat WhatsApp.
+                continue;
+            }
+
+            try {
+                KirimPemberitahuan::kirim(
+                    'Kursi Terbuka — Ada yang Menunggu',
+                    $daftar->kode,
+                    [
+                        'Trip' => $daftar->nama_paket ?: '—',
+                        'Yang menunggu' => $satu->nama.' · '.$satu->jumlah_peserta.' orang',
+                        'WhatsApp' => $satu->whatsapp,
+                    ],
+                    pelanggan: new SalinanPelanggan(
+                        email: $satu->email,
+                        judul: 'Kursi yang Anda Tunggu Sudah Terbuka',
+                        langkah: 'Ada kursi yang terbuka di '.($daftar->nama_paket ?: 'trip yang Anda tunggu')
+                            .". Kami kabari Anda lebih dulu karena Anda yang paling lama menunggu.\n\n"
+                            .'Kursinya belum dikunci untuk siapa pun — yang mendaftar dan membayar '
+                            .'lebih dulu yang mendapatkannya.',
+                        tautan: route('pendaftaran-open-trip', ['paket' => $daftar->paket?->uuid]),
+                        labelTautan: 'Daftar Sekarang',
+                    ),
+                );
+            } catch (\Throwable $e) {
+                Log::error('Kabar kursi terbuka gagal dikirim', [
+                    'antrean' => $satu->id,
+                    'galat' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     /**

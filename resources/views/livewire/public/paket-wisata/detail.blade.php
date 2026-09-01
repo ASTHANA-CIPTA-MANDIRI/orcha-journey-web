@@ -2,6 +2,8 @@
 
 use App\Models\PaketWisata\TravelPackage;
 use App\Support\Seo;
+use App\Support\NomorTelepon;
+use App\Models\PaketWisata\DaftarTunggu;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -82,6 +84,65 @@ new #[Layout('components.layouts.guest')] class extends Component
         }
 
         return $kalimat;
+    }
+
+    /* ------------------------- DAFTAR TUNGGU ------------------------- */
+
+    public string $tungguNama = '';
+
+    public string $tungguWa = '';
+
+    public $tungguJumlah = 1;
+
+    public bool $tungguTerkirim = false;
+
+    /**
+     * Menyimpan peminat trip yang kursinya sedang penuh.
+     *
+     * Sebelumnya halaman ini cuma mengarahkan ke WhatsApp, dan jawabannya tidak
+     * tersimpan di mana pun: begitu percakapannya berakhir, peminat itu hilang.
+     * Padahal merekalah yang paling mungkin langsung mengambil kursi yang
+     * dilepas otomatis tiap jam.
+     */
+    public function antre(): void
+    {
+        $this->validate([
+            'tungguNama' => 'required|string|min:3|max:120',
+            'tungguWa' => ['required', 'string', 'max:25', fn ($a, $n, $gagal) => NomorTelepon::sah($n)
+                ? null
+                : $gagal('Nomor WhatsApp belum benar. Contoh: 0812-3456-7890.')],
+            'tungguJumlah' => 'required|integer|min:1|max:60',
+        ], [], [
+            'tungguNama' => 'nama',
+            'tungguWa' => 'nomor WhatsApp',
+            'tungguJumlah' => 'jumlah peserta',
+        ]);
+
+        /*
+         | updateOrCreate, bukan create.
+         |
+         | Orang yang bertanya dua kali tidak boleh menempati dua tempat di
+         | antrean — dan tanpa ini ia juga menerima dua kabar saat kursinya
+         | terbuka. Yang diperbarui jumlah pesertanya, karena rombongan sering
+         | bertambah selama menunggu.
+         */
+        DaftarTunggu::updateOrCreate(
+            [
+                'travel_package_id' => $this->paket->id,
+                'whatsapp' => NomorTelepon::angka($this->tungguWa),
+            ],
+            [
+                'nama' => $this->tungguNama,
+                'jumlah_peserta' => (int) $this->tungguJumlah,
+                // Dikosongkan lagi: yang memperbarui antreannya berarti masih
+                // menunggu, jadi ia berhak dikabari pada kesempatan berikutnya
+                // walau pernah dikabari sebelumnya.
+                'dikabari_pada' => null,
+            ],
+        );
+
+        $this->tungguTerkirim = true;
+        $this->reset(['tungguNama', 'tungguWa', 'tungguJumlah']);
     }
 
     public function with(): array
@@ -408,8 +469,67 @@ new #[Layout('components.layouts.guest')] class extends Component
                                                  pembuka yang sudah menanyakan tanggal berikutnya,
                                                  sehingga percakapannya mulai dari tempat yang masih
                                                  bisa ditutup jadi pendaftaran. --}}
+                                            {{-- Daftar tunggu, bukan cuma tautan WhatsApp.
+
+                                                 Tautan mengantar percakapan; yang tersimpan cuma di
+                                                 kepala orang yang membalasnya. Kursi di trip ini
+                                                 dilepas otomatis tiap jam ketika ada yang tidak
+                                                 membayar — dan yang antre di sini adalah orang
+                                                 pertama yang bisa dikabari saat itu terjadi. --}}
+                                            @if ($tungguTerkirim)
+                                                <div class="p-4 mt-4 text-sm text-left rounded-2xl bg-white/70">
+                                                    <p class="flex items-center gap-2 font-bold text-orcha-navy">
+                                                        <x-heroicon-s-check-circle class="w-5 h-5 text-orcha-ocean" />
+                                                        Anda masuk daftar tunggu
+                                                    </p>
+                                                    <p class="mt-1 text-slate-600">
+                                                        Kami kabari lewat WhatsApp begitu ada kursi yang terbuka —
+                                                        biasanya karena ada yang batal.
+                                                    </p>
+                                                </div>
+                                            @else
+                                                <div class="mt-4 text-left">
+                                                    <p class="mb-2 text-sm font-bold text-orcha-navy">
+                                                        Mau dikabari kalau ada kursi terbuka?
+                                                    </p>
+
+                                                    <div class="grid gap-2">
+                                                        <input type="text" wire:model="tungguNama" maxlength="120"
+                                                            placeholder="Nama Anda"
+                                                            class="isian-orcha @error('tungguNama') isian-galat @enderror">
+                                                        @error('tungguNama')
+                                                            <p class="galat-orcha">{{ $message }}</p>
+                                                        @enderror
+
+                                                        <div class="grid grid-cols-3 gap-2">
+                                                            <input type="tel" inputmode="tel" wire:model="tungguWa"
+                                                                maxlength="25" placeholder="0812-3456-7890"
+                                                                class="col-span-2 isian-orcha orcha-telp @error('tungguWa') isian-galat @enderror">
+                                                            <input type="number" min="1" max="60"
+                                                                wire:model="tungguJumlah" placeholder="Orang"
+                                                                class="isian-orcha @error('tungguJumlah') isian-galat @enderror">
+                                                        </div>
+                                                        @error('tungguWa')
+                                                            <p class="galat-orcha">{{ $message }}</p>
+                                                        @enderror
+                                                        @error('tungguJumlah')
+                                                            <p class="galat-orcha">{{ $message }}</p>
+                                                        @enderror
+
+                                                        <button type="button" wire:click="antre"
+                                                            wire:loading.attr="disabled" wire:target="antre"
+                                                            class="w-full btn-orcha btn-orcha-primary">
+                                                            <span wire:loading.remove wire:target="antre">
+                                                                Kabari Saya
+                                                            </span>
+                                                            <span wire:loading wire:target="antre">Menyimpan…</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            @endif
+
                                             <a href="{{ $waPenuh }}" target="_blank" rel="noopener noreferrer"
-                                                class="w-full mt-4 btn-orcha btn-orcha-primary">
+                                                class="w-full mt-3 btn-orcha btn-orcha-outline">
                                                 <x-bi-whatsapp class="w-5 h-5" />
                                                 Tanya Tanggal Berikutnya
                                             </a>
