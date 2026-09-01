@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Models\PaketWisata\PromoRombonganTingkat;
+
 /**
  * Potongan yang berlaku menurut jumlah peserta dalam satu pendaftaran.
  *
@@ -9,7 +11,7 @@ namespace App\Support;
  * Paket yang sudah turun dari 1.700.000 ke 1.430.000 dihitung promo
  * rombongannya dari 1.430.000.
  *
- * Tingkatnya diatur di config('orcha.promo_rombongan'), bukan per paket.
+ * Tingkatnya diatur admin lewat tabel tbl_promo_rombongan, bukan per paket.
  * Alasannya skemanya memang seragam untuk seluruh trip; menaruhnya per paket
  * berarti admin harus mengisinya berulang-ulang dan lupa satu berarti satu
  * rombongan tidak mendapat haknya tanpa ada yang tahu.
@@ -28,7 +30,7 @@ class PromoRombongan
      */
     public static function tingkat(int $orang): ?array
     {
-        return collect(config('orcha.promo_rombongan', []))
+        return collect(PromoRombonganTingkat::daftar())
             ->filter(fn ($t) => $orang >= (int) ($t['min'] ?? 0))
             ->sortByDesc(fn ($t) => (int) ($t['min'] ?? 0))
             ->first();
@@ -78,7 +80,7 @@ class PromoRombongan
      */
     public static function ajakanBerikutnya(int $orang): ?string
     {
-        $berikut = collect(config('orcha.promo_rombongan', []))
+        $berikut = collect(PromoRombonganTingkat::daftar())
             ->filter(fn ($t) => $orang < (int) ($t['min'] ?? 0))
             ->sortBy(fn ($t) => (int) ($t['min'] ?? 0))
             ->first();

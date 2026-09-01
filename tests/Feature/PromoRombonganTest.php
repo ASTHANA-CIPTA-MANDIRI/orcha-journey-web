@@ -120,3 +120,89 @@ test('promo tampil hidup di formulir saat peserta ditambah', function () {
         ->assertSee('gratis')
         ->assertSee('dibayar 9 orang');
 });
+
+/* ------------------------ DIKELOLA DARI ADMIN ------------------------ */
+
+use App\Models\PaketWisata\PromoRombonganTingkat;
+
+function kepalaPromo(): array
+{
+    config()->set('orcha.api.kunci', 'kunci-uji-promo');
+
+    return ['X-Orcha-Key' => 'kunci-uji-promo', 'Accept' => 'application/json'];
+}
+
+test('tingkat yang diubah admin langsung berlaku di harga', function () {
+    /*
+     | Inti perubahannya. Selama angkanya di berkas config, mengubah "ajak 5
+     | dapat 5%" jadi 10% berarti menunggu ada yang menyunting kode dan
+     | menaikkannya ke server — padahal justru angka inilah yang paling sering
+     | diutak-atik.
+     */
+    PromoRombonganTingkat::where('min_peserta', 5)->update(['potongan_persen' => 10]);
+
+    $b = RincianBiaya::untuk(paketPromo(), 5);
+
+    expect($b['total'])->toBe((float) round(5 * 1430000 * 0.90));
+});
+
+test('tingkat yang dimatikan tidak lagi berlaku', function () {
+    // Promo musiman sering dihidupkan lagi tahun berikutnya dengan angka yang
+    // sama — jadi dimatikan, bukan dihapus.
+    PromoRombonganTingkat::where('min_peserta', 10)->update(['aktif' => false]);
+
+    $b = RincianBiaya::untuk(paketPromo(), 10);
+
+    // Turun ke tingkat 5 yang masih hidup, bukan kehilangan promo sama sekali.
+    expect($b['promo_gratis_orang'])->toBe(0)
+        ->and($b['total'])->toBe((float) round(10 * 1430000 * 0.95));
+});
+
+test('tabel kosong jatuh ke tingkat bawaan, bukan kehilangan promo', function () {
+    /*
+     | Saat migrasinya belum jalan di sebuah lingkungan, promo yang sedang
+     | berjalan tetap berlaku alih-alih mati diam-diam — dan yang menyadarinya
+     | pelanggan, bukan kita.
+     */
+    PromoRombonganTingkat::query()->delete();
+
+    $b = RincianBiaya::untuk(paketPromo(), 10);
+
+    expect($b['promo_gratis_orang'])->toBe(1);
+});
+
+test('dua tingkat dengan syarat sama ditolak', function () {
+    /*
+     | "Tingkat terbaik" jadi tidak menentu — yang menang tergantung urutan
+     | baris, dan itu berubah sendiri saat salah satunya disunting.
+     */
+    $this->postJson('/api/v1/promo-rombongan', [
+        'min_peserta' => 5, 'potongan_persen' => 8, 'label' => 'Duplikat',
+    ], kepalaPromo())
+        ->assertStatus(422);
+});
+
+test('tingkat tanpa keuntungan apa pun ditolak', function () {
+    /*
+     | Ia tersimpan rapi dan tampil di daftar, tetapi tidak mengubah harga
+     | sepeser pun — sementara ia MENGGESER tingkat di bawahnya. Rombongan yang
+     | seharusnya dapat gratis 1 berhenti di tingkat kosong ini, dan tidak ada
+     | yang tahu sampai ada pelanggan menghitung sendiri.
+     */
+    $this->postJson('/api/v1/promo-rombongan', [
+        'min_peserta' => 20, 'potongan_persen' => 0, 'gratis_orang' => 0, 'label' => 'Kosong',
+    ], kepalaPromo())
+        ->assertStatus(422);
+});
+
+test('tingkat baru dari admin ikut dihitung', function () {
+    $this->postJson('/api/v1/promo-rombongan', [
+        'min_peserta' => 20, 'gratis_orang' => 2, 'label' => 'Ajak 20 — gratis 2 orang',
+    ], kepalaPromo())
+        ->assertCreated();
+
+    $b = RincianBiaya::untuk(paketPromo(), 20);
+
+    expect($b['promo_gratis_orang'])->toBe(2)
+        ->and($b['promo_orang_dibayar'])->toBe(18);
+});

@@ -197,6 +197,19 @@ Route::prefix('v1')
         Route::delete('/wilayah/{wilayah}', [ProvinsiController::class, 'hapusWilayah']);
         Route::post('/provinsi', [ProvinsiController::class, 'store']);
         Route::delete('/provinsi/{provinsi}', [ProvinsiController::class, 'destroy']);
+        /*
+         | Tingkat promo rombongan.
+         |
+         | Angka-angka ini yang paling sering diutak-atik — mengikuti musim
+         | liburan, sisa kursi, dan tawaran pesaing. Selama masih di berkas
+         | config, tiap perubahan kecil berarti menunggu ada yang menyunting
+         | kode dan menaikkannya ke server.
+         */
+        Route::get('/promo-rombongan', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'index']);
+        Route::post('/promo-rombongan', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'store']);
+        Route::match(['put', 'post'], '/promo-rombongan/{tingkat:id}', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'update']);
+        Route::delete('/promo-rombongan/{tingkat:id}', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'destroy']);
+
         Route::post('/destinasi', [EtalaseController::class, 'simpanDestinasi']);
         Route::match(['put', 'post'], '/destinasi/{destinasi:id}', [EtalaseController::class, 'perbaruiDestinasi']);
         Route::delete('/destinasi/{destinasi:id}', [EtalaseController::class, 'hapusDestinasi']);
