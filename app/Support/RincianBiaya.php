@@ -37,7 +37,21 @@ class RincianBiaya
             ? (int) config('orcha.pembayaran.dp_persen_study_tour')
             : (int) config('orcha.pembayaran.dp_persen');
 
-        $total = $satuan * $orang;
+        /*
+         | Promo rombongan dihitung DI SINI, tempat satu-satunya total dibentuk.
+         |
+         | Kalau dihitung di halaman, angka yang dilihat pelanggan dan angka
+         | yang ditagih sistem akan berbeda suatu saat — dan yang ketahuan
+         | belakangan selalu saat orangnya sudah mentransfer.
+         */
+        $promo = PromoRombongan::hitung($satuan, $orang);
+
+        $totalSebelumPromo = $satuan * $orang;
+
+        // Tetap float seperti sebelum ada promo. Bukan soal ketelitian —
+        // angkanya bulat — melainkan supaya pemanggil yang membandingkan
+        // dp + sisa dengan total tidak mendadak berbeda tipe.
+        $total = (float) $promo['total'];
         $dp = round($total * $persen / 100);
 
         return [
@@ -46,6 +60,17 @@ class RincianBiaya
             'orang' => $orang,
             'total' => $total,
             'total_teks' => self::rupiah($total),
+
+            // Rincian promonya dipisah supaya tampilan bisa menyebut bentuknya
+            // apa adanya — "1 orang gratis", bukan "potongan 10%".
+            'promo_label' => $promo['label'],
+            'promo_gratis_orang' => $promo['gratis_orang'],
+            'promo_orang_dibayar' => $promo['orang_dibayar'],
+            'promo_potongan' => $promo['potongan'],
+            'promo_potongan_teks' => self::rupiah($promo['potongan']),
+            'total_sebelum_promo' => $totalSebelumPromo,
+            'total_sebelum_promo_teks' => self::rupiah($totalSebelumPromo),
+            'promo_ajakan' => PromoRombongan::ajakanBerikutnya($orang),
             'dp_persen' => $persen,
             'dp' => $dp,
             'dp_teks' => self::rupiah($dp),

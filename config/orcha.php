@@ -787,6 +787,49 @@ return [
     | berbeda, ubah angkanya di sini — seluruh sistem membacanya dari satu
     | tempat ini.
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Promo rombongan
+    |--------------------------------------------------------------------------
+    |
+    | Berlaku DI ATAS harga paket yang sudah berlaku — termasuk harga early
+    | bird. Jadi kalau paket sudah turun dari 1.700.000 ke 1.430.000, promo
+    | rombongan dihitung dari 1.430.000, bukan dari harga normalnya.
+    |
+    | TINGKAT TERBAIK YANG MENANG, TIDAK BERTUMPUK. Rombongan 12 orang mendapat
+    | tingkat 10, bukan tingkat 5 ditambah tingkat 10. Bertumpuk terdengar lebih
+    | murah hati, tetapi angkanya jadi sulit dijelaskan di WhatsApp dan lebih
+    | sulit lagi diperiksa saat ada yang protes.
+    |
+    | Dua bentuk keuntungan, dan bedanya disengaja:
+    |
+    |   potongan_persen — potongan biasa, dipakai untuk tingkat menengah
+    |   gratis_orang    — sejumlah orang tidak dibayar
+    |
+    | "Gratis 1 dari 10" secara hitungan sama dengan potongan 10%, tetapi
+    | DISEBUT sebagai gratis satu orang — itu yang dipahami dan diceritakan
+    | ulang orang ke temannya. Karena itu keduanya dihitung berbeda, bukan
+    | disamakan jadi persen.
+    |
+    | ANGKA DI BAWAH INI KEPUTUSAN BISNIS, bukan teknis. Tingkat 10 orang
+    | mengikuti yang sudah ditetapkan; tingkat 5 orang diisi 5% sebagai titik
+    | awal — ubah angkanya di sini bila berbeda.
+    */
+    'promo_rombongan' => [
+        [
+            'min' => 5,
+            'potongan_persen' => 5,
+            'label' => 'Ajak 5 orang — hemat 5%',
+            'ajakan' => 'Ajak 5 orang, hemat 5% untuk seluruh rombongan.',
+        ],
+        [
+            'min' => 10,
+            'gratis_orang' => 1,
+            'label' => 'Ajak 10 orang — gratis 1 orang',
+            'ajakan' => 'Ajak 10 orang, satu orang gratis.',
+        ],
+    ],
+
     'kesehatan' => [
         'simpan_hari' => 90,
     ],

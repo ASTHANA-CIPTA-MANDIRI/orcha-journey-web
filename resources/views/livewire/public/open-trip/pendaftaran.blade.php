@@ -390,6 +390,16 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             'paketOpenTrip' => $daftarPaket,
             'titikJemputPilihan' => $this->paketDipilih()?->titik_jemput_list ?? [],
             'paketTerpilih' => $this->paketId ? $daftarPaket->firstWhere('uuid', $this->paketId) : null,
+
+            /*
+             | Biaya dihitung ulang tiap jumlah peserta berubah, supaya promo
+             | rombongannya terlihat SAAT orangnya masih bisa menambah teman —
+             | bukan setelah formulirnya terkirim.
+             |
+             | Di situlah letak gunanya: yang sedang mengisi empat peserta
+             | perlu tahu bahwa satu orang lagi mengubah harganya.
+             */
+            'biaya' => RincianBiaya::untuk($this->paketDipilih(), (int) $this->jumlahPeserta),
         ];
     }
 }; ?>
@@ -618,6 +628,47 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                     @enderror
                                 </div>
                             </div>
+
+                            {{-- Promo rombongan, ditampilkan SAAT peserta masih bisa
+                                 ditambah.
+
+                                 Dua kalimat yang berbeda maksudnya: yang sudah dapat
+                                 diberi tahu hematnya, yang belum diberi tahu berapa orang
+                                 lagi yang kurang. Promo yang cuma diumumkan di halaman
+                                 paket hanya menguntungkan rombongan yang kebetulan sudah
+                                 ramai; yang dituju justru yang masih empat orang. --}}
+                            @if ($biaya)
+                                <div class="p-4 rounded-2xl bg-orcha-foam">
+                                    @if ($biaya['promo_label'])
+                                        <p class="flex items-start gap-2 text-sm font-bold text-orcha-navy">
+                                            <x-heroicon-s-gift class="w-5 h-5 mt-px text-orcha-ocean shrink-0" />
+                                            <span>{{ $biaya['promo_label'] }}</span>
+                                        </p>
+
+                                        <p class="mt-1 text-sm text-slate-600">
+                                            @if ($biaya['promo_gratis_orang'] > 0)
+                                                {{ $biaya['orang'] }} orang, {{ $biaya['promo_gratis_orang'] }} gratis —
+                                                dibayar {{ $biaya['promo_orang_dibayar'] }} orang.
+                                            @endif
+                                            Hemat <strong>{{ $biaya['promo_potongan_teks'] }}</strong> dari
+                                            <span class="line-through">{{ $biaya['total_sebelum_promo_teks'] }}</span>.
+                                        </p>
+                                    @endif
+
+                                    @if ($biaya['promo_ajakan'])
+                                        <p class="{{ $biaya['promo_label'] ? 'mt-2 pt-2 border-t border-orcha-mist/40' : '' }} flex items-start gap-2 text-sm text-slate-600">
+                                            <x-heroicon-o-user-plus class="w-5 h-5 mt-px text-orcha-sun shrink-0" />
+                                            <span>{{ $biaya['promo_ajakan'] }}</span>
+                                        </p>
+                                    @endif
+
+                                    <p class="pt-2 mt-2 text-sm border-t border-orcha-mist/40 text-slate-600">
+                                        Total <strong class="text-orcha-navy">{{ $biaya['total_teks'] }}</strong>
+                                        · DP {{ $biaya['dp_persen'] }}% =
+                                        <strong class="text-orcha-navy">{{ $biaya['dp_teks'] }}</strong>
+                                    </p>
+                                </div>
+                            @endif
 
                             {{-- Nama tiap peserta ditulis sejak awal.
 
