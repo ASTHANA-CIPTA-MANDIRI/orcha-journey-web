@@ -76,7 +76,20 @@ class PromoRombonganController extends Controller
                 Rule::unique('tbl_promo_rombongan')->ignore($kecuali)],
             'potongan_persen' => ['nullable', 'integer', 'min:0', 'max:100'],
             'gratis_orang' => ['nullable', 'integer', 'min:0', 'max:20'],
-            'label' => ['required', 'string', 'max:120'],
+            /*
+             | Tulisan dan ajakannya TIDAK lagi diterima dari pemanggil.
+             |
+             | Keduanya dirakit model dari angka yang berlaku, supaya kalimat
+             | yang dibaca pelanggan tidak pernah berbeda dari potongan yang
+             | benar-benar ditagih. Sebelumnya admin mengetiknya sendiri, dan
+             | mengubah 5% jadi 7% tanpa menyunting kalimat "hemat 5%" di
+             | sebelahnya adalah satu langkah yang mudah terlewat.
+             |
+             | Dibiarkan lewat validasi (bukan ditolak) supaya pemanggil lama
+             | yang masih mengirimnya tidak mendadak gagal — nilainya diabaikan
+             | dan ditimpa model.
+             */
+            'label' => ['nullable', 'string', 'max:120'],
             'ajakan' => ['nullable', 'string', 'max:160'],
             'aktif' => ['nullable', 'boolean'],
         ]);

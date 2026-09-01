@@ -263,3 +263,51 @@ test('menyalakan penanda membuat promonya langsung berlaku', function () {
 
     expect(RincianBiaya::untuk($paket->fresh(), 10)['promo_gratis_orang'])->toBe(1);
 });
+
+/* --------------------- TULISANNYA DIRAKIT SENDIRI --------------------- */
+
+test('tulisan dan ajakan dirakit dari angka yang berlaku', function () {
+    /*
+     | Dulu keduanya diketik admin, dan angkanya bisa berbeda dari yang
+     | benar-benar berlaku: mengubah potongan 5% jadi 7% lalu lupa menyunting
+     | kalimat "hemat 5%" di sebelahnya adalah satu langkah yang mudah
+     | terlewat. Yang dibaca pelanggan angka yang salah, yang ditagih angka
+     | yang benar.
+     */
+    $persen = PromoRombonganTingkat::create([
+        'min_peserta' => 7, 'potongan_persen' => 8,
+    ]);
+
+    $gratis = PromoRombonganTingkat::create([
+        'min_peserta' => 15, 'gratis_orang' => 2,
+    ]);
+
+    expect($persen->label)->toBe('Ajak 7 orang — hemat 8%')
+        ->and($persen->ajakan)->toBe('Ajak 7 orang, hemat 8% untuk seluruh rombongan.')
+        ->and($gratis->label)->toBe('Ajak 15 orang — gratis 2 orang')
+        ->and($gratis->ajakan)->toBe('Ajak 15 orang, 2 orang gratis.');
+});
+
+test('tulisannya ikut berubah saat angkanya disunting', function () {
+    // Inti perbaikannya: kalimat dan angka tidak bisa lagi berbeda.
+    $t = PromoRombonganTingkat::create(['min_peserta' => 7, 'potongan_persen' => 5]);
+
+    $t->update(['potongan_persen' => 9]);
+
+    expect($t->fresh()->label)->toBe('Ajak 7 orang — hemat 9%');
+});
+
+test('tulisan yang dikirim pemanggil diabaikan, bukan dipakai', function () {
+    /*
+     | Dibiarkan lewat validasi supaya pemanggil lama tidak mendadak gagal —
+     | tetapi nilainya tidak boleh menang atas angka yang berlaku.
+     */
+    $t = PromoRombonganTingkat::create([
+        'min_peserta' => 7, 'potongan_persen' => 5,
+        'label' => 'Tulisan karangan sendiri',
+        'ajakan' => 'Ajakan karangan sendiri',
+    ]);
+
+    expect($t->label)->toBe('Ajak 7 orang — hemat 5%')
+        ->and($t->ajakan)->not->toContain('karangan');
+});
