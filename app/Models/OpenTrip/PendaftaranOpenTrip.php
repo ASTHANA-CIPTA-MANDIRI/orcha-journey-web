@@ -21,6 +21,7 @@ class PendaftaranOpenTrip extends Model
         'jumlah_peserta',
         'harga_jual',
         'harga_modal',
+        'potongan_promo',
         'daftar_peserta',
         'riwayat_penggantian',
         'surat_penggantian',
@@ -35,6 +36,7 @@ class PendaftaranOpenTrip extends Model
         'tanggal_berangkat' => 'date',
         'jumlah_peserta' => 'integer',
         'harga_jual' => 'integer',
+        'potongan_promo' => 'integer',
         'harga_modal' => 'integer',
         'daftar_peserta' => 'array',
         'riwayat_penggantian' => 'array',
@@ -65,6 +67,18 @@ class PendaftaranOpenTrip extends Model
             if ($paket) {
                 $pendaftaran->harga_jual ??= (int) $paket->price;
                 $pendaftaran->harga_modal ??= $paket->harga_modal;
+
+                /*
+                 | Potongan promonya ikut dibekukan, dengan alasan yang sama.
+                 |
+                 | Tingkat promo berubah sepanjang tahun; tanpa dibekukan,
+                 | laporan bulan lalu ikut berubah tiap admin menyunting angka
+                 | promo hari ini — dan yang membacanya tidak punya cara tahu
+                 | kenapa angkanya bergeser.
+                 */
+                $pendaftaran->potongan_promo ??= (int) (
+                    \App\Support\RincianBiaya::untuk($paket, (int) $pendaftaran->jumlah_peserta)['promo_potongan'] ?? 0
+                );
             }
         });
     }
@@ -188,10 +202,19 @@ class PendaftaranOpenTrip extends Model
             : $this->jual_satuan - $this->modal_satuan;
     }
 
-    /** Uang masuk dari pendaftaran ini bila seluruhnya dibayar. */
+    /**
+     * Uang masuk dari pendaftaran ini bila seluruhnya dibayar.
+     *
+     * Potongan promonya DIKURANGKAN. Tanpa itu laporan menghitung harga penuh
+     * sementara pelanggan ditagih setelah potongan — dan keuntungan yang
+     * dipakai mengambil keputusan jadi lebih besar daripada uang yang
+     * benar-benar masuk.
+     */
     public function getOmzetAttribute(): int
     {
-        return (int) ($this->jual_satuan ?? 0) * max(1, (int) $this->jumlah_peserta);
+        $penuh = (int) ($this->jual_satuan ?? 0) * max(1, (int) $this->jumlah_peserta);
+
+        return max(0, $penuh - (int) ($this->potongan_promo ?? 0));
     }
 
     public function getModalTotalAttribute(): ?int
@@ -201,11 +224,21 @@ class PendaftaranOpenTrip extends Model
             : $this->modal_satuan * max(1, (int) $this->jumlah_peserta);
     }
 
+    /**
+     * Keuntungan pendaftaran ini: uang masuk dikurangi modalnya.
+     *
+     * Dihitung dari OMZET, bukan dari margin per orang dikalikan jumlah
+     * peserta. Keduanya sama selama tidak ada promo — tetapi begitu ada,
+     * margin per orang tidak tahu apa-apa soal potongan yang diberikan, dan
+     * keuntungan yang dilaporkan jadi lebih besar daripada uang yang
+     * benar-benar masuk. Terukur pada rombongan sepuluh orang bertingkat
+     * "gratis 1": Rp 4.300.000 dilaporkan, Rp 2.870.000 kenyataannya.
+     */
     public function getKeuntunganAttribute(): ?int
     {
-        return $this->margin_satuan === null
+        return $this->modal_total === null
             ? null
-            : $this->margin_satuan * max(1, (int) $this->jumlah_peserta);
+            : $this->omzet - $this->modal_total;
     }
 
     /**
