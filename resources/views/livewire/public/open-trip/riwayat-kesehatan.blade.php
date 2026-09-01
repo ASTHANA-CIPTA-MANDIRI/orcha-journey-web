@@ -95,7 +95,36 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
     protected function rules(): array
     {
         return [
-            'kode' => 'required|string|max:20|exists:tbl_pendaftaran_open_trip,kode',
+            /*
+             | Kodenya harus ada DAN pemesanannya sudah membayar.
+             |
+             | Sebelum ini siapa pun yang memegang kode bisa mengisi formulir
+             | kesehatan tanpa satu rupiah pun masuk. Dua akibatnya:
+             |
+             |   - Kita mengumpulkan data medis — riwayat penyakit, alergi,
+             |     obat rutin — dari orang yang belum tentu jadi berangkat.
+             |     Data pribadi bersifat spesifik tidak pantas dikumpulkan
+             |     "berjaga-jaga"; yang tidak disimpan tidak bisa bocor.
+             |
+             |   - Formulirnya jadi jalan menumpang bagi kode yang bocor:
+             |     pengisiannya tidak butuh apa pun selain kode itu sendiri.
+             |
+             | Uang muka sudah cukup sebagai syarat — menunggu pelunasan akan
+             | menahan formulir sampai H-5, terlalu mepet untuk memeriksa
+             | kondisi peserta sebelum berangkat.
+             */
+            'kode' => ['required', 'string', 'max:20', function ($atribut, $nilai, $gagal) {
+                $daftar = \App\Models\OpenTrip\PendaftaranOpenTrip::where('kode', strtoupper(trim((string) $nilai)))->first();
+
+                if (! $daftar) {
+                    return $gagal('Kode pendaftaran tidak ditemukan. Periksa kembali kode yang Anda terima saat mendaftar.');
+                }
+
+                if (! in_array($daftar->status, ['dp_masuk', 'lunas'], true)) {
+                    return $gagal('Formulir kesehatan bisa diisi setelah uang muka kami terima. '
+                        .'Sudah transfer? Kirim buktinya lebih dulu di halaman Konfirmasi Pembayaran.');
+                }
+            }],
             'namaPeserta' => 'required|string|min:3|max:120',
             'usia' => 'required|integer|min:1|max:110',
             'jenisKelamin' => 'required|in:Laki-laki,Perempuan',

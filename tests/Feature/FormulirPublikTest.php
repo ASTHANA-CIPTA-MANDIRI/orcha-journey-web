@@ -133,6 +133,8 @@ test('kode pendaftaran selalu unik', function () {
 test('riwayat kesehatan tersimpan dan terhubung ke pendaftaran', function () {
     $pendaftaran = PendaftaranOpenTrip::create([
         'nama' => 'Dewi', 'whatsapp' => '0812', 'jumlah_peserta' => 2,
+        // Formulir kesehatan kini menuntut uang muka sudah masuk lebih dulu.
+        'status' => 'dp_masuk',
     ]);
 
     Volt::test('public.open-trip.riwayat-kesehatan')
@@ -199,6 +201,8 @@ test('riwayat kesehatan wajib menyertakan persetujuan dan kontak darurat', funct
 test('data kesehatan tidak pernah tampil di halaman publik', function () {
     $pendaftaran = PendaftaranOpenTrip::create([
         'nama' => 'Peserta Rahasia', 'whatsapp' => '0812', 'jumlah_peserta' => 1,
+        // Formulir kesehatan kini menuntut uang muka sudah masuk.
+        'status' => 'dp_masuk',
     ]);
 
     RiwayatKesehatan::create([
@@ -475,3 +479,55 @@ test('isian angka pada formulir publik lain juga tahan dikosongkan', function (s
     ['public.open-trip.pembatalan', 'jumlahDibatalkan'],
     ['public.sewa-kendaraan.pemesanan', 'durasi'],
 ]);
+
+test('formulir kesehatan menolak pendaftaran yang belum membayar', function () {
+    /*
+     | Sebelum ini siapa pun yang memegang kode bisa mengisinya tanpa satu
+     | rupiah pun masuk. Dua akibatnya: kita mengumpulkan data medis dari orang
+     | yang belum tentu berangkat, dan formulirnya jadi jalan menumpang bagi
+     | kode yang bocor — pengisiannya tidak butuh apa pun selain kode itu.
+     */
+    $belumBayar = PendaftaranOpenTrip::create([
+        'nama' => 'Budi', 'whatsapp' => '0812', 'jumlah_peserta' => 1,
+        'status' => 'baru',
+    ]);
+
+    Volt::test('public.open-trip.riwayat-kesehatan')
+        ->set('kode', $belumBayar->kode)
+        ->set('namaPeserta', 'Budi Santoso')
+        ->set('usia', 30)
+        ->set('jenisKelamin', 'Laki-laki')
+        ->set('kemampuanRenang', 'bisa')
+        ->set('kontakNama', 'Siti')
+        ->set('kontakHp', '081298765432')
+        ->set('setuju', true)
+        ->call('simpan')
+        ->assertHasErrors('kode');
+
+    // Dan datanya benar-benar tidak tersimpan.
+    expect(App\Models\OpenTrip\RiwayatKesehatan::where('kode_pendaftaran', $belumBayar->kode)->count())
+        ->toBe(0);
+});
+
+test('pesan penolakannya mengantar ke langkah berikutnya', function () {
+    // Yang membaca sedang berniat mengisi formulir; menyebut "belum bisa"
+    // tanpa mengatakan apa yang harus dikerjakan hanya memindahkan
+    // pertanyaannya ke WhatsApp tim.
+    $belumBayar = PendaftaranOpenTrip::create([
+        'nama' => 'Budi', 'whatsapp' => '0812', 'jumlah_peserta' => 1, 'status' => 'baru',
+    ]);
+
+    $galat = Volt::test('public.open-trip.riwayat-kesehatan')
+        ->set('kode', $belumBayar->kode)
+        ->set('namaPeserta', 'Budi Santoso')
+        ->set('usia', 30)
+        ->set('jenisKelamin', 'Laki-laki')
+        ->set('kemampuanRenang', 'bisa')
+        ->set('kontakNama', 'Siti')
+        ->set('kontakHp', '081298765432')
+        ->set('setuju', true)
+        ->call('simpan')
+        ->errors()->get('kode')[0];
+
+    expect($galat)->toContain('uang muka')->toContain('Konfirmasi Pembayaran');
+});

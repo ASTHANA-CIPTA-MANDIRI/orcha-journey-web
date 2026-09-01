@@ -65,6 +65,26 @@ class TagihanPesanan
         $jenis = $sudah <= 0 ? 'dp' : 'pelunasan';
         $nominal = $sudah <= 0 ? $dp : $sisa;
 
+        /*
+         | Kode unik ditambahkan ke nominal yang HARUS DITRANSFER.
+         |
+         | Tagihan bulat (Rp 750.000) memaksa admin mencocokkan tangkapan layar
+         | dengan mutasi rekening satu per satu — dan sejak kursi dilepas
+         | otomatis dalam 72 jam, verifikasi yang lambat langsung berbiaya
+         | kursi.
+         |
+         | Dengan tiga digit unik, satu nominal di mutasi menunjuk tepat satu
+         | pemesanan: Rp 750.013 bukan Rp 750.047. Admin cukup mencocokkan
+         | angkanya. Pola ini sudah lazim di Indonesia, jadi pelanggan pun tidak
+         | perlu dijelaskan panjang.
+         |
+         | Angka totalnya sendiri TIDAK berubah — yang bertambah hanya nominal
+         | transfernya. Kelebihan bayarnya diserap seperti pada umumnya kode
+         | unik, dan tidak pernah lebih dari Rp 999.
+         */
+        $kodeUnik = self::kodeUnik($pesanan);
+        $nominalTransfer = $nominal > 0 ? $nominal + $kodeUnik : 0;
+
         return [
             'total' => $total,
             'total_teks' => RincianBiaya::rupiah($total),
@@ -77,8 +97,51 @@ class TagihanPesanan
             'dp_persen' => $persenDp,
             'lunas' => $sisa <= 0,
             'jenis_disarankan' => $jenis,
-            'nominal_disarankan' => $sisa <= 0 ? 0 : $nominal,
+
+            /*
+             | nominal_disarankan adalah yang DITRANSFER — sudah termasuk kode
+             | uniknya. Itu yang mengisi sendiri isian nominal di formulir dan
+             | yang dibaca pelanggan, jadi angka yang dilihatnya sama persis
+             | dengan yang harus ia ketik di aplikasi bank.
+             */
+            'nominal_disarankan' => $sisa <= 0 ? 0 : $nominalTransfer,
+            'nominal_disarankan_teks' => RincianBiaya::rupiah($sisa <= 0 ? 0 : $nominalTransfer),
+
+            // Dipisah supaya tampilan bisa menerangkan angkanya: "Rp 750.000
+            // + kode unik 13". Tanpa itu pelanggan mengira harganya naik.
+            'kode_unik' => $sisa <= 0 ? 0 : $kodeUnik,
+            'nominal_pokok' => $sisa <= 0 ? 0 : $nominal,
         ];
+    }
+
+    /**
+     * Tiga digit unik yang ditempelkan ke nominal transfer.
+     *
+     * Diturunkan dari KODE PEMESANAN, bukan diacak dan disimpan.
+     *
+     * Alasannya kestabilan: pelanggan sering membuka halaman pembayaran
+     * berkali-kali — melihat nominalnya, menutup, membuka lagi saat sudah di
+     * depan aplikasi bank. Angka yang berubah tiap muat akan membuatnya
+     * mentransfer jumlah yang tidak kita tunggu, dan justru merusak hal yang
+     * hendak diperbaiki. Turunan dari kode pemesanan selalu menghasilkan angka
+     * yang sama tanpa perlu satu kolom pun di basis data.
+     *
+     * Rentangnya 1–999: tidak pernah nol (nol tidak membedakan apa pun) dan
+     * tidak pernah mencapai seribu, sesuai batas yang ditetapkan.
+     *
+     * Tabrakan mungkin terjadi bila dua pesanan kebetulan bernominal pokok
+     * SAMA dan berkode unik sama — peluangnya satu per 999. Yang terjadi bila
+     * itu muncul: admin kembali mencocokkan manual untuk dua baris itu saja,
+     * persis seperti sebelum ada kode unik. Itu sebabnya tabrakan tidak
+     * dianggap sepadan dengan tambahan satu kolom dan satu migrasi.
+     */
+    public static function kodeUnik(PendaftaranOpenTrip|PenyewaanKendaraan|null $pesanan): int
+    {
+        if (! $pesanan || blank($pesanan->kode)) {
+            return 0;
+        }
+
+        return (crc32($pesanan->kode) % 999) + 1;
     }
 
     /**

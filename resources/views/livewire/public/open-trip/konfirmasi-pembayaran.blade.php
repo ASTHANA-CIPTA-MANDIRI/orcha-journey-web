@@ -471,8 +471,22 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
                                         </div>
                                         <p class="mt-1.5 text-sm {{ $tagihan && $nominalOtomatis ? 'text-orcha-ocean' : 'text-slate-500' }}">
                                             @if ($tagihan && $nominalOtomatis)
-                                                Terisi otomatis dari tagihan Anda — ubah bila nominal
-                                                transfernya berbeda.
+                                                {{-- Kode uniknya DISEBUT, bukan disembunyikan.
+
+                                                     Angka ganjil di ujung nominal akan disangka salah
+                                                     hitung kalau tidak diterangkan, dan orang yang
+                                                     mengira begitu justru membulatkannya sendiri —
+                                                     tepat merusak hal yang dituju kode unik ini. --}}
+                                                @if (($tagihan['kode_unik'] ?? 0) > 0)
+                                                    Mohon transfer <strong>tepat sampai angka
+                                                        terakhirnya</strong>. Tiga digit di ujung
+                                                    ({{ $tagihan['kode_unik'] }}) adalah kode unik
+                                                    pemesanan Anda — itu yang membuat kami langsung
+                                                    mengenali transfer Anda di mutasi rekening.
+                                                @else
+                                                    Terisi otomatis dari tagihan Anda — ubah bila nominal
+                                                    transfernya berbeda.
+                                                @endif
                                             @else
                                                 Tulis apa adanya sesuai yang tertera di bukti transfer.
                                             @endif

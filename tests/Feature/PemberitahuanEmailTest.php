@@ -29,6 +29,8 @@ function pendaftaranUji(?string $email = null): PendaftaranOpenTrip
     return PendaftaranOpenTrip::create([
         'nama' => 'Siti Aminah',
         'whatsapp' => '081298765432',
+        // Formulir kesehatan kini menuntut uang muka sudah masuk.
+        'status' => 'dp_masuk',
         'email' => $email,
         'jumlah_peserta' => 2,
         'daftar_peserta' => [

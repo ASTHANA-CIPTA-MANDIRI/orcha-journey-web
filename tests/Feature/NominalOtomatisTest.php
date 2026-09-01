@@ -53,7 +53,7 @@ test('belum ada pembayaran: yang ditawarkan uang mukanya', function () {
     expect($tagihan['total_teks'])->toBe('Rp 2.860.000')
         ->and($tagihan['sudah'])->toBe(0)
         ->and($tagihan['jenis_disarankan'])->toBe('dp')
-        ->and($tagihan['nominal_disarankan'])->toBe(858000);
+        ->and($tagihan['nominal_pokok'])->toBe(858000);
 
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $this->pendaftaran->kode)
@@ -171,5 +171,53 @@ test('posisi tagihan baru terbuka setelah nomornya cocok', function () {
         ->assertSee('Sudah dilaporkan')
         ->assertSee('Rp 858.000')
         ->assertSee('Rp 2.002.000')
-        ->assertSee('Terisi otomatis dari tagihan Anda');
+        // Kalimatnya berubah sejak ada kode unik: yang perlu dibaca pelanggan
+        // bukan lagi "terisi otomatis", melainkan bahwa angka terakhirnya
+        // harus ditransfer apa adanya.
+        ->assertSee('tepat sampai angka');
+});
+
+test('nominal transfer memuat kode unik yang tetap', function () {
+    /*
+     | Tagihan bulat memaksa admin mencocokkan tangkapan layar dengan mutasi
+     | rekening satu per satu — dan sejak kursi dilepas otomatis dalam 72 jam,
+     | verifikasi yang lambat langsung berbiaya kursi.
+     */
+    $tagihan = App\Support\TagihanPesanan::untuk($this->pendaftaran);
+
+    expect($tagihan['kode_unik'])->toBeGreaterThan(0)
+        // Tidak pernah mencapai seribu, sesuai batas yang ditetapkan.
+        ->and($tagihan['kode_unik'])->toBeLessThan(1000)
+        ->and($tagihan['nominal_disarankan'])
+        ->toBe($tagihan['nominal_pokok'] + $tagihan['kode_unik']);
+});
+
+test('kode unik tidak berubah tiap halaman dibuka', function () {
+    /*
+     | Pelanggan sering membuka halaman pembayaran berkali-kali — melihat
+     | nominalnya, menutup, membuka lagi saat sudah di depan aplikasi bank.
+     | Angka yang berubah tiap muat akan membuatnya mentransfer jumlah yang
+     | tidak kita tunggu, dan justru merusak hal yang hendak diperbaiki.
+     */
+    $satu = App\Support\TagihanPesanan::untuk($this->pendaftaran)['kode_unik'];
+    $dua = App\Support\TagihanPesanan::untuk($this->pendaftaran->fresh())['kode_unik'];
+
+    expect($satu)->toBe($dua);
+});
+
+test('dua pemesanan berbeda mendapat kode unik yang berbeda', function () {
+    $lain = App\Models\OpenTrip\PendaftaranOpenTrip::create([
+        'nama' => 'Siti', 'whatsapp' => '081200000000', 'jumlah_peserta' => 1,
+        'nama_paket' => 'Open Trip Bromo', 'harga_jual' => 2860000,
+    ]);
+
+    expect(App\Support\TagihanPesanan::kodeUnik($this->pendaftaran))
+        ->not->toBe(App\Support\TagihanPesanan::kodeUnik($lain));
+});
+
+test('yang sudah lunas tidak lagi diberi kode unik', function () {
+    // Tidak ada yang perlu ditransfer, jadi tidak ada yang perlu dicocokkan.
+    $tagihan = App\Support\TagihanPesanan::untuk(null);
+
+    expect($tagihan['kode_unik'] ?? 0)->toBe(0);
 });

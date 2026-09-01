@@ -47,7 +47,53 @@ class PemilikPesanan
             return null;
         }
 
-        return self::nomorCocok($pesanan->whatsapp, $empatDigit) ? $pesanan : null;
+        if (! self::nomorCocok($pesanan->whatsapp, $empatDigit)) {
+            return null;
+        }
+
+        return self::masihBerlaku($pesanan) ? $pesanan : null;
+    }
+
+    /**
+     * Kode berhenti berlaku di halaman publik begitu perjalanannya dimulai.
+     *
+     * Sesudah hari keberangkatan, tidak ada lagi yang wajar dikerjakan
+     * pengunjung dengan kode itu: pembatalan sudah tidak berlaku, formulir
+     * kesehatan sudah dipakai di lapangan, dan pelunasan seharusnya beres
+     * sejak H-5. Yang tersisa hanyalah jendela terbuka — dan kode yang sudah
+     * beredar berbulan-bulan di grup WhatsApp adalah kode yang paling mungkin
+     * jatuh ke tangan lain.
+     *
+     * Menutupnya tidak menghilangkan satu pun kemampuan yang dipakai orang;
+     * ia hanya memperpendek umur kunci yang tidak lagi membuka apa-apa.
+     *
+     * Yang TIDAK ikut tertutup: jalur admin. Tim tetap bisa membuka pesanan
+     * lama lewat lemon, dan justru di situlah urusan susulan diselesaikan.
+     */
+    public static function masihBerlaku(PendaftaranOpenTrip|PenyewaanKendaraan|null $pesanan): bool
+    {
+        if (! $pesanan) {
+            return false;
+        }
+
+        $mulai = $pesanan instanceof PenyewaanKendaraan
+            ? $pesanan->tanggal_mulai
+            : $pesanan->tanggal_berangkat;
+
+        // Pesanan yang tanggalnya belum ditetapkan tetap terbuka: menutupnya
+        // berarti menghukum pemesan atas data yang belum kita isi sendiri.
+        if (! $mulai) {
+            return true;
+        }
+
+        /*
+         | Batasnya AWAL hari keberangkatan, bukan jamnya.
+         |
+         | Jam berangkat tidak tersimpan di sistem, dan menebaknya akan
+         | menghasilkan penutupan yang meleset ke dua arah. Awal hari adalah
+         | satu-satunya garis yang bisa dipastikan benar untuk semua pesanan.
+         */
+        return now()->startOfDay()->lt($mulai->copy()->startOfDay());
     }
 
     /**
