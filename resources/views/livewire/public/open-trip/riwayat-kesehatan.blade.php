@@ -82,7 +82,7 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
         // Ejaannya disamakan dengan yang terdaftar. Kalau tidak, "budi santoso"
         // dari tautan dianggap orang lain oleh penanda "sudah diisi", dan
         // rombongannya tidak pernah terlihat lengkap.
-        $terdaftar = collect(PendaftaranOpenTrip::where('kode', $this->kode)->first()?->peserta ?? [])
+        $terdaftar = collect($this->pendaftaranBoleh()?->peserta ?? [])
             ->pluck('nama')
             ->first(fn ($nama) => mb_strtolower(trim($nama)) === mb_strtolower($this->namaPeserta));
 
@@ -90,6 +90,43 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
         // orang setelah pendaftarannya masuk.
         $this->namaBebas = blank($terdaftar);
         $this->namaPeserta = $terdaftar ?: $this->namaPeserta;
+    }
+
+    /**
+     * Status yang berarti uang mukanya sudah kami terima.
+     *
+     * Menunggu pelunasan akan menahan formulir sampai H-5 — terlalu mepet
+     * untuk memeriksa kondisi peserta sebelum berangkat.
+     */
+    private const SUDAH_BAYAR = ['dp_masuk', 'lunas'];
+
+    /**
+     * Pendaftaran yang BOLEH memakai formulir ini.
+     *
+     * SATU pintu untuk seluruh komponen — tampilan, pengisian otomatis, dan
+     * validasi. Sebelumnya syarat pembayaran hanya dipasang di aturan
+     * validasi, sedangkan with() melakukan pencariannya sendiri tanpa syarat
+     * itu: kode yang belum membayar tetap menampilkan nama trip dan daftar
+     * pesertanya, dan baru ditolak setelah seluruh formulir diisi.
+     *
+     * Dua tempat yang memutuskan hal yang sama akan berbeda jawabannya suatu
+     * saat — dan yang bocor selalu yang paling longgar.
+     */
+    private function pendaftaranBoleh(): ?PendaftaranOpenTrip
+    {
+        if (blank($this->kode)) {
+            return null;
+        }
+
+        $daftar = PendaftaranOpenTrip::with('paket')
+            ->where('kode', strtoupper(trim((string) $this->kode)))
+            ->first();
+
+        if (! $daftar || ! in_array($daftar->status, self::SUDAH_BAYAR, true)) {
+            return null;
+        }
+
+        return $daftar;
     }
 
     protected function rules(): array
@@ -114,13 +151,13 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
              | kondisi peserta sebelum berangkat.
              */
             'kode' => ['required', 'string', 'max:20', function ($atribut, $nilai, $gagal) {
-                $daftar = \App\Models\OpenTrip\PendaftaranOpenTrip::where('kode', strtoupper(trim((string) $nilai)))->first();
+                $daftar = PendaftaranOpenTrip::where('kode', strtoupper(trim((string) $nilai)))->first();
 
                 if (! $daftar) {
                     return $gagal('Kode pendaftaran tidak ditemukan. Periksa kembali kode yang Anda terima saat mendaftar.');
                 }
 
-                if (! in_array($daftar->status, ['dp_masuk', 'lunas'], true)) {
+                if (! in_array($daftar->status, self::SUDAH_BAYAR, true)) {
                     return $gagal('Formulir kesehatan bisa diisi setelah uang muka kami terima. '
                         .'Sudah transfer? Kirim buktinya lebih dulu di halaman Konfirmasi Pembayaran.');
                 }
@@ -270,10 +307,9 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
 
     public function with(): array
     {
-        // Identitas pendaftaran & trip langsung tampil begitu kodenya cocok.
-        $pendaftaran = filled($this->kode)
-            ? PendaftaranOpenTrip::with('paket')->where('kode', strtoupper(trim($this->kode)))->first()
-            : null;
+        // Identitas pendaftaran & trip tampil begitu kodenya cocok DAN uang
+        // mukanya sudah masuk — lihat pendaftaranBoleh().
+        $pendaftaran = $this->pendaftaranBoleh();
 
         // Daftar peserta beserta status pengisiannya. Inilah yang dipakai
         // ketua rombongan untuk tahu siapa yang masih perlu ditagih — sebelum
@@ -296,10 +332,23 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                 ->all();
         }
 
+        /*
+         | Kodenya benar, tetapi uang mukanya belum masuk.
+         |
+         | Dibedakan dari "kode tidak ditemukan" supaya layarnya bisa
+         | menerangkan sebabnya. Tanpa ini yang terjadi: pengunjung menempelkan
+         | kode yang ia tahu benar, tidak ada apa pun yang muncul, dan ia
+         | mengira formulirnya rusak — lalu bertanya ke WhatsApp tim.
+         */
+        $belumBayar = ! $pendaftaran
+            && filled($this->kode)
+            && PendaftaranOpenTrip::where('kode', strtoupper(trim((string) $this->kode)))->exists();
+
         return [
             'daftarKondisi' => config('orcha.kondisi_kesehatan'),
             'daftarRenang' => config('orcha.kemampuan_renang'),
             'pendaftaran' => $pendaftaran,
+            'belumBayar' => $belumBayar,
             'daftarPeserta' => $daftarPeserta,
             'jumlahTerisi' => $pendaftaran
                 ? RiwayatKesehatan::where('kode_pendaftaran', $pendaftaran->kode)->count()
@@ -398,6 +447,27 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                                 @else
                                     <p class="mt-1 text-xs text-slate-500">Kode yang Anda terima setelah mengisi
                                         formulir pendaftaran open trip.</p>
+
+                                @if ($belumBayar)
+                                    {{-- Menerangkan, lalu mengantar.
+
+                                         Yang membaca sedang memegang kode yang ia tahu benar;
+                                         menyatakan "belum bisa" tanpa mengatakan apa yang harus
+                                         dikerjakan hanya memindahkan pertanyaannya ke WhatsApp
+                                         tim. --}}
+                                    <div class="p-4 mt-3 text-sm rounded-2xl bg-orcha-foam text-orcha-navy">
+                                        <p class="font-bold">Formulir ini terbuka setelah uang muka kami terima.</p>
+                                        <p class="mt-1 text-slate-600">
+                                            Kode Anda benar, tetapi pembayarannya belum tercatat. Sudah transfer?
+                                            Kirim buktinya lebih dulu — biasanya kami cek di hari yang sama.
+                                        </p>
+                                        <a href="{{ route('konfirmasi-pembayaran', ['kode' => $kode]) }}" wire:navigate
+                                            class="inline-flex items-center gap-1.5 mt-3 font-bold text-orcha-ocean hover:underline">
+                                            Kirim bukti pembayaran
+                                            <x-heroicon-o-arrow-right class="w-4 h-4" />
+                                        </a>
+                                    </div>
+                                @endif
                                 @enderror
 
                                 @if ($pendaftaran)

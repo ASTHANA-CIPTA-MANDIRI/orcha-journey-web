@@ -531,3 +531,41 @@ test('pesan penolakannya mengantar ke langkah berikutnya', function () {
 
     expect($galat)->toContain('uang muka')->toContain('Konfirmasi Pembayaran');
 });
+
+test('kode yang belum membayar tidak menampilkan apa pun tentang tripnya', function () {
+    /*
+     | Syarat pembayaran sempat hanya dipasang di aturan validasi — yang baru
+     | berjalan saat formulirnya DIKIRIM. Sementara itu tampilannya melakukan
+     | pencarian sendiri tanpa syarat itu, sehingga kode yang belum membayar
+     | tetap memperlihatkan nama trip dan daftar pesertanya; penolakannya baru
+     | muncul setelah seluruh formulir diisi.
+     |
+     | Dua tempat yang memutuskan hal yang sama akan berbeda jawabannya suatu
+     | saat, dan yang bocor selalu yang paling longgar.
+     */
+    $belumBayar = PendaftaranOpenTrip::create([
+        'nama' => 'Budi', 'whatsapp' => '0812', 'jumlah_peserta' => 2,
+        'nama_paket' => 'Open Trip Rahasia', 'status' => 'baru',
+        'daftar_peserta' => [['nama' => 'Budi'], ['nama' => 'Ani']],
+    ]);
+
+    Volt::test('public.open-trip.riwayat-kesehatan')
+        ->set('kode', $belumBayar->kode)
+        ->assertDontSee('Open Trip Rahasia')
+        ->assertDontSee('Ani')
+        // Dan sebabnya diterangkan, bukan dibiarkan seperti formulir rusak.
+        ->assertSee('setelah uang muka kami terima');
+});
+
+test('kode yang sudah membayar tetap menampilkan tripnya', function () {
+    $sudahBayar = PendaftaranOpenTrip::create([
+        'nama' => 'Budi', 'whatsapp' => '0812', 'jumlah_peserta' => 2,
+        'nama_paket' => 'Open Trip Terbuka', 'status' => 'dp_masuk',
+        'daftar_peserta' => [['nama' => 'Budi'], ['nama' => 'Ani']],
+    ]);
+
+    Volt::test('public.open-trip.riwayat-kesehatan')
+        ->set('kode', $sudahBayar->kode)
+        ->assertSee('Open Trip Terbuka')
+        ->assertDontSee('setelah uang muka kami terima');
+});

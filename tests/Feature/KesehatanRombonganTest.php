@@ -30,6 +30,8 @@ beforeEach(function () {
         'nama' => 'Siti Aminah',
         'whatsapp' => '081298765432',
         'jumlah_peserta' => 3,
+        // Formulir kesehatan hanya terbuka setelah uang mukanya masuk.
+        'status' => 'dp_masuk',
         'daftar_peserta' => [
             ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja'],
             ['nama' => 'Budi Santoso', 'titik_jemput' => 'Surakarta'],
