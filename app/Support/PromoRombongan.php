@@ -71,6 +71,29 @@ class PromoRombongan
     }
 
     /**
+     * Hitungan untuk paket yang TIDAK ikut promo.
+     *
+     * Bentuknya sengaja sama persis dengan hitung(), supaya pemanggilnya tidak
+     * perlu bercabang dua kali — sekali untuk memilih, sekali untuk membaca
+     * hasilnya. Cabang yang terlewat di salah satu tempat itulah yang biasanya
+     * membuat harga di layar berbeda dari harga yang ditagih.
+     *
+     * @return array{orang_dibayar: int, gratis_orang: int, potongan: int, total: int, label: ?string}
+     */
+    public static function tanpaPromo(float $satuan, int $orang): array
+    {
+        $orang = max(1, $orang);
+
+        return [
+            'orang_dibayar' => $orang,
+            'gratis_orang' => 0,
+            'potongan' => 0,
+            'total' => (int) round($satuan * $orang),
+            'label' => null,
+        ];
+    }
+
+    /**
      * Ajakan untuk tingkat BERIKUTNYA yang belum tercapai.
      *
      * Ini yang mengubah promo dari keterangan jadi dorongan: orang yang sedang

@@ -33,11 +33,28 @@ class TravelPackage extends Model
         'harga_modal',
         'discount_percentage',
         'catatan_promo',
+        'promo_rombongan',
         'is_best_choice',
         'destination_list',
         'fasilitas',
         'itinerary',
         'foto',
+    ];
+
+    /**
+     * Nilai bawaan yang menyalin bawaan basis data.
+     *
+     * Model hasil create() TIDAK memuat nilai bawaan yang datang dari basis
+     * data — ia null sampai barisnya dibaca ulang. Untuk penanda promo itu
+     * berbahaya lewat dua arah: null terbaca "tidak ikut" pada satu jalur dan
+     * bisa terbaca lain pada jalur berikutnya, dan yang membedakannya cuma
+     * apakah kebetulan ada ->fresh() di antaranya.
+     *
+     * Disamakan di sini supaya objek yang baru dibuat berkelakuan sama dengan
+     * yang sudah tersimpan.
+     */
+    protected $attributes = [
+        'promo_rombongan' => false,
     ];
 
     protected $casts = [
@@ -46,6 +63,7 @@ class TravelPackage extends Model
         'fasilitas' => 'array',
         'itinerary' => 'array',
         'is_best_choice' => 'boolean',
+        'promo_rombongan' => 'boolean',
         'tanggal_berangkat' => 'date',
         'tanggal_pulang' => 'date',
         'minimal_peserta' => 'integer',

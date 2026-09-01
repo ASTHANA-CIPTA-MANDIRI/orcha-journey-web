@@ -44,7 +44,17 @@ class RincianBiaya
          | yang ditagih sistem akan berbeda suatu saat — dan yang ketahuan
          | belakangan selalu saat orangnya sudah mentransfer.
          */
-        $promo = PromoRombongan::hitung($satuan, $orang);
+        /*
+         | Promo hanya berlaku pada paket yang ditandai ikut.
+         |
+         | Tingkatnya seragam untuk seluruh perusahaan, tetapi tidak setiap trip
+         | ikut: sebagian sudah tipis marginnya, sebagian sedang musim ramai dan
+         | tidak perlu didorong. Yang memutuskan penanda di paketnya, bukan
+         | tingkatnya.
+         */
+        $promo = $paket->promo_rombongan
+            ? PromoRombongan::hitung($satuan, $orang)
+            : PromoRombongan::tanpaPromo($satuan, $orang);
 
         $totalSebelumPromo = $satuan * $orang;
 
@@ -70,7 +80,12 @@ class RincianBiaya
             'promo_potongan_teks' => self::rupiah($promo['potongan']),
             'total_sebelum_promo' => $totalSebelumPromo,
             'total_sebelum_promo_teks' => self::rupiah($totalSebelumPromo),
-            'promo_ajakan' => PromoRombongan::ajakanBerikutnya($orang),
+            // Ajakannya pun hanya muncul pada paket yang memang ikut — mengajak
+            // menambah teman untuk potongan yang tidak akan datang justru
+            // membuat orang merasa dibohongi saat totalnya tidak berubah.
+            'promo_ajakan' => $paket->promo_rombongan
+                ? PromoRombongan::ajakanBerikutnya($orang)
+                : null,
             'dp_persen' => $persen,
             'dp' => $dp,
             'dp_teks' => self::rupiah($dp),

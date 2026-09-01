@@ -19,6 +19,8 @@ function paketPromo(): TravelPackage
         'original_price' => 1700000,
         'price' => 1430000,          // harga early bird
         'status' => 'terbit',
+        // Ditandai ikut promo. Bawaannya MATI — lihat ujinya di bawah.
+        'promo_rombongan' => true,
     ]);
 }
 
@@ -205,4 +207,59 @@ test('tingkat baru dari admin ikut dihitung', function () {
 
     expect($b['promo_gratis_orang'])->toBe(2)
         ->and($b['promo_orang_dibayar'])->toBe(18);
+});
+
+/* ------------------------ PAKET MANA YANG IKUT ------------------------ */
+
+test('paket bawaan TIDAK ikut promo', function () {
+    /*
+     | Bawaannya mati, dan itu disengaja.
+     |
+     | Kalau bawaannya hidup, seluruh paket yang sudah ada mendadak memberi
+     | potongan rombongan begitu migrasinya jalan — tanpa satu pun keputusan
+     | diambil, dan yang menyadarinya belakangan adalah laporan keuntungan.
+     |
+     | Mati lebih dulu berarti promonya tidak melakukan apa-apa sampai ada yang
+     | sengaja menyalakannya: keadaan yang terlihat dan bisa diperbaiki, bukan
+     | uang yang sudah telanjur keluar.
+     */
+    $biasa = TravelPackage::create([
+        'name' => 'Trip Tanpa Promo', 'category' => 'open_trip',
+        'price' => 1430000, 'status' => 'terbit',
+    ]);
+
+    expect($biasa->promo_rombongan)->toBeFalse();
+
+    $b = RincianBiaya::untuk($biasa, 10);
+
+    expect($b['total'])->toBe((float) (10 * 1430000))
+        ->and($b['promo_gratis_orang'])->toBe(0)
+        ->and($b['promo_label'])->toBeNull();
+});
+
+test('paket yang tidak ikut juga tidak menampilkan ajakan', function () {
+    /*
+     | Mengajak menambah teman untuk potongan yang tidak akan datang justru
+     | membuat orang merasa dibohongi saat totalnya tidak berubah — lebih buruk
+     | daripada tidak menawarkan apa-apa.
+     */
+    $biasa = TravelPackage::create([
+        'name' => 'Trip Tanpa Promo', 'category' => 'open_trip',
+        'price' => 1430000, 'status' => 'terbit',
+    ]);
+
+    expect(RincianBiaya::untuk($biasa, 4)['promo_ajakan'])->toBeNull();
+});
+
+test('menyalakan penanda membuat promonya langsung berlaku', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Trip Uji', 'category' => 'open_trip',
+        'price' => 1430000, 'status' => 'terbit',
+    ]);
+
+    expect(RincianBiaya::untuk($paket, 10)['promo_gratis_orang'])->toBe(0);
+
+    $paket->update(['promo_rombongan' => true]);
+
+    expect(RincianBiaya::untuk($paket->fresh(), 10)['promo_gratis_orang'])->toBe(1);
 });

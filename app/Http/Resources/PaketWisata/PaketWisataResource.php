@@ -54,6 +54,11 @@ class PaketWisataResource extends JsonResource
             'diskon_persen' => $this->discount_percentage,
             'catatan_promo' => $this->catatan_promo,
             'pilihan_terbaik' => (bool) $this->is_best_choice,
+
+            // Ikut promo rombongan? Tingkatnya seragam untuk seluruh
+            // perusahaan, tetapi tidak setiap trip ikut — sebagian sudah tipis
+            // marginnya, sebagian sedang musim ramai dan tidak perlu didorong.
+            'promo_rombongan' => (bool) $this->promo_rombongan,
             'destinasi' => $this->destination_list ?? [],
             'fasilitas' => $this->fasilitas ?? [],
             'itinerary' => $this->itinerary ?? [],
