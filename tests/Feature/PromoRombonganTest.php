@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\PaketWisata\PromoRombonganTingkat;
 use App\Models\PaketWisata\TravelPackage;
 use App\Support\PromoRombongan;
 use App\Support\RincianBiaya;
@@ -31,19 +32,45 @@ test('di bawah tingkat pertama tidak ada potongan', function () {
         ->and($b['promo_label'])->toBeNull();
 });
 
-test('lima orang mendapat potongan persen dari harga early bird', function () {
+test('potongan persen hanya untuk satu kursi, bukan seluruh rombongan', function () {
     /*
-     | Dihitung dari 1.430.000, BUKAN dari 1.700.000. Promo rombongan menumpang
-     | di atas harga yang sudah berlaku — kalau dihitung dari harga normal,
-     | pelanggan early bird justru dirugikan karena promonya jadi lebih kecil.
+     | Si A mengajak lima temannya. Yang mendapat potongan HANYA A — yang
+     | diajak membayar penuh.
+     |
+     | Sebelumnya persennya dikalikan ke seluruh rombongan, sehingga keenamnya
+     | ikut membayar lebih murah. Hadiah untuk satu orang berubah jadi potongan
+     | untuk semua, dan makin besar rombongannya makin besar pula yang hilang.
+     |
+     | Persennya tetap dihitung dari 1.430.000 — harga yang sedang berlaku,
+     | bukan 1.700.000. Menghitungnya dari harga normal justru merugikan
+     | pelanggan early bird.
      */
     $b = RincianBiaya::untuk(paketPromo(), 5);
 
-    $sebelum = 5 * 1430000;
+    $penuh = 5 * 1430000;
+    $hadiah = (int) round(1430000 * 0.05);   // 5% dari SATU kursi
 
-    expect($b['total_sebelum_promo'])->toBe((float) $sebelum)
-        ->and($b['total'])->toBe((float) round($sebelum * 0.95))
+    expect($b['total_sebelum_promo'])->toBe((float) $penuh)
+        ->and($b['total'])->toBe((float) ($penuh - $hadiah))
+        ->and($b['promo_potongan'])->toBe($hadiah)
         ->and($b['promo_label'])->toContain('5 orang');
+});
+
+test('rombongan besar tidak melipatgandakan potongan persennya', function () {
+    /*
+     | Inti perbaikannya, dan yang paling mahal kalau salah: lima puluh orang
+     | tidak boleh menghasilkan potongan lima puluh kali lipat.
+     */
+    PromoRombonganTingkat::query()->delete();
+    PromoRombonganTingkat::create(['min_peserta' => 5, 'potongan_persen' => 10]);
+
+    $lima = RincianBiaya::untuk(paketPromo(), 5);
+    $limaPuluh = RincianBiaya::untuk(paketPromo(), 50);
+
+    // Potongannya sama besar, berapa pun rombongannya.
+    expect($limaPuluh['promo_potongan'])
+        ->toBe($lima['promo_potongan'])
+        ->toBe((int) round(1430000 * 0.10));
 });
 
 test('sepuluh orang membayar sembilan', function () {
@@ -125,8 +152,6 @@ test('promo tampil hidup di formulir saat peserta ditambah', function () {
 
 /* ------------------------ DIKELOLA DARI ADMIN ------------------------ */
 
-use App\Models\PaketWisata\PromoRombonganTingkat;
-
 function kepalaPromo(): array
 {
     config()->set('orcha.api.kunci', 'kunci-uji-promo');
@@ -145,7 +170,9 @@ test('tingkat yang diubah admin langsung berlaku di harga', function () {
 
     $b = RincianBiaya::untuk(paketPromo(), 5);
 
-    expect($b['total'])->toBe((float) round(5 * 1430000 * 0.90));
+    // Potongannya melekat pada satu kursi, jadi yang berubah besarnya hadiah —
+    // bukan harga seluruh rombongan.
+    expect($b['total'])->toBe((float) (5 * 1430000 - round(1430000 * 0.10)));
 });
 
 test('tingkat yang dimatikan tidak lagi berlaku', function () {
@@ -157,7 +184,7 @@ test('tingkat yang dimatikan tidak lagi berlaku', function () {
 
     // Turun ke tingkat 5 yang masih hidup, bukan kehilangan promo sama sekali.
     expect($b['promo_gratis_orang'])->toBe(0)
-        ->and($b['total'])->toBe((float) round(10 * 1430000 * 0.95));
+        ->and($b['total'])->toBe((float) (10 * 1430000 - round(1430000 * 0.05)));
 });
 
 test('tabel kosong jatuh ke tingkat bawaan, bukan kehilangan promo', function () {
@@ -282,8 +309,11 @@ test('tulisan dan ajakan dirakit dari angka yang berlaku', function () {
         'min_peserta' => 15, 'gratis_orang' => 2,
     ]);
 
-    expect($persen->label)->toBe('Ajak 7 orang — hemat 8%')
-        ->and($persen->ajakan)->toBe('Ajak 7 orang, hemat 8% untuk seluruh rombongan.')
+    // Kalimat persennya menyebut UNTUK SIAPA — "hemat 8%" saja terbaca sebagai
+    // 8% dari seluruh tagihan rombongan, padahal yang berlaku 8% dari satu
+    // kursi.
+    expect($persen->label)->toBe('Ajak 7 orang — potongan 8% untuk pemesan')
+        ->and($persen->ajakan)->toBe('Ajak 7 orang, Anda dapat potongan 8%.')
         ->and($gratis->label)->toBe('Ajak 15 orang — gratis 2 orang')
         ->and($gratis->ajakan)->toBe('Ajak 15 orang, 2 orang gratis.');
 });
@@ -294,7 +324,7 @@ test('tulisannya ikut berubah saat angkanya disunting', function () {
 
     $t->update(['potongan_persen' => 9]);
 
-    expect($t->fresh()->label)->toBe('Ajak 7 orang — hemat 9%');
+    expect($t->fresh()->label)->toBe('Ajak 7 orang — potongan 9% untuk pemesan');
 });
 
 test('tulisan yang dikirim pemanggil diabaikan, bukan dipakai', function () {
@@ -308,6 +338,6 @@ test('tulisan yang dikirim pemanggil diabaikan, bukan dipakai', function () {
         'ajakan' => 'Ajakan karangan sendiri',
     ]);
 
-    expect($t->label)->toBe('Ajak 7 orang — hemat 5%')
+    expect($t->label)->toBe('Ajak 7 orang — potongan 5% untuk pemesan')
         ->and($t->ajakan)->not->toContain('karangan');
 });

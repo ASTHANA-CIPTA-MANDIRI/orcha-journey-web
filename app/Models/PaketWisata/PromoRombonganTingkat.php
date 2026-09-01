@@ -50,14 +50,24 @@ class PromoRombonganTingkat extends Model
         });
     }
 
-    /** "Ajak 10 orang — gratis 1 orang" */
+    /**
+     * "Ajak 10 orang — gratis 1 orang"
+     *
+     * Untuk bentuk persen, kalimatnya menyebut UNTUK SIAPA potongannya.
+     *
+     * "Hemat 5%" saja terbaca sebagai 5% dari seluruh tagihan rombongan,
+     * padahal yang berlaku 5% dari satu kursi — kursi yang mengajak. Janji
+     * yang lebih besar daripada yang ditepati akan ketahuan tepat saat
+     * pelanggan menjumlahkan sendiri, dan itu percakapan yang jauh lebih mahal
+     * daripada satu kata tambahan di sini.
+     */
     public function labelOtomatis(): string
     {
         $awalan = 'Ajak '.$this->min_peserta.' orang — ';
 
         return $this->gratis_orang > 0
             ? $awalan.'gratis '.$this->gratis_orang.' orang'
-            : $awalan.'hemat '.$this->potongan_persen.'%';
+            : $awalan.'potongan '.$this->potongan_persen.'% untuk pemesan';
     }
 
     /**
@@ -70,7 +80,7 @@ class PromoRombonganTingkat extends Model
     {
         return $this->gratis_orang > 0
             ? 'Ajak '.$this->min_peserta.' orang, '.$this->gratis_orang.' orang gratis.'
-            : 'Ajak '.$this->min_peserta.' orang, hemat '.$this->potongan_persen.'% untuk seluruh rombongan.';
+            : 'Ajak '.$this->min_peserta.' orang, Anda dapat potongan '.$this->potongan_persen.'%.';
     }
 
     /**

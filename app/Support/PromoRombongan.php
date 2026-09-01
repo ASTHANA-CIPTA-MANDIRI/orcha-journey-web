@@ -57,7 +57,21 @@ class PromoRombongan
          */
         $dibayar = max(1, $orang - $gratis);
         $sebelum = $satuan * $dibayar;
-        $potonganPersen = (int) round($sebelum * $persen / 100);
+
+        /*
+         | POTONGAN PERSEN HANYA UNTUK SATU KURSI — kursi yang mengajak.
+         |
+         | Sebelumnya persennya dikalikan ke seluruh rombongan, sehingga yang
+         | diajak ikut menikmati potongan yang bukan haknya: si A mengajak lima
+         | temannya, tetapi keenam-enamnya membayar lebih murah. Pada rombongan
+         | dua puluh orang, potongan 10% yang dimaksudkan sebagai hadiah untuk
+         | satu orang berubah jadi dua kali lipat harga satu kursi yang hilang.
+         |
+         | Yang benar: hadiahnya melekat pada SATU kursi. Bentuk "gratis orang"
+         | sudah begitu sejak awal — satu kursi tidak dibayar — dan bentuk
+         | persen kini mengikutinya.
+         */
+        $potonganPersen = (int) round($satuan * $persen / 100);
 
         return [
             'orang_dibayar' => $dibayar,
