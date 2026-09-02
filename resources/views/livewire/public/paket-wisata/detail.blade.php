@@ -488,38 +488,75 @@ new #[Layout('components.layouts.guest')] class extends Component
                                                     </p>
                                                 </div>
                                             @else
-                                                <div class="mt-4 text-left">
-                                                    <p class="mb-2 text-sm font-bold text-orcha-navy">
+                                                <div class="p-4 mt-4 text-left bg-white/70 rounded-2xl">
+                                                    <p class="flex items-center gap-2 text-sm font-bold text-orcha-navy">
+                                                        <x-heroicon-s-bell-alert class="w-5 h-5 text-orcha-ocean" />
                                                         Mau dikabari kalau ada kursi terbuka?
                                                     </p>
+                                                    <p class="mt-1 mb-4 text-xs leading-relaxed text-slate-500">
+                                                        Kursi sering terbuka lagi karena ada yang batal. Yang paling
+                                                        lama menunggu kami kabari lebih dulu.
+                                                    </p>
 
-                                                    <div class="grid gap-2">
-                                                        <input type="text" wire:model="tungguNama" maxlength="120"
-                                                            placeholder="Nama Anda"
-                                                            class="isian-orcha @error('tungguNama') isian-galat @enderror">
-                                                        @error('tungguNama')
-                                                            <p class="galat-orcha">{{ $message }}</p>
-                                                        @enderror
+                                                    {{-- Tiap isian diberi LABEL, bukan cuma placeholder.
 
-                                                        <div class="grid grid-cols-3 gap-2">
-                                                            <input type="tel" inputmode="tel" wire:model="tungguWa"
-                                                                maxlength="25" placeholder="0812-3456-7890"
-                                                                class="col-span-2 isian-orcha orcha-telp @error('tungguWa') isian-galat @enderror">
-                                                            <input type="number" min="1" max="60"
-                                                                wire:model="tungguJumlah" placeholder="Orang"
-                                                                class="isian-orcha @error('tungguJumlah') isian-galat @enderror">
+                                                         Sebelumnya ketiganya hanya berisi teks bayangan — dan kotak
+                                                         angka di sebelah nomor tidak menyebut apa-apa, sehingga yang
+                                                         mengisinya harus menebak apakah itu jumlah orang, umur, atau
+                                                         nomor urut. Placeholder juga hilang begitu diketik, jadi
+                                                         orang yang berhenti sejenak kehilangan satu-satunya
+                                                         keterangan yang ada. --}}
+                                                    <div class="grid gap-3">
+                                                        <div>
+                                                            <label for="tunggu-nama" class="label-orcha">
+                                                                Nama <x-wajib />
+                                                            </label>
+                                                            <input id="tunggu-nama" type="text" wire:model="tungguNama"
+                                                                maxlength="120" placeholder="Nama lengkap Anda"
+                                                                class="isian-orcha @error('tungguNama') isian-galat @enderror">
+                                                            @error('tungguNama')
+                                                                <p class="galat-orcha">{{ $message }}</p>
+                                                            @enderror
                                                         </div>
-                                                        @error('tungguWa')
-                                                            <p class="galat-orcha">{{ $message }}</p>
-                                                        @enderror
-                                                        @error('tungguJumlah')
-                                                            <p class="galat-orcha">{{ $message }}</p>
-                                                        @enderror
+
+                                                        <div>
+                                                            <label for="tunggu-wa" class="label-orcha">
+                                                                Nomor WhatsApp <x-wajib />
+                                                            </label>
+                                                            <input id="tunggu-wa" type="tel" inputmode="tel"
+                                                                wire:model="tungguWa" maxlength="25"
+                                                                placeholder="0812-3456-7890"
+                                                                class="isian-orcha orcha-telp @error('tungguWa') isian-galat @enderror">
+                                                            <p class="mt-1 text-xs text-slate-500">
+                                                                Ke nomor inilah kabarnya kami kirim.
+                                                            </p>
+                                                            @error('tungguWa')
+                                                                <p class="galat-orcha">{{ $message }}</p>
+                                                            @enderror
+                                                        </div>
+
+                                                        <div>
+                                                            <label for="tunggu-jumlah" class="label-orcha">
+                                                                Rencana berapa orang <x-wajib />
+                                                            </label>
+                                                            <input id="tunggu-jumlah" type="number" min="1" max="60"
+                                                                wire:model="tungguJumlah"
+                                                                class="isian-orcha @error('tungguJumlah') isian-galat @enderror">
+                                                            {{-- Angkanya bukan basa-basi: yang dikabari hanya
+                                                                 rombongan yang MUAT di kursi yang terbuka. --}}
+                                                            <p class="mt-1 text-xs text-slate-500">
+                                                                Kami cocokkan dengan jumlah kursi yang terbuka nanti.
+                                                            </p>
+                                                            @error('tungguJumlah')
+                                                                <p class="galat-orcha">{{ $message }}</p>
+                                                            @enderror
+                                                        </div>
 
                                                         <button type="button" wire:click="antre"
                                                             wire:loading.attr="disabled" wire:target="antre"
                                                             class="w-full btn-orcha btn-orcha-primary">
                                                             <span wire:loading.remove wire:target="antre">
+                                                                <x-heroicon-o-bell-alert class="w-5 h-5" />
                                                                 Kabari Saya
                                                             </span>
                                                             <span wire:loading wire:target="antre">Menyimpan…</span>

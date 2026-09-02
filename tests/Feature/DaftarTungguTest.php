@@ -149,3 +149,33 @@ test('yang paling lama menunggu dikabari lebih dulu', function () {
     expect($duluan->fresh()->dikabari_pada)->not->toBeNull()
         ->and(DaftarTunggu::where('nama', 'Belakangan')->first()->dikabari_pada)->toBeNull();
 });
+
+test('tiap isian antrean punya label dan tanda wajib', function () {
+    /*
+     | Sebelumnya ketiganya hanya berisi teks bayangan, dan kotak angka di
+     | sebelah nomor tidak menyebut apa-apa — yang mengisinya harus menebak
+     | apakah itu jumlah orang, umur, atau nomor urut. Placeholder juga hilang
+     | begitu diketik, jadi orang yang berhenti sejenak kehilangan
+     | satu-satunya keterangan yang ada.
+     */
+    $isi = Volt::test('public.paket-wisata.detail', ['paket' => paketPenuh()])->html();
+
+    expect($isi)
+        ->toContain('Nomor WhatsApp')
+        ->toContain('Rencana berapa orang');
+
+    /*
+     | Tiga isian, tiga bintang — dan ketiganya memang "required" di validator.
+     |
+     | Tanda bintang yang dipasang pada isian yang sebenarnya opsional membuat
+     | seluruh tanda bintang di situs ini berhenti dipercaya.
+     */
+    expect(substr_count($isi, '(wajib diisi)'))->toBe(3);
+});
+
+test('ketiga isiannya benar-benar ditolak kalau kosong', function () {
+    // Yang menjaga tanda bintang di atas tidak berbohong.
+    Volt::test('public.paket-wisata.detail', ['paket' => paketPenuh()])
+        ->call('antre')
+        ->assertHasErrors(['tungguNama', 'tungguWa']);
+});
