@@ -237,3 +237,79 @@ test('kelas tata letak kartu antrean benar-benar ada di css terbangun', function
         .'tetapi TIDAK ADA di CSS terbangun, jadi ia tidak berpengaruh apa pun: '
         .implode(', ', $hilang));
 });
+
+/* ---------------------------- LEWAT API ---------------------------- */
+
+function kepalaTunggu(): array
+{
+    config()->set('orcha.api.kunci', 'kunci-uji-tunggu');
+
+    return ['X-Orcha-Key' => 'kunci-uji-tunggu', 'Accept' => 'application/json'];
+}
+
+test('daftar tunggu bisa dibaca lewat api', function () {
+    /*
+     | Uji ini ADA karena ketiadaannya sudah berbiaya sekali.
+     |
+     | Seluruh perilaku antrean diuji lewat model dan perintahnya, tetapi
+     | endpoint-nya sendiri tidak pernah dipanggil satu kali pun — dan ia
+     | memanggil perHalaman() yang tidak ada di kelas induknya. Ujinya hijau
+     | semua, sementara halaman admin menjawab 500 pada pembukaan pertama.
+     |
+     | Lapisan yang tidak pernah dipanggil dalam uji adalah lapisan yang
+     | ditemukan penggunanya lebih dulu.
+     */
+    $paket = paketPenuh();
+
+    DaftarTunggu::create([
+        'travel_package_id' => $paket->id, 'nama' => 'Budi Menunggu',
+        'whatsapp' => '081234567890', 'jumlah_peserta' => 2,
+    ]);
+
+    $balasan = $this->getJson('/api/v1/daftar-tunggu', kepalaTunggu())->assertOk();
+
+    expect($balasan->json('data.0.nama'))->toBe('Budi Menunggu')
+        ->and($balasan->json('data.0.jumlah_peserta'))->toBe(2)
+        ->and($balasan->json('meta.total'))->toBe(1)
+        // Dipakai penyaring trip di layar admin.
+        ->and($balasan->json('meta.paket'))->not->toBeEmpty();
+});
+
+test('yang belum dikabari muncul lebih dulu', function () {
+    // Urutan yang dipakai admin bekerja: yang di atas masih menunggu jawaban,
+    // bukan yang sudah selesai diurus.
+    $paket = paketPenuh();
+
+    DaftarTunggu::create([
+        'travel_package_id' => $paket->id, 'nama' => 'Sudah Dikabari',
+        'whatsapp' => '081200000001', 'jumlah_peserta' => 1, 'dikabari_pada' => now(),
+    ]);
+
+    DaftarTunggu::create([
+        'travel_package_id' => $paket->id, 'nama' => 'Masih Menunggu',
+        'whatsapp' => '081200000002', 'jumlah_peserta' => 1,
+    ]);
+
+    $balasan = $this->getJson('/api/v1/daftar-tunggu', kepalaTunggu())->assertOk();
+
+    expect($balasan->json('data.0.nama'))->toBe('Masih Menunggu');
+});
+
+test('antrean bisa dikeluarkan lewat api', function () {
+    $paket = paketPenuh();
+
+    $antre = DaftarTunggu::create([
+        'travel_package_id' => $paket->id, 'nama' => 'Batal Ikut',
+        'whatsapp' => '081234567890', 'jumlah_peserta' => 1,
+    ]);
+
+    $this->deleteJson("/api/v1/daftar-tunggu/{$antre->id}", [], kepalaTunggu())->assertOk();
+
+    expect(DaftarTunggu::count())->toBe(0)
+        // Perubahannya tercatat seperti perubahan lain.
+        ->and(App\Models\JejakAudit::where('aksi', 'keluarkan dari daftar tunggu')->exists())->toBeTrue();
+});
+
+test('tanpa kunci api ditolak', function () {
+    $this->getJson('/api/v1/daftar-tunggu')->assertUnauthorized();
+});

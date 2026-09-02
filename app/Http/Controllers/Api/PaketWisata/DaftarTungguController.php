@@ -2,8 +2,7 @@
 
 namespace App\Http\Controllers\Api\PaketWisata;
 
-use App\Http\Controllers\Controller;
-use App\Models\JejakAudit;
+use App\Http\Controllers\Api\ApiController;
 use App\Models\PaketWisata\DaftarTunggu;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,7 +15,7 @@ use Illuminate\Http\Request;
  * satu trip, dan untuk menghubungi yang tidak mencantumkan surel — nomor
  * WhatsApp yang wajib di formulir, bukan surelnya.
  */
-class DaftarTungguController extends Controller
+class DaftarTungguController extends ApiController
 {
     public function index(Request $request): JsonResponse
     {
@@ -70,12 +69,13 @@ class DaftarTungguController extends Controller
      */
     public function destroy(DaftarTunggu $tunggu, Request $request): JsonResponse
     {
-        JejakAudit::catat(
-            $request,
-            'keluarkan dari daftar tunggu',
-            'Mengeluarkan '.$tunggu->nama.' ('.$tunggu->jumlah_peserta.' orang) dari antrean '
-                .($tunggu->paket?->name ?? 'paket'),
-        );
+        // Lewat catat() milik ApiController, bukan JejakAudit langsung —
+        // supaya bentuk jejaknya seragam dengan pemanggilan lain di API ini.
+        $this->catat($request, 'keluarkan dari daftar tunggu', [
+            'nama' => $tunggu->nama,
+            'jumlah' => $tunggu->jumlah_peserta.' orang',
+            'trip' => $tunggu->paket?->name ?? '—',
+        ]);
 
         $tunggu->delete();
 

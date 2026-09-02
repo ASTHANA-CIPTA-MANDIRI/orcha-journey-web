@@ -2,8 +2,7 @@
 
 namespace App\Http\Controllers\Api\PaketWisata;
 
-use App\Http\Controllers\Controller;
-use App\Models\JejakAudit;
+use App\Http\Controllers\Api\ApiController;
 use App\Models\PaketWisata\PromoRombonganTingkat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,7 +15,7 @@ use Illuminate\Validation\Rule;
  * sisa kursi, dan tawaran pesaing. Selama masih di berkas config, tiap
  * perubahan kecil berarti menunggu ada yang menyunting kode.
  */
-class PromoRombonganController extends Controller
+class PromoRombonganController extends ApiController
 {
     public function index(): JsonResponse
     {
@@ -37,7 +36,7 @@ class PromoRombonganController extends Controller
     {
         $tingkat = PromoRombonganTingkat::create($this->periksa($request));
 
-        $this->catat($request, 'tambah tingkat promo', $tingkat);
+        $this->catatTingkat($request, 'tambah tingkat promo', $tingkat);
 
         return response()->json(['data' => $tingkat], 201);
     }
@@ -46,14 +45,14 @@ class PromoRombonganController extends Controller
     {
         $tingkat->update($this->periksa($request, $tingkat->id));
 
-        $this->catat($request, 'ubah tingkat promo', $tingkat);
+        $this->catatTingkat($request, 'ubah tingkat promo', $tingkat);
 
         return response()->json(['data' => $tingkat->fresh()]);
     }
 
     public function destroy(PromoRombonganTingkat $tingkat, Request $request): JsonResponse
     {
-        $this->catat($request, 'hapus tingkat promo', $tingkat);
+        $this->catatTingkat($request, 'hapus tingkat promo', $tingkat);
 
         $tingkat->delete();
 
@@ -114,14 +113,24 @@ class PromoRombonganController extends Controller
         return $data;
     }
 
-    private function catat(Request $request, string $aksi, PromoRombonganTingkat $tingkat): void
+    /**
+     * Namanya BUKAN catat().
+     *
+     * ApiController sudah punya catat() sendiri dengan bentuk parameter yang
+     * berbeda, dan menimpanya membuat seluruh kelas gagal dimuat — PHP menolak
+     * metode anak yang lebih tertutup daripada induknya. Bugnya muncul sebagai
+     * seluruh suite mati, bukan sebagai satu uji merah.
+     *
+     * Yang dipanggil di dalamnya tetap catat() milik induk, supaya jejaknya
+     * seragam dengan pemanggilan lain di API ini.
+     */
+    private function catatTingkat(Request $request, string $aksi, PromoRombonganTingkat $tingkat): void
     {
-        JejakAudit::catat(
-            $request,
-            $aksi,
-            $aksi.' — minimal '.$tingkat->min_peserta.' orang: '
-                .($tingkat->gratis_orang > 0 ? 'gratis '.$tingkat->gratis_orang.' orang' : '')
-                .($tingkat->potongan_persen > 0 ? ' potongan '.$tingkat->potongan_persen.'%' : ''),
-        );
+        $this->catat($request, $aksi, [
+            'minimal peserta' => $tingkat->min_peserta.' orang',
+            'keuntungan' => $tingkat->gratis_orang > 0
+                ? 'gratis '.$tingkat->gratis_orang.' orang'
+                : 'potongan '.$tingkat->potongan_persen.'%',
+        ]);
     }
 }
