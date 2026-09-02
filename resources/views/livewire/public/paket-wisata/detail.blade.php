@@ -493,20 +493,18 @@ new #[Layout('components.layouts.guest')] class extends Component
                                                         <x-heroicon-s-bell-alert class="w-5 h-5 text-orcha-ocean" />
                                                         Mau dikabari kalau ada kursi terbuka?
                                                     </p>
-                                                    <p class="mt-1 mb-4 text-xs leading-relaxed text-slate-500">
-                                                        Kursi sering terbuka lagi karena ada yang batal. Yang paling
-                                                        lama menunggu kami kabari lebih dulu.
-                                                    </p>
 
-                                                    {{-- Tiap isian diberi LABEL, bukan cuma placeholder.
+                                                    {{-- Nomor dan jumlah orang BERDAMPINGAN.
 
-                                                         Sebelumnya ketiganya hanya berisi teks bayangan — dan kotak
-                                                         angka di sebelah nomor tidak menyebut apa-apa, sehingga yang
-                                                         mengisinya harus menebak apakah itu jumlah orang, umur, atau
-                                                         nomor urut. Placeholder juga hilang begitu diketik, jadi
-                                                         orang yang berhenti sejenak kehilangan satu-satunya
-                                                         keterangan yang ada. --}}
-                                                    <div class="grid gap-3">
+                                                         Ditumpuk ke bawah, kotak ini jadi hampir setinggi kartu
+                                                         harganya sendiri — dan tawaran yang panjang di dasar
+                                                         halaman lebih sering dilewati daripada diisi. Keduanya
+                                                         pendek dan saling berkaitan, jadi memang muat sebaris.
+
+                                                         Yang TIDAK ikut dipadatkan: labelnya. Tanpa label, kotak
+                                                         angka di sebelah nomor tidak menyebut apa-apa dan yang
+                                                         mengisinya harus menebak. --}}
+                                                    <div class="grid gap-3 mt-3">
                                                         <div>
                                                             <label for="tunggu-nama" class="label-orcha">
                                                                 Nama <x-wajib />
@@ -519,38 +517,56 @@ new #[Layout('components.layouts.guest')] class extends Component
                                                             @enderror
                                                         </div>
 
-                                                        <div>
-                                                            <label for="tunggu-wa" class="label-orcha">
-                                                                Nomor WhatsApp <x-wajib />
-                                                            </label>
-                                                            <input id="tunggu-wa" type="tel" inputmode="tel"
-                                                                wire:model="tungguWa" maxlength="25"
-                                                                placeholder="0812-3456-7890"
-                                                                class="isian-orcha orcha-telp @error('tungguWa') isian-galat @enderror">
-                                                            <p class="mt-1 text-xs text-slate-500">
-                                                                Ke nomor inilah kabarnya kami kirim.
-                                                            </p>
-                                                            @error('tungguWa')
-                                                                <p class="galat-orcha">{{ $message }}</p>
-                                                            @enderror
+                                                        {{-- Label DIPENDEKKAN, dan itu bukan soal selera.
+
+                                                             Kartu ini duduk di kolom samping selebar ~380px.
+                                                             "Nomor WhatsApp" pecah jadi dua baris di situ,
+                                                             mendorong kotaknya turun sehingga tidak lagi sejajar
+                                                             dengan kotak di sebelahnya — dan yang terlihat dua
+                                                             isian yang tingginya berbeda tanpa alasan.
+
+                                                             items-end menjaganya tetap rata bawah seandainya
+                                                             salah satu label tetap pecah di layar yang lebih
+                                                             sempit lagi. --}}
+                                                        {{-- FLEX, bukan grid berkolom-span.
+
+                                                             col-span-2 dan col-span-3 TIDAK ADA di CSS terbangun:
+                                                             Tailwind hanya membuat kelas yang ditemukannya saat
+                                                             build, dan keduanya belum pernah dipakai di proyek
+                                                             ini. Akibatnya grid-cols-3 dengan dua isian menyisakan
+                                                             satu kolom kosong di kanan — itulah ruang menganga
+                                                             yang terlihat sejak awal, bukan salah tata letak.
+                                                             Sudah diperiksa langsung di public/build/assets.
+                                                             
+                                                             flex-1 dan w-24 sudah ada di sana, jadi bentuk ini
+                                                             tidak menunggu aset dibangun ulang. --}}
+                                                        <div class="flex items-end gap-3">
+                                                            <div class="flex-1">
+                                                                <label for="tunggu-wa" class="label-orcha">
+                                                                    WhatsApp <x-wajib />
+                                                                </label>
+                                                                <input id="tunggu-wa" type="tel" inputmode="tel"
+                                                                    wire:model="tungguWa" maxlength="25"
+                                                                    placeholder="0812 3456 7890"
+                                                                    class="isian-orcha orcha-telp @error('tungguWa') isian-galat @enderror">
+                                                            </div>
+
+                                                            <div class="w-24 shrink-0">
+                                                                <label for="tunggu-jumlah" class="label-orcha">
+                                                                    Orang <x-wajib />
+                                                                </label>
+                                                                <input id="tunggu-jumlah" type="number" min="1" max="60"
+                                                                    wire:model="tungguJumlah"
+                                                                    class="isian-orcha @error('tungguJumlah') isian-galat @enderror">
+                                                            </div>
                                                         </div>
 
-                                                        <div>
-                                                            <label for="tunggu-jumlah" class="label-orcha">
-                                                                Rencana berapa orang <x-wajib />
-                                                            </label>
-                                                            <input id="tunggu-jumlah" type="number" min="1" max="60"
-                                                                wire:model="tungguJumlah"
-                                                                class="isian-orcha @error('tungguJumlah') isian-galat @enderror">
-                                                            {{-- Angkanya bukan basa-basi: yang dikabari hanya
-                                                                 rombongan yang MUAT di kursi yang terbuka. --}}
-                                                            <p class="mt-1 text-xs text-slate-500">
-                                                                Kami cocokkan dengan jumlah kursi yang terbuka nanti.
-                                                            </p>
-                                                            @error('tungguJumlah')
-                                                                <p class="galat-orcha">{{ $message }}</p>
-                                                            @enderror
-                                                        </div>
+                                                        @error('tungguWa')
+                                                            <p class="galat-orcha">{{ $message }}</p>
+                                                        @enderror
+                                                        @error('tungguJumlah')
+                                                            <p class="galat-orcha">{{ $message }}</p>
+                                                        @enderror
 
                                                         <button type="button" wire:click="antre"
                                                             wire:loading.attr="disabled" wire:target="antre"
@@ -561,6 +577,17 @@ new #[Layout('components.layouts.guest')] class extends Component
                                                             </span>
                                                             <span wire:loading wire:target="antre">Menyimpan…</span>
                                                         </button>
+
+                                                        {{-- Satu baris keterangan untuk keduanya, di BAWAH tombol.
+
+                                                             Di atas tombol ia menyisipkan jeda antara isian
+                                                             terakhir dan tindakannya; di bawah, ia jadi penutup
+                                                             yang menjawab "lalu apa" tanpa menahan siapa pun. --}}
+                                                        <p class="text-xs leading-relaxed text-slate-500">
+                                                            Kami kabari lewat WhatsApp begitu ada kursi terbuka —
+                                                            yang paling lama menunggu didahulukan, dan jumlahnya
+                                                            kami cocokkan dengan kursi yang tersedia.
+                                                        </p>
                                                     </div>
                                                 </div>
                                             @endif

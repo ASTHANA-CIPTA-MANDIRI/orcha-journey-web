@@ -161,8 +161,11 @@ test('tiap isian antrean punya label dan tanda wajib', function () {
     $isi = Volt::test('public.paket-wisata.detail', ['paket' => paketPenuh()])->html();
 
     expect($isi)
-        ->toContain('Nomor WhatsApp')
-        ->toContain('Rencana berapa orang');
+        // Keduanya DIPENDEKKAN karena kini berdampingan dalam satu baris:
+        // "Nomor WhatsApp" pecah dua baris di kolom selebar ini dan membuat
+        // kotaknya tidak lagi sejajar dengan kotak di sebelahnya.
+        ->toContain('WhatsApp')
+        ->toContain('Orang');
 
     /*
      | Tiga isian, tiga bintang — dan ketiganya memang "required" di validator.
@@ -178,4 +181,59 @@ test('ketiga isiannya benar-benar ditolak kalau kosong', function () {
     Volt::test('public.paket-wisata.detail', ['paket' => paketPenuh()])
         ->call('antre')
         ->assertHasErrors(['tungguNama', 'tungguWa']);
+});
+
+test('kelas tata letak kartu antrean benar-benar ada di css terbangun', function () {
+    /*
+     | Tailwind hanya membuat kelas yang DITEMUKANNYA di sumber saat build.
+     | Kelas yang belum pernah dipakai di proyek ini — col-span-2 salah satunya
+     | — tidak ada di berkas CSS, dan memakainya tidak menghasilkan galat apa
+     | pun: elemennya cuma tidak tertata.
+     |
+     | Itu yang terjadi di kartu ini. grid-cols-3 dengan dua isian dan
+     | col-span-2 yang tidak ada menyisakan SATU KOLOM KOSONG di kanan, dan
+     | yang melihatnya menyangka tata letaknya yang salah.
+     |
+     | Kelasnya DIBACA DARI TAMPILANNYA, bukan ditulis ulang di sini. Daftar
+     | yang ditulis tangan tetap hijau walau tampilannya diubah memakai kelas
+     | lain — persis kelemahan versi pertama uji ini, yang lolos saat bugnya
+     | sengaja ditanam kembali.
+     */
+    $berkas = glob(public_path('build/assets/*.css'));
+
+    if ($berkas === []) {
+        $this->markTestSkipped('Belum ada hasil build; tidak ada yang bisa diperiksa.');
+    }
+
+    $css = collect($berkas)->map(fn ($f) => file_get_contents($f))->implode("\n");
+
+    $blade = file_get_contents(
+        resource_path('views/livewire/public/paket-wisata/detail.blade.php')
+    );
+
+    $awal = strpos($blade, 'bg-white/70 rounded-2xl');
+    $potongan = substr($blade, $awal, strpos($blade, '@endif', $awal) - $awal);
+
+    preg_match_all('/class="([^"]*)"/', $potongan, $cocok);
+
+    /*
+     | Hanya utilitas TATA LETAK yang diperiksa.
+     |
+     | Kelas warna atau tipografi yang hilang cuma membuat tampilannya kurang
+     | cantik; kelas tata letak yang hilang membuat isinya berantakan atau
+     | menyisakan ruang kosong — dan itu yang tidak terlihat sebagai galat.
+     */
+    $pola = '/^(grid-cols-|col-span-|flex-|w-\d|items-|gap-|grid$|flex$|shrink-)/';
+
+    $hilang = collect($cocok[1])
+        ->flatMap(fn ($c) => preg_split('/\s+/', trim($c)))
+        ->filter(fn ($k) => $k !== '' && preg_match($pola, $k))
+        ->unique()
+        ->reject(fn ($k) => str_contains($css, '.'.$k))
+        ->values()
+        ->all();
+
+    expect($hilang)->toBe([], 'Kelas tata letak ini dipakai kartu daftar tunggu '
+        .'tetapi TIDAK ADA di CSS terbangun, jadi ia tidak berpengaruh apa pun: '
+        .implode(', ', $hilang));
 });
