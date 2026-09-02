@@ -571,7 +571,22 @@ new #[Layout('components.layouts.guest')] class extends Component
                                                         <button type="button" wire:click="antre"
                                                             wire:loading.attr="disabled" wire:target="antre"
                                                             class="w-full btn-orcha btn-orcha-primary">
-                                                            <span wire:loading.remove wire:target="antre">
+                                                            {{-- Span-nya dijadikan flex sendiri.
+
+                                                                 .btn-orcha memang sudah align-items:center, tetapi
+                                                                 perataan itu berlaku pada ANAK LANGSUNGNYA — yaitu
+                                                                 span ini. Ikon dan tulisan di dalamnya kembali
+                                                                 sejajar garis dasar, dan glif ikon duduk sedikit di
+                                                                 bawahnya.
+
+                                                                 Aman terhadap wire:loading: utilitas Tailwind di
+                                                                 proyek ini TIDAK memakai !important, jadi
+                                                                 style="display:none" yang dipasang Livewire tetap
+                                                                 menang. Sudah diperiksa di tailwind.config.js —
+                                                                 pada Bootstrap, .d-flex justru mengalahkannya dan
+                                                                 kedua keadaan tombol tampil bersamaan. --}}
+                                                            <span wire:loading.remove wire:target="antre"
+                                                                class="inline-flex items-center gap-2">
                                                                 <x-heroicon-o-bell-alert class="w-5 h-5" />
                                                                 Kabari Saya
                                                             </span>
