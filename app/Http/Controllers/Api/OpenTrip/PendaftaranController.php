@@ -7,6 +7,7 @@ use App\Http\Resources\OpenTrip\PendaftaranResource;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\Pembatalan;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Models\PaketWisata\TravelPackage;
 use App\Models\Umum\TautanPendek;
 use App\Support\BerkasKwitansi;
 use App\Support\PerkiraanPotongan;
@@ -434,6 +435,115 @@ class PendaftaranController extends ApiController
             'Content-Disposition' => 'attachment; filename="'
                 .BerkasKwitansi::namaBerkas('rincian-biaya', $pendaftaran->kode).'"',
         ]);
+    }
+
+    /**
+     * Mendaftarkan rombongan dari sisi admin.
+     *
+     * Private trip dan study tour tidak pernah mendaftar lewat website, dan
+     * itu bukan kekurangan melainkan bentuk jualannya: harganya dirundingkan,
+     * jumlah pesertanya berubah-ubah sampai menit terakhir, dan seluruh
+     * percakapannya terjadi di WhatsApp. Memaksanya lewat formulir publik
+     * berarti meminta panitia sekolah mengisi ulang sesuatu yang sudah
+     * disepakati lewat telepon.
+     *
+     * Tetapi begitu disepakati, rombongannya HARUS masuk sistem — kalau tidak,
+     * ia tidak punya kode pemesanan, tidak bisa mengisi riwayat kesehatan,
+     * tidak masuk manifes tour leader, dan tidak terhitung di laporan
+     * keuntungan. Jalur inilah yang memasukkannya.
+     *
+     * HARGA BOLEH DIISI TANGAN. Paket private trip dan study tour sering
+     * belum berharga di sistem karena memang dihitung per rombongan; tanpa
+     * jalan memasukkannya, pendaftarannya masuk dengan tagihan nol dan
+     * seluruh laporan keuntungan ikut salah tanpa ada yang menyadarinya.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'travel_package_id' => ['required', 'integer', 'exists:tbl_travel_package,id'],
+            'nama' => ['required', 'string', 'min:3', 'max:120'],
+            'whatsapp' => ['required', 'string', 'min:8', 'max:32'],
+            'email' => ['nullable', 'email', 'max:150'],
+            'jumlah_peserta' => ['required', 'integer', 'min:1', 'max:200'],
+            'peserta' => ['nullable', 'array', 'max:200'],
+            'peserta.*.nama' => ['required', 'string', 'max:120'],
+            'peserta.*.titik_jemput' => ['nullable', 'string', 'max:191'],
+            'titik_jemput' => ['nullable', 'string', 'max:191'],
+            'catatan' => ['nullable', 'string', 'max:2000'],
+            /*
+             | Harga per orang, bukan harga rombongan.
+             |
+             | Seluruh sistem menghitung tagihan sebagai satuan x peserta —
+             | laporan keuntungan, kwitansi, dan rincian biaya semuanya. Menerima
+             | harga rombongan di sini berarti satu tempat memakai satuan yang
+             | berbeda dari semua yang lain, dan selisihnya baru ketahuan saat
+             | ada yang membandingkan dua laporan.
+             */
+            'harga_jual' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+            'harga_modal' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+        ], [], [
+            'travel_package_id' => 'paket',
+            'peserta.*.nama' => 'nama peserta',
+        ]);
+
+        $paket = TravelPackage::find($data['travel_package_id']);
+
+        $peserta = collect($data['peserta'] ?? [])
+            ->map(fn ($baris) => [
+                'nama' => trim($baris['nama']),
+                'titik_jemput' => trim($baris['titik_jemput'] ?? '') ?: null,
+            ])
+            ->filter(fn ($baris) => $baris['nama'] !== '')
+            ->values()
+            ->all();
+
+        $pendaftaran = PendaftaranOpenTrip::create([
+            'travel_package_id' => $paket->id,
+            'nama_paket' => $paket->name,
+            'nama' => $data['nama'],
+            'whatsapp' => $data['whatsapp'],
+            'email' => $data['email'] ?? null,
+            'jumlah_peserta' => $data['jumlah_peserta'],
+            'daftar_peserta' => $peserta,
+            'tanggal_berangkat' => $paket->tanggal_berangkat,
+            'titik_jemput' => $data['titik_jemput'] ?? null,
+            'catatan' => $data['catatan'] ?? null,
+
+            /*
+             | Harga yang dikirim admin MENANG atas harga paket.
+             |
+             | Model membekukan harga paket sendiri saat membuat baris, tetapi
+             | hanya bila kolomnya masih kosong (??=). Mengisinya di sini
+             | membuat harga rundingan yang dipakai, bukan harga daftar — dan
+             | untuk private trip harga daftarnya memang sering tidak ada.
+             */
+            'harga_jual' => $data['harga_jual'] ?? null,
+            'harga_modal' => $data['harga_modal'] ?? null,
+
+            /*
+             | Statusnya 'baru', bukan langsung 'dp_masuk'.
+             |
+             | Memasukkan rombongan bukan berarti uangnya sudah diterima, dan
+             | status yang memajukan dirinya sendiri membuat laporan keuangan
+             | menyebut uang yang belum ada. Admin memajukannya lewat tombol
+             | status seperti pendaftaran lain — dan sampai itu terjadi,
+             | formulir riwayat kesehatannya memang belum bisa diisi.
+             */
+            'status' => 'baru',
+        ]);
+
+        $this->catat($request, 'daftarkan rombongan dari admin', [
+            'kode' => $pendaftaran->kode,
+            'paket' => $paket->name,
+            'kategori' => $paket->category,
+            'jumlah_peserta' => $pendaftaran->jumlah_peserta,
+            'nama_terdata' => count($peserta),
+        ]);
+
+        // Tautan riwayat kesehatannya sudah dibawa PendaftaranResource sendiri.
+        $data = (new PendaftaranResource($pendaftaran->fresh()->loadCount('riwayatKesehatan')))->resolve();
+
+        return response()->json(['data' => $data], 201);
     }
 
     /**

@@ -57,6 +57,17 @@ Route::prefix('v1')
 
         /* ----------------------------- OPEN TRIP ----------------------------- */
         Route::get('/pendaftaran', [PendaftaranController::class, 'index']);
+
+        /*
+         | Mendaftarkan rombongan dari sisi admin.
+         |
+         | Private trip dan study tour tidak pernah lewat formulir publik —
+         | harganya dirundingkan dan seluruh percakapannya di WhatsApp. Tetapi
+         | begitu disepakati, rombongannya harus masuk sistem: tanpa itu ia
+         | tidak punya kode pemesanan, tidak bisa mengisi riwayat kesehatan,
+         | tidak masuk manifes, dan tidak terhitung di laporan keuntungan.
+         */
+        Route::post('/pendaftaran', [PendaftaranController::class, 'store']);
         // Sebelum /{pendaftaran}: tanpa ini "perhatian" terbaca sebagai nomor.
         Route::get('/pendaftaran/perhatian', [PendaftaranController::class, 'perhatian']);
         Route::get('/pendaftaran/{pendaftaran}', [PendaftaranController::class, 'show']);

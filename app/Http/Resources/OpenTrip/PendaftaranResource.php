@@ -34,6 +34,19 @@ class PendaftaranResource extends JsonResource
                 // dan manifes lalu mencetak dua kelompok bernama sama.
                 'titik_jemput' => $this->paket?->titik_jemput_list ?? [],
             ],
+            /*
+             | Tautan formulir riwayat kesehatan, dirakit di SINI.
+             |
+             | Alamat publiknya milik Orcha. Merakitnya di lemon berarti nama
+             | rutenya ditebak dari sana, dan tebakan itu diam saat rutenya
+             | berubah — tautan yang salah membawa peserta ke halaman galat,
+             | dan yang menyalahkan dirinya sendiri pesertanya.
+             |
+             | Ikut di setiap baris, bukan cuma saat pendaftarannya baru
+             | dibuat: yang paling sering diminta justru pengiriman ULANG,
+             | berhari-hari kemudian, kepada peserta yang belum juga mengisi.
+             */
+            'tautan_kesehatan' => route('riwayat-kesehatan', ['kode' => $this->kode]),
             'tanggal_berangkat' => $this->tanggal_berangkat?->toDateString(),
             // Selisih harinya dihitung di sini, bukan di lemon: keduanya
             // memakai zona waktu server yang sama hanya kalau angkanya datang
