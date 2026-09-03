@@ -35,6 +35,15 @@ class PendaftaranResource extends JsonResource
                 'titik_jemput' => $this->paket?->titik_jemput_list ?? [],
             ],
             'tanggal_berangkat' => $this->tanggal_berangkat?->toDateString(),
+            // Selisih harinya dihitung di sini, bukan di lemon: keduanya
+            // memakai zona waktu server yang sama hanya kalau angkanya datang
+            // dari server.
+            'hari_ke_berangkat' => $this->hari_ke_berangkat,
+            // Kapan pengingat pelunasannya sudah berangkat. Yang membuka daftar
+            // tagihan perlu tahu apakah orang ini sudah dikirimi surat dan
+            // tetap diam, atau memang belum pernah dihubungi sama sekali —
+            // dua keadaan yang menuntut nada telepon yang berbeda.
+            'pengingat_pelunasan_pada' => $this->pengingat_pelunasan_pada?->toIso8601String(),
             'titik_jemput' => $this->titik_jemput,
             'catatan' => $this->catatan,
             'status' => $this->status,

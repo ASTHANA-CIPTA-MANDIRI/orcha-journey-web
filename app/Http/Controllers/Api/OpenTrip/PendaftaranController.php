@@ -35,6 +35,20 @@ class PendaftaranController extends ApiController
             // paket. Tanpa saringan ini admin harus mengetik nama paketnya di
             // kotak cari dan berharap tidak ada paket lain yang namanya mirip.
             ->when($request->integer('paket_id'), fn ($q, $id) => $q->where('travel_package_id', $id))
+
+            /*
+             | Saringan "perlu ditagih": belum lunas, dan tanggalnya sudah dekat.
+             |
+             | Urutannya ikut berubah — yang paling mepet di atas, bukan yang
+             | paling baru mendaftar. Daftar tagihan yang diurutkan menurut
+             | waktu pendaftaran menaruh yang berangkat besok di halaman tiga.
+             */
+            ->when($request->boolean('perlu_ditagih'), fn ($q) => $q
+                ->perluDitagih()
+                ->orderBy('tanggal_berangkat'))
+
+            // Urutan ini menyusul yang di atas, jadi ia jadi pemutus seri —
+            // bukan penentu utama saat saringan tagihan menyala.
             ->latest('id')
             ->paginate($this->perHalaman($request));
 

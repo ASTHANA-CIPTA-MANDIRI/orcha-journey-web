@@ -845,6 +845,38 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Pengingat
+    |--------------------------------------------------------------------------
+    |
+    | Dua surat yang selama ini tidak pernah dikirim siapa pun.
+    |
+    | 'pelunasan_hari_sebelum_batas' — berapa hari SEBELUM batas pelunasan
+    | pengingatnya berangkat. Bukan tepat di hari batasnya: orang perlu waktu
+    | untuk ke bank, dan transfer akhir pekan baru masuk Senin. Tiga hari
+    | memberi ruang tanpa terlalu jauh sehingga terlupakan lagi.
+    |
+    | 'briefing_hari_sebelum' — berapa hari sebelum berangkat briefingnya
+    | dikirim. Satu hari, dan itu disengaja: dikirim seminggu sebelumnya, isinya
+    | dibaca lalu dilupakan justru pada malam yang menentukan.
+    |
+    | 'bawaan' — daftar yang masuk ke surat briefing. Berlaku untuk semua trip;
+    | yang khas satu paket ditulis di keterangan paketnya sendiri.
+    */
+    'pengingat' => [
+        'pelunasan_hari_sebelum_batas' => 3,
+        'briefing_hari_sebelum' => 1,
+
+        'bawaan' => [
+            'Kartu identitas (KTP/SIM/kartu pelajar)',
+            'Obat pribadi bila ada',
+            'Jaket atau pakaian hangat',
+            'Alas kaki yang nyaman untuk berjalan',
+            'Uang tunai secukupnya',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Ketentuan Pembayaran & DP
     |--------------------------------------------------------------------------
     |

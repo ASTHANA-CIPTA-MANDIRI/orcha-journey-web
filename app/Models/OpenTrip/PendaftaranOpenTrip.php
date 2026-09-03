@@ -30,6 +30,8 @@ class PendaftaranOpenTrip extends Model
         'titik_jemput',
         'catatan',
         'status',
+        'pengingat_pelunasan_pada',
+        'briefing_pada',
     ];
 
     protected $casts = [
@@ -41,6 +43,8 @@ class PendaftaranOpenTrip extends Model
         'daftar_peserta' => 'array',
         'riwayat_penggantian' => 'array',
         'surat_penggantian_pada' => 'datetime',
+        'pengingat_pelunasan_pada' => 'datetime',
+        'briefing_pada' => 'datetime',
     ];
 
     /**
@@ -86,6 +90,51 @@ class PendaftaranOpenTrip extends Model
     public function paket(): BelongsTo
     {
         return $this->belongsTo(TravelPackage::class, 'travel_package_id');
+    }
+
+    /**
+     * Pendaftaran yang uangnya belum lengkap sementara tanggalnya sudah dekat.
+     *
+     * Inilah daftar yang perlu dikejar orang. Pengingat otomatis mengurus yang
+     * normal — yang membaca suratnya lalu mentransfer; yang tersisa di sini
+     * justru yang TIDAK bergerak setelah dikirimi, dan itu hanya bisa
+     * diselesaikan lewat telepon.
+     *
+     * Tanpa saringan ini admin membuka pendaftaran satu per satu dan
+     * menghitung tanggalnya di kepala — pekerjaan yang cukup melelahkan
+     * sehingga tidak pernah benar-benar dikerjakan, dan uangnya menguap tanpa
+     * ada yang menyadarinya.
+     *
+     * Yang belum membayar sepeser pun TIDAK termasuk: kursinya sudah diurus
+     * LepaskanKursiTertahan, dan mencampurnya di sini membuat daftar tagihan
+     * bercampur dengan daftar pemesanan yang sudah setengah mati.
+     */
+    public function scopePerluDitagih($query, ?int $dalamHari = null)
+    {
+        $dalamHari ??= (int) config('orcha.pembayaran.pelunasan_hari_sebelum', 5)
+            + (int) config('orcha.pengingat.pelunasan_hari_sebelum_batas', 3);
+
+        return $query
+            ->where('status', 'dp_masuk')
+            ->whereNotNull('tanggal_berangkat')
+            // Yang sudah berangkat tidak lagi bisa ditagih lewat jalur ini —
+            // itu urusan penagihan biasa, bukan penyelamatan kursi.
+            ->whereDate('tanggal_berangkat', '>=', now()->toDateString())
+            ->whereDate('tanggal_berangkat', '<=', now()->addDays($dalamHari)->toDateString());
+    }
+
+    /**
+     * Berapa hari lagi berangkat; negatif berarti sudah lewat.
+     *
+     * Dihitung dari awal hari, bukan dari jam sekarang. "Berangkat besok" pada
+     * pukul sebelas malam tetap satu hari, bukan nol koma sekian yang
+     * dibulatkan jadi nol.
+     */
+    public function getHariKeBerangkatAttribute(): ?int
+    {
+        return $this->tanggal_berangkat
+            ? now()->startOfDay()->diffInDays($this->tanggal_berangkat->startOfDay(), false)
+            : null;
     }
 
     public function riwayatKesehatan(): HasMany
