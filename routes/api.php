@@ -233,6 +233,13 @@ Route::prefix('v1')
         Route::match(['put', 'post'], '/kode-rujukan/{rujukan:id}', [\App\Http\Controllers\Api\Rujukan\KodeRujukanController::class, 'update']);
         Route::post('/kode-rujukan/bayar/{pendaftaran:id}', [\App\Http\Controllers\Api\Rujukan\KodeRujukanController::class, 'bayar']);
 
+        /*
+         | Pelanggan — orang, bukan pesanan. Disusun dari pendaftaran dan
+         | penyewaan; tidak ada tabelnya sendiri.
+         */
+        Route::get('/pelanggan', [\App\Http\Controllers\Api\Pelanggan\PelangganController::class, 'index']);
+        Route::post('/pelanggan/kode-rujukan', [\App\Http\Controllers\Api\Pelanggan\PelangganController::class, 'buatkanKode']);
+
         Route::post('/destinasi', [EtalaseController::class, 'simpanDestinasi']);
         Route::match(['put', 'post'], '/destinasi/{destinasi:id}', [EtalaseController::class, 'perbaruiDestinasi']);
         Route::delete('/destinasi/{destinasi:id}', [EtalaseController::class, 'hapusDestinasi']);
