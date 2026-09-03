@@ -413,9 +413,12 @@ test('data lama yang hanya berisi nama tetap terbaca', function () {
         'titik_jemput' => 'Jogja',
     ]);
 
+    // Bus dan kamar ikut sejak pembagian rombongan ada. Kosongnya berarti
+    // "belum dibagi", bukan "tidak ikut" — dan data lama memang belum pernah
+    // dibagi.
     expect($pendaftaran->peserta)->toBe([
-        ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja'],
-        ['nama' => 'Budi Santoso', 'titik_jemput' => 'Jogja'],
+        ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'bus' => null, 'kamar' => null],
+        ['nama' => 'Budi Santoso', 'titik_jemput' => 'Jogja', 'bus' => null, 'kamar' => null],
     ]);
 });
 

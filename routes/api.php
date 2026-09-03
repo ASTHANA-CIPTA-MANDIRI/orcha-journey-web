@@ -90,6 +90,16 @@ Route::prefix('v1')
         Route::get('/pembayaran/{pembayaran}', [PembayaranController::class, 'show']);
         Route::patch('/pembayaran/{pembayaran}/status', [PembayaranController::class, 'ubahStatus']);
 
+        /*
+         | Pembayaran yang diterima admin sendiri, tanpa lewat formulir publik.
+         |
+         | Private trip dan study tour mentransfer lalu mengabari lewat
+         | WhatsApp, kadang tanpa tangkapan layar. Yang memastikan uangnya
+         | masuk adalah admin yang membuka mutasi rekening — dan sampai
+         | sekarang tidak ada tempat mencatat pemeriksaan itu.
+         */
+        Route::post('/pendaftaran/{pendaftaran}/pembayaran', [PembayaranController::class, 'catatManual']);
+
         Route::get('/pembatalan', [PembatalanController::class, 'index']);
         // Sebelum /{pembatalan}: tanpa ini "perhatian" terbaca sebagai nomor.
         Route::get('/pembatalan/perhatian', [PembatalanController::class, 'perhatian']);

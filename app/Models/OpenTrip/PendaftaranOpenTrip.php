@@ -19,6 +19,7 @@ class PendaftaranOpenTrip extends Model
         'whatsapp',
         'email',
         'jumlah_peserta',
+        'pendamping_gratis',
         'harga_jual',
         'harga_modal',
         'potongan_promo',
@@ -41,6 +42,7 @@ class PendaftaranOpenTrip extends Model
     protected $casts = [
         'tanggal_berangkat' => 'date',
         'jumlah_peserta' => 'integer',
+        'pendamping_gratis' => 'integer',
         'harga_jual' => 'integer',
         'potongan_promo' => 'integer',
         'harga_modal' => 'integer',
@@ -204,10 +206,28 @@ class PendaftaranOpenTrip extends Model
                     return [
                         'nama' => trim($baris['nama'] ?? ''),
                         'titik_jemput' => trim($baris['titik_jemput'] ?? '') ?: $this->titik_jemput,
+                        /*
+                         | Bus dan kamar boleh kosong, dan kosongnya berarti
+                         | "belum dibagi" — bukan "tidak ikut".
+                         |
+                         | Dibedakan karena pembagian bus baru dikerjakan
+                         | beberapa hari sebelum berangkat, jauh setelah
+                         | namanya masuk. Menganggap yang kosong sebagai
+                         | kesalahan membuat layar penuh peringatan merah
+                         | selama berminggu-minggu, dan peringatan yang selalu
+                         | ada akhirnya tidak dibaca.
+                         */
+                        'bus' => trim($baris['bus'] ?? '') ?: null,
+                        'kamar' => trim($baris['kamar'] ?? '') ?: null,
                     ];
                 }
 
-                return ['nama' => trim((string) $baris), 'titik_jemput' => $this->titik_jemput];
+                return [
+                    'nama' => trim((string) $baris),
+                    'titik_jemput' => $this->titik_jemput,
+                    'bus' => null,
+                    'kamar' => null,
+                ];
             })
             ->filter(fn ($baris) => $baris['nama'] !== '')
             ->values()
@@ -226,6 +246,61 @@ class PendaftaranOpenTrip extends Model
             ->filter(fn ($p) => filled($p['titik_jemput']))
             ->groupBy('titik_jemput')
             ->map(fn ($orang) => $orang->pluck('nama')->all())
+            ->all();
+    }
+
+    /**
+     * Peserta dikelompokkan menurut bus, untuk dibacakan saat berangkat.
+     *
+     * Yang membacanya di lapangan perlu satu daftar per bus, bukan daftar
+     * seluruh rombongan yang harus disaring sendiri sambil berdiri di
+     * parkiran.
+     *
+     * Yang belum dibagi dikumpulkan dalam kelompok bernama kosong, bukan
+     * dibuang — rombongan yang setengah dibagi adalah keadaan yang paling
+     * sering terjadi, dan menyembunyikan sisanya membuat orang mengira
+     * pembagiannya sudah selesai.
+     *
+     * @return array<int, array{kelompok: string, anggota: array<int, string>}>
+     */
+    public function getBusPerKelompokAttribute(): array
+    {
+        return self::kelompokkan($this->peserta, 'bus');
+    }
+
+    /**
+     * Peserta dikelompokkan menurut kamar, untuk diserahkan ke hotel.
+     *
+     * @return array<int, array{kelompok: string, anggota: array<int, string>}>
+     */
+    public function getKamarPerKelompokAttribute(): array
+    {
+        return self::kelompokkan($this->peserta, 'kamar');
+    }
+
+    /**
+     * BERUPA DAFTAR PASANGAN, bukan larik berkunci — dan itu bukan selera.
+     *
+     * Nomor kamar selalu angka: "201", "202". PHP memaksa kunci larik yang
+     * berupa angka jadi integer, dan larik ber-kunci-integer yang dikirim
+     * lewat JSON pulang sebagai daftar biasa — kunci "201" berubah jadi
+     * indeks 0. Daftar kamar yang diserahkan ke hotel lalu tertulis "Kamar 0",
+     * dan tidak ada satu pun galat yang menjelaskannya.
+     *
+     * Ditemukan lewat uji, bukan lewat keluhan resepsionis hotel.
+     *
+     * @param  array<int, array<string, mixed>>  $peserta
+     * @return array<int, array{kelompok: string, anggota: array<int, string>}>
+     */
+    private static function kelompokkan(array $peserta, string $kunci): array
+    {
+        return collect($peserta)
+            ->groupBy(fn (array $satu) => (string) ($satu[$kunci] ?? ''))
+            ->map(fn ($orang, $nama) => [
+                'kelompok' => (string) $nama,
+                'anggota' => $orang->pluck('nama')->all(),
+            ])
+            ->values()
             ->all();
     }
 
@@ -306,9 +381,28 @@ class PendaftaranOpenTrip extends Model
      * dipakai mengambil keputusan jadi lebih besar daripada uang yang
      * benar-benar masuk.
      */
+    /**
+     * Berapa orang yang BENAR-BENAR DITAGIH.
+     *
+     * Berbeda dari jumlah_peserta, dan bedanya nyata: guru pendamping study
+     * tour ikut berangkat, menempati kursi bus, masuk manifes, dan mengisi
+     * riwayat kesehatan — tetapi tidak dibayar sekolahnya.
+     *
+     * Sebelum kolom ini ada, satu-satunya cara menyatakannya adalah menurunkan
+     * jumlah peserta, dan gurunya lalu hilang dari keempat hal di atas.
+     * Padahal justru dialah yang paling perlu punya kontak darurat tercatat.
+     *
+     * Tidak pernah nol: rombongan yang seluruhnya gratis tetap satu baris
+     * tagihan, dan pembagian apa pun terhadap nol akan meledak di tempat lain.
+     */
+    public function getPesertaDibayarAttribute(): int
+    {
+        return max(1, (int) $this->jumlah_peserta - (int) ($this->pendamping_gratis ?? 0));
+    }
+
     public function getOmzetAttribute(): int
     {
-        $penuh = (int) ($this->jual_satuan ?? 0) * max(1, (int) $this->jumlah_peserta);
+        $penuh = (int) ($this->jual_satuan ?? 0) * $this->peserta_dibayar;
 
         /*
          | Potongan rujukan ikut dikurangkan, sama seperti potongan promo.

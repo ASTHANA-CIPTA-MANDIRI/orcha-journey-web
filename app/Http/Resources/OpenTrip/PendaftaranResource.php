@@ -19,9 +19,24 @@ class PendaftaranResource extends JsonResource
             'whatsapp' => $this->whatsapp,
             'email' => $this->email,
             'jumlah_peserta' => $this->jumlah_peserta,
+            /*
+             | Dua angka yang memang berbeda, dan keduanya dikirim.
+             |
+             | jumlah_peserta menjawab berapa orang BERANGKAT — kursi bus,
+             | manifes, riwayat kesehatan. peserta_dibayar menjawab berapa yang
+             | DITAGIH. Guru pendamping study tour masuk yang pertama dan tidak
+             | masuk yang kedua.
+             */
+            'pendamping_gratis' => (int) ($this->pendamping_gratis ?? 0),
+            'peserta_dibayar' => $this->peserta_dibayar,
             // Bentuk seragam: tiap peserta punya nama dan titik jemputnya
             'peserta' => $this->peserta,
             'jemput_per_titik' => $this->jemput_per_titik,
+            // Dikelompokkan di sini, bukan di lemon: yang membacanya di
+            // lapangan perlu satu daftar per bus, dan pengelompokan yang
+            // dikerjakan dua kali akan berbeda suatu saat.
+            'bus_per_kelompok' => $this->bus_per_kelompok,
+            'kamar_per_kelompok' => $this->kamar_per_kelompok,
             'kesehatan_terisi' => $this->kesehatan_terisi,
             'kesehatan_lengkap' => $this->kesehatan_lengkap,
             'peserta_belum_isi' => $this->peserta_belum_isi,

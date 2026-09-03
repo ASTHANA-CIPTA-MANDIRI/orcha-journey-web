@@ -465,9 +465,19 @@ class PendaftaranController extends ApiController
             'whatsapp' => ['required', 'string', 'min:8', 'max:32'],
             'email' => ['nullable', 'email', 'max:150'],
             'jumlah_peserta' => ['required', 'integer', 'min:1', 'max:200'],
+            /*
+             | Guru pendamping yang ikut berangkat tanpa dibayar.
+             |
+             | Tidak boleh melebihi jumlah peserta — rombongan yang seluruhnya
+             | gratis berarti tidak ada yang membayar apa pun, dan itu bukan
+             | pendaftaran melainkan salah ketik.
+             */
+            'pendamping_gratis' => ['nullable', 'integer', 'min:0', 'lt:jumlah_peserta'],
             'peserta' => ['nullable', 'array', 'max:200'],
             'peserta.*.nama' => ['required', 'string', 'max:120'],
             'peserta.*.titik_jemput' => ['nullable', 'string', 'max:191'],
+            'peserta.*.bus' => ['nullable', 'string', 'max:60'],
+            'peserta.*.kamar' => ['nullable', 'string', 'max:60'],
             'titik_jemput' => ['nullable', 'string', 'max:191'],
             'catatan' => ['nullable', 'string', 'max:2000'],
             /*
@@ -484,6 +494,7 @@ class PendaftaranController extends ApiController
         ], [], [
             'travel_package_id' => 'paket',
             'peserta.*.nama' => 'nama peserta',
+            'pendamping_gratis' => 'pendamping gratis',
         ]);
 
         $paket = TravelPackage::find($data['travel_package_id']);
@@ -492,6 +503,8 @@ class PendaftaranController extends ApiController
             ->map(fn ($baris) => [
                 'nama' => trim($baris['nama']),
                 'titik_jemput' => trim($baris['titik_jemput'] ?? '') ?: null,
+                'bus' => trim($baris['bus'] ?? '') ?: null,
+                'kamar' => trim($baris['kamar'] ?? '') ?: null,
             ])
             ->filter(fn ($baris) => $baris['nama'] !== '')
             ->values()
@@ -504,6 +517,7 @@ class PendaftaranController extends ApiController
             'whatsapp' => $data['whatsapp'],
             'email' => $data['email'] ?? null,
             'jumlah_peserta' => $data['jumlah_peserta'],
+            'pendamping_gratis' => $data['pendamping_gratis'] ?? 0,
             'daftar_peserta' => $peserta,
             'tanggal_berangkat' => $paket->tanggal_berangkat,
             'titik_jemput' => $data['titik_jemput'] ?? null,
@@ -537,6 +551,7 @@ class PendaftaranController extends ApiController
             'paket' => $paket->name,
             'kategori' => $paket->category,
             'jumlah_peserta' => $pendaftaran->jumlah_peserta,
+            'pendamping_gratis' => $pendaftaran->pendamping_gratis,
             'nama_terdata' => count($peserta),
         ]);
 
@@ -567,6 +582,16 @@ class PendaftaranController extends ApiController
             'peserta' => 'present|array|max:200',
             'peserta.*.nama' => 'required|string|max:120',
             'peserta.*.titik_jemput' => 'nullable|string|max:191',
+            /*
+             | Bus dan kamar dibagikan lewat layar yang sama dengan nama.
+             |
+             | Pembagiannya dikerjakan beberapa hari sebelum berangkat, jauh
+             | setelah namanya masuk — tetapi memisahkannya jadi layar sendiri
+             | berarti daftar nama yang sama harus dibuka dua kali, dan yang
+             | kedua hampir tidak pernah dibuka.
+             */
+            'peserta.*.bus' => 'nullable|string|max:60',
+            'peserta.*.kamar' => 'nullable|string|max:60',
             // Nama yang digantikan baris ini. Diisi HANYA saat admin memang
             // mengganti orang — pembetulan salah ketik tidak mengisinya.
             'peserta.*.gantikan' => 'nullable|string|max:120',
@@ -582,6 +607,8 @@ class PendaftaranController extends ApiController
             ->map(fn ($baris) => [
                 'nama' => trim($baris['nama']),
                 'titik_jemput' => trim($baris['titik_jemput'] ?? '') ?: null,
+                'bus' => trim($baris['bus'] ?? '') ?: null,
+                'kamar' => trim($baris['kamar'] ?? '') ?: null,
             ])
             ->filter(fn ($baris) => $baris['nama'] !== '')
             ->values()

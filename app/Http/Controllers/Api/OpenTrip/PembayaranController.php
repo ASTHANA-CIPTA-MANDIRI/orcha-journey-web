@@ -8,6 +8,7 @@ use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Support\KabarPembayaran;
 use App\Support\StatusPendaftaran;
+use App\Support\TagihanPesanan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -54,6 +55,101 @@ class PembayaranController extends ApiController
         return response()->json([
             'data' => (new PembayaranResource($pembayaran))->resolve(),
         ]);
+    }
+
+    /**
+     * Mencatat pembayaran yang diterima admin sendiri.
+     *
+     * Private trip dan study tour tidak lewat formulir konfirmasi publik.
+     * Panitia mentransfer lalu mengabari lewat WhatsApp, kadang cuma dengan
+     * kalimat "sudah ditransfer ya" tanpa tangkapan layar. Yang memastikan
+     * uangnya benar-benar masuk adalah admin yang membuka mutasi rekening —
+     * dan sampai sekarang tidak ada satu pun tempat mencatat pemeriksaan itu.
+     *
+     * Akibatnya uang yang sudah diterima tidak pernah tercatat: statusnya
+     * tertahan di "Baru", formulir riwayat kesehatannya tetap tertutup, dan
+     * laporan keuangan menyebut nol untuk rombongan yang sudah membayar penuh.
+     *
+     * LANGSUNG BERSTATUS DITERIMA, dan itu disengaja. Bukti dari pelanggan
+     * menunggu diperiksa karena siapa pun bisa mengunggah gambar; yang
+     * dicatat di sini adalah HASIL pemeriksaan itu sendiri. Menaruhnya di
+     * antrean menunggu berarti admin harus menyetujui catatannya sendiri —
+     * langkah yang tidak memeriksa apa pun dan hanya menunda uangnya tercatat.
+     *
+     * Karena itu ia dicatat di jejak audit dengan nama admin yang memasukkannya.
+     */
+    public function catatManual(PendaftaranOpenTrip $pendaftaran, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'nominal' => ['required', 'integer', 'min:1', 'max:10000000000'],
+            'tanggal_transfer' => ['required', 'date', 'before_or_equal:today'],
+            'bank_pengirim' => ['required', 'string', 'max:60'],
+            'atas_nama_pengirim' => ['required', 'string', 'max:120'],
+            'jenis' => ['required', 'in:'.implode(',', array_keys(config('orcha.jenis_pembayaran')))],
+            'catatan' => ['nullable', 'string', 'max:1000'],
+        ], [], [
+            'nominal' => 'nominal',
+            'tanggal_transfer' => 'tanggal transfer',
+            'bank_pengirim' => 'bank pengirim',
+            'atas_nama_pengirim' => 'atas nama pengirim',
+        ]);
+
+        $pembayaran = KonfirmasiPembayaran::create([
+            'kode' => $pendaftaran->kode,
+            'jenis' => $data['jenis'],
+            'nominal' => $data['nominal'],
+            'tanggal_transfer' => $data['tanggal_transfer'],
+            'bank_pengirim' => $data['bank_pengirim'],
+            'atas_nama_pengirim' => $data['atas_nama_pengirim'],
+            'catatan' => $data['catatan'] ?? null,
+            'status' => 'diterima',
+
+            /*
+             | Ditandai sebagai catatan admin, bukan bukti pelanggan.
+             |
+             | Yang membaca daftar pembayaran setahun kemudian perlu bisa
+             | membedakan keduanya: yang satu punya gambar yang bisa
+             | ditelusuri, yang satu bersandar pada seseorang yang membuka
+             | mutasi rekening pada hari itu. Tanpa penanda, keduanya
+             | terlihat sama persis dan pertanyaan "buktinya mana?" tidak
+             | bisa dijawab.
+             */
+            'catatan_admin' => 'Dicatat manual oleh '
+                .($request->attributes->get('admin_pemanggil') ?: 'admin')
+                .' — dicocokkan dengan mutasi rekening.',
+        ]);
+
+        $this->catat($request, 'catat pembayaran manual', [
+            'kode' => $pendaftaran->kode,
+            'nominal' => $pembayaran->nominal,
+            'jenis' => $pembayaran->jenis,
+            'bank' => $pembayaran->bank_pengirim,
+        ]);
+
+        // Satu kejadian, satu langkah — sama seperti menyetujui bukti
+        // pelanggan: statusnya ikut maju tanpa perlu diingat admin.
+        $pesan = 'Pembayaran dicatat.';
+        $statusBaru = StatusPendaftaran::selaraskan($pendaftaran->fresh());
+
+        if ($statusBaru) {
+            $label = config('orcha.status_pendaftaran')[$statusBaru] ?? $statusBaru;
+            $pesan .= " Status pesanan ikut menjadi {$label}.";
+
+            $this->catat($request, 'status pesanan menyesuaikan pembayaran', [
+                'kode' => $pendaftaran->kode,
+                'ke' => $statusBaru,
+            ]);
+        }
+
+        return response()->json([
+            'pesan' => $pesan,
+            'data' => [
+                'id' => $pembayaran->id,
+                'nominal' => $pembayaran->nominal,
+                'status_pendaftaran' => $pendaftaran->fresh()->status,
+                'tagihan' => TagihanPesanan::untuk($pendaftaran->fresh(), hanyaDiterima: true),
+            ],
+        ], 201);
     }
 
     public function ubahStatus(KonfirmasiPembayaran $pembayaran, Request $request): JsonResponse

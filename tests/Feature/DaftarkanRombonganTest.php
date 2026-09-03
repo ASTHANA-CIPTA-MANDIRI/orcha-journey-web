@@ -267,3 +267,57 @@ test('sekolah bisa mencicil lebih dari dua kali', function () {
         ->and($tagihan['sisa'])->toBe(0)
         ->and($tagihan['lunas'])->toBeTrue();
 });
+
+test('guru pendamping ikut berangkat tetapi tidak ditagih', function () {
+    /*
+     | Skema baku study tour: sekolah membawa satu atau dua guru pendamping
+     | yang tidak ditagih.
+     |
+     | Selama ini satu-satunya cara menyatakannya adalah menurunkan jumlah
+     | peserta — dan itu MERUSAK hal lain yang bergantung pada angka tersebut:
+     | gurunya hilang dari manifes tour leader, tidak terhitung di kursi bus,
+     | dan tidak diminta mengisi riwayat kesehatan. Padahal ia benar-benar
+     | berangkat, dan justru dialah yang paling perlu punya kontak darurat
+     | tercatat.
+     */
+    $paket = paketRombongan(['category' => 'study_tour']);
+
+    $this->postJson('/api/v1/pendaftaran', isianRombongan($paket, [
+        'jumlah_peserta' => 42,
+        'pendamping_gratis' => 2,
+        'harga_jual' => 500000,
+    ]), kepalaRombongan())->assertCreated();
+
+    $daftar = PendaftaranOpenTrip::first();
+
+    // Berangkat 42, ditagih 40.
+    expect($daftar->jumlah_peserta)->toBe(42)
+        ->and($daftar->peserta_dibayar)->toBe(40)
+        ->and($daftar->omzet)->toBe(40 * 500000)
+        ->and(\App\Support\TagihanPesanan::untuk($daftar)['total'])->toBe(40 * 500000);
+});
+
+test('pendamping gratis tidak boleh sebanyak seluruh rombongan', function () {
+    // Rombongan yang seluruhnya gratis berarti tidak ada yang membayar apa
+    // pun — itu bukan pendaftaran melainkan salah ketik.
+    $paket = paketRombongan();
+
+    $this->postJson('/api/v1/pendaftaran',
+        isianRombongan($paket, ['jumlah_peserta' => 3, 'pendamping_gratis' => 3]),
+        kepalaRombongan())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('pendamping_gratis');
+});
+
+test('tanpa pendamping gratis, seluruh peserta ditagih seperti biasa', function () {
+    $paket = paketRombongan();
+
+    $this->postJson('/api/v1/pendaftaran',
+        isianRombongan($paket, ['jumlah_peserta' => 10, 'harga_jual' => 500000]),
+        kepalaRombongan());
+
+    $daftar = PendaftaranOpenTrip::first();
+
+    expect($daftar->pendamping_gratis)->toBe(0)
+        ->and($daftar->peserta_dibayar)->toBe(10);
+});
