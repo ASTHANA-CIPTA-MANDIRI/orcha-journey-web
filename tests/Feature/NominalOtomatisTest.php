@@ -143,10 +143,50 @@ test('kode yang tidak dikenal tidak mengarang angka', function () {
         ->assertSet('nominalTeks', '');
 });
 
-test('paket tanpa harga tidak mengarang angka', function () {
+test('pendaftaran tanpa harga sama sekali tidak mengarang angka', function () {
+    /*
+     | Yang benar-benar tanpa harga: paketnya tidak berharga DAN pendaftarannya
+     | tidak membekukan apa pun. Ini keadaan private trip yang baru dibuat dan
+     | harganya masih dirundingkan — dan mengarang angka di sini berarti
+     | menagih orang untuk kesepakatan yang belum ada.
+     */
     $this->pendaftaran->paket->update(['price' => 0]);
+    $this->pendaftaran->forceFill(['harga_jual' => null])->save();
 
     expect(TagihanPesanan::untuk($this->pendaftaran->fresh()))->toBe([]);
+});
+
+test('harga paket yang dinolkan TIDAK menghapus tagihan yang sudah berjalan', function () {
+    /*
+     | Perilaku ini sengaja berubah, dan bukan efek samping.
+     |
+     | Dulu tagihan dihitung ulang dari harga paket hari ini. Seseorang yang
+     | menolkan harga paket — menyiapkan musim baru, salah ketik, apa pun —
+     | membuat tagihan SELURUH pendaftaran yang sudah berjalan lenyap jadi
+     | kosong. Halaman pembayaran pelanggan mendadak tidak menyebut angka apa
+     | pun, dan tidak ada satu pun galat yang menjelaskannya.
+     |
+     | Sekarang yang dipakai harga yang dibekukan saat ia mendaftar — yang
+     | memang harga yang disepakatinya.
+     */
+    $semula = TagihanPesanan::untuk($this->pendaftaran->fresh())['total'];
+
+    $this->pendaftaran->paket->update(['price' => 0]);
+
+    expect(TagihanPesanan::untuk($this->pendaftaran->fresh())['total'])->toBe($semula);
+});
+
+test('tagihan sama persis dengan omzet, bukan dua angka yang berdekatan', function () {
+    /*
+     | Keduanya menjawab pertanyaan yang sama — berapa uang yang masuk dari
+     | pendaftaran ini. Dua angka untuk satu hal yang sama adalah asal
+     | perselisihan yang paling sulit diselesaikan: yang satu ditagihkan ke
+     | pelanggan, yang satu masuk laporan, dan tidak ada yang bisa menjelaskan
+     | kenapa berbeda.
+     */
+    $daftar = $this->pendaftaran->fresh();
+
+    expect(TagihanPesanan::untuk($daftar)['total'])->toBe($daftar->omzet);
 });
 
 test('posisi tagihan baru terbuka setelah nomornya cocok', function () {

@@ -192,3 +192,78 @@ test('tanpa kunci API, jalurnya tertutup', function () {
     $this->postJson('/api/v1/pendaftaran', isianRombongan($paket),
         ['Accept' => 'application/json'])->assertStatus(401);
 });
+
+/* ---------------------------- STUDY TOUR ---------------------------- */
+
+test('study tour memakai persentase DP-nya sendiri', function () {
+    /*
+     | Satu-satunya hal yang diperlakukan berbeda oleh kode: study tour
+     | membayar uang muka 25%, bukan 30% seperti trip lain. Angkanya sudah
+     | tertulis di halaman FAQ dan Ketentuan Pembayaran sejak lama; yang perlu
+     | dipastikan pendaftaran dari sisi admin ikut memakainya, bukan jatuh ke
+     | angka bawaan.
+     */
+    config()->set('orcha.pembayaran.dp_persen', 30);
+    config()->set('orcha.pembayaran.dp_persen_study_tour', 25);
+
+    $paket = paketRombongan(['category' => 'study_tour']);
+
+    $this->postJson('/api/v1/pendaftaran',
+        isianRombongan($paket, ['jumlah_peserta' => 40, 'harga_jual' => 500000]),
+        kepalaRombongan());
+
+    $tagihan = \App\Support\TagihanPesanan::untuk(PendaftaranOpenTrip::first());
+
+    expect($tagihan['dp_persen'])->toBe(25)
+        ->and($tagihan['total'])->toBe(40 * 500000)
+        ->and($tagihan['dp'])->toBe((int) round(40 * 500000 * 0.25));
+});
+
+test('private trip tetap memakai DP bawaan', function () {
+    // Bukan sekadar cermin uji di atas: tanpa ini, seluruh kategori bisa
+    // diam-diam ikut angka study tour dan tidak ada yang menangkapnya.
+    config()->set('orcha.pembayaran.dp_persen', 30);
+    config()->set('orcha.pembayaran.dp_persen_study_tour', 25);
+
+    $paket = paketRombongan(['category' => 'private_trip']);
+
+    $this->postJson('/api/v1/pendaftaran',
+        isianRombongan($paket, ['harga_jual' => 500000]), kepalaRombongan());
+
+    expect(\App\Support\TagihanPesanan::untuk(PendaftaranOpenTrip::first())['dp_persen'])
+        ->toBe(30);
+});
+
+test('sekolah bisa mencicil lebih dari dua kali', function () {
+    /*
+     | Sekolah membayar bertahap — sering tiga atau empat kali, mengikuti
+     | pencairan dana komite. Sistem menyebutnya "uang muka" dan "pelunasan",
+     | jadi yang perlu dipastikan: cicilan KETIGA tetap terhitung, bukan
+     | ditolak karena tahapnya sudah habis.
+     |
+     | Kalau tidak, sisa tagihannya berhenti di angka yang salah dan sekolah
+     | ditagih uang yang sudah dibayarkannya.
+     */
+    $paket = paketRombongan(['category' => 'study_tour']);
+
+    $this->postJson('/api/v1/pendaftaran',
+        isianRombongan($paket, ['jumlah_peserta' => 10, 'harga_jual' => 500000]),
+        kepalaRombongan());
+
+    $daftar = PendaftaranOpenTrip::first();
+
+    foreach ([2000000, 1500000, 1500000] as $nominal) {
+        \App\Models\OpenTrip\KonfirmasiPembayaran::create([
+            'kode' => $daftar->kode, 'jenis' => 'dp', 'nominal' => $nominal,
+            'tanggal_transfer' => now()->toDateString(), 'bank_pengirim' => 'BCA',
+            'atas_nama_pengirim' => 'Panitia Sekolah', 'status' => 'diterima',
+        ]);
+    }
+
+    $tagihan = \App\Support\TagihanPesanan::untuk($daftar->fresh(), hanyaDiterima: true);
+
+    expect($tagihan['total'])->toBe(5000000)
+        ->and($tagihan['sudah'])->toBe(5000000)
+        ->and($tagihan['sisa'])->toBe(0)
+        ->and($tagihan['lunas'])->toBeTrue();
+});

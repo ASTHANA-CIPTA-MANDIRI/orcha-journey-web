@@ -242,18 +242,33 @@ class TagihanPesanan
             return (int) $pesanan->total_tagihan;
         }
 
-        $total = (int) (RincianBiaya::untuk($pesanan->paket, (int) $pesanan->jumlah_peserta)['total'] ?? 0);
-
         /*
-         | Potongan rujukan dikurangkan dari angka yang DIBEKUKAN di
-         | pendaftarannya, bukan dihitung ulang dari config.
+         | TAGIHANNYA SAMA PERSIS DENGAN OMZET, dan itu bukan kebetulan.
          |
-         | Angka rujukan berubah sepanjang tahun. Menghitungnya ulang di sini
-         | berarti tagihan orang yang mendaftar bulan lalu ikut bergeser saat
-         | seseorang menyunting angkanya hari ini — dan pergeserannya baru
-         | ketahuan ketika ia sudah mentransfer jumlah yang lama.
+         | Keduanya menjawab satu pertanyaan yang sama — berapa uang yang
+         | masuk dari pendaftaran ini — dan dua angka untuk satu hal yang sama
+         | adalah asal perselisihan yang paling sulit diselesaikan: yang satu
+         | ditagihkan ke pelanggan, yang satu masuk laporan, dan tidak ada
+         | yang bisa menjelaskan kenapa berbeda.
+         |
+         | Dihitung dari harga yang DIBEKUKAN di pendaftarannya, bukan dari
+         | harga paket hari ini. Dua sebab, dan keduanya nyata:
+         |
+         |   Private trip dan study tour sering memakai harga rundingan yang
+         |   tidak ada di paketnya sama sekali — paketnya memang tidak
+         |   berharga. Menghitung dari paket menghasilkan tagihan NOL, dan
+         |   pendaftaran yang tidak bisa ditagih sama sekali.
+         |
+         |   Harga paket berubah sepanjang tahun. Menghitung ulang dari sana
+         |   menggeser tagihan orang yang mendaftar bulan lalu — dan
+         |   pergeserannya baru ketahuan saat ia sudah mentransfer angka yang
+         |   dulu.
+         |
+         | jual_satuan sendiri sudah jatuh ke harga paket bila pendaftarannya
+         | tidak membekukan apa pun, jadi pendaftaran lama tetap terhitung
+         | seperti sebelumnya.
          */
-        return max(0, $total - (int) ($pesanan->potongan_rujukan ?? 0));
+        return $pesanan->omzet;
     }
 
     private static function persenDp(PendaftaranOpenTrip|PenyewaanKendaraan $pesanan): int
