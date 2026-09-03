@@ -43,6 +43,15 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
 
     public string $catatan = '';
 
+    /**
+     * Kode rujukan dari alumni yang mengajaknya.
+     *
+     * Diisi sendiri oleh pendaftar, dan sengaja TIDAK wajib. Sebagian besar
+     * orang datang tanpa kode, dan kotak wajib di jalur yang sudah panjang
+     * adalah tempat orang berhenti mengisi.
+     */
+    public string $kodeRujukan = '';
+
     public bool $setuju = false;
 
     /** Perangkap bot. */
@@ -117,6 +126,24 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             // lebih dari satu; nilainya wajib salah satu dari yang ditawarkan.
             'peserta.*.titik_jemput' => $this->aturanTitikJemput(),
             'catatan' => 'nullable|string|max:1000',
+            /*
+             | Kode yang salah ketik DITEGUR di sini, bukan dibuang diam-diam
+             | saat menyimpan.
+             |
+             | Model memang membuang kode yang tidak sah — itu penjagaan
+             | terakhir. Tetapi kalau layarnya ikut diam, orang menekan Daftar,
+             | melihat halaman berhasil, dan baru menyadari potongannya hilang
+             | saat tagihannya datang. Yang menanggung kekecewaannya orang yang
+             | tidak melakukan kesalahan apa pun selain salah satu huruf.
+             */
+            'kodeRujukan' => ['nullable', 'string', 'max:32',
+                function ($atribut, $nilai, $gagal) {
+                    $hasil = \App\Support\Rujukan::periksa($nilai, $this->whatsapp);
+
+                    if (! $hasil['sah'] && filled($hasil['sebab'])) {
+                        $gagal($hasil['sebab']);
+                    }
+                }],
             'setuju' => 'accepted',
         ];
     }
@@ -126,6 +153,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
         return [
             'paketId' => 'paket open trip',
             'jumlahPeserta' => 'jumlah peserta',
+            'kodeRujukan' => 'kode rujukan',
             'peserta.*.nama' => 'nama peserta',
             'peserta.*.titik_jemput' => 'titik jemput peserta',
             'setuju' => 'persetujuan syarat & ketentuan',
@@ -270,6 +298,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                 'whatsapp' => $this->whatsapp,
                 'email' => $this->email ?: null,
                 'jumlah_peserta' => $this->jumlahPeserta,
+                'kode_rujukan' => $this->kodeRujukan ?: null,
                 'daftar_peserta' => collect($this->peserta)->map(fn ($satu) => [
                     'nama' => trim($satu['nama']),
                     'titik_jemput' => trim($satu['titik_jemput'] ?? ''),
@@ -367,7 +396,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
 
     public function daftarLagi(): void
     {
-        $this->reset(['kodeTerdaftar', 'jumlahPeserta', 'peserta']);
+        $this->reset(['kodeTerdaftar', 'jumlahPeserta', 'peserta', 'kodeRujukan']);
     }
 
     /**
@@ -399,7 +428,11 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
              | Di situlah letak gunanya: yang sedang mengisi empat peserta
              | perlu tahu bahwa satu orang lagi mengubah harganya.
              */
-            'biaya' => RincianBiaya::untuk($this->paketDipilih(), (int) $this->jumlahPeserta),
+            'biaya' => RincianBiaya::untuk(
+                $this->paketDipilih(),
+                (int) $this->jumlahPeserta,
+                $this->kodeRujukan,
+            ),
         ];
     }
 }; ?>
@@ -627,6 +660,49 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                         <p class="galat-orcha">{{ $message }}</p>
                                     @enderror
                                 </div>
+                            </div>
+
+                            {{-- Kode rujukan.
+
+                                 Ditaruh SESUDAH jumlah peserta dan SEBELUM kotak promo,
+                                 supaya keduanya terbaca sebagai satu bagian yang sama:
+                                 hal-hal yang membuat harganya turun.
+
+                                 Tidak wajib, dan dikatakan begitu apa adanya. Sebagian
+                                 besar orang datang tanpa kode, dan kotak yang terlihat
+                                 wajib di jalur yang sudah panjang adalah tempat orang
+                                 berhenti mengisi. --}}
+                            <div>
+                                <label for="d-rujukan" class="label-orcha">
+                                    Kode rujukan
+                                    <span class="font-normal text-slate-400">(opsional)</span>
+                                </label>
+                                <input id="d-rujukan" type="text" maxlength="32"
+                                    wire:model.live.debounce.500ms="kodeRujukan"
+                                    placeholder="Contoh: BUDI-K7QM"
+                                    class="isian-orcha uppercase @error('kodeRujukan') isian-galat @enderror">
+
+                                @error('kodeRujukan')
+                                    <p class="galat-orcha">{{ $message }}</p>
+                                @else
+                                    @if ($biaya && ($biaya['rujukan_kode'] ?? null))
+                                        {{-- Menyebut NAMA pemiliknya, bukan cuma "kode
+                                             diterima". Yang mengetik kode temannya ingin
+                                             tahu bahwa ia mengetik kode yang benar — dan
+                                             nama itulah satu-satunya cara ia tahu. --}}
+                                        <p class="flex items-start gap-2 mt-2 text-sm font-semibold text-orcha-ocean">
+                                            <x-heroicon-s-check-badge class="w-5 h-5 mt-px shrink-0" />
+                                            <span>
+                                                Kode dari {{ $biaya['rujukan_nama'] }} dipakai —
+                                                potongan {{ $biaya['rujukan_potongan_teks'] }}.
+                                            </span>
+                                        </p>
+                                    @else
+                                        <p class="mt-2 text-sm text-slate-500">
+                                            Punya kode dari teman yang pernah ikut trip kami? Masukkan di sini.
+                                        </p>
+                                    @endif
+                                @enderror
                             </div>
 
                             {{-- Promo rombongan, ditampilkan SAAT peserta masih bisa

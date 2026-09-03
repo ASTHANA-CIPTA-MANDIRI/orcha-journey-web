@@ -282,6 +282,9 @@ lewat API `/api/v1/*`.
 
 ```bash
 php artisan orcha:kunci-api --tulis   # buat kunci, tulis ke .env
+php artisan orcha:drive-izin          # sekali: dapatkan refresh token Google Drive
+php artisan orcha:cadangan            # salin basis data, unggah ke Drive
+php artisan orcha:pengingat --percobaan  # lihat siapa yang akan dikirimi hari ini
 curl -H "X-Orcha-Key: $ORCHA_API_KEY" https://orchajourney.com/api/v1/ping
 ```
 
@@ -380,3 +383,6 @@ Berkas uji di `tests/Feature/`:
 `need` → `dev` → `main`. Pekerjaan masuk ke `need` dulu; setelah seluruh uji hijau baru
 dinaikkan ke `dev`, lalu ke `main`. Penggabungan memakai `--ff-only` supaya riwayatnya
 tetap lurus. Uji merah berhenti di `need`.
+
+
+Seluruh perintah berkala dan baris cronnya ada di [docs/CRON.md](docs/CRON.md).

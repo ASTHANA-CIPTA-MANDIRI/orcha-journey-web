@@ -242,7 +242,18 @@ class TagihanPesanan
             return (int) $pesanan->total_tagihan;
         }
 
-        return (int) (RincianBiaya::untuk($pesanan->paket, (int) $pesanan->jumlah_peserta)['total'] ?? 0);
+        $total = (int) (RincianBiaya::untuk($pesanan->paket, (int) $pesanan->jumlah_peserta)['total'] ?? 0);
+
+        /*
+         | Potongan rujukan dikurangkan dari angka yang DIBEKUKAN di
+         | pendaftarannya, bukan dihitung ulang dari config.
+         |
+         | Angka rujukan berubah sepanjang tahun. Menghitungnya ulang di sini
+         | berarti tagihan orang yang mendaftar bulan lalu ikut bergeser saat
+         | seseorang menyunting angkanya hari ini — dan pergeserannya baru
+         | ketahuan ketika ia sudah mentransfer jumlah yang lama.
+         */
+        return max(0, $total - (int) ($pesanan->potongan_rujukan ?? 0));
     }
 
     private static function persenDp(PendaftaranOpenTrip|PenyewaanKendaraan $pesanan): int

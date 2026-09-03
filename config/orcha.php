@@ -845,6 +845,92 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Kode rujukan
+    |--------------------------------------------------------------------------
+    |
+    | Alumni trip yang membawa pendaftaran baru. Bedanya dengan promo rombongan
+    | tegas: promo rombongan berlaku dalam SATU pendaftaran — ramai orang
+    | berangkat bersama di tanggal yang sama. Kode rujukan berlaku LINTAS
+    | pendaftaran — orang yang sudah pulang mengajak temannya ikut trip
+    | berikutnya, di tanggal yang berbeda.
+    |
+    | DUA ANGKA, DAN BESARNYA BOLEH BERBEDA:
+    |
+    |   potongan — untuk yang MEMAKAI kodenya, dipotong dari tagihannya
+    |   imbalan  — untuk yang MEMILIKI kodenya, dibayarkan terpisah
+    |
+    | Menyamakannya terlihat rapi tetapi salah arah. Potongan harus cukup
+    | terasa supaya orang mau mengetik kodenya alih-alih melewatinya; imbalan
+    | harus sepadan dengan usaha membujuk seseorang berangkat, dan itu usaha
+    | yang jauh lebih besar.
+    |
+    | Keduanya per PENDAFTARAN, bukan per orang. Rujukan yang dihitung per
+    | kepala membuat satu kode yang dipakai rombongan dua puluh orang menagih
+    | imbalan dua puluh kali — dan itu angka yang tidak pernah dimaksudkan
+    | siapa pun saat menetapkannya.
+    |
+    | ANGKA DI BAWAH INI KEPUTUSAN BISNIS. Diisi sebagai titik awal yang masuk
+    | akal terhadap harga trip sekarang; ubah di sini bila berbeda.
+    */
+    'rujukan' => [
+        'aktif' => env('ORCHA_RUJUKAN_AKTIF', true),
+        'potongan' => 50000,
+        'imbalan' => 75000,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cadangan basis data ke Google Drive
+    |--------------------------------------------------------------------------
+    |
+    | Dumpnya ditulis murni PHP — hosting mematikan proc_open, jadi mysqldump
+    | dan seluruh paket cadangan yang bersandar padanya tidak bisa dipakai.
+    |
+    | Unggahannya lewat OAuth ATAS NAMA PEMILIK AKUN, bukan service account.
+    | Service account tidak punya kuota penyimpanan sendiri: cara yang paling
+    | sering ditulis orang — buat service account, bagikan foldernya — gagal
+    | dengan "storage quota exceeded" pada unggahan pertama kecuali tujuannya
+    | Shared Drive milik Google Workspace.
+    |
+    | Penyiapan sekali jalan:
+    |
+    |   1. console.cloud.google.com → buat proyek → aktifkan Google Drive API.
+    |   2. OAuth consent screen → External → tambahkan akun Gmail Anda sendiri
+    |      sebagai Test user. (Tanpa langkah ini, refresh token-nya kedaluwarsa
+    |      dalam tujuh hari dan cadangannya berhenti diam-diam.)
+    |   3. Credentials → OAuth client ID → Desktop app. Catat client id dan
+    |      secret-nya.
+    |   4. Jalankan: php artisan orcha:drive-izin — ia mencetak tautan
+    |      persetujuan dan menukar kodenya jadi refresh token.
+    |   5. Buat folder di Drive, salin id-nya dari alamat peramban
+    |      (drive.google.com/drive/folders/<INI>), taruh di ORCHA_DRIVE_FOLDER.
+    |
+    | Cadangan lokal SELALU dibuat lebih dulu, apa pun keadaan Drive-nya. Kalau
+    | tidak, hari saat Google sedang bermasalah adalah hari kita tidak punya
+    | cadangan sama sekali — dan itu tidak akan diketahui siapa pun sampai
+    | dibutuhkan.
+    */
+    'drive' => [
+        'client_id' => env('ORCHA_DRIVE_CLIENT_ID'),
+        'client_secret' => env('ORCHA_DRIVE_CLIENT_SECRET'),
+        'refresh_token' => env('ORCHA_DRIVE_REFRESH_TOKEN'),
+        'folder_id' => env('ORCHA_DRIVE_FOLDER'),
+    ],
+
+    'cadangan' => [
+        /*
+         | Berapa cadangan disimpan, di kedua tempat.
+         |
+         | Empat belas hari, bukan tiga: kerusakan data yang paling mahal
+         | bukan yang langsung terlihat — satu kolom yang salah terhapus baru
+         | disadari seminggu kemudian, dan pada saat itu cadangan tiga hari
+         | sudah ikut memuat kerusakannya.
+         */
+        'sisakan' => 14,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Pengingat
     |--------------------------------------------------------------------------
     |

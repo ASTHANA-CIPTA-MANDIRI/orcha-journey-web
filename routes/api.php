@@ -222,6 +222,17 @@ Route::prefix('v1')
         Route::match(['put', 'post'], '/promo-rombongan/{tingkat:id}', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'update']);
         Route::delete('/promo-rombongan/{tingkat:id}', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'destroy']);
 
+        /*
+         | Kode rujukan. Tidak ada destroy — kode yang dihapus memutus jejak
+         | pendaftaran yang sudah memakainya, dan komisi yang belum dibayarkan
+         | ikut hilang bersamanya. Yang tersedia mematikannya.
+         */
+        Route::get('/kode-rujukan', [\App\Http\Controllers\Api\Rujukan\KodeRujukanController::class, 'index']);
+        Route::get('/kode-rujukan/{rujukan:id}/pemakaian', [\App\Http\Controllers\Api\Rujukan\KodeRujukanController::class, 'pemakaian']);
+        Route::post('/kode-rujukan', [\App\Http\Controllers\Api\Rujukan\KodeRujukanController::class, 'store']);
+        Route::match(['put', 'post'], '/kode-rujukan/{rujukan:id}', [\App\Http\Controllers\Api\Rujukan\KodeRujukanController::class, 'update']);
+        Route::post('/kode-rujukan/bayar/{pendaftaran:id}', [\App\Http\Controllers\Api\Rujukan\KodeRujukanController::class, 'bayar']);
+
         Route::post('/destinasi', [EtalaseController::class, 'simpanDestinasi']);
         Route::match(['put', 'post'], '/destinasi/{destinasi:id}', [EtalaseController::class, 'perbaruiDestinasi']);
         Route::delete('/destinasi/{destinasi:id}', [EtalaseController::class, 'hapusDestinasi']);

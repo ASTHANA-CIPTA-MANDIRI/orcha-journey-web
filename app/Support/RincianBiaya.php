@@ -21,7 +21,7 @@ class RincianBiaya
     /**
      * @return array<string, mixed> kosong bila paketnya memang belum berharga
      */
-    public static function untuk(?TravelPackage $paket, int $orang): array
+    public static function untuk(?TravelPackage $paket, int $orang, ?string $kodeRujukan = null): array
     {
         $satuan = (float) ($paket?->price ?? 0);
         $orang = max(1, $orang);
@@ -61,7 +61,29 @@ class RincianBiaya
         // Tetap float seperti sebelum ada promo. Bukan soal ketelitian —
         // angkanya bulat — melainkan supaya pemanggil yang membandingkan
         // dp + sisa dengan total tidak mendadak berbeda tipe.
-        $total = (float) $promo['total'];
+        /*
+         | Potongan rujukan ditumpuk DI ATAS promo rombongan, bukan menggantinya.
+         |
+         | Keduanya menjawab hal yang berbeda: promo rombongan menghargai
+         | banyaknya orang dalam satu pendaftaran, rujukan menghargai siapa
+         | yang membawa pendaftaran itu ke sini. Rombongan sepuluh orang yang
+         | datang lewat kode alumni memang layak mendapat keduanya — dan
+         | menolak salah satunya berarti menghukum justru pendaftaran yang
+         | paling kita inginkan.
+         |
+         | Diperiksa TANPA nomor pendaftar di sini: yang dihitung angka
+         | tampilannya. Penjagaan "kode milik sendiri" ada di tempat
+         | pendaftarannya benar-benar disimpan, tempat nomornya diketahui.
+         */
+        $rujukan = Rujukan::periksa($kodeRujukan);
+        $potonganRujukan = $rujukan['sah'] ? Rujukan::potongan() : 0;
+
+        // Tidak boleh melewati nol. Rujukan pada paket yang sangat murah bisa
+        // menghasilkan tagihan minus, dan tagihan minus berarti kita berutang
+        // kepada orang yang belum berangkat.
+        $potonganRujukan = (int) min($potonganRujukan, max(0, $promo['total']));
+
+        $total = (float) ($promo['total'] - $potonganRujukan);
         $dp = round($total * $persen / 100);
 
         return [
@@ -80,6 +102,15 @@ class RincianBiaya
             'promo_potongan_teks' => self::rupiah($promo['potongan']),
             'total_sebelum_promo' => $totalSebelumPromo,
             'total_sebelum_promo_teks' => self::rupiah($totalSebelumPromo),
+            'rujukan_kode' => $rujukan['sah'] ? $rujukan['kode']->kode : null,
+            'rujukan_nama' => $rujukan['sah'] ? $rujukan['kode']->nama : null,
+            'rujukan_potongan' => $potonganRujukan,
+            'rujukan_potongan_teks' => self::rupiah($potonganRujukan),
+            // Sebab penolakannya ikut dikirim: kode yang ditolak tanpa
+            // keterangan membuat orang mengetik ulang tiga kali lalu menyerah,
+            // dan yang menyerah di langkah ini adalah pendaftaran yang sudah
+            // hampir jadi.
+            'rujukan_sebab' => $rujukan['sebab'],
             // Ajakannya pun hanya muncul pada paket yang memang ikut — mengajak
             // menambah teman untuk potongan yang tidak akan datang justru
             // membuat orang merasa dibohongi saat totalnya tidak berubah.

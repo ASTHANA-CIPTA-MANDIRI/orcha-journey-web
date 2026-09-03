@@ -32,6 +32,10 @@ class PendaftaranOpenTrip extends Model
         'status',
         'pengingat_pelunasan_pada',
         'briefing_pada',
+        'kode_rujukan',
+        'potongan_rujukan',
+        'imbalan_rujukan',
+        'imbalan_dibayar_pada',
     ];
 
     protected $casts = [
@@ -45,6 +49,9 @@ class PendaftaranOpenTrip extends Model
         'surat_penggantian_pada' => 'datetime',
         'pengingat_pelunasan_pada' => 'datetime',
         'briefing_pada' => 'datetime',
+        'potongan_rujukan' => 'integer',
+        'imbalan_rujukan' => 'integer',
+        'imbalan_dibayar_pada' => 'datetime',
     ];
 
     /**
@@ -84,6 +91,46 @@ class PendaftaranOpenTrip extends Model
                     \App\Support\RincianBiaya::untuk($paket, (int) $pendaftaran->jumlah_peserta)['promo_potongan'] ?? 0
                 );
             }
+
+            /*
+             | Kode rujukan diperiksa DI SINI, sekali, saat pendaftarannya
+             | disimpan.
+             |
+             | Inilah satu-satunya tempat nomor WhatsApp pendaftarnya
+             | diketahui, jadi inilah satu-satunya tempat penjagaan "kode milik
+             | sendiri" bisa benar-benar berlaku. Halaman yang menampilkan
+             | angkanya boleh memeriksa tanpa nomor — yang ditampilkan sekadar
+             | perkiraan; yang mengikat angkanya baris ini.
+             |
+             | Kode yang ditolak DIBUANG, bukan disimpan dengan potongan nol.
+             | Menyimpannya berarti daftar rujukan memuat kode-kode yang tidak
+             | pernah sah, dan yang membaca laporan komisi nanti menghitungnya.
+             */
+            $periksa = \App\Support\Rujukan::periksa($pendaftaran->kode_rujukan, $pendaftaran->whatsapp);
+
+            if (! $periksa['sah']) {
+                $pendaftaran->kode_rujukan = null;
+                $pendaftaran->potongan_rujukan = 0;
+                $pendaftaran->imbalan_rujukan = 0;
+
+                return;
+            }
+
+            // Bentuk kodenya diseragamkan ke yang tersimpan — pendaftar
+            // mengetik "budi-k7qm" dan laporan komisi mengelompokkannya
+            // terpisah dari "BUDI-K7QM" kalau tidak diseragamkan.
+            $pendaftaran->kode_rujukan = $periksa['kode']->kode;
+
+            /*
+             | Keduanya dibekukan, alasannya sama dengan harga dan promo.
+             |
+             | Imbalan rujukan berubah sepanjang tahun. Tanpa dibekukan, komisi
+             | yang BELUM DIBAYARKAN ikut berubah setiap kali angkanya
+             | disunting hari ini — dan yang menagih nanti orang yang mengingat
+             | angka lain daripada yang tertulis di layar kita.
+             */
+            $pendaftaran->potongan_rujukan ??= \App\Support\Rujukan::potongan();
+            $pendaftaran->imbalan_rujukan ??= \App\Support\Rujukan::imbalan();
         });
     }
 
@@ -263,7 +310,21 @@ class PendaftaranOpenTrip extends Model
     {
         $penuh = (int) ($this->jual_satuan ?? 0) * max(1, (int) $this->jumlah_peserta);
 
-        return max(0, $penuh - (int) ($this->potongan_promo ?? 0));
+        /*
+         | Potongan rujukan ikut dikurangkan, sama seperti potongan promo.
+         |
+         | Uang yang tidak pernah masuk tidak boleh tercatat sebagai omzet.
+         | Kesalahan yang sama pada promo rombongan dulu melaporkan keuntungan
+         | lima puluh persen lebih besar daripada kenyataannya — dan angka itu
+         | dipakai memutuskan paket mana yang layak dijalankan lagi.
+         |
+         | Imbalan untuk pemilik kode TIDAK dikurangkan di sini: ia biaya, dan
+         | biaya masuk di sisi lain laporan. Menguranginya dari omzet membuat
+         | omzet tidak lagi sama dengan yang ditagihkan ke pelanggan.
+         */
+        return max(0, $penuh
+            - (int) ($this->potongan_promo ?? 0)
+            - (int) ($this->potongan_rujukan ?? 0));
     }
 
     public function getModalTotalAttribute(): ?int

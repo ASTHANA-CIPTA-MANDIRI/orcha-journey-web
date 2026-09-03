@@ -87,6 +87,20 @@ class AjakTestimoni extends Command
     {
         $trip = $daftar->nama_paket ?: 'perjalanan bersama kami';
 
+        /*
+         | Kode rujukannya dibuat SEKARANG, bukan saat ia mendaftar.
+         |
+         | Kode yang diberikan kepada orang yang belum berangkat tidak punya
+         | cerita untuk dijual — ia belum tahu apakah tripnya bagus. Yang baru
+         | pulang punya, dan hari-hari ini justru saat ceritanya paling sering
+         | ditanyakan orang.
+         |
+         | Dititipkan pada surat yang memang sudah berangkat, bukan surat
+         | tersendiri. Dua surat dalam dua hari untuk orang yang sama membuat
+         | keduanya terbaca sebagai gangguan.
+         */
+        $rujukan = \App\Support\Rujukan::untukAlumni($daftar);
+
         KirimPemberitahuan::kirim(
             'Ajakan Testimoni Terkirim',
             $daftar->kode,
@@ -111,7 +125,23 @@ class AjakTestimoni extends Command
                 langkah: 'Terima kasih sudah ikut '.$trip.". Kami ingin tahu bagaimana rasanya.\n\n"
                     .'Satu atau dua kalimat sudah sangat membantu — dan yang membacanya '
                     .'orang yang sedang menimbang trip yang sama seperti Anda dulu. '
-                    .'Kodenya sudah kami sertakan di tautan, jadi tinggal menulis.',
+                    .'Kodenya sudah kami sertakan di tautan, jadi tinggal menulis.'
+
+                    ."\n\n"
+
+                    /*
+                     | Disebut sesudah permintaan testimoninya, bukan sebelum.
+                     |
+                     | Yang diminta tetap satu: menulis pengalaman. Kode
+                     | rujukannya PEMBERIAN, bukan permintaan kedua — dan
+                     | urutannya menentukan mana yang terbaca sebagai apa.
+                     */
+                    .'Oh ya, ini kode rujukan Anda: '.$rujukan->kode.'. '
+                    .'Teman yang mendaftar dengan kode ini dapat potongan '
+                    .\App\Support\RincianBiaya::rupiah(\App\Support\Rujukan::potongan())
+                    .', dan Anda dapat '
+                    .\App\Support\RincianBiaya::rupiah(\App\Support\Rujukan::imbalan())
+                    .' untuk tiap pendaftaran yang memakainya.',
 
                 tautan: route('testimoni', ['kode' => $daftar->kode]),
                 labelTautan: 'Tulis Pengalaman Anda',
