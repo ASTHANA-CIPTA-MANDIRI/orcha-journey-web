@@ -180,3 +180,66 @@ test('tanpa kunci API, jalurnya tertutup', function () {
     $this->postJson("/api/v1/pendaftaran/{$daftar->id}/pembayaran", isianBayar(),
         ['Accept' => 'application/json'])->assertStatus(401);
 });
+
+/* ------------------------------ BUKTI ------------------------------ */
+
+test('bukti transfer bisa ikut diunggah', function () {
+    \Illuminate\Support\Facades\Storage::fake('rahasia');
+    \Illuminate\Support\Facades\Storage::fake('public');
+
+    $daftar = rombonganBayar();
+
+    $this->postJson("/api/v1/pendaftaran/{$daftar->id}/pembayaran", isianBayar([
+        'bukti' => \Illuminate\Http\UploadedFile::fake()->image('mutasi.jpg'),
+    ]), kepalaBayar())->assertCreated();
+
+    expect(KonfirmasiPembayaran::first()->bukti)->not->toBeNull();
+});
+
+test('bukti BOLEH kosong — itu bedanya dengan formulir publik', function () {
+    /*
+     | Di formulir publik bukti wajib karena tanpa gambar tidak ada yang bisa
+     | dicek. Di sini yang mencatat justru orang yang SUDAH mengecek — ia
+     | menatap mutasi rekening, bukan menunggu dikirimi gambar. Dan sebagian
+     | panitia memang cuma menulis "sudah ditransfer ya".
+     |
+     | Mewajibkannya berarti pembayaran yang nyata tidak bisa dicatat karena
+     | kurang sebuah gambar — dan yang terjadi berikutnya bukan admin mengejar
+     | gambarnya, melainkan pembayarannya tidak dicatat sama sekali.
+     */
+    $daftar = rombonganBayar();
+
+    $this->postJson("/api/v1/pendaftaran/{$daftar->id}/pembayaran", isianBayar(), kepalaBayar())
+        ->assertCreated();
+
+    expect(KonfirmasiPembayaran::first()->bukti)->toBeNull();
+});
+
+test('buktinya masuk folder rahasia, bukan disk publik', function () {
+    /*
+     | Bukti transfer memuat nomor rekening dan nama orang. Yang tersimpan di
+     | disk publik bisa dibuka siapa pun yang menebak alamatnya — dan alamatnya
+     | tidak perlu ditebak kalau pernah bocor sekali.
+     */
+    \Illuminate\Support\Facades\Storage::fake('rahasia');
+    \Illuminate\Support\Facades\Storage::fake('public');
+
+    $daftar = rombonganBayar();
+
+    $this->postJson("/api/v1/pendaftaran/{$daftar->id}/pembayaran", isianBayar([
+        'bukti' => \Illuminate\Http\UploadedFile::fake()->image('mutasi.jpg'),
+    ]), kepalaBayar());
+
+    $jalur = \App\Support\BerkasRahasia::relatif(KonfirmasiPembayaran::first()->bukti);
+
+    \Illuminate\Support\Facades\Storage::disk('rahasia')->assertExists($jalur);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertMissing($jalur);
+});
+
+test('berkas yang bukan gambar ditolak', function () {
+    $daftar = rombonganBayar();
+
+    $this->postJson("/api/v1/pendaftaran/{$daftar->id}/pembayaran", isianBayar([
+        'bukti' => \Illuminate\Http\UploadedFile::fake()->create('daftar.pdf', 100, 'application/pdf'),
+    ]), kepalaBayar())->assertStatus(422);
+});

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\OpenTrip\PembayaranResource;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Support\GambarWebp;
 use App\Support\KabarPembayaran;
 use App\Support\StatusPendaftaran;
 use App\Support\TagihanPesanan;
@@ -87,6 +88,23 @@ class PembayaranController extends ApiController
             'atas_nama_pengirim' => ['required', 'string', 'max:120'],
             'jenis' => ['required', 'in:'.implode(',', array_keys(config('orcha.jenis_pembayaran')))],
             'catatan' => ['nullable', 'string', 'max:1000'],
+
+            /*
+             | Bukti transfer BOLEH kosong di jalur ini, dan itu bedanya dengan
+             | formulir publik.
+             |
+             | Di sana bukti wajib karena tanpa gambar tidak ada yang bisa
+             | dicek. Di sini yang mencatat justru orang yang SUDAH mengecek —
+             | ia menatap mutasi rekening, bukan menunggu dikirimi gambar. Dan
+             | sebagian panitia memang cuma menulis "sudah ditransfer ya" tanpa
+             | tangkapan layar apa pun.
+             |
+             | Mewajibkannya berarti pembayaran yang nyata tidak bisa dicatat
+             | karena kurang sebuah gambar — dan yang terjadi berikutnya bukan
+             | admin mengejar gambarnya, melainkan pembayarannya tidak dicatat
+             | sama sekali.
+             */
+            'bukti' => ['nullable', 'image', 'max:4096'],
         ], [], [
             'nominal' => 'nominal',
             'tanggal_transfer' => 'tanggal transfer',
@@ -102,17 +120,22 @@ class PembayaranController extends ApiController
             'bank_pengirim' => $data['bank_pengirim'],
             'atas_nama_pengirim' => $data['atas_nama_pengirim'],
             'catatan' => $data['catatan'] ?? null,
+            // Disimpan lewat jalur yang sama dengan bukti dari pelanggan:
+            // folder rahasia, di luar disk publik. Bukti transfer memuat nomor
+            // rekening dan nama orang.
+            'bukti' => $request->hasFile('bukti')
+                ? GambarWebp::simpan($request->file('bukti'), 'bukti-bayar')
+                : null,
             'status' => 'diterima',
 
             /*
              | Ditandai sebagai catatan admin, bukan bukti pelanggan.
              |
              | Yang membaca daftar pembayaran setahun kemudian perlu bisa
-             | membedakan keduanya: yang satu punya gambar yang bisa
-             | ditelusuri, yang satu bersandar pada seseorang yang membuka
-             | mutasi rekening pada hari itu. Tanpa penanda, keduanya
-             | terlihat sama persis dan pertanyaan "buktinya mana?" tidak
-             | bisa dijawab.
+             | membedakan keduanya: yang satu datang dari pelanggan dan
+             | diperiksa, yang satu dicatat orang dalam. Tanpa penanda,
+             | keduanya terlihat sama persis dan pertanyaan "ini dari mana?"
+             | tidak bisa dijawab.
              */
             'catatan_admin' => 'Dicatat manual oleh '
                 .($request->attributes->get('admin_pemanggil') ?: 'admin')
@@ -124,6 +147,11 @@ class PembayaranController extends ApiController
             'nominal' => $pembayaran->nominal,
             'jenis' => $pembayaran->jenis,
             'bank' => $pembayaran->bank_pengirim,
+            // Ada tidaknya bukti ikut dicatat: yang menelusuri setahun kemudian
+            // perlu tahu apakah masih ada gambar yang bisa dibuka, atau
+            // catatan ini bersandar sepenuhnya pada seseorang yang membuka
+            // mutasi rekening pada hari itu.
+            'berbukti' => $pembayaran->bukti !== null,
         ]);
 
         // Satu kejadian, satu langkah — sama seperti menyetujui bukti
