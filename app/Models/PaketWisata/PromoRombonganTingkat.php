@@ -51,7 +51,23 @@ class PromoRombonganTingkat extends Model
     }
 
     /**
-     * "Ajak 10 orang — gratis 1 orang"
+     * Berapa REKAN yang harus diajak untuk mencapai tingkat ini.
+     *
+     * min_peserta menghitung seluruh peserta pendaftaran — pemesannya ikut
+     * terhitung. Tingkat 6 berarti si pemesan mengajak lima rekan, bukan enam.
+     *
+     * Bedanya satu angka, dan justru karena cuma satu angka ia lolos dari
+     * pemeriksaan: kalimat "Ajak 6 orang" pada tingkat yang syaratnya 6 total
+     * terbaca benar sampai ada pelanggan yang benar-benar mengumpulkan enam
+     * temannya, datang bertujuh, lalu menagih tingkat yang lebih tinggi.
+     */
+    public function jumlahRekan(): int
+    {
+        return max(1, $this->min_peserta - 1);
+    }
+
+    /**
+     * "Ajak 10 rekan — gratis 1 orang"
      *
      * Untuk bentuk persen, kalimatnya menyebut UNTUK SIAPA potongannya.
      *
@@ -63,7 +79,7 @@ class PromoRombonganTingkat extends Model
      */
     public function labelOtomatis(): string
     {
-        $awalan = 'Ajak '.$this->min_peserta.' orang — ';
+        $awalan = 'Ajak '.$this->jumlahRekan().' rekan — ';
 
         return $this->gratis_orang > 0
             ? $awalan.'gratis '.$this->gratis_orang.' orang'
@@ -71,7 +87,7 @@ class PromoRombonganTingkat extends Model
     }
 
     /**
-     * "Ajak 10 orang, satu orang gratis."
+     * "Ajak 10 rekan, 1 orang gratis."
      *
      * Dibaca yang BELUM mencapai tingkatnya, jadi bentuknya ajakan — bukan
      * keterangan seperti labelnya.
@@ -79,8 +95,8 @@ class PromoRombonganTingkat extends Model
     public function ajakanOtomatis(): string
     {
         return $this->gratis_orang > 0
-            ? 'Ajak '.$this->min_peserta.' orang, '.$this->gratis_orang.' orang gratis.'
-            : 'Ajak '.$this->min_peserta.' orang, Anda dapat potongan '.$this->potongan_persen.'%.';
+            ? 'Ajak '.$this->jumlahRekan().' rekan, '.$this->gratis_orang.' orang gratis.'
+            : 'Ajak '.$this->jumlahRekan().' rekan, Anda dapat potongan '.$this->potongan_persen.'%.';
     }
 
     /**

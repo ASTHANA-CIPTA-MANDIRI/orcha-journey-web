@@ -811,22 +811,31 @@ return [
     | ulang orang ke temannya. Karena itu keduanya dihitung berbeda, bukan
     | disamakan jadi persen.
     |
-    | ANGKA DI BAWAH INI KEPUTUSAN BISNIS, bukan teknis. Tingkat 10 orang
-    | mengikuti yang sudah ditetapkan; tingkat 5 orang diisi 5% sebagai titik
-    | awal — ubah angkanya di sini bila berbeda.
+    | 'min' MENGHITUNG SELURUH PESERTA, PEMESANNYA IKUT. Tingkat 6 berarti si
+    | pemesan mengajak lima rekan; tingkat 11 berarti ia mengajak sepuluh, dan
+    | yang kesebelas tidak dibayar.
+    |
+    | Yang membuat ini mudah salah: angka yang diucapkan orang adalah jumlah
+    | REKAN ("ajak 5 dapat diskon"), sedangkan angka yang dibandingkan sistem
+    | adalah jumlah peserta pendaftaran. Kalimat promonya dirakit sendiri dari
+    | 'min' dikurangi satu, jadi cukup satu tempat ini yang perlu benar.
+    |
+    | ANGKA DI BAWAH INI KEPUTUSAN BISNIS, bukan teknis — ubah di sini bila
+    | berbeda. Yang berlaku sehari-hari datang dari tabel tbl_promo_rombongan
+    | yang diatur admin; daftar ini cadangan saat tabelnya masih kosong.
     */
     'promo_rombongan' => [
         [
-            'min' => 5,
+            'min' => 6,
             'potongan_persen' => 5,
-            'label' => 'Ajak 5 orang — hemat 5%',
-            'ajakan' => 'Ajak 5 orang, hemat 5% untuk seluruh rombongan.',
+            'label' => 'Ajak 5 rekan — potongan 5% untuk pemesan',
+            'ajakan' => 'Ajak 5 rekan, Anda dapat potongan 5%.',
         ],
         [
-            'min' => 10,
+            'min' => 11,
             'gratis_orang' => 1,
-            'label' => 'Ajak 10 orang — gratis 1 orang',
-            'ajakan' => 'Ajak 10 orang, satu orang gratis.',
+            'label' => 'Ajak 10 rekan — gratis 1 orang',
+            'ajakan' => 'Ajak 10 rekan, 1 orang gratis.',
         ],
     ],
 

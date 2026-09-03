@@ -37,7 +37,7 @@ function daftarkanOrang(TravelPackage $paket, int $orang): PendaftaranOpenTrip
 test('omzet sama persis dengan yang ditagih ke pelanggan', function () {
     $paket = paketBerpromo();
 
-    foreach ([3, 5, 10, 12] as $orang) {
+    foreach ([3, 6, 11, 13] as $orang) {
         $daftar = daftarkanOrang($paket, $orang);
         $ditagih = RincianBiaya::untuk($paket, $orang)['total'];
 
@@ -51,10 +51,10 @@ test('keuntungan dihitung dari uang masuk, bukan dari margin per orang', functio
      | tahu apa-apa soal potongan yang diberikan — dan keuntungan yang
      | dilaporkan jadi lebih besar daripada uang yang benar-benar masuk.
      */
-    $daftar = daftarkanOrang(paketBerpromo(), 10);
+    $daftar = daftarkanOrang(paketBerpromo(), 11);
 
-    // 9 kursi dibayar x 1.430.000 = 12.870.000, modal 10 x 1.000.000
-    expect($daftar->keuntungan)->toBe(12870000 - 10000000);
+    // 10 kursi dibayar x 1.430.000 = 14.300.000, modal 11 x 1.000.000
+    expect($daftar->keuntungan)->toBe(14300000 - 11000000);
 });
 
 test('potongan promonya dibekukan saat mendaftar', function () {
@@ -66,12 +66,12 @@ test('potongan promonya dibekukan saat mendaftar', function () {
      | Pola yang sama sudah dipakai harga_jual dan harga_modal.
      */
     $paket = paketBerpromo();
-    $daftar = daftarkanOrang($paket, 10);
+    $daftar = daftarkanOrang($paket, 11);
 
     $omzetSemula = $daftar->omzet;
 
     // Promonya diperbesar SETELAH orang itu mendaftar.
-    PromoRombonganTingkat::where('min_peserta', 10)->update(['gratis_orang' => 5]);
+    PromoRombonganTingkat::where('min_peserta', 11)->update(['gratis_orang' => 5]);
 
     expect($daftar->fresh()->omzet)->toBe($omzetSemula);
 });
