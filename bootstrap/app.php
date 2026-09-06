@@ -20,6 +20,22 @@ return Application::configure(basePath: dirname(__DIR__))
         // Header keamanan untuk SELURUH jawaban, termasuk berkas dan API —
         // bukan hanya halaman web. Lihat alasannya di kelasnya.
         $middleware->append(\App\Http\Middleware\HeaderKeamanan::class);
+
+        /*
+         | Notifikasi DOKU dikecualikan dari CSRF.
+         |
+         | Token CSRF melekat pada sesi peramban, dan yang memanggil alamat ini
+         | adalah server DOKU dari luar — ia tidak punya sesi, tidak pernah
+         | memuat halaman kita, dan tidak mungkin membawa token apa pun.
+         |
+         | Yang menggantikan perlindungannya bukan ketiadaan: tiap notifikasi
+         | membawa tanda tangan HMAC-SHA256 yang dihitung dengan Secret Key
+         | DOKU, dan DokuNotifikasiController menolak apa pun yang tanda
+         | tangannya tidak cocok sebelum satu baris pun ditulis.
+         */
+        $middleware->validateCsrfTokens(except: [
+            'pembayaran/doku/notifikasi',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

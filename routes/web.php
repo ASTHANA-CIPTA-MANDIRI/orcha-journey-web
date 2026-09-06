@@ -70,6 +70,31 @@ Volt::route('/pembatalan', 'public.open-trip.pembatalan')->name('pembatalan');
 Volt::route('/konfirmasi-pembayaran', 'public.open-trip.konfirmasi-pembayaran')->name('konfirmasi-pembayaran');
 
 /*
+ | Pembayaran lewat gerbang DOKU.
+ |
+ | Dua alamat untuk dua arah yang berbeda, dan perbedaannya penting:
+ |
+ |   /pembayaran-selesai dibuka PELANGGAN sesudah ia kembali dari halaman
+ |   DOKU. Ia tidak boleh dipercaya untuk menentukan apa pun — orang bisa
+ |   membukanya tanpa pernah membayar sepeser pun, dan yang paling wajar
+ |   dilakukan sesudah membayar justru menutup tab sebelum sempat kembali.
+ |   Halaman ini hanya MELAPORKAN status yang sudah tercatat.
+ |
+ |   /pembayaran/doku/notifikasi dipanggil SERVER DOKU, dan itulah yang
+ |   benar-benar mencatat pembayarannya. Tanda tangan di headernya yang
+ |   membuatnya boleh dipercaya, bukan alamatnya.
+ */
+Volt::route('/pembayaran-selesai', 'public.open-trip.pembayaran-selesai')->name('pembayaran-selesai');
+
+Route::post('/pembayaran/doku/notifikasi', \App\Http\Controllers\Pembayaran\DokuNotifikasiController::class)
+    // Dibatasi supaya alamat yang terbuka ini tidak bisa dipakai membanjiri
+    // server dengan tanda tangan asal-asalan. Angkanya longgar terhadap
+    // pemakaian yang wajar: DOKU mengirim satu notifikasi per pembayaran,
+    // ditambah pengulangan bila jawabannya gagal.
+    ->middleware('throttle:60,1')
+    ->name('pembayaran.doku.notifikasi');
+
+/*
  | Berkas yang boleh dibuka pelanggan sendiri dari tautan WhatsApp.
  |
  | Satu rute pendek untuk semua jenisnya. Alamat bertanda tangan Laravel benar,

@@ -22,6 +22,26 @@
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
+        <!--
+            Gerbang pembayaran DIPATOK HIDUP, dengan kredensial yang jelas palsu.
+
+            Tanpa patokan ini, config('doku.aktif') ikut membaca .env pengembang —
+            dan salinan teks di halaman publik memang bercabang di sana. Akibatnya
+            suite yang hijau di mesin yang .env-nya kosong berubah merah di mesin
+            yang kredensialnya sudah terpasang, tanpa satu baris kode pun berbeda.
+
+            Hidup, bukan mati, karena itulah keadaan yang berlaku di produksi.
+            Uji yang justru menguji keadaan sebaliknya mematikannya sendiri lewat
+            config()->set('doku.aktif', false).
+
+            Kredensialnya sengaja tidak berbentuk kunci sungguhan: bila suatu saat
+            ada jalur yang tanpa sengaja memanggil DOKU tanpa Http::fake, yang
+            terjadi adalah penolakan tanda tangan — bukan tagihan sungguhan.
+        -->
+        <env name="DOKU_AKTIF" value="true"/>
+        <env name="DOKU_LINGKUNGAN" value="sandbox"/>
+        <env name="DOKU_CLIENT_ID" value="BRN-0000-UJI"/>
+        <env name="DOKU_SECRET_KEY" value="SK-UJI-BUKAN-KUNCI-SUNGGUHAN"/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="MAIL_MAILER" value="array"/>
