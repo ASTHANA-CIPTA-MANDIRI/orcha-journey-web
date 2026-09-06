@@ -11,6 +11,7 @@ use App\Models\PaketWisata\TravelPackage;
 use App\Models\Umum\TautanPendek;
 use App\Support\BerkasKwitansi;
 use App\Support\PerkiraanPotongan;
+use App\Support\RencanaAngsuran;
 use App\Support\RincianBiaya;
 use App\Support\SuratPenggantian;
 use App\Support\TagihanPesanan;
@@ -24,6 +25,25 @@ class PendaftaranController extends ApiController
     {
         $daftar = PendaftaranOpenTrip::query()
             ->withCount('riwayatKesehatan')
+
+            /*
+             | Bahan penanda angsuran, dimuat sekali untuk seluruh halaman.
+             |
+             | Dua kueri tambahan untuk dua puluh baris, bukan dua puluh.
+             | Penandanya perlu tahu berapa termin yang sudah tertutup, dan itu
+             | dijawab dengan membandingkan jumlah kumulatif termin dengan uang
+             | yang benar-benar diterima — keduanya diambil di sini supaya
+             | PenandaAngsuran tidak perlu menyentuh basis data sama sekali.
+             |
+             | Hanya yang berstatus diterima yang dijumlahkan, sama seperti
+             | TagihanPesanan: bukti yang belum dicek belum uang, dan termin
+             | yang ditandai lunas oleh unggahan yang belum diperiksa membuat
+             | admin berhenti menagih orang yang belum membayar.
+             */
+            ->with('angsuranAktif.termin')
+            ->withSum([
+                'konfirmasiPembayaran as pembayaran_diterima' => fn ($q) => $q->where('status', 'diterima'),
+            ], 'nominal')
             ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
                 fn ($sub) => $sub->where('nama', 'like', "%{$cari}%")
                     ->orWhere('kode', 'like', "%{$cari}%")
@@ -69,7 +89,13 @@ class PendaftaranController extends ApiController
      */
     public function show(PendaftaranOpenTrip $pendaftaran): JsonResponse
     {
-        $data = (new PendaftaranResource($pendaftaran->loadCount('riwayatKesehatan')))->resolve();
+        $pendaftaran->loadCount('riwayatKesehatan')
+            ->load('angsuranAktif.termin')
+            ->loadSum([
+                'konfirmasiPembayaran as pembayaran_diterima' => fn ($q) => $q->where('status', 'diterima'),
+            ], 'nominal');
+
+        $data = (new PendaftaranResource($pendaftaran))->resolve();
 
         $data['tagihan'] = TagihanPesanan::untuk($pendaftaran);
 
@@ -136,6 +162,12 @@ class PendaftaranController extends ApiController
                 'id' => $bayar->id,
                 'jenis' => $bayar->jenis,
                 'jenis_label' => $bayar->jenis_label,
+
+                // Kanal dan pecahannya ikut dikirim: layar pesanan perlu tahu
+                // baris mana yang tidak punya bukti untuk ditampilkan, dan
+                // memang tidak seharusnya punya.
+                'kanal' => $bayar->kanal ?? 'transfer',
+                'rincian' => $bayar->rincian_gerbang,
                 'nominal' => $bayar->nominal,
                 'nominal_formatted' => $bayar->nominal_formatted,
                 'tanggal_transfer' => $bayar->tanggal_transfer?->toDateString(),
@@ -342,6 +374,9 @@ class PendaftaranController extends ApiController
                 ->locale('id')->translatedFormat('j F Y')
             : null;
 
+        // null untuk pesanan biasa, jadi tidak ada yang berubah bagi mayoritas.
+        $angsuran = RencanaAngsuran::ringkasUntukPelanggan($pendaftaran->kode);
+
         [$jumlah, $jumlahLabel, $cap, $keadaan, $caraBayar] = match (true) {
             // Dibatalkan: tidak ada lagi yang perlu ditransfer, apa pun sisanya.
             $batal => [
@@ -378,13 +413,37 @@ class PendaftaranController extends ApiController
                 $tagihan['sisa_teks'], 'Sisa yang harus dibayar', 'Dibayar Sebagian',
                 [
                     'nada' => 'awas',
-                    'kalimat' => 'Uang muka Anda sebesar <strong>'.$tagihan['sudah_teks'].'</strong> '
-                        .'<strong>sudah kami terima</strong>. Sisa yang perlu dilunasi '
-                        .'<strong>'.$tagihan['sisa_teks'].'</strong>'
-                        .($tenggatPelunasan
-                            ? ', paling lambat <strong>'.$tenggatPelunasan.'</strong> (H-'
-                                .config('orcha.pembayaran.pelunasan_hari_sebelum').' sebelum berangkat).'
-                            : '.'),
+                    /*
+                     | Pesanan berangsur punya tenggatnya sendiri.
+                     |
+                     | Berkas ini dulu selalu menagih seluruh sisanya pada H-5,
+                     | termasuk kepada pelanggan yang layar pembayarannya justru
+                     | menampilkan tiga termin dengan tanggalnya masing-masing.
+                     | Dua janji yang bertentangan, dari sistem yang sama, kepada
+                     | orang yang sedang kesulitan keuangan — dan yang mana yang
+                     | ia percaya tidak bisa ditebak.
+                     |
+                     | Angkanya datang dari RencanaAngsuran, sumber yang sama
+                     | dengan surat tanda terima. Menghitungnya ulang di sini
+                     | berarti dua jawaban untuk satu jadwal.
+                     */
+                    'kalimat' => $angsuran
+                        ? 'Pembayaran Anda <strong>sudah kami terima</strong> — <strong>'
+                            .$angsuran['lunas'].' dari '.$angsuran['jumlah'].' termin</strong> lunas. '
+                            .$angsuran['label'].' berikutnya <strong>'.$angsuran['kurang_teks']
+                            .'</strong>, jatuh tempo <strong>'.$angsuran['jatuh_tempo_teks'].'</strong>. '
+                            .($angsuran['telat']
+                                ? 'Termin ini sudah lewat jatuh temponya; hubungi kami bila perlu '
+                                    .'penyesuaian jadwal. '
+                                : '')
+                            .'Sisa seluruhnya <strong>'.$tagihan['sisa_teks'].'</strong>.'
+                        : 'Uang muka Anda sebesar <strong>'.$tagihan['sudah_teks'].'</strong> '
+                            .'<strong>sudah kami terima</strong>. Sisa yang perlu dilunasi '
+                            .'<strong>'.$tagihan['sisa_teks'].'</strong>'
+                            .($tenggatPelunasan
+                                ? ', paling lambat <strong>'.$tenggatPelunasan.'</strong> (H-'
+                                    .config('orcha.pembayaran.pelunasan_hari_sebelum').' sebelum berangkat).'
+                                : '.'),
                 ],
                 true,
             ],
@@ -491,10 +550,23 @@ class PendaftaranController extends ApiController
              */
             'harga_jual' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
             'harga_modal' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+            /*
+             | Biaya tetap, satu-satunya angka di sini yang PER ROMBONGAN.
+             |
+             | Pengecualian yang disengaja terhadap aturan satu paragraf di
+             | atas, dan justru aturan itu yang memaksanya ada: carter bus,
+             | guide, dan sopir tidak bertambah mahal karena penumpangnya
+             | bertambah satu, jadi memaksanya jadi angka per orang menuntut
+             | admin membagi sendiri tiap kali. Selama ia ingat hasilnya benar;
+             | yang terjadi sebenarnya adalah ia memakai ulang angka rombongan
+             | sebelumnya.
+             */
+            'biaya_tetap' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
         ], [], [
             'travel_package_id' => 'paket',
             'peserta.*.nama' => 'nama peserta',
             'pendamping_gratis' => 'pendamping gratis',
+            'biaya_tetap' => 'biaya tetap rombongan',
         ]);
 
         $paket = TravelPackage::find($data['travel_package_id']);
@@ -533,6 +605,10 @@ class PendaftaranController extends ApiController
              */
             'harga_jual' => $data['harga_jual'] ?? null,
             'harga_modal' => $data['harga_modal'] ?? null,
+            // Nol, bukan null: rombongan tanpa biaya carter memang tidak
+            // punya biaya tetap, dan itu keadaan yang diketahui — bukan
+            // keadaan yang belum diisi.
+            'biaya_tetap' => (int) ($data['biaya_tetap'] ?? 0),
 
             /*
              | Statusnya 'baru', bukan langsung 'dp_masuk'.

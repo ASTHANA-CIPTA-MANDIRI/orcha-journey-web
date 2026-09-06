@@ -6,6 +6,7 @@ use App\Models\PaketWisata\TravelPackage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PendaftaranOpenTrip extends Model
 {
@@ -20,6 +21,7 @@ class PendaftaranOpenTrip extends Model
         'email',
         'jumlah_peserta',
         'pendamping_gratis',
+        'biaya_tetap',
         'harga_jual',
         'harga_modal',
         'potongan_promo',
@@ -43,6 +45,7 @@ class PendaftaranOpenTrip extends Model
         'tanggal_berangkat' => 'date',
         'jumlah_peserta' => 'integer',
         'pendamping_gratis' => 'integer',
+        'biaya_tetap' => 'integer',
         'harga_jual' => 'integer',
         'potongan_promo' => 'integer',
         'harga_modal' => 'integer',
@@ -54,6 +57,20 @@ class PendaftaranOpenTrip extends Model
         'potongan_rujukan' => 'integer',
         'imbalan_rujukan' => 'integer',
         'imbalan_dibayar_pada' => 'datetime',
+    ];
+
+    /**
+     * Biaya tetap dimulai dari nol, bukan null — bahkan sebelum barisnya
+     * tersimpan.
+     *
+     * Basis data sudah memberi nilai bawaan, tetapi model yang baru dibuat
+     * belum membacanya kembali. Tanpa baris ini, kode yang memeriksa
+     * keuntungan sebelum refresh melihat null dan memperlakukan biayanya
+     * sebagai "belum diketahui" — padahal rombongan tanpa carter memang tidak
+     * punya biaya tetap, dan itu keadaan yang diketahui.
+     */
+    protected $attributes = [
+        'biaya_tetap' => 0,
     ];
 
     /**
@@ -134,6 +151,45 @@ class PendaftaranOpenTrip extends Model
             $pendaftaran->potongan_rujukan ??= \App\Support\Rujukan::potongan();
             $pendaftaran->imbalan_rujukan ??= \App\Support\Rujukan::imbalan();
         });
+    }
+
+    /**
+     * Pendaftaran yang imbalan rujukannya BENAR-BENAR jadi hak pemilik kode.
+     *
+     * Syaratnya lunas, bukan sekadar terdaftar.
+     *
+     * Sebelum ini imbalannya terhitung terutang sejak orangnya mengisi
+     * formulir. Akibatnya laporan komisi memuat uang yang belum pernah masuk:
+     * orang yang mendaftar lalu tidak pernah membayar, dan orang yang
+     * membatalkan, keduanya tetap menambah tagihan komisi. Yang menagihnya
+     * kemudian pemilik kode — dengan angka yang kita sendiri yang menampilkan.
+     *
+     * Uang muka pun belum cukup. DP bisa hangus, pesanannya bisa batal, dan
+     * kursinya bisa dilepas karena pelunasannya tidak pernah datang — dan
+     * komisi yang sudah terlanjur dibayarkan tidak bisa ditarik kembali.
+     */
+    public function scopeImbalanBerhak($query)
+    {
+        return $query->whereNotNull('kode_rujukan')->where('status', 'lunas');
+    }
+
+    /** Sudah berhak, tetapi uangnya belum dikirimkan ke pemilik kode. */
+    public function scopeImbalanBelumDibayar($query)
+    {
+        return $query->imbalanBerhak()->whereNull('imbalan_dibayar_pada');
+    }
+
+    /**
+     * Sudah memakai kode, tetapi belum lunas — jadi belum jadi hak siapa pun.
+     *
+     * Ditampilkan terpisah, bukan disembunyikan: pemilik kode yang bertanya
+     * "kenapa komisi saya belum muncul" perlu dijawab dengan angka, bukan
+     * dengan keterangan bahwa datanya tidak ada.
+     */
+    public function scopeImbalanMenunggu($query)
+    {
+        return $query->whereNotNull('kode_rujukan')
+            ->whereNotIn('status', ['lunas', 'batal']);
     }
 
     public function paket(): BelongsTo
@@ -310,6 +366,24 @@ class PendaftaranOpenTrip extends Model
     }
 
     /**
+     * Rencana angsuran yang sedang berlaku, bila ada.
+     *
+     * Ditautkan lewat kode, sama seperti konfirmasi pembayaran — rencananya
+     * milik PESANAN, dan pesanan di sini bisa berupa pendaftaran maupun
+     * penyewaan kendaraan. Kodenya berbeda awalan, jadi tidak ada yang saling
+     * tertukar.
+     *
+     * Yang dibatalkan tidak ikut. Ia disimpan untuk menjawab "dulu dijanjikan
+     * apa", bukan untuk digambar sebagai jadwal yang masih berjalan.
+     */
+    public function angsuranAktif(): HasOne
+    {
+        return $this->hasOne(Angsuran::class, 'kode', 'kode')
+            ->whereNull('dibatalkan_pada')
+            ->latestOfMany();
+    }
+
+    /**
      * Berapa peserta yang riwayat kesehatannya sudah masuk.
      *
      * Dipakai penanda kelengkapan: kesehatan diisi per orang, dan yang belum
@@ -421,11 +495,41 @@ class PendaftaranOpenTrip extends Model
             - (int) ($this->potongan_rujukan ?? 0));
     }
 
+    /**
+     * Seluruh biaya pendaftaran ini: yang mengikuti kepala, plus yang tidak.
+     *
+     * Dikalikan jumlah_peserta, BUKAN peserta_dibayar — dan itu bukan
+     * kelalaian. Guru pendamping study tour tidak membayar, tetapi ia tetap
+     * menempati kursi bus, makan siang, dan kamar hotel. Biayanya nyata; yang
+     * tidak ada cuma pendapatannya.
+     *
+     * Biaya tetap ditambahkan UTUH, tanpa dikalikan apa pun. Itulah gunanya:
+     * carter bus tidak jadi lebih mahal karena penumpangnya bertambah satu.
+     */
     public function getModalTotalAttribute(): ?int
     {
-        return $this->modal_satuan === null
+        if ($this->modal_satuan === null) {
+            return null;
+        }
+
+        return $this->modal_satuan * max(1, (int) $this->jumlah_peserta)
+            + (int) ($this->biaya_tetap ?? 0);
+    }
+
+    /**
+     * Modal sesungguhnya per kepala, biaya tetap sudah dibagi rata.
+     *
+     * Berbeda dari modal_satuan, dan bedanya justru yang perlu dibaca admin:
+     * modal_satuan adalah angka yang ia ketik, sedangkan ini angka yang
+     * menentukan apakah harganya masuk akal. Rombongan bertiga dengan carter
+     * Rp 3.000.000 menanggung Rp 1.000.000 per kepala di luar biaya per
+     * orangnya — dan itu tidak terlihat di mana pun sampai dihitung di sini.
+     */
+    public function getModalPerKepalaAttribute(): ?int
+    {
+        return $this->modal_total === null
             ? null
-            : $this->modal_satuan * max(1, (int) $this->jumlah_peserta);
+            : (int) round($this->modal_total / max(1, (int) $this->jumlah_peserta));
     }
 
     /**

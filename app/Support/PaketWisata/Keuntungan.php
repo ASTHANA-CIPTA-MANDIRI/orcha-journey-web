@@ -55,7 +55,24 @@ class Keuntungan
                 'kategori_label' => fn ($isi) => $isi->first()['kategori_label'],
                 'harga_jual' => fn ($isi) => $isi->first()['jual_satuan'],
                 'harga_modal' => fn ($isi) => $isi->first()['modal_satuan'],
-                'margin_per_orang' => fn ($isi) => $isi->first()['margin_satuan'],
+                /*
+                 | Dihitung dari total kelompoknya, BUKAN diambil dari baris
+                 | pertama.
+                 |
+                 | Sejak biaya tetap ada, selisih harga jual dan modal per
+                 | orang tidak lagi sama dengan untung per kepala: rombongan
+                 | bertiga dengan carter Rp 3.000.000 menanggung sejuta per
+                 | kepala yang tidak terlihat di kolom mana pun. Mengambilnya
+                 | dari baris pertama juga berarti satu rombongan mewakili
+                 | seluruh paket — dan untuk private trip, rombongan pertama
+                 | tidak mewakili apa-apa.
+                 */
+                'margin_per_orang' => function ($isi) {
+                    $lengkap = $isi->where('modal_terisi', true);
+                    $orang = (int) $lengkap->sum('peserta');
+
+                    return $orang > 0 ? (int) round($lengkap->sum('keuntungan') / $orang) : null;
+                },
             ]),
             'per_kategori' => self::kelompok($lunas, fn ($baris) => $baris['kategori'], [
                 'label' => fn ($isi) => $isi->first()['kategori_label'],
@@ -101,6 +118,17 @@ class Keuntungan
             'jual_satuan' => $daftar->jual_satuan,
             'modal_satuan' => $daftar->modal_satuan,
             'margin_satuan' => $daftar->margin_satuan,
+            /*
+             | Biaya yang tidak ikut bertambah bersama pesertanya: carter bus,
+             | guide, sopir, tol. Ikut di baris laporan supaya rombongan kecil
+             | yang tampak merugi bisa dijelaskan sebabnya tanpa membuka
+             | pendaftarannya satu per satu.
+             */
+            'biaya_tetap' => (int) ($daftar->biaya_tetap ?? 0),
+            // Modal sesungguhnya per kepala, biaya tetap sudah dibagi rata.
+            // Inilah angka yang menentukan apakah harganya masuk akal —
+            // modal_satuan hanya angka yang diketik admin.
+            'modal_per_kepala' => $daftar->modal_per_kepala,
             'omzet' => $daftar->omzet,
             'modal' => $daftar->modal_total,
             'keuntungan' => $daftar->keuntungan,
@@ -109,6 +137,8 @@ class Keuntungan
             'jual_satuan' => $daftar->jual_satuan,
             'modal_satuan' => $daftar->modal_satuan,
             'margin_satuan' => $daftar->margin_satuan,
+            'biaya_tetap' => (int) ($daftar->biaya_tetap ?? 0),
+            'modal_per_kepala' => $daftar->modal_per_kepala,
             'omzet' => $daftar->omzet,
             'modal' => $daftar->modal_total,
             'keuntungan' => $daftar->keuntungan,
@@ -141,7 +171,20 @@ class Keuntungan
     /** @return Collection<int, array<string, mixed>> */
     private static function baris(Builder $query): Collection
     {
-        return $query->get()->map(fn (PendaftaranOpenTrip $daftar) => self::satuBaris($daftar));
+        /*
+         | toBase() bukan hiasan.
+         |
+         | map() pada koleksi Eloquent menurunkan dirinya ke koleksi biasa
+         | hanya bila hasilnya berisi sesuatu yang bukan model — dan koleksi
+         | KOSONG tidak berisi apa pun, jadi ia tetap koleksi Eloquent. Metode
+         | seperti merge() lalu memperlakukan larik sebagai model dan meledak
+         | pada kunci yang tidak ada. Galatnya muncul di pemanggil, bukan di
+         | sini, dan hanya saat tidak ada satu pun pendaftaran pada rentang
+         | yang disaring — keadaan yang paling jarang diuji.
+         */
+        return $query->get()
+            ->map(fn (PendaftaranOpenTrip $daftar) => self::satuBaris($daftar))
+            ->toBase();
     }
 
     private static function ringkasan(Collection $lunas, Collection $potensi): array
@@ -162,10 +205,28 @@ class Keuntungan
             'potensi_peserta' => (int) $potensi->sum('peserta'),
             'potensi_omzet' => (int) $potensi->sum('omzet'),
             'potensi_keuntungan' => (int) $potensi->where('modal_terisi', true)->sum('keuntungan'),
-            // Berapa banyak yang tidak bisa dihitung. Angka inilah yang
-            // memberi tahu admin bahwa laporannya belum utuh.
+
+            /*
+             | Berapa banyak yang tidak bisa dihitung. Angka inilah yang
+             | memberi tahu admin bahwa laporannya belum utuh.
+             |
+             | Dihitung untuk KEDUA kolom, dan itu perbaikan atas kesalahan
+             | yang sempat berjalan: dulu hanya sisi lunas yang diperiksa,
+             | sehingga pesanan potensi bermodal kosong menyumbang omzetnya
+             | penuh tetapi keuntungannya nol — tanpa satu pun penanda yang
+             | menjelaskan sebabnya. Yang membacanya menyimpulkan marginnya
+             | tipis, lalu mengambil keputusan atas kesimpulan itu. Terukur
+             | pada dua private trip: Rp 9.750.000 masuk potensi omzet, Rp 0
+             | masuk potensi keuntungan, penghitungnya tetap menulis nol.
+             */
             'belum_lengkap' => $lunas->where('modal_terisi', false)->count(),
+            'potensi_belum_lengkap' => $potensi->where('modal_terisi', false)->count(),
+
+            // Nama paketnya digabung dari kedua kolom: yang perlu dikerjakan
+            // admin sama saja — mengisi modalnya — dan memisahkannya jadi dua
+            // daftar hanya menyuruhnya membaca dua kali untuk satu pekerjaan.
             'paket_belum_lengkap' => $lunas->where('modal_terisi', false)
+                ->merge($potensi->where('modal_terisi', false))
                 ->pluck('paket')->unique()->values()->all(),
         ];
 
@@ -252,6 +313,7 @@ class Keuntungan
     private static function rupiahkan(array $angka): array
     {
         $uang = ['omzet', 'modal', 'keuntungan', 'jual_satuan', 'modal_satuan', 'margin_satuan',
+            'biaya_tetap', 'modal_per_kepala',
             'margin_rata_per_orang', 'harga_jual', 'harga_modal', 'margin_per_orang',
             'potensi_omzet', 'potensi_keuntungan'];
 

@@ -294,3 +294,175 @@ test('menu orcha menyebut halaman keuntungan', function () {
         ->assertOk()
         ->assertJsonFragment(['jalur' => 'keuntungan', 'label' => 'Keuntungan Paket', 'ikon' => 'chart-bar']);
 });
+
+/* ------------------- BIAYA TETAP PER ROMBONGAN ------------------- */
+
+test('biaya tetap masuk modal utuh, tidak dikalikan peserta', function () {
+    /*
+     | Itulah seluruh gunanya. Carter bus tidak jadi lebih mahal karena
+     | penumpangnya bertambah satu, dan memaksanya jadi angka per orang
+     | menuntut admin membagi sendiri tiap kali — yang benar-benar terjadi
+     | adalah ia memakai ulang angka rombongan sebelumnya.
+     */
+    $paket = paketUntung(['category' => 'private_trip', 'harga_modal' => null]);
+
+    $daftar = daftarUntung($paket, [
+        'jumlah_peserta' => 10,
+        'harga_jual' => 1_000_000,
+        'harga_modal' => 400_000,
+        'biaya_tetap' => 3_000_000,
+    ]);
+
+    expect($daftar->modal_total)->toBe(7_000_000)      // 400rb x 10 + 3jt
+        ->and($daftar->omzet)->toBe(10_000_000)
+        ->and($daftar->keuntungan)->toBe(3_000_000)
+        // Modal sesungguhnya per kepala: Rp 700.000, bukan Rp 400.000 yang
+        // diketik admin. Inilah angka yang menentukan harganya masuk akal.
+        ->and($daftar->modal_per_kepala)->toBe(700_000);
+});
+
+test('rombongan kecil menanggung biaya tetap jauh lebih berat', function () {
+    /*
+     | Alasan kolom ini ada. Angka "modal per orang" yang sama dipakai ulang
+     | untuk rombongan bertiga dan tiga puluh akan benar untuk salah satunya
+     | saja — dan yang salah tidak pernah berbunyi.
+     */
+    $paket = paketUntung(['category' => 'private_trip', 'harga_modal' => null]);
+
+    $besar = daftarUntung($paket, [
+        'jumlah_peserta' => 30, 'harga_jual' => 750_000,
+        'harga_modal' => 300_000, 'biaya_tetap' => 3_000_000,
+    ]);
+
+    $kecil = daftarUntung($paket, [
+        'jumlah_peserta' => 3, 'harga_jual' => 750_000,
+        'harga_modal' => 300_000, 'biaya_tetap' => 3_000_000,
+    ]);
+
+    expect($besar->modal_per_kepala)->toBe(400_000)
+        ->and($besar->keuntungan)->toBe(10_500_000)
+        // Harga jual yang sama, rombongan bertiga, dan hasilnya MERUGI.
+        // Tanpa kolom biaya tetap, keduanya dilaporkan untung.
+        ->and($kecil->modal_per_kepala)->toBe(1_300_000)
+        ->and($kecil->keuntungan)->toBe(-1_650_000);
+});
+
+test('biaya tetap nol tidak mengubah apa pun', function () {
+    // Penjaga seluruh open trip yang sudah berjalan: kolomnya berisi nol,
+    // dan hitungannya harus persis seperti sebelum kolom ini ada.
+    $paket = paketUntung();
+    $daftar = daftarUntung($paket, ['jumlah_peserta' => 4]);
+
+    expect($daftar->biaya_tetap)->toBe(0)
+        ->and($daftar->modal_total)->toBe(5_600_000)
+        ->and($daftar->keuntungan)->toBe(120_000)
+        ->and($daftar->modal_per_kepala)->toBe(1_400_000);
+});
+
+test('pendamping gratis menanggung biaya, bukan menghasilkan uang', function () {
+    /*
+     | Asimetri yang paling mudah salah, dan paling mahal salahnya. Guru
+     | pendamping study tour tidak dibayar sekolahnya, tetapi ia tetap
+     | menempati kursi bus, makan siang, dan kamar hotel.
+     |
+     | Omzet memakai peserta_dibayar, modal memakai jumlah_peserta. Kalau
+     | modal ikut memakai peserta_dibayar, laporan mengaku untung lebih besar
+     | sejumlah modal satu orang untuk setiap pendamping.
+     */
+    $paket = paketUntung(['category' => 'private_trip', 'harga_modal' => null]);
+
+    $daftar = daftarUntung($paket, [
+        'jumlah_peserta' => 11,
+        'pendamping_gratis' => 1,
+        'harga_jual' => 1_000_000,
+        'harga_modal' => 500_000,
+        'biaya_tetap' => 3_000_000,
+    ]);
+
+    expect($daftar->peserta_dibayar)->toBe(10)
+        ->and($daftar->omzet)->toBe(10_000_000)        // 10 yang membayar
+        ->and($daftar->modal_total)->toBe(8_500_000)   // 11 yang berangkat + carter
+        ->and($daftar->keuntungan)->toBe(1_500_000);
+});
+
+test('modal kosong tetap menolak dihitung walau biaya tetap terisi', function () {
+    /*
+     | Biaya tetap yang terisi TIDAK membuat modalnya jadi diketahui. Diam
+     | soal biaya per orang bukan sama dengan nol — dan laporan yang mengaku
+     | untung untuk pesanan yang biaya makannya belum pernah dimasukkan lebih
+     | menyesatkan daripada laporan yang mengakui ada yang kosong.
+     */
+    $paket = paketUntung(['category' => 'private_trip', 'harga_modal' => null]);
+
+    $daftar = daftarUntung($paket, [
+        'jumlah_peserta' => 5, 'harga_jual' => 1_000_000, 'biaya_tetap' => 3_000_000,
+    ]);
+
+    expect($daftar->modal_satuan)->toBeNull()
+        ->and($daftar->modal_total)->toBeNull()
+        ->and($daftar->keuntungan)->toBeNull()
+        ->and($daftar->modal_per_kepala)->toBeNull();
+});
+
+/* ------------- PENGHITUNG YANG BELUM LENGKAP ------------- */
+
+test('pesanan potensi bermodal kosong ikut dihitung belum lengkap', function () {
+    /*
+     | Perbaikan atas kesalahan yang sempat berjalan: penghitungnya hanya
+     | memeriksa sisi lunas, sehingga pesanan potensi bermodal kosong
+     | menyumbang omzetnya penuh tetapi keuntungannya nol — tanpa satu pun
+     | penanda yang menjelaskan sebabnya. Yang membacanya menyimpulkan
+     | marginnya tipis, lalu mengambil keputusan atas kesimpulan itu.
+     */
+    $paket = paketUntung(['name' => 'Private Trip Premium', 'category' => 'private_trip', 'harga_modal' => null]);
+
+    daftarUntung($paket, ['jumlah_peserta' => 3, 'harga_jual' => 2_500_000, 'status' => 'dp']);
+    daftarUntung($paket, ['jumlah_peserta' => 3, 'harga_jual' => 750_000, 'status' => 'baru']);
+
+    $r = Keuntungan::laporan()['ringkasan'];
+
+    expect($r['potensi_belum_lengkap'])->toBe(2)
+        // Omzetnya tetap terhitung; yang tidak dikarang keuntungannya.
+        ->and($r['potensi_omzet'])->toBe(9_750_000)
+        ->and($r['potensi_keuntungan'])->toBe(0)
+        // Paketnya disebut supaya admin tahu apa yang harus diisi.
+        ->and($r['paket_belum_lengkap'])->toContain('Private Trip Premium');
+});
+
+test('nama paket belum lengkap digabung dari sisi lunas dan potensi', function () {
+    // Pekerjaan yang menunggu admin sama saja — mengisi modalnya — dan dua
+    // daftar terpisah hanya menyuruhnya membaca dua kali untuk satu pekerjaan.
+    $lunasan = paketUntung(['name' => 'Paket Lunas Tanpa Modal', 'harga_modal' => null]);
+    $potensian = paketUntung(['name' => 'Paket Potensi Tanpa Modal', 'harga_modal' => null]);
+
+    daftarUntung($lunasan, ['harga_jual' => 1_000_000, 'status' => 'lunas']);
+    daftarUntung($potensian, ['harga_jual' => 1_000_000, 'status' => 'dp']);
+
+    $r = Keuntungan::laporan()['ringkasan'];
+
+    expect($r['belum_lengkap'])->toBe(1)
+        ->and($r['potensi_belum_lengkap'])->toBe(1)
+        ->and($r['paket_belum_lengkap'])->toContain('Paket Lunas Tanpa Modal')
+        ->and($r['paket_belum_lengkap'])->toContain('Paket Potensi Tanpa Modal');
+});
+
+test('margin per paket ikut menanggung biaya tetap', function () {
+    /*
+     | Dulu diambil dari baris pertama kelompoknya — selisih harga jual dan
+     | modal per orang, yang sejak biaya tetap ada tidak lagi sama dengan
+     | untung per kepala. Untuk private trip, rombongan pertama juga tidak
+     | mewakili apa-apa.
+     */
+    $paket = paketUntung(['name' => 'Private Trip Premium', 'category' => 'private_trip', 'harga_modal' => null]);
+
+    daftarUntung($paket, [
+        'jumlah_peserta' => 10, 'harga_jual' => 1_000_000,
+        'harga_modal' => 400_000, 'biaya_tetap' => 3_000_000, 'status' => 'lunas',
+    ]);
+
+    $baris = collect(Keuntungan::laporan()['per_paket'])->firstWhere('nama', 'Private Trip Premium');
+
+    // Rp 300.000 (untung 3jt / 10 orang), BUKAN Rp 600.000 (1jt - 400rb).
+    expect($baris['margin_per_orang'])->toBe(300_000)
+        ->and($baris['keuntungan'])->toBe(3_000_000);
+});

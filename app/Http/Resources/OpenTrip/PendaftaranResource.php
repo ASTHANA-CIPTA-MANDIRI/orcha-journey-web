@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\OpenTrip;
 
+use App\Support\PenandaAngsuran;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -106,6 +107,18 @@ class PendaftaranResource extends JsonResource
                 'jual_satuan' => $this->jual_satuan,
                 'modal_satuan' => $this->modal_satuan,
                 'margin_satuan' => $this->margin_satuan,
+                /*
+                 | Biaya yang tidak ikut bertambah bersama pesertanya — carter
+                 | bus, guide, sopir, tol. Nol untuk hampir seluruh open trip;
+                 | yang membutuhkannya private trip dan study tour.
+                 |
+                 | modal_per_kepala mengirimkan akibatnya: modal sesungguhnya
+                 | per orang setelah biaya tetap dibagi rata. Itu yang
+                 | menentukan apakah harganya masuk akal, dan itu yang tidak
+                 | pernah terlihat kalau lemon hanya menerima modal_satuan.
+                 */
+                'biaya_tetap' => (int) ($this->biaya_tetap ?? 0),
+                'modal_per_kepala' => $this->modal_per_kepala,
                 'omzet' => $this->omzet,
 
                 /*
@@ -122,6 +135,27 @@ class PendaftaranResource extends JsonResource
                 'modal_terisi' => $this->modal_satuan !== null,
                 'dihitung' => $this->status === 'lunas',
             ],
+            /*
+             | Penanda "pesanan ini diangsur", untuk daftar di lemon.
+             |
+             | Ada di baris daftar dan bukan cuma di halaman detail karena yang
+             | membaca daftar sedang memutuskan siapa yang ditelepon hari ini.
+             | Pesanan yang belum lunas pada H-20 berarti dua hal yang sangat
+             | berbeda: ia menunggak, atau ia memang sedang menjalani jadwal
+             | yang kita sendiri berikan. Menelepon yang kedua dengan nada yang
+             | pertama merusak kesepakatan yang baru saja kita buat.
+             |
+             | Hanya muncul saat relasinya sengaja dimuat. Membaca rencananya
+             | di sini tanpa itu berarti satu kueri per baris untuk penanda
+             | yang belum tentu dipakai pemanggilnya.
+             */
+            'angsuran' => $this->when(
+                $this->relationLoaded('angsuranAktif'),
+                fn () => PenandaAngsuran::untuk(
+                    $this->angsuranAktif,
+                    (int) ($this->pembayaran_diterima ?? 0),
+                ),
+            ),
             'dibuat_pada' => $this->created_at?->toIso8601String(),
         ];
     }
