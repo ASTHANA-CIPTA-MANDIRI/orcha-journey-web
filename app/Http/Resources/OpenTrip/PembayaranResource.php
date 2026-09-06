@@ -2,12 +2,14 @@
 
 namespace App\Http\Resources\OpenTrip;
 
+use App\Models\OpenTrip\KonfirmasiPembayaran;
+use App\Support\BerkasRahasia;
 use App\Support\TagihanPesanan;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @property \App\Models\OpenTrip\KonfirmasiPembayaran $resource
+ * @property KonfirmasiPembayaran $resource
  */
 class PembayaranResource extends JsonResource
 {
@@ -56,7 +58,7 @@ class PembayaranResource extends JsonResource
             'tanggal_transfer' => $this->tanggal_transfer?->toDateString(),
             'bank_pengirim' => $this->bank_pengirim,
             'atas_nama_pengirim' => $this->atas_nama_pengirim,
-            'bukti' => \App\Support\BerkasRahasia::tautan($this->bukti),
+            'bukti' => BerkasRahasia::tautan($this->bukti),
 
             'bukti_riwayat' => $this->riwayatBukti(),
             'catatan' => $this->catatan,
@@ -100,7 +102,7 @@ class PembayaranResource extends JsonResource
 
         foreach (array_reverse($riwayat) as $satu) {
             $hasil[] = [
-                'bukti' => \App\Support\BerkasRahasia::tautan($satu['jalur'] ?? null),
+                'bukti' => BerkasRahasia::tautan($satu['jalur'] ?? null),
                 'diganti_pada' => $satu['diganti_pada'] ?? null,
                 'oleh' => $satu['oleh'] ?? null,
             ];

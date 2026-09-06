@@ -2,11 +2,13 @@
 
 namespace App\Http\Resources\SewaKendaraan;
 
+use App\Models\SewaKendaraan\Car;
+use App\Support\Pemeriksaan;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @property \App\Models\SewaKendaraan\Car $resource
+ * @property Car $resource
  */
 class KendaraanResource extends JsonResource
 {
@@ -115,7 +117,7 @@ class KendaraanResource extends JsonResource
             'rincian' => collect($kondisi)
                 ->filter(fn ($nilai) => $nilai !== 'baik')
                 ->map(fn ($nilai, $bagian) => [
-                    'bagian' => \App\Support\Pemeriksaan::label()[$bagian] ?? $bagian,
+                    'bagian' => Pemeriksaan::label()[$bagian] ?? $bagian,
                     'kondisi' => config('orcha.kondisi_pemeriksaan')[$nilai] ?? $nilai,
                     'nilai' => $nilai,
                 ])->values()->all(),

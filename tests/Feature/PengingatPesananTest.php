@@ -1,5 +1,6 @@
 <?php
 
+use App\Mail\PemberitahuanFormulir;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
 use App\Support\PengingatPesanan;
@@ -205,7 +206,7 @@ test('surat pelunasan benar-benar tergambar dan menyebut angkanya', function () 
     Mail::assertNothingSent();
     PengingatPesanan::jalankan();
 
-    Mail::assertSent(\App\Mail\PemberitahuanFormulir::class, function ($surat) use ($daftar) {
+    Mail::assertSent(PemberitahuanFormulir::class, function ($surat) use ($daftar) {
         if (! $surat->hasTo($daftar->email)) {
             return false;
         }
@@ -240,7 +241,7 @@ test('surat briefing memuat titik jemput tiap orang', function () {
 
     PengingatPesanan::jalankan();
 
-    Mail::assertSent(\App\Mail\PemberitahuanFormulir::class, function ($surat) use ($daftar) {
+    Mail::assertSent(PemberitahuanFormulir::class, function ($surat) use ($daftar) {
         if (! $surat->hasTo($daftar->email)) {
             return false;
         }
@@ -268,6 +269,6 @@ test('yang alamat surelnya kosong tetap ditandai, bukan dicoba terus', function 
     PengingatPesanan::jalankan();
 
     expect($daftar->fresh()->briefing_pada)->not->toBeNull();
-    Mail::assertNotSent(\App\Mail\PemberitahuanFormulir::class,
+    Mail::assertNotSent(PemberitahuanFormulir::class,
         fn ($surat) => $surat->hasTo('pemesan@contoh.test'));
 });

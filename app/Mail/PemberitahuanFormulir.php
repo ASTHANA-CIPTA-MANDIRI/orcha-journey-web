@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -87,14 +88,14 @@ class PemberitahuanFormulir extends Mailable
         // Berkas dari disk (mis. foto bukti transfer)
         $dariDisk = collect($this->lampiran)
             ->filter(fn ($jalur) => filled($jalur) && file_exists(public_path(ltrim($jalur, '/'))))
-            ->map(fn ($jalur) => \Illuminate\Mail\Mailables\Attachment::fromPath(
+            ->map(fn ($jalur) => Attachment::fromPath(
                 public_path(ltrim($jalur, '/'))
             ));
 
         // PDF yang dibuat saat itu juga (kwitansi/tanda terima)
         $pdf = collect($this->berkasPdf)
             ->filter()
-            ->map(fn ($isi, $nama) => \Illuminate\Mail\Mailables\Attachment::fromData(
+            ->map(fn ($isi, $nama) => Attachment::fromData(
                 fn () => $isi, $nama
             )->withMime('application/pdf'));
 

@@ -1,5 +1,9 @@
 <?php
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use Tests\TestCase;
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -11,8 +15,8 @@
 |
 */
 
-pest()->extend(Tests\TestCase::class)
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
     ->beforeEach(function () {
         /*
          * Sumber luar dimatikan secara bawaan.
@@ -31,7 +35,7 @@ pest()->extend(Tests\TestCase::class)
 
         // Jaring pengaman: permintaan keluar yang tidak distub menggagalkan uji,
         // bukan diam-diam berhasil.
-        Illuminate\Support\Facades\Http::preventStrayRequests();
+        Http::preventStrayRequests();
     })
     ->in('Feature');
 

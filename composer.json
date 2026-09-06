@@ -16,8 +16,8 @@
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "livewire/flux": "^2.1.1",
-        "livewire/livewire": "*",
-        "livewire/volt": "*",
+        "livewire/livewire": "^3.6",
+        "livewire/volt": "^1.7",
         "mallardduck/blade-boxicons": "^2.5",
         "mallardduck/blade-lucide-icons": "^1.26",
         "robsontenorio/mary": "^2.4"

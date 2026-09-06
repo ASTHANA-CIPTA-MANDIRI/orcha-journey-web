@@ -2,6 +2,8 @@
 
 namespace App\Models\SewaKendaraan;
 
+use App\Support\KodePesanan;
+use App\Support\Pemeriksaan;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -79,7 +81,7 @@ class PenyewaanKendaraan extends Model
         static::creating(function (self $sewa) {
             if (blank($sewa->kode)) {
                 do {
-                    $kode = \App\Support\KodePesanan::untuk('SK');
+                    $kode = KodePesanan::untuk('SK');
                 } while (static::where('kode', $kode)->exists());
 
                 $sewa->kode = $kode;
@@ -274,7 +276,7 @@ class PenyewaanKendaraan extends Model
      */
     public function getDendaKerusakanUsulanAttribute(): int
     {
-        $tarif = \App\Support\Pemeriksaan::tarif();
+        $tarif = Pemeriksaan::tarif();
         $urutan = array_keys(config('orcha.kondisi_pemeriksaan'));
         $awal = $this->kondisi_awal ?? [];
         $jumlah = 0;
@@ -302,7 +304,7 @@ class PenyewaanKendaraan extends Model
      */
     public function getRincianDendaKerusakanAttribute(): array
     {
-        $tarif = \App\Support\Pemeriksaan::tarif();
+        $tarif = Pemeriksaan::tarif();
         $urutan = array_keys(config('orcha.kondisi_pemeriksaan'));
         $awal = $this->kondisi_awal ?? [];
         $baris = [];
@@ -320,7 +322,7 @@ class PenyewaanKendaraan extends Model
                 // dipakai sebagai penunjuk isian di lemon — ketikan admin hilang
                 // begitu isiannya ditinggalkan.
                 'kunci' => $bagian,
-                'bagian' => \App\Support\Pemeriksaan::label()[$bagian] ?? $bagian,
+                'bagian' => Pemeriksaan::label()[$bagian] ?? $bagian,
                 'dari' => config('orcha.kondisi_pemeriksaan')[$sebelum] ?? $sebelum,
                 'jadi' => config('orcha.kondisi_pemeriksaan')[$sesudah] ?? $sesudah,
                 'biaya' => max(0, ($tarif[$bagian][$sesudah] ?? 0) - ($tarif[$bagian][$sebelum] ?? 0)),
@@ -368,7 +370,7 @@ class PenyewaanKendaraan extends Model
 
             if ($nilai($sesudah) > $nilai($sebelum)) {
                 $baru[] = [
-                    'bagian' => \App\Support\Pemeriksaan::label()[$bagian] ?? $bagian,
+                    'bagian' => Pemeriksaan::label()[$bagian] ?? $bagian,
                     'dari' => config('orcha.kondisi_pemeriksaan')[$sebelum] ?? $sebelum,
                     'jadi' => config('orcha.kondisi_pemeriksaan')[$sesudah] ?? $sesudah,
                 ];

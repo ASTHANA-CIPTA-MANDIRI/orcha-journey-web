@@ -2,6 +2,8 @@
 
 use App\Models\Etalase\DestinationPopuler;
 use App\Models\JejakAudit;
+use App\Support\KirimPemberitahuan;
+use App\Support\SalinanPelanggan;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 
@@ -143,13 +145,13 @@ test('surat yang gagal terkirim tercatat di jejak audit', function () {
 
     config()->set('orcha.email_pemberitahuan', 'kantor@contoh.test');
 
-    App\Support\KirimPemberitahuan::kirim(
+    KirimPemberitahuan::kirim(
         'Pendaftaran Open Trip Baru',
         'OT-3108-K7QMXV',
         ['Nama' => 'Budi Santoso'],
     );
 
-    $jejak = App\Models\JejakAudit::where('aksi', 'surat gagal terkirim')->first();
+    $jejak = JejakAudit::where('aksi', 'surat gagal terkirim')->first();
 
     expect($jejak)->not->toBeNull()
         ->and($jejak->kode)->toBe('OT-3108-K7QMXV')
@@ -167,15 +169,15 @@ test('alamat surel pelanggan tidak ikut tercatat di jejak', function () {
 
     config()->set('orcha.email_pemberitahuan', 'kantor@contoh.test');
 
-    App\Support\KirimPemberitahuan::kirim(
+    KirimPemberitahuan::kirim(
         'Uji', 'OT-3108-K7QMXV', [],
-        pelanggan: new App\Support\SalinanPelanggan(
+        pelanggan: new SalinanPelanggan(
             email: 'rahasia@contoh.test',
             judul: 'Uji',
         ),
     );
 
-    $semua = App\Models\JejakAudit::pluck('ringkasan')->implode(' ');
+    $semua = JejakAudit::pluck('ringkasan')->implode(' ');
 
     expect($semua)->not->toContain('rahasia@contoh.test');
 });

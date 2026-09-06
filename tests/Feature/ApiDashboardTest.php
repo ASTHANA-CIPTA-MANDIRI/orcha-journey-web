@@ -1,6 +1,8 @@
 <?php
 
+use App\Mail\PemberitahuanFormulir;
 use App\Models\Etalase\DestinationPopuler;
+use App\Models\Etalase\Galeri;
 use App\Models\Etalase\Partner;
 use App\Models\Etalase\Testimoni;
 use App\Models\Kontak\PesanKontak;
@@ -12,7 +14,11 @@ use App\Models\PaketWisata\SaranPaket;
 use App\Models\PaketWisata\TravelPackage;
 use App\Models\SewaKendaraan\Car;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
+use App\Models\Umum\TautanPendek;
+use App\Support\NotaSewa;
+use App\Support\StatusPendaftaran;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 const KUNCI_UJI = 'kunci-rahasia-untuk-uji';
@@ -45,7 +51,7 @@ function buatPendaftaran(array $ubah = []): PendaftaranOpenTrip
 /* ----------------------------- PENJAGAAN ----------------------------- */
 
 test('jumlah bukti yang menunggu dicek bisa ditanyakan sendiri', function () {
-    $bukti = fn (string $status) => App\Models\OpenTrip\KonfirmasiPembayaran::create([
+    $bukti = fn (string $status) => KonfirmasiPembayaran::create([
         'kode' => 'OT-1508-A7K3', 'jenis' => 'dp', 'nominal' => 500000,
         'tanggal_transfer' => '2026-08-15', 'bank_pengirim' => 'BCA',
         'atas_nama_pengirim' => 'Budi', 'status' => $status,
@@ -1082,7 +1088,7 @@ test('rincian denda yang sudah ditetapkan tersimpan dan ikut di nota', function 
 
     // Nota harus tetap bisa menyebut bagian mana yang ditagih, walau
     // perbandingan kondisinya sudah tidak menyisakan selisih apa pun.
-    $nota = App\Support\NotaSewa::untuk($sewa->fresh());
+    $nota = NotaSewa::untuk($sewa->fresh());
     $baris = collect($nota['baris'])->firstWhere('label', 'Denda kerusakan');
 
     expect($baris['keterangan'])->toContain('Bodi depan & bemper')
@@ -1138,7 +1144,7 @@ test('pesanan sewa yang dibatalkan tidak ikut ditutup jadi selesai', function ()
 });
 
 test('status pembayaran yang diubah mengabari pelanggan', function () {
-    Illuminate\Support\Facades\Mail::fake();
+    Mail::fake();
     config()->set('orcha.email_pemberitahuan', 'halo@orchajourney.com');
 
     $paket = TravelPackage::create([
@@ -1155,7 +1161,7 @@ test('status pembayaran yang diubah mengabari pelanggan', function () {
 
     $this->patchJson("/api/v1/pembayaran/{$bayar->id}/status", ['status' => 'diterima'], kirim())->assertOk();
 
-    Illuminate\Support\Facades\Mail::assertSent(App\Mail\PemberitahuanFormulir::class, function ($surat) {
+    Mail::assertSent(PemberitahuanFormulir::class, function ($surat) {
         if (! $surat->untukPelanggan) {
             return false;
         }
@@ -1170,7 +1176,7 @@ test('status pembayaran yang diubah mengabari pelanggan', function () {
 });
 
 test('bukti yang ditolak mengabari pelanggan dengan alasannya', function () {
-    Illuminate\Support\Facades\Mail::fake();
+    Mail::fake();
     config()->set('orcha.email_pemberitahuan', 'halo@orchajourney.com');
 
     $pendaftaran = buatPendaftaran(['email' => 'siti@contoh.test']);
@@ -1185,7 +1191,7 @@ test('bukti yang ditolak mengabari pelanggan dengan alasannya', function () {
         'status' => 'ditolak', 'catatan_admin' => 'Nominal tidak cocok dengan mutasi.',
     ], kirim())->assertOk();
 
-    Illuminate\Support\Facades\Mail::assertSent(App\Mail\PemberitahuanFormulir::class, function ($surat) {
+    Mail::assertSent(PemberitahuanFormulir::class, function ($surat) {
         if (! $surat->untukPelanggan) {
             return false;
         }
@@ -1212,7 +1218,7 @@ test('status pesanan hanya maju oleh pembayaran yang sudah diterima', function (
         'atas_nama_pengirim' => 'Siti', 'status' => 'menunggu',
     ]);
 
-    expect(App\Support\StatusPendaftaran::selaraskan($pendaftaran))->toBeNull()
+    expect(StatusPendaftaran::selaraskan($pendaftaran))->toBeNull()
         ->and($pendaftaran->fresh()->status)->toBe('baru');
 });
 
@@ -1573,25 +1579,25 @@ test('foto galeri disimpan sebagai webp, aslinya tidak ikut tersimpan', function
 });
 
 test('galeri hanya menampilkan yang ditandai tampil, mengikuti urutannya', function () {
-    App\Models\Etalase\Galeri::create(['foto' => '/storage/galeri/c.webp', 'urutan' => 3]);
-    App\Models\Etalase\Galeri::create(['foto' => '/storage/galeri/a.webp', 'urutan' => 1]);
-    App\Models\Etalase\Galeri::create(['foto' => '/storage/galeri/x.webp', 'urutan' => 2, 'tampil' => false]);
+    Galeri::create(['foto' => '/storage/galeri/c.webp', 'urutan' => 3]);
+    Galeri::create(['foto' => '/storage/galeri/a.webp', 'urutan' => 1]);
+    Galeri::create(['foto' => '/storage/galeri/x.webp', 'urutan' => 2, 'tampil' => false]);
 
-    expect(App\Models\Etalase\Galeri::tayang()->pluck('foto')->all())
+    expect(Galeri::tayang()->pluck('foto')->all())
         ->toBe(['/storage/galeri/a.webp', '/storage/galeri/c.webp']);
 });
 
 test('foto baru masuk ke belakang barisan, tidak menyerobot urutan yang sudah disusun', function () {
     Storage::fake('public');
 
-    App\Models\Etalase\Galeri::create(['foto' => '/storage/galeri/a.webp', 'urutan' => 5]);
+    Galeri::create(['foto' => '/storage/galeri/a.webp', 'urutan' => 5]);
 
     $this->post('/api/v1/galeri', ['gambar' => UploadedFile::fake()->image('b.jpg')], kirim())
         ->assertStatus(201);
 
     // Urutan yang sudah disusun admin tidak boleh berubah sendiri hanya karena
     // ada unggahan baru.
-    expect(App\Models\Etalase\Galeri::latest('id')->first()->urutan)->toBe(6);
+    expect(Galeri::latest('id')->first()->urutan)->toBe(6);
 });
 
 test('menghapus foto galeri ikut membuang berkasnya', function () {
@@ -1600,7 +1606,7 @@ test('menghapus foto galeri ikut membuang berkasnya', function () {
     $this->post('/api/v1/galeri', ['gambar' => UploadedFile::fake()->image('a.jpg')], kirim())
         ->assertStatus(201);
 
-    $galeri = App\Models\Etalase\Galeri::first();
+    $galeri = Galeri::first();
     $jalur = str_replace('/storage/', '', $galeri->foto);
 
     Storage::disk('public')->assertExists($jalur);
@@ -1675,7 +1681,7 @@ test('tautan pendek dipakai ulang, bukan dibuat baru tiap halaman dibuka', funct
     // Kalau tidak, satu pendaftaran menumpuk puluhan baris dan tautan yang
     // telanjur dikirim ke pelanggan berdampingan dengan yang belum.
     expect($kedua)->toBe($pertama)
-        ->and(App\Models\Umum\TautanPendek::count())->toBe(1);
+        ->and(TautanPendek::count())->toBe(1);
 });
 
 test('tautan pendek yang kedaluwarsa ditolak, bukan diam-diam melayani', function () {
@@ -1684,7 +1690,7 @@ test('tautan pendek yang kedaluwarsa ditolak, bukan diam-diam melayani', functio
     $tautan = $this->getJson("/api/v1/pendaftaran/{$daftar->id}", kirim())
         ->json('data.kwitansi_tautan');
 
-    App\Models\Umum\TautanPendek::query()->update(['kedaluwarsa_pada' => now()->subDay()]);
+    TautanPendek::query()->update(['kedaluwarsa_pada' => now()->subDay()]);
 
     $this->get($tautan)->assertStatus(404);
 });
@@ -1696,7 +1702,7 @@ test('kode tautan tidak bisa ditebak dari nomor pendaftarannya', function () {
 
     // Berkasnya memuat nama, nomor telepon, dan rincian biaya seseorang. Kode
     // yang bisa dihitung ulang dari nomor pendaftaran berarti bisa ditebak.
-    $kode = App\Models\Umum\TautanPendek::first()->kode;
+    $kode = TautanPendek::first()->kode;
 
     // Diuji dengan membandingkan dua pendaftaran, bukan dengan memastikan kode
     // tidak memuat angka id-nya.
@@ -1709,7 +1715,7 @@ test('kode tautan tidak bisa ditebak dari nomor pendaftarannya', function () {
     $lain = buatPendaftaran();
     $this->getJson("/api/v1/pendaftaran/{$lain->id}", kirim())->assertOk();
 
-    $kodeLain = App\Models\Umum\TautanPendek::where('pendaftaran_id', $lain->id)->first()->kode;
+    $kodeLain = TautanPendek::where('pendaftaran_id', $lain->id)->first()->kode;
 
     expect(strlen($kode))->toBe(10)
         ->and($kode)->not->toBe((string) $daftar->id)

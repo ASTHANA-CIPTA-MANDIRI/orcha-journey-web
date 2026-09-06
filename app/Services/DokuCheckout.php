@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -250,7 +251,7 @@ class DokuCheckout
     private static function waktuMasukAkal(string $waktu): bool
     {
         try {
-            $cap = \Illuminate\Support\Carbon::parse($waktu);
+            $cap = Carbon::parse($waktu);
         } catch (\Throwable) {
             return false;
         }

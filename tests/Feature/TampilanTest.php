@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Etalase\Galeri;
+use Illuminate\Support\Facades\File;
+
 /**
  * Menjaga hal-hal tampilan yang mudah terlewat: favicon, aksen tipografi,
  * dan kolom samping yang ikut menggulung.
@@ -61,7 +64,7 @@ test('setiap hero yang dirujuk tampilan ada berkasnya dan tidak dikirim mentah',
     // gambar yang benar-benar tertulis di tampilan.
     $dirujuk = [];
 
-    foreach (\Illuminate\Support\Facades\File::allFiles(resource_path('views')) as $tampilan) {
+    foreach (File::allFiles(resource_path('views')) as $tampilan) {
         preg_match_all('/image="([^"{$]+)"/', $tampilan->getContents(), $cocok);
         $dirujuk = array_merge($dirujuk, $cocok[1]);
     }
@@ -122,7 +125,7 @@ test('markup navbar tetap menyatakan maksudnya', function () {
 });
 
 test('galeri beranda memakai foto admin walau baru sedikit', function () {
-    App\Models\Etalase\Galeri::create(['foto' => '/storage/galeri/rombongan.webp', 'urutan' => 1]);
+    Galeri::create(['foto' => '/storage/galeri/rombongan.webp', 'urutan' => 1]);
 
     /*
      | Dulu ada aturan "kalau kurang dari enam, ganti foto bawaan" — masuk akal
@@ -156,7 +159,7 @@ test('galeri yang benar-benar kosong tetap memakai foto cadangan', function () {
 });
 
 test('keterangan galeri ikut tampil dan jadi alt gambarnya', function () {
-    App\Models\Etalase\Galeri::create([
+    Galeri::create([
         'foto' => '/storage/galeri/rombongan.webp',
         'keterangan' => 'Rombongan SMA 1 di Kawah Ijen',
         'urutan' => 1,
@@ -180,7 +183,7 @@ test('keterangan galeri ikut tampil dan jadi alt gambarnya', function () {
 });
 
 test('foto tanpa keterangan tidak menampilkan pita kosong', function () {
-    App\Models\Etalase\Galeri::create(['foto' => '/storage/galeri/a.webp', 'urutan' => 1]);
+    Galeri::create(['foto' => '/storage/galeri/a.webp', 'urutan' => 1]);
 
     // Pita gelap tanpa tulisan cuma menutupi foto tanpa memberi apa pun.
     $isi = $this->get('/')->assertOk()->getContent();
@@ -205,7 +208,7 @@ test('gambar yang dirujuk lewat asset() tetap ringan', function () {
     // daftar nama: daftar nama tidak ikut bertambah saat ada gambar baru.
     $dirujuk = [];
 
-    foreach (\Illuminate\Support\Facades\File::allFiles(resource_path('views')) as $tampilan) {
+    foreach (File::allFiles(resource_path('views')) as $tampilan) {
         preg_match_all(
             '/asset\(\s*\x27([^\x27{$]+\.(?:webp|jpe?g|png|gif|avif))\x27\s*\)/i',
             $tampilan->getContents(),

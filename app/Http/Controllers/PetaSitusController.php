@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Blog\Artikel;
+use App\Models\Blog\KategoriArtikel;
 use App\Models\Etalase\DestinationPopuler;
 use App\Models\PaketWisata\TravelPackage;
 use Illuminate\Http\Response;
@@ -115,7 +116,7 @@ class PetaSitusController extends Controller
             ];
         }
 
-        foreach (array_keys(\App\Models\Blog\KategoriArtikel::daftar()) as $kategori) {
+        foreach (array_keys(KategoriArtikel::daftar()) as $kategori) {
             $baris[] = [route('blog', ['kategori' => $kategori]), null, 'weekly', '0.5'];
         }
 

@@ -3,6 +3,13 @@
 namespace App\Http\Controllers\Api\Umum;
 
 use App\Http\Controllers\Api\ApiController;
+use App\Models\Blog\KategoriArtikel;
+use App\Models\Etalase\DaerahTambahan;
+use App\Models\Etalase\KatalogDestinasi;
+use App\Models\Etalase\ProvinsiTambahan;
+use App\Models\Etalase\WilayahTambahan;
+use App\Models\PaketWisata\TravelPackage;
+use App\Support\Pemeriksaan;
 use App\Support\SewaKendaraan\KatalogKendaraan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -70,7 +77,7 @@ class MetaController extends ApiController
                 'kategori_paket' => config('orcha.kategori_paket'),
                 // Dipakai pemilih kategori di layar Blog pada lemon, supaya
                 // daftarnya tidak disalin-tempel ke sana.
-                'kategori_artikel' => \App\Models\Blog\KategoriArtikel::daftar(),
+                'kategori_artikel' => KategoriArtikel::daftar(),
                 'jenis_kendaraan' => config('orcha.jenis_kendaraan'),
                 // Merek & model untuk dropdown formulir armada, digabung dengan
                 // yang sudah dipakai armada sendiri supaya unit lama tidak
@@ -93,32 +100,32 @@ class MetaController extends ApiController
                 'satuan_sewa' => config('orcha.satuan_sewa'),
                 'keperluan_kontak' => config('orcha.keperluan_kontak'),
                 'alasan_pembatalan' => config('orcha.alasan_pembatalan'),
-                'wilayah' => \App\Models\Etalase\WilayahTambahan::gabungan(),
-                'wilayah_kustom' => \App\Models\Etalase\WilayahTambahan::kustom(),
+                'wilayah' => WilayahTambahan::gabungan(),
+                'wilayah_kustom' => WilayahTambahan::kustom(),
                 // Provinsi beserta wilayahnya: admin cukup memilih provinsi,
                 // dan wilayah penyaring di halaman publik terisi sendiri.
                 // Dikirim dari sini supaya daftarnya satu — bukan disalin ke
                 // lemon lalu berbeda diam-diam saat provinsi baru dimekarkan.
-                'provinsi_wilayah' => \App\Models\Etalase\ProvinsiTambahan::gabungan(),
+                'provinsi_wilayah' => ProvinsiTambahan::gabungan(),
                 // Hanya entri tambahan yang boleh dihapus dari daftar pilihan;
                 // yang bawaan ikut versi kode.
-                'provinsi_kustom' => \App\Models\Etalase\ProvinsiTambahan::kustom(),
+                'provinsi_kustom' => ProvinsiTambahan::kustom(),
                 // Nama destinasi yang sering diminta beserta provinsinya: sekali
                 // dipilih, nama dan provinsi terisi — dan wilayah ikut, karena
                 // provinsi yang menentukannya.
                 // Daerah menyusut mengikuti provinsi, sama seperti provinsi
                 // menyusut mengikuti wilayah.
-                'katalog_daerah' => \App\Models\Etalase\DaerahTambahan::gabungan(),
-                'katalog_daerah_kustom' => \App\Models\Etalase\DaerahTambahan::kustom(),
-                'katalog_destinasi' => \App\Models\Etalase\KatalogDestinasi::gabungan(),
-                'katalog_destinasi_kustom' => \App\Models\Etalase\KatalogDestinasi::kustom(),
+                'katalog_daerah' => DaerahTambahan::gabungan(),
+                'katalog_daerah_kustom' => DaerahTambahan::kustom(),
+                'katalog_destinasi' => KatalogDestinasi::gabungan(),
+                'katalog_destinasi_kustom' => KatalogDestinasi::kustom(),
                 'pembayaran' => config('orcha.pembayaran'),
                 'fasilitas_umum' => config('orcha.fasilitas_umum'),
                 'status_paket' => config('orcha.status_paket'),
                 // Daftar paket untuk pemilih saringan di lemon. Dikirim lewat
                 // rujukan — yang sudah disimpan sebentar di sisi sana — bukan
                 // lewat panggilan sendiri tiap kali halaman digambar.
-                'paket_wisata' => \App\Models\PaketWisata\TravelPackage::query()
+                'paket_wisata' => TravelPackage::query()
                     ->orderBy('name')
                     ->get(['id', 'name', 'category', 'tanggal_berangkat'])
                     ->map(fn ($paket) => [
@@ -143,10 +150,10 @@ class MetaController extends ApiController
                  |   pemeriksaan_per_jenis — yang DIISI, dipilah per jenis unit.
                  |     Formulir memakai ini.
                  */
-                'pemeriksaan_kendaraan' => \App\Support\Pemeriksaan::label(),
-                'pemeriksaan_per_jenis' => \App\Support\Pemeriksaan::perJenis(),
+                'pemeriksaan_kendaraan' => Pemeriksaan::label(),
+                'pemeriksaan_per_jenis' => Pemeriksaan::perJenis(),
                 'kondisi_pemeriksaan' => config('orcha.kondisi_pemeriksaan'),
-                'biaya_kerusakan' => \App\Support\Pemeriksaan::tarif(),
+                'biaya_kerusakan' => Pemeriksaan::tarif(),
                 'denda_sewa' => config('orcha.denda_sewa'),
             ],
         ]);

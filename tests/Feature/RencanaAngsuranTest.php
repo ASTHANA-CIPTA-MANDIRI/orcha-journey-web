@@ -2,8 +2,11 @@
 
 use App\Models\OpenTrip\Angsuran;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
+use App\Models\OpenTrip\PembayaranDoku;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Support\KabarPembayaran;
 use App\Support\RencanaAngsuran;
+use App\Support\TagihanPesanan;
 use Illuminate\Support\Facades\Http;
 use Livewire\Volt\Volt;
 
@@ -305,7 +308,7 @@ test('yang ditagih kekurangan termin, bukan nominal penuhnya', function () {
         ->assertHasNoErrors();
 
     // 858.000 - 500.000 = 358.000, plus kode uniknya.
-    expect(App\Models\OpenTrip\PembayaranDoku::firstOrFail()->nominal_pokok)->toBe(358_000);
+    expect(PembayaranDoku::firstOrFail()->nominal_pokok)->toBe(358_000);
 });
 
 test('tiap termin menyebut sendiri sudah dibayar atau belum', function () {
@@ -432,10 +435,10 @@ test('tanda terima menyebut jadwal angsuran, bukan tenggat pelunasan umum', func
     ]);
 
     $langkah = (function () use ($pesanan) {
-        $m = new ReflectionMethod(App\Support\KabarPembayaran::class, 'langkahDiterima');
+        $m = new ReflectionMethod(KabarPembayaran::class, 'langkahDiterima');
         $m->setAccessible(true);
 
-        return $m->invoke(null, App\Support\TagihanPesanan::untuk($pesanan->fresh()), $pesanan->fresh());
+        return $m->invoke(null, TagihanPesanan::untuk($pesanan->fresh()), $pesanan->fresh());
     })();
 
     expect($langkah)->toContain('1 dari 3 termin lunas')
@@ -457,9 +460,9 @@ test('pesanan biasa tetap memakai tenggat pelunasan seperti sebelumnya', functio
         'atas_nama_pengirim' => 'Budi', 'status' => 'diterima',
     ]);
 
-    $m = new ReflectionMethod(App\Support\KabarPembayaran::class, 'langkahDiterima');
+    $m = new ReflectionMethod(KabarPembayaran::class, 'langkahDiterima');
     $m->setAccessible(true);
-    $langkah = $m->invoke(null, App\Support\TagihanPesanan::untuk($pesanan->fresh()), $pesanan->fresh());
+    $langkah = $m->invoke(null, TagihanPesanan::untuk($pesanan->fresh()), $pesanan->fresh());
 
     expect($langkah)->toContain('paling lambat H-')
         ->and($langkah)->not->toContain('termin lunas');
@@ -473,9 +476,9 @@ test('termin yang lewat jatuh tempo disebut di surat, tanpa menghakimi', functio
     $rencana->termin()->where('urutan', 1)
         ->update(['jatuh_tempo' => now()->subDays(3)->toDateString()]);
 
-    $m = new ReflectionMethod(App\Support\KabarPembayaran::class, 'langkahDiterima');
+    $m = new ReflectionMethod(KabarPembayaran::class, 'langkahDiterima');
     $m->setAccessible(true);
-    $langkah = $m->invoke(null, App\Support\TagihanPesanan::untuk($pesanan->fresh()), $pesanan->fresh());
+    $langkah = $m->invoke(null, TagihanPesanan::untuk($pesanan->fresh()), $pesanan->fresh());
 
     expect($langkah)->toContain('sudah lewat jatuh temponya')
         ->and($langkah)->toContain('penyesuaian jadwal');
@@ -490,7 +493,7 @@ test('tabel rincian surat ikut membawa jadwalnya', function () {
     $pesanan = pesananAngsuran(1_430_000, 2, 90);
     rencanaUji($pesanan->fresh(), 3);
 
-    $m = new ReflectionMethod(App\Support\KabarPembayaran::class, 'barisAngsuran');
+    $m = new ReflectionMethod(KabarPembayaran::class, 'barisAngsuran');
     $m->setAccessible(true);
     $baris = $m->invoke(null, $pesanan->fresh());
 
@@ -503,7 +506,7 @@ test('tabel rincian surat ikut membawa jadwalnya', function () {
 test('pesanan tanpa rencana tidak menambah baris apa pun ke surat', function () {
     $pesanan = pesananAngsuran(1_430_000, 2, 90);
 
-    $m = new ReflectionMethod(App\Support\KabarPembayaran::class, 'barisAngsuran');
+    $m = new ReflectionMethod(KabarPembayaran::class, 'barisAngsuran');
     $m->setAccessible(true);
 
     expect($m->invoke(null, $pesanan->fresh()))->toBe([]);

@@ -2,6 +2,8 @@
 
 use App\Models\Etalase\DestinationPopuler;
 use App\Support\Etalase\SampulDestinasi;
+use Database\Seeders\DestinationPopulerSeeder;
+use Livewire\Volt\Volt;
 
 function buatDestinasi(string $nama, string $wilayah, string $provinsi, int $pengunjung = 1000): DestinationPopuler
 {
@@ -79,7 +81,7 @@ test('berkas sampul destinasi tersedia di public', function () {
 });
 
 test('seeder mengisi destinasi dari berbagai wilayah Indonesia', function () {
-    (new Database\Seeders\DestinationPopulerSeeder)->run();
+    (new DestinationPopulerSeeder)->run();
 
     $wilayah = DestinationPopuler::distinct()->pluck('wilayah');
 
@@ -96,7 +98,7 @@ test('destinasi terbaru tampil lebih dulu di halaman publik', function () {
 
     $baru = buatDestinasi('Pantai Ujung Gelam', 'jawa', 'Jawa Tengah', 120);
 
-    $urutan = Livewire\Volt\Volt::test('public.destinasi.index')
+    $urutan = Volt::test('public.destinasi.index')
         ->viewData('destinations')
         ->pluck('destination_name')
         ->all();
@@ -114,7 +116,7 @@ test('destinasi yang tercatat pada detik yang sama tetap berurutan tetap', funct
             ->forceFill(['created_at' => $waktu])->save();
     }
 
-    $sekali = fn () => Livewire\Volt\Volt::test('public.destinasi.index')
+    $sekali = fn () => Volt::test('public.destinasi.index')
         ->viewData('destinations')->pluck('id')->all();
 
     expect($sekali())->toBe($sekali())

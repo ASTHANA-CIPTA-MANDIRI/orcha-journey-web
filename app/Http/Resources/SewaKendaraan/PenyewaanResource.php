@@ -2,11 +2,14 @@
 
 namespace App\Http\Resources\SewaKendaraan;
 
+use App\Models\SewaKendaraan\PenyewaanKendaraan;
+use App\Support\BerkasRahasia;
+use App\Support\TagihanPesanan;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @property \App\Models\SewaKendaraan\PenyewaanKendaraan $resource
+ * @property PenyewaanKendaraan $resource
  */
 class PenyewaanResource extends JsonResource
 {
@@ -87,7 +90,7 @@ class PenyewaanResource extends JsonResource
             // lihat aksesornya di model.
             'perlu_dicarikan' => $this->perlu_dicarikan,
             'jaminan' => $this->jaminan,
-            'berkas_jaminan' => \App\Support\BerkasRahasia::tautan($this->berkas_jaminan),
+            'berkas_jaminan' => BerkasRahasia::tautan($this->berkas_jaminan),
             'kondisi_awal' => $this->kondisi_awal ?? [],
             'kondisi_akhir' => $this->kondisi_akhir ?? [],
             // Hanya bagian yang memburuk selama masa sewa — lecet lama tidak
@@ -112,15 +115,15 @@ class PenyewaanResource extends JsonResource
 
             // Posisi uangnya. Yang dihitung hanya bukti yang SUDAH DITERIMA —
             // status pesanan tidak boleh maju karena klaim.
-            'tagihan' => \App\Support\TagihanPesanan::untuk($this->resource, hanyaDiterima: true),
+            'tagihan' => TagihanPesanan::untuk($this->resource, hanyaDiterima: true),
             // Dan yang masih menunggu dicek, dipisah. Inilah keterangan yang
             // dicari admin di loket saat statusnya masih "Baru" padahal penyewa
             // bersikeras sudah mentransfer: buktinya ada, belum sempat dibuka.
-            'menunggu_dicek' => \App\Support\TagihanPesanan::menungguDicek($this->resource),
+            'menunggu_dicek' => TagihanPesanan::menungguDicek($this->resource),
             // Uang yang sudah diterima, dipecah per jenis. Satu baris "sudah
             // dibayar" menjawab berapa, tetapi tidak menjawab yang ditanyakan
             // berikutnya: itu uang mukanya atau pelunasannya.
-            'pembayaran_diterima' => \App\Support\TagihanPesanan::diterimaPerJenis($this->resource),
+            'pembayaran_diterima' => TagihanPesanan::diterimaPerJenis($this->resource),
 
             'catatan' => $this->catatan,
             'status' => $this->status,

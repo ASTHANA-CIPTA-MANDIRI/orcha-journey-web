@@ -1,5 +1,6 @@
 <?php
 
+use App\Mail\PemberitahuanFormulir;
 use App\Models\Etalase\Testimoni;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use Illuminate\Support\Facades\Mail;
@@ -106,7 +107,7 @@ test('tautannya membawa kode pesanan supaya tinggal menulis', function () {
 
     $this->artisan('orcha:ajak-testimoni')->assertSuccessful();
 
-    Mail::assertSent(App\Mail\PemberitahuanFormulir::class, function ($surat) use ($daftar) {
+    Mail::assertSent(PemberitahuanFormulir::class, function ($surat) use ($daftar) {
         return str_contains($surat->render(), $daftar->kode);
     });
 });

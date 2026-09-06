@@ -204,13 +204,13 @@ test('sedang_tayang menjawab sama persis dengan scopeTayang', function () {
     ];
 
     foreach ($keadaan as [$status, $mulai, $sampai, $otomatis, $berangkat]) {
-        $paket = App\Models\PaketWisata\TravelPackage::create([
+        $paket = TravelPackage::create([
             'name' => 'Uji', 'category' => 'open_trip', 'price' => 100000,
             'status' => $status, 'tayang_mulai' => $mulai, 'tayang_sampai' => $sampai,
             'berakhir_otomatis' => $otomatis, 'tanggal_berangkat' => $berangkat,
         ]);
 
-        $lewatScope = App\Models\PaketWisata\TravelPackage::whereKey($paket->id)->tayang()->exists();
+        $lewatScope = TravelPackage::whereKey($paket->id)->tayang()->exists();
 
         expect($paket->fresh()->sedang_tayang)->toBe(
             $lewatScope,
@@ -220,11 +220,11 @@ test('sedang_tayang menjawab sama persis dengan scopeTayang', function () {
 });
 
 test('sedang_tayang tidak menembak query tambahan', function () {
-    $paket = collect(range(1, 5))->map(fn () => App\Models\PaketWisata\TravelPackage::create([
+    $paket = collect(range(1, 5))->map(fn () => TravelPackage::create([
         'name' => 'Uji', 'category' => 'open_trip', 'price' => 100000, 'status' => 'terbit',
     ]));
 
-    $dimuat = App\Models\PaketWisata\TravelPackage::whereIn('id', $paket->pluck('id'))->get();
+    $dimuat = TravelPackage::whereIn('id', $paket->pluck('id'))->get();
 
     DB::enableQueryLog();
     $dimuat->each(fn ($p) => $p->sedang_tayang);

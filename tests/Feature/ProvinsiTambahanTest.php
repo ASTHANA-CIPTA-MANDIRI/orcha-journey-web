@@ -99,7 +99,7 @@ function cariLokasi(string $nama)
 }
 
 test('destinasi yang sudah tercatat dipakai lebih dulu, tanpa menembak peta', function () {
-    \Illuminate\Support\Facades\Http::fake();
+    Http::fake();
 
     DestinationPopuler::create([
         'destination_name' => 'Bromo Tengger Semeru', 'wilayah' => 'jawa',
@@ -113,12 +113,12 @@ test('destinasi yang sudah tercatat dipakai lebih dulu, tanpa menembak peta', fu
         ->assertJsonPath('data.wilayah', 'jawa')
         ->assertJsonPath('data.sumber', 'destinasi');
 
-    \Illuminate\Support\Facades\Http::assertNothingSent();
+    Http::assertNothingSent();
 });
 
 test('nama yang belum pernah dicatat ditanyakan ke peta', function () {
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+    Http::fake([
+        '*nominatim*' => Http::response([[
             'name' => 'Pantai Melasti',
             'address' => ['state' => 'Bali'],
         ]]),
@@ -131,8 +131,8 @@ test('nama yang belum pernah dicatat ditanyakan ke peta', function () {
 });
 
 test('ejaan provinsi dari peta disamakan dengan daftar kita', function () {
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+    Http::fake([
+        '*nominatim*' => Http::response([[
             'name' => 'Candi Prambanan',
             'address' => ['state' => 'Daerah Istimewa Yogyakarta'],
         ]]),
@@ -146,8 +146,8 @@ test('ejaan provinsi dari peta disamakan dengan daftar kita', function () {
 });
 
 test('provinsi asing tidak dipakai', function () {
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+    Http::fake([
+        '*nominatim*' => Http::response([[
             'name' => 'Gunung Ledang',
             'address' => ['state' => 'Johor'],
         ]]),
@@ -159,8 +159,8 @@ test('provinsi asing tidak dipakai', function () {
 });
 
 test('peta yang mati tidak menggagalkan apa pun', function () {
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response('', 503),
+    Http::fake([
+        '*nominatim*' => Http::response('', 503),
     ]);
 
     // Jawaban kosong bukan kegagalan: yang benar adalah admin mengisi sendiri,
@@ -169,16 +169,16 @@ test('peta yang mati tidak menggagalkan apa pun', function () {
 });
 
 test('nama terlalu pendek tidak ditanyakan ke mana pun', function () {
-    \Illuminate\Support\Facades\Http::fake();
+    Http::fake();
 
     cariLokasi('Bro')->assertOk()->assertJsonPath('data', null);
 
-    \Illuminate\Support\Facades\Http::assertNothingSent();
+    Http::assertNothingSent();
 });
 
 test('jawaban peta disimpan, tidak ditanyakan dua kali', function () {
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+    Http::fake([
+        '*nominatim*' => Http::response([[
             'name' => 'Nusa Penida',
             'address' => ['state' => 'Bali'],
         ]]),
@@ -190,12 +190,12 @@ test('jawaban peta disimpan, tidak ditanyakan dua kali', function () {
     cariLokasi('Nusa Penida Baru')->assertOk();
     cariLokasi('Nusa Penida Baru')->assertOk();
 
-    \Illuminate\Support\Facades\Http::assertSentCount(1);
+    Http::assertSentCount(1);
 });
 
 test('pemanggilan menyebut pengenal, sesuai ketentuan nominatim', function () {
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+    Http::fake([
+        '*nominatim*' => Http::response([[
             'name' => 'Pantai Baru',
             'address' => ['state' => 'Bali'],
         ]]),
@@ -204,7 +204,7 @@ test('pemanggilan menyebut pengenal, sesuai ketentuan nominatim', function () {
     cariLokasi('Pantai Baru Sekali')->assertOk();
 
     // Layanan gratis yang tidak tahu siapa pemanggilnya berhak memblokirnya.
-    \Illuminate\Support\Facades\Http::assertSent(fn ($p) => $p->hasHeader('User-Agent')
+    Http::assertSent(fn ($p) => $p->hasHeader('User-Agent')
         && str_contains($p->header('User-Agent')[0], 'OrchaJourney')
         && str_contains($p->url(), 'countrycodes=id'));
 });
@@ -352,8 +352,8 @@ test('destinasi yang sudah tercatat ikut jadi pilihan', function () {
 });
 
 test('nama baru tersimpan beserta provinsi yang dicari sendiri', function () {
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+    Http::fake([
+        '*nominatim*' => Http::response([[
             'name' => 'Pantai Melasti',
             'address' => ['state' => 'Bali'],
         ]]),
@@ -367,7 +367,7 @@ test('nama baru tersimpan beserta provinsi yang dicari sendiri', function () {
 });
 
 test('provinsi dan daerah yang disebut admin dipakai apa adanya, tanpa bertanya ke peta', function () {
-    \Illuminate\Support\Facades\Http::fake();
+    Http::fake();
 
     // Peta ditanya hanya bila ada yang belum diketahui — dua panggilan untuk
     // satu pertanyaan hanya memperlambat admin dan membebani layanan gratisnya.
@@ -378,12 +378,12 @@ test('provinsi dan daerah yang disebut admin dipakai apa adanya, tanpa bertanya 
     expect(KatalogDestinasi::first()->provinsi)->toBe('Jawa Timur')
         ->and(KatalogDestinasi::first()->daerah)->toBe('Situbondo');
 
-    \Illuminate\Support\Facades\Http::assertNothingSent();
+    Http::assertNothingSent();
 });
 
 test('daerah ikut dicari peta bila belum disebut', function () {
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+    Http::fake([
+        '*nominatim*' => Http::response([[
             'name' => 'Pantai Baru',
             'address' => ['state' => 'Jawa Timur', 'county' => 'Kabupaten Banyuwangi'],
         ]]),
@@ -395,8 +395,8 @@ test('daerah ikut dicari peta bila belum disebut', function () {
 });
 
 test('nama yang tidak ketemu di peta tetap tersimpan', function () {
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response([], 404),
+    Http::fake([
+        '*nominatim*' => Http::response([], 404),
     ]);
 
     // Separuh bantuan lebih baik daripada menolak menyimpan.
@@ -446,6 +446,7 @@ test('rujukan mengirim katalog beserta penanda mana yang boleh dihapus', functio
 /* -------- DAERAH (KABUPATEN / KOTA / KAWASAN) -------- */
 
 use App\Models\Etalase\DaerahTambahan;
+use Illuminate\Support\Facades\Http;
 
 function kirimDaerah(array $isi, string $metode = 'post', ?int $id = null)
 {
@@ -552,8 +553,8 @@ test('destinasi tanpa daerah tetap terbaca wajar', function () {
 });
 
 test('usulan peta ikut menyebut daerahnya', function () {
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+    Http::fake([
+        '*nominatim*' => Http::response([[
             'name' => 'Kawah Ijen',
             'address' => ['state' => 'Jawa Timur', 'county' => 'Kabupaten Banyuwangi'],
         ]]),
@@ -573,8 +574,8 @@ test('jawaban peta berbentuk lama tidak dipakai lagi setelah bentuknya berubah',
         'provinsi' => 'Jawa Timur', 'wilayah' => 'jawa', 'sumber' => 'peta',
     ], now()->addDays(30));
 
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+    Http::fake([
+        '*nominatim*' => Http::response([[
             'name' => 'Djawatan',
             'address' => ['state' => 'Jawa Timur', 'county' => 'Kabupaten Banyuwangi'],
         ]]),
@@ -590,8 +591,8 @@ test('nama yang menyebut dua tempat dipenggal sampai peta mengenalinya', functio
     // peta menjawab kosong untuk nama itu. "Pulau Cemara Kecil" ada, tercatat
     // rapi di Jepara — tetapi tidak pernah ditanyakan, sehingga formulir
     // tertinggal berisi tebakan dari nama yang belum selesai diketik.
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::sequence()
+    Http::fake([
+        '*nominatim*' => Http::sequence()
             ->push([])
             ->push([[
                 'name' => 'Pulau Cemoro Kecil',
@@ -606,7 +607,7 @@ test('nama yang menyebut dua tempat dipenggal sampai peta mengenalinya', functio
 
     // Ejaan peta berbeda — "Cemoro", bukan "Cemara" — dan itu memang harus
     // tetap lolos: yang dibandingkan kata per kata, dengan kelonggaran.
-    \Illuminate\Support\Facades\Http::assertSentCount(2);
+    Http::assertSentCount(2);
 });
 
 test('jawaban yang namanya jauh berbeda ditolak, bukan dipakai apa adanya', function () {
@@ -614,8 +615,8 @@ test('jawaban yang namanya jauh berbeda ditolak, bukan dipakai apa adanya', func
     // peta dengan sebuah pura di Jimbaran. Nama itu memang memuat kata "Pula",
     // tetapi hanya satu dari lima katanya, dan menerimanya berarti mengisi
     // BALI untuk pulau di Jawa Tengah.
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response([[
+    Http::fake([
+        '*nominatim*' => Http::response([[
             'name' => 'Kahyangan Jagat Pula Ulun Swi',
             'address' => ['state' => 'Bali'],
         ]]),
@@ -627,8 +628,8 @@ test('jawaban yang namanya jauh berbeda ditolak, bukan dipakai apa adanya', func
 test('yang dipilih calon yang namanya paling mendekati, bukan yang teratas', function () {
     // Urutan peta mengikuti ukuran dan ketenaran tempat, bukan kedekatan
     // namanya dengan yang ditanyakan.
-    \Illuminate\Support\Facades\Http::fake([
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response([
+    Http::fake([
+        '*nominatim*' => Http::response([
             ['name' => 'Jalan Pantai Melasti', 'address' => ['state' => 'Jawa Barat']],
             ['name' => 'Pantai Melasti', 'address' => ['state' => 'Bali']],
         ]),
@@ -639,7 +640,7 @@ test('yang dipilih calon yang namanya paling mendekati, bukan yang teratas', fun
 });
 
 test('potongan huruf tidak dianggap cocok dengan destinasi yang tersimpan', function () {
-    \Illuminate\Support\Facades\Http::fake();
+    Http::fake();
 
     DestinationPopuler::create([
         'destination_name' => 'Kepulauan Derawan', 'wilayah' => 'kalimantan',
@@ -667,9 +668,9 @@ function fakeEnsiklopedia(array $halaman, ?array $peta = null): void
 {
     config()->set('orcha.ensiklopedia.aktif', true);
 
-    \Illuminate\Support\Facades\Http::fake([
-        '*wikipedia*' => \Illuminate\Support\Facades\Http::response(['query' => ['pages' => $halaman]]),
-        '*nominatim*' => \Illuminate\Support\Facades\Http::response($peta ?? []),
+    Http::fake([
+        '*wikipedia*' => Http::response(['query' => ['pages' => $halaman]]),
+        '*nominatim*' => Http::response($peta ?? []),
     ]);
 }
 
@@ -740,7 +741,7 @@ test('destinasi yang sudah tercatat tidak menembak ensiklopedia', function () {
 
     cariLokasi('Karimunjawa')->assertOk()->assertJsonPath('data.sumber', 'destinasi');
 
-    \Illuminate\Support\Facades\Http::assertNothingSent();
+    Http::assertNothingSent();
 });
 
 test('keterangan yang membedakan tempat tidak ikut dipenggal', function () {

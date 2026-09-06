@@ -2,11 +2,13 @@
 
 namespace App\Http\Resources\PaketWisata;
 
+use App\Models\PaketWisata\TravelPackage;
+use App\Support\PaketWisata\ItineraryTeks;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @property \App\Models\PaketWisata\TravelPackage $resource
+ * @property TravelPackage $resource
  */
 class PaketWisataResource extends JsonResource
 {
@@ -65,7 +67,7 @@ class PaketWisataResource extends JsonResource
 
             // Bentuk teks siap sunting, supaya dashboard lemon tidak perlu
             // menulis ulang aturan formatnya sendiri.
-            'itinerary_teks' => \App\Support\PaketWisata\ItineraryTeks::keTeks($this->itinerary),
+            'itinerary_teks' => ItineraryTeks::keTeks($this->itinerary),
             'sampul' => $this->sampul,
             'jumlah_pendaftar' => $this->whenCounted('pendaftaran'),
             'tautan_publik' => url('/paket/'.$this->uuid),

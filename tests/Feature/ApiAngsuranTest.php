@@ -3,6 +3,9 @@
 use App\Models\OpenTrip\Angsuran;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Support\PenandaAngsuran;
+use App\Support\RencanaAngsuran;
+use App\Support\TagihanPesanan;
 
 /**
  * Jalur admin untuk memberikan angsuran.
@@ -129,7 +132,7 @@ test('membatalkan rencana tidak mengubah tagihannya', function () {
 
     expect(Angsuran::aktifUntuk($pendaftaran->kode))->toBeNull()
         // Uang dan tagihannya tidak tersentuh — yang dihapus cuma jadwalnya.
-        ->and(App\Support\TagihanPesanan::untuk($pendaftaran->fresh())['sisa'])->toBe(2_860_000);
+        ->and(TagihanPesanan::untuk($pendaftaran->fresh())['sisa'])->toBe(2_860_000);
 });
 
 test('tanpa kunci api, angsuran tidak bisa disentuh', function () {
@@ -301,8 +304,8 @@ test('penanda daftar tidak pernah berbeda jawabannya dengan posisi()', function 
 
         $rencana = Angsuran::aktifUntuk($pendaftaran->kode);
 
-        $menurutPosisi = collect(App\Support\RencanaAngsuran::posisi($rencana));
-        $penanda = App\Support\PenandaAngsuran::untuk($rencana, $dibayar);
+        $menurutPosisi = collect(RencanaAngsuran::posisi($rencana));
+        $penanda = PenandaAngsuran::untuk($rencana, $dibayar);
 
         expect($penanda['lunas'])->toBe($menurutPosisi->where('status', 'lunas')->count(), "dibayar {$dibayar}")
             ->and($penanda['telat'])->toBe($menurutPosisi->where('status', 'telat')->count(), "dibayar {$dibayar}");

@@ -72,7 +72,7 @@ class DestinationPopuler extends Model
      */
     public function getWilayahLabelAttribute(): string
     {
-        return \App\Models\Etalase\WilayahTambahan::gabungan()[$this->wilayah] ?? 'Indonesia';
+        return WilayahTambahan::gabungan()[$this->wilayah] ?? 'Indonesia';
     }
 
     /**

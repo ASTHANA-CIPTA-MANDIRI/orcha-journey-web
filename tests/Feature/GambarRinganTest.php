@@ -3,6 +3,7 @@
 use App\Support\GambarWebp;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Finder\Finder;
 
 /**
  * Menjaga dua hal yang membuat halaman publik tetap ringan meski admin
@@ -63,7 +64,7 @@ test('gambar yang terlalu besar dikecilkan ke 1920 px', function () {
 test('tidak ada komponen yang menyimpan gambar tanpa lewat GambarWebp', function () {
     $pelanggar = [];
 
-    foreach (\Symfony\Component\Finder\Finder::create()
+    foreach (Finder::create()
         ->files()->in(resource_path('views/livewire'))->name('*.blade.php') as $berkas) {
         foreach (explode("\n", $berkas->getContents()) as $i => $baris) {
             if (preg_match('/->store(As)?\(/', $baris)) {
@@ -121,7 +122,7 @@ test('setiap gambar di halaman publik menyatakan cara muatnya', function () {
      */
     $diam = [];
 
-    foreach (\Symfony\Component\Finder\Finder::create()->files()
+    foreach (Finder::create()->files()
         ->in([
             resource_path('views/livewire/public'),
             resource_path('views/components'),

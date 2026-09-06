@@ -3,9 +3,11 @@
 namespace App\Models\PaketWisata;
 
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Support\RincianBiaya;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class TravelPackage extends Model
@@ -148,7 +150,7 @@ class TravelPackage extends Model
     /**
      * Batas pelunasan: paling lambat H-5 sebelum keberangkatan.
      */
-    public function getBatasPelunasanAttribute(): ?\Illuminate\Support\Carbon
+    public function getBatasPelunasanAttribute(): ?Carbon
     {
         return $this->tanggal_berangkat?->copy()->subDays(config('orcha.pembayaran.pelunasan_hari_sebelum'));
     }
@@ -239,7 +241,7 @@ class TravelPackage extends Model
             return $this->kursiTerpakaiTersinggahi = (int) ($this->getAttributes()['kursi_terpakai_agregat'] ?? 0);
         }
 
-        return $this->kursiTerpakaiTersinggahi = (int) \App\Models\OpenTrip\PendaftaranOpenTrip::query()
+        return $this->kursiTerpakaiTersinggahi = (int) PendaftaranOpenTrip::query()
             ->where('travel_package_id', $this->id)
             ->where('status', '!=', 'batal')
             ->sum('jumlah_peserta');
@@ -499,7 +501,7 @@ class TravelPackage extends Model
     public function getMarginPerOrangTeksAttribute(): string
     {
         return $this->modal_terisi
-            ? \App\Support\RincianBiaya::rupiah($this->margin_per_orang)
+            ? RincianBiaya::rupiah($this->margin_per_orang)
             : 'Belum dihitung';
     }
 

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\StatusPendaftaran;
+use App\Support\TagihanPesanan;
 use Illuminate\Console\Command;
 
 /**
@@ -36,7 +37,7 @@ class SelaraskanStatusPesanan extends Command
                 if ($puraPura) {
                     // Dihitung tanpa menyimpan: berguna untuk melihat dampaknya
                     // di data sungguhan sebelum benar-benar mengubahnya.
-                    $tagihan = \App\Support\TagihanPesanan::untuk($pesanan, hanyaDiterima: true);
+                    $tagihan = TagihanPesanan::untuk($pesanan, hanyaDiterima: true);
                     $akan = $tagihan !== [] && $tagihan['sudah'] > 0
                         ? ($pesanan instanceof PendaftaranOpenTrip && $tagihan['lunas'] ? 'lunas' : 'dp_masuk')
                         : null;

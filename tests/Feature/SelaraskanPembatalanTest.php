@@ -3,6 +3,7 @@
 use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\Pembatalan;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Models\PaketWisata\TravelPackage;
 use App\Models\SewaKendaraan\Car;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 
@@ -35,7 +36,7 @@ function tripBaru(string $status = 'dp_masuk'): PendaftaranOpenTrip
 {
     // Paketnya ikut dibuat supaya harganya ada: status hanya bisa dihitung
     // ulang kalau totalnya diketahui.
-    $paket = App\Models\PaketWisata\TravelPackage::create([
+    $paket = TravelPackage::create([
         'name' => 'Open Trip Uji', 'category' => 'open_trip', 'price' => 1000000,
         'tanggal_berangkat' => now()->addMonth()->toDateString(),
     ]);

@@ -4,6 +4,7 @@ use App\Models\PaketWisata\PromoRombonganTingkat;
 use App\Models\PaketWisata\TravelPackage;
 use App\Support\PromoRombongan;
 use App\Support\RincianBiaya;
+use Livewire\Volt\Volt;
 
 /**
  * Potongan menurut jumlah peserta.
@@ -141,7 +142,7 @@ test('promo tampil hidup di formulir saat peserta ditambah', function () {
      */
     $paket = paketPromo();
 
-    $halaman = Livewire\Volt\Volt::test('public.open-trip.pendaftaran')
+    $halaman = Volt::test('public.open-trip.pendaftaran')
         ->set('paketId', $paket->uuid);
 
     // Lima orang: belum dapat, tetapi diberi tahu kurang berapa.

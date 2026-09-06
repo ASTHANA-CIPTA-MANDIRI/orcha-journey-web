@@ -8,6 +8,7 @@ use App\Models\Etalase\DestinationPopuler;
 use App\Models\Etalase\Galeri;
 use App\Models\Etalase\Partner;
 use App\Models\Etalase\Testimoni;
+use App\Models\Etalase\WilayahTambahan;
 use App\Support\GambarWebp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -153,7 +154,7 @@ class EtalaseController extends ApiController
     {
         return $request->validate([
             'nama' => 'required|string|max:191',
-            'wilayah' => 'required|in:'.implode(',', array_keys(\App\Models\Etalase\WilayahTambahan::gabungan())),
+            'wilayah' => 'required|in:'.implode(',', array_keys(WilayahTambahan::gabungan())),
             'provinsi' => 'nullable|string|max:100',
             'daerah' => 'nullable|string|max:100',
             'deskripsi' => 'nullable|string|max:1000',

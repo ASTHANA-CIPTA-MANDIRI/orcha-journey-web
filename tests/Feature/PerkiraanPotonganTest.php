@@ -6,6 +6,7 @@ use App\Models\PaketWisata\TravelPackage;
 use App\Models\SewaKendaraan\Car;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\PerkiraanPotongan;
+use Carbon\Carbon;
 
 function bayar(string $kode, int $nominal, string $status = 'diterima'): void
 {
@@ -38,7 +39,7 @@ function sewaMulai(string $waktu): PenyewaanKendaraan
         'transmisi_tersedia' => ['Matic'],
     ]);
 
-    $mulai = \Carbon\Carbon::parse($waktu);
+    $mulai = Carbon::parse($waktu);
 
     return PenyewaanKendaraan::create([
         'car_id' => $mobil->id, 'nama_kendaraan' => 'Avanza Uji', 'nama' => 'Rina',

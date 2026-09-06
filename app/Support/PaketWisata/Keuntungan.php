@@ -4,6 +4,7 @@ namespace App\Support\PaketWisata;
 
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Support\RincianBiaya;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -287,7 +288,7 @@ class Keuntungan
 
                 $angka = [
                     'bulan' => $bulan,
-                    'bulan_label' => \Carbon\Carbon::createFromFormat('Y-m', $bulan)
+                    'bulan_label' => Carbon::createFromFormat('Y-m', $bulan)
                         ->locale('id')->translatedFormat('M Y'),
                     'pendaftaran' => $isi->count(),
                     'peserta' => (int) $isi->sum('peserta'),

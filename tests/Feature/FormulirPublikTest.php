@@ -508,7 +508,7 @@ test('formulir kesehatan menolak pendaftaran yang belum membayar', function () {
         ->assertHasErrors('kode');
 
     // Dan datanya benar-benar tidak tersimpan.
-    expect(App\Models\OpenTrip\RiwayatKesehatan::where('kode_pendaftaran', $belumBayar->kode)->count())
+    expect(RiwayatKesehatan::where('kode_pendaftaran', $belumBayar->kode)->count())
         ->toBe(0);
 });
 

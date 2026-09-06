@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ApiController;
 use App\Http\Controllers\Api\Concerns\MenyimpanGambar;
 use App\Http\Resources\SewaKendaraan\KendaraanResource;
 use App\Models\SewaKendaraan\Car;
+use App\Support\Pemeriksaan;
 use App\Support\SewaKendaraan\NomorPolisi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -56,7 +57,7 @@ class KendaraanController extends ApiController
         // Disaring menurut jenis unitnya: bus tidak punya ban serep
         // sebagaimana mobil, dan ceklis yang memuat bagian tak berlaku hanya
         // akan diisi "Baik" tanpa pernah benar-benar diperiksa.
-        $bagian = \App\Support\Pemeriksaan::kunci($kendaraan->type);
+        $bagian = Pemeriksaan::kunci($kendaraan->type);
         $kondisi = implode(',', array_keys(config('orcha.kondisi_pemeriksaan')));
 
         $data = $request->validate([

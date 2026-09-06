@@ -226,7 +226,7 @@ test('kursi terpakai dihitung sekali untuk seluruh halaman, bukan per baris', fu
 
         DB::enableQueryLog();
 
-        App\Models\PaketWisata\TravelPackage::denganKursiTerpakai()->get()
+        TravelPackage::denganKursiTerpakai()->get()
             ->each(function ($paket) {
                 // Persis yang dilakukan resource API: keduanya dibaca.
                 $paket->kursi_terpakai;
@@ -259,7 +259,7 @@ test('paket tanpa pendaftaran juga tidak menambah query', function () {
 
     DB::enableQueryLog();
 
-    App\Models\PaketWisata\TravelPackage::denganKursiTerpakai()->get()
+    TravelPackage::denganKursiTerpakai()->get()
         ->each(fn ($paket) => $paket->kursi_terpakai);
 
     $n = count(DB::getQueryLog());
@@ -299,7 +299,7 @@ test('kuota diperiksa ulang di dalam transaksi, bukan hanya saat validasi', func
 test('paket tanpa kuota tidak ikut dikunci', function () {
     // Paket tanpa kuota tidak punya batas yang bisa dilanggar; menguncinya
     // hanya membuat pendaftaran saling menunggu tanpa alasan.
-    $paket = App\Models\PaketWisata\TravelPackage::create([
+    $paket = TravelPackage::create([
         'name' => 'Tanpa Kuota', 'category' => 'open_trip',
         'price' => 500000, 'status' => 'terbit',
     ]);

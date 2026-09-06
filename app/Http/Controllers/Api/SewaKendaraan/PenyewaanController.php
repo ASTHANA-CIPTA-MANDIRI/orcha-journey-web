@@ -9,6 +9,7 @@ use App\Support\BerkasKwitansi;
 use App\Support\GambarWebp;
 use App\Support\KirimPemberitahuan;
 use App\Support\NotaSewa;
+use App\Support\Pemeriksaan;
 use App\Support\SalinanPelanggan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -301,7 +302,7 @@ class PenyewaanController extends ApiController
          | ketika penyewa membantah adanya kerusakan.
          */
         $bagian = array_unique(array_merge(
-            \App\Support\Pemeriksaan::kunci($penyewaan->kendaraan?->type),
+            Pemeriksaan::kunci($penyewaan->kendaraan?->type),
             array_keys($penyewaan->kondisi_awal ?? []),
             array_keys($penyewaan->kondisi_akhir ?? []),
         ));

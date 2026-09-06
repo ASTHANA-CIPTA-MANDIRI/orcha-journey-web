@@ -1,8 +1,12 @@
 <?php
 
 use App\Mail\PemberitahuanFormulir;
+use App\Models\OpenTrip\PembayaranDoku;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
+use App\Support\BerkasKwitansi;
+use App\Support\RincianBiaya;
+use App\Support\TerimaNotifikasiDoku;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Volt;
@@ -32,7 +36,7 @@ beforeEach(function () {
  */
 function bayarLewatGerbang(PendaftaranOpenTrip $pendaftaran, int $nominal = 500000): void
 {
-    App\Models\OpenTrip\PembayaranDoku::create([
+    PembayaranDoku::create([
         'invoice' => $pendaftaran->kode.'-DP-SURAT',
         'kode' => $pendaftaran->kode,
         'jenis' => 'dp',
@@ -42,7 +46,7 @@ function bayarLewatGerbang(PendaftaranOpenTrip $pendaftaran, int $nominal = 5000
         'status' => 'menunggu',
     ]);
 
-    App\Support\TerimaNotifikasiDoku::proses([
+    TerimaNotifikasiDoku::proses([
         'service' => ['id' => 'VIRTUAL_ACCOUNT'],
         'channel' => ['id' => 'VIRTUAL_ACCOUNT_BCA'],
         'transaction' => ['status' => 'SUCCESS', 'date' => now()->toIso8601String()],
@@ -184,7 +188,7 @@ test('pengajuan pembatalan mengirim surat dengan tanda terima pdf', function () 
  */
 
 test('hitungan biaya memecah harga satuan, dp, dan sisanya', function () {
-    $biaya = App\Support\RincianBiaya::untuk($this->paket, 3);
+    $biaya = RincianBiaya::untuk($this->paket, 3);
 
     expect($biaya['satuan_teks'])->toBe('Rp 1.430.000')
         ->and($biaya['orang'])->toBe(3)
@@ -199,13 +203,13 @@ test('hitungan biaya memecah harga satuan, dp, dan sisanya', function () {
 test('study tour memakai persentase dp-nya sendiri', function () {
     $this->paket->update(['category' => 'study_tour']);
 
-    expect(App\Support\RincianBiaya::untuk($this->paket->fresh(), 2)['dp_persen'])->toBe(25);
+    expect(RincianBiaya::untuk($this->paket->fresh(), 2)['dp_persen'])->toBe(25);
 });
 
 test('paket yang harganya belum diisi tidak dikarang angkanya', function () {
     $this->paket->update(['price' => 0]);
 
-    expect(App\Support\RincianBiaya::untuk($this->paket->fresh(), 2))->toBe([]);
+    expect(RincianBiaya::untuk($this->paket->fresh(), 2))->toBe([]);
 });
 
 test('lampiran pendaftaran berisi tagihan, bukan kwitansi', function () {
@@ -238,7 +242,7 @@ test('lampiran pendaftaran berisi tagihan, bukan kwitansi', function () {
 });
 
 test('halaman tagihan memuat asal-usul angkanya', function () {
-    $biaya = App\Support\RincianBiaya::untuk($this->paket, 2);
+    $biaya = RincianBiaya::untuk($this->paket, 2);
 
     $html = view('pdf.kwitansi', [
         'judul' => 'Rincian Biaya Pendaftaran',
@@ -319,7 +323,7 @@ test('kaki halaman publik memakai slogan', function () {
 });
 
 test('tanda terima pembayaran tetap tanpa tabel biaya', function () {
-    $isi = App\Support\BerkasKwitansi::buat('Tanda Terima Pembayaran', 'OT-1508-ABCD', ['Pemesan' => 'Siti']);
+    $isi = BerkasKwitansi::buat('Tanda Terima Pembayaran', 'OT-1508-ABCD', ['Pemesan' => 'Siti']);
 
     expect($isi)->not->toBeNull()
         ->and(substr($isi, 0, 5))->toBe('%PDF-');
@@ -571,7 +575,7 @@ test('surat memuat logo yang ikut terkirim, bukan tautan gambar luar', function 
 });
 
 test('kwitansi memakai stempel dan tanda tangan bila berkasnya ada', function () {
-    $isi = App\Support\BerkasKwitansi::buat('Uji', 'OT-0000-XXXX', ['Pemesan' => 'Siti']);
+    $isi = BerkasKwitansi::buat('Uji', 'OT-0000-XXXX', ['Pemesan' => 'Siti']);
 
     expect($isi)->not->toBeNull()
         ->and(substr($isi, 0, 5))->toBe('%PDF-')

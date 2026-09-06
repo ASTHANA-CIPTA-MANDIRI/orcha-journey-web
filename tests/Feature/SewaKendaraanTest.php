@@ -1,7 +1,16 @@
 <?php
 
+use App\Mail\PemberitahuanFormulir;
+use App\Models\OpenTrip\KonfirmasiPembayaran;
+use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Models\PaketWisata\TravelPackage;
 use App\Models\SewaKendaraan\Car;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
+use App\Support\NotaSewa;
+use App\Support\TagihanPesanan;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Volt\Volt;
 
 function buatMobil(array $ubah = []): Car
@@ -349,7 +358,7 @@ test('total tagihan menjumlahkan sewa dengan seluruh denda', function () {
 /* ------------- SURAT PEMESANAN & OTOMATISASI SERAH TERIMA ------------- */
 
 test('pemesanan sewa mengirim surat ke kantor dan penyewa', function () {
-    Illuminate\Support\Facades\Mail::fake();
+    Mail::fake();
     config()->set('orcha.email_pemberitahuan', 'halo@orchajourney.com');
 
     $mobil = buatMobil();
@@ -372,10 +381,10 @@ test('pemesanan sewa mengirim surat ke kantor dan penyewa', function () {
         ->call('pesan')
         ->assertHasNoErrors();
 
-    Illuminate\Support\Facades\Mail::assertSent(App\Mail\PemberitahuanFormulir::class,
+    Mail::assertSent(PemberitahuanFormulir::class,
         fn ($surat) => $surat->hasTo('halo@orchajourney.com') && $surat->untukPelanggan === false);
 
-    Illuminate\Support\Facades\Mail::assertSent(App\Mail\PemberitahuanFormulir::class, function ($surat) {
+    Mail::assertSent(PemberitahuanFormulir::class, function ($surat) {
         if (! $surat->untukPelanggan) {
             return false;
         }
@@ -393,7 +402,7 @@ test('pemesanan sewa mengirim surat ke kantor dan penyewa', function () {
 });
 
 test('memilih usulan menuliskan nama berikut alamatnya ke isian', function () {
-    Illuminate\Support\Facades\Http::fake(['*' => Illuminate\Support\Facades\Http::response([
+    Http::fake(['*' => Http::response([
         ['lat' => '-7.87', 'lon' => '110.40', 'name' => 'SMAN 1 Pleret',
             'display_name' => 'SMAN 1 Pleret, Jalan Nyi Truntum, Pleret, Bantul'],
     ])]);
@@ -416,7 +425,7 @@ test('memilih usulan menuliskan nama berikut alamatnya ke isian', function () {
 });
 
 test('usulan tanpa alamat tambahan tidak menuliskan namanya dua kali', function () {
-    Illuminate\Support\Facades\Http::fake(['*' => Illuminate\Support\Facades\Http::response([
+    Http::fake(['*' => Http::response([
         ['lat' => '-7.79', 'lon' => '110.36', 'display_name' => 'Borobudur'],
     ])]);
 
@@ -433,7 +442,7 @@ test('usulan tanpa alamat tambahan tidak menuliskan namanya dua kali', function 
 test('alamat yang kepanjangan dipotong agar tetap lolos pemeriksaan isian', function () {
     $panjang = 'Jalan '.str_repeat('Purwokerto Selatan ', 20);
 
-    Illuminate\Support\Facades\Http::fake(['*' => Illuminate\Support\Facades\Http::response([
+    Http::fake(['*' => Http::response([
         ['lat' => '-7.42', 'lon' => '109.23', 'display_name' => 'Terminal Bulupitu, '.$panjang.', Banyumas'],
     ])]);
 
@@ -487,12 +496,12 @@ test('pesanan baru menyimpan perincian estimasi, bukan cuma totalnya', function 
     $mobil->update(['price_per_day' => 999000]);
 
     // Tarifnya sudah naik; notanya tetap menceritakan harga yang dipesan
-    expect(App\Support\NotaSewa::untuk($sewa->fresh())['baris'][0]['nilai'])
+    expect(NotaSewa::untuk($sewa->fresh())['baris'][0]['nilai'])
         ->toBe('Rp 700.000');
 });
 
 test('berkas pesanan baru memuat perincian biaya, bukan satu angka saja', function () {
-    Illuminate\Support\Facades\Mail::fake();
+    Mail::fake();
     config()->set('orcha.email_pemberitahuan', 'halo@orchajourney.com');
 
     $mobil = buatMobil(['harga_sopir' => 150000]);
@@ -512,7 +521,7 @@ test('berkas pesanan baru memuat perincian biaya, bukan satu angka saja', functi
     // lalu menanyakannya lewat WhatsApp satu per satu. Perinciannya sudah ia
     // lihat di layar sebelum memesan; berkas yang cuma menulis totalnya justru
     // mencabut penjelasan yang tadi ada.
-    Illuminate\Support\Facades\Mail::assertSent(App\Mail\PemberitahuanFormulir::class, function ($surat) {
+    Mail::assertSent(PemberitahuanFormulir::class, function ($surat) {
         if (! $surat->untukPelanggan) {
             return false;
         }
@@ -539,8 +548,8 @@ test('pesanan lama tanpa perincian tetap dapat satu baris seperti sedia kala', f
         'estimasi_biaya' => 700000, 'status' => 'baru',
     ]);
 
-    expect(App\Support\NotaSewa::untuk($sewa)['baris'])->toHaveCount(1)
-        ->and(App\Support\NotaSewa::untuk($sewa)['baris'][0]['label'])->toBe('Biaya sewa');
+    expect(NotaSewa::untuk($sewa)['baris'])->toHaveCount(1)
+        ->and(NotaSewa::untuk($sewa)['baris'][0]['label'])->toBe('Biaya sewa');
 });
 
 test('perincian yang tidak lagi berjumlah sama dengan totalnya tidak dipakai', function () {
@@ -559,7 +568,7 @@ test('perincian yang tidak lagi berjumlah sama dengan totalnya tidak dipakai', f
         ],
     ]);
 
-    $nota = App\Support\NotaSewa::untuk($sewa);
+    $nota = NotaSewa::untuk($sewa);
 
     expect($nota['baris'])->toHaveCount(1)
         ->and($nota['baris'][0]['label'])->toBe('Biaya sewa')
@@ -581,14 +590,14 @@ test('berkas yang uangnya masih ditunggu memuat cara membayar', function () {
     // yang capnya jelas-jelas "Belum Dibayar" — malah diberi kalimat kwitansi
     // lunas: "simpan berkas ini sampai perjalanan selesai", tanpa sepatah pun
     // tentang cara membayarnya.
-    $isi = Illuminate\Support\Facades\Blade::render(
+    $isi = Blade::render(
         file_get_contents(resource_path('views/pdf/kwitansi.blade.php')),
         [
             'judul' => 'Rincian Pemesanan Sewa Kendaraan', 'kode' => $sewa->kode,
             'rincian' => ['Penyewa' => $sewa->nama], 'catatan' => null,
             'jumlah' => 'Rp 700.000', 'jumlahLabel' => 'Estimasi biaya sewa',
             'capStatus' => 'Belum Dibayar', 'biaya' => [], 'tagihan' => [],
-            'nota' => App\Support\NotaSewa::untuk($sewa), 'keadaan' => [], 'caraBayar' => true,
+            'nota' => NotaSewa::untuk($sewa), 'keadaan' => [], 'caraBayar' => true,
         ]
     );
 
@@ -598,17 +607,17 @@ test('berkas yang uangnya masih ditunggu memuat cara membayar', function () {
 });
 
 test('tanda terima pembayaran memuat posisi tagihan, bukan cuma nominalnya', function () {
-    $paket = App\Models\PaketWisata\TravelPackage::create([
+    $paket = TravelPackage::create([
         'name' => 'Open Trip Banyuwangi', 'category' => 'open_trip', 'price' => 1430000,
         'tanggal_berangkat' => now()->addMonth()->toDateString(),
     ]);
 
-    $pendaftaran = App\Models\OpenTrip\PendaftaranOpenTrip::create([
+    $pendaftaran = PendaftaranOpenTrip::create([
         'travel_package_id' => $paket->id, 'nama_paket' => $paket->name,
         'nama' => 'Siti', 'whatsapp' => '0812', 'jumlah_peserta' => 2,
     ]);
 
-    $tagihan = App\Support\TagihanPesanan::untuk($pendaftaran);
+    $tagihan = TagihanPesanan::untuk($pendaftaran);
 
     $html = view('pdf.kwitansi', [
         'judul' => 'Tanda Terima Pembayaran', 'kode' => $pendaftaran->kode,
@@ -675,7 +684,7 @@ test('sisa tagihan sewa ikut menghitung dendanya, bukan biaya sewanya saja', fun
         'denda_kerusakan' => 650000, 'status' => 'berjalan',
     ]);
 
-    App\Models\OpenTrip\KonfirmasiPembayaran::create([
+    KonfirmasiPembayaran::create([
         'kode' => $sewa->kode, 'jenis' => 'dp', 'nominal' => 90000,
         'tanggal_transfer' => '2026-09-09', 'bank_pengirim' => 'BCA',
         'atas_nama_pengirim' => 'Budi', 'status' => 'diterima',
@@ -690,7 +699,7 @@ test('sisa tagihan sewa ikut menghitung dendanya, bukan biaya sewanya saja', fun
      | menyebut Rp 210.000 — dua angka untuk satu tagihan yang sama, di layar
      | yang sama.
      */
-    $tagihan = App\Support\TagihanPesanan::untuk($sewa->fresh(), hanyaDiterima: true);
+    $tagihan = TagihanPesanan::untuk($sewa->fresh(), hanyaDiterima: true);
 
     expect($tagihan['total'])->toBe(2150000)
         ->and($tagihan['sudah'])->toBe(90000)
@@ -709,7 +718,7 @@ test('pembayaran yang diterima dipecah menurut jenisnya', function () {
         'estimasi_biaya' => 3000000, 'status' => 'berjalan',
     ]);
 
-    $bukti = fn (array $u) => App\Models\OpenTrip\KonfirmasiPembayaran::create(array_merge([
+    $bukti = fn (array $u) => KonfirmasiPembayaran::create(array_merge([
         'kode' => $sewa->kode, 'tanggal_transfer' => '2026-09-09',
         'bank_pengirim' => 'BCA', 'atas_nama_pengirim' => 'Budi', 'status' => 'diterima',
     ], $u));
@@ -720,7 +729,7 @@ test('pembayaran yang diterima dipecah menurut jenisnya', function () {
     // Yang belum dicek belum uang: tidak boleh ikut mengurangi tagihan
     $bukti(['jenis' => 'pelunasan', 'nominal' => 999000, 'status' => 'menunggu']);
 
-    $perJenis = collect(App\Support\TagihanPesanan::diterimaPerJenis($sewa->fresh()))
+    $perJenis = collect(TagihanPesanan::diterimaPerJenis($sewa->fresh()))
         ->keyBy('jenis');
 
     expect($perJenis)->toHaveCount(2)
@@ -783,7 +792,7 @@ test('nota mengurangi pembayaran yang sudah diterima, bukan menagih penuh', func
         'denda_kerusakan' => 650000, 'status' => 'dp_masuk',
     ]);
 
-    App\Models\OpenTrip\KonfirmasiPembayaran::create([
+    KonfirmasiPembayaran::create([
         'kode' => $sewa->kode, 'jenis' => 'dp', 'nominal' => 90000,
         'tanggal_transfer' => '2026-08-16', 'bank_pengirim' => 'BCA',
         'atas_nama_pengirim' => 'Budi', 'status' => 'diterima',
@@ -795,7 +804,7 @@ test('nota mengurangi pembayaran yang sudah diterima, bukan menagih penuh', func
      | membayar DP untuk kedua kalinya. Itu bukan salah paham yang bisa
      | diluruskan belakangan; nota adalah dokumen yang ia pegang.
      */
-    $nota = App\Support\NotaSewa::untuk($sewa->fresh());
+    $nota = NotaSewa::untuk($sewa->fresh());
 
     expect($nota['total'])->toBe('Rp 2.150.000')
         ->and($nota['sudah'])->toBe(90000)
@@ -816,7 +825,7 @@ test('bukti yang masih menunggu dicek tidak mengurangi nota', function () {
         'estimasi_biaya' => 300000, 'status' => 'baru',
     ]);
 
-    App\Models\OpenTrip\KonfirmasiPembayaran::create([
+    KonfirmasiPembayaran::create([
         'kode' => $sewa->kode, 'jenis' => 'dp', 'nominal' => 90000,
         'tanggal_transfer' => '2026-09-09', 'bank_pengirim' => 'BCA',
         'atas_nama_pengirim' => 'Budi', 'status' => 'menunggu',
@@ -824,7 +833,7 @@ test('bukti yang masih menunggu dicek tidak mengurangi nota', function () {
 
     // Mengurangkannya berarti mengakui pembayaran berdasarkan gambar yang belum
     // diperiksa siapa pun — dan nota adalah dokumen resmi.
-    $nota = App\Support\NotaSewa::untuk($sewa->fresh());
+    $nota = NotaSewa::untuk($sewa->fresh());
 
     expect($nota['pembayaran'])->toBeEmpty()
         ->and($nota['sudah'])->toBe(0);
@@ -887,7 +896,7 @@ test('nota akhir menjumlahkan biaya sewa dengan seluruh denda', function () {
         'denda_kerusakan' => 900000, 'denda_lain' => 50000, 'status' => 'selesai',
     ]);
 
-    $nota = App\Support\NotaSewa::untuk($sewa);
+    $nota = NotaSewa::untuk($sewa);
 
     // Sebelumnya denda hanya jadi baris keterangan dan tidak pernah dijumlahkan
     expect($nota['total'])->toBe('Rp 1.800.000')
@@ -897,12 +906,12 @@ test('nota akhir menjumlahkan biaya sewa dengan seluruh denda', function () {
 
     // Denda yang nol tidak ikut ditampilkan
     $sewa->update(['denda_lain' => 0]);
-    expect(App\Support\NotaSewa::untuk($sewa->fresh())['baris'])
+    expect(NotaSewa::untuk($sewa->fresh())['baris'])
         ->toHaveCount(3);
 });
 
 test('unit yang kembali mengirim nota akhir ke penyewa', function () {
-    Illuminate\Support\Facades\Mail::fake();
+    Mail::fake();
     config()->set('orcha.email_pemberitahuan', 'halo@orchajourney.com');
     config()->set('orcha.api.kunci', 'kunci-uji');
     config()->set('orcha.api.ip_diizinkan', []);
@@ -927,7 +936,7 @@ test('unit yang kembali mengirim nota akhir ke penyewa', function () {
         'Accept' => 'application/json',
     ])->assertOk();
 
-    Illuminate\Support\Facades\Mail::assertSent(App\Mail\PemberitahuanFormulir::class, function ($surat) {
+    Mail::assertSent(PemberitahuanFormulir::class, function ($surat) {
         if (! $surat->untukPelanggan) {
             return false;
         }

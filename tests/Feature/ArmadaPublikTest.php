@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\SewaKendaraan\Car;
+use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use Livewire\Volt\Volt;
 
 /**
@@ -55,7 +56,7 @@ test('bus tidak bisa dipesan lepas kunci walau permintaannya dirakit tangan', fu
     // Menyembunyikan pilihannya di layar tidak cukup — dialog bukan pengaman.
     $uji->call('pesan')->assertHasErrors('denganSopir');
 
-    expect(App\Models\SewaKendaraan\PenyewaanKendaraan::count())->toBe(0);
+    expect(PenyewaanKendaraan::count())->toBe(0);
 });
 
 test('unit lepas kunci tetap bisa dipesan tanpa sopir', function () {
@@ -69,7 +70,7 @@ test('unit lepas kunci tetap bisa dipesan tanpa sopir', function () {
 
     $uji->call('pesan')->assertHasNoErrors();
 
-    expect(App\Models\SewaKendaraan\PenyewaanKendaraan::first()->dengan_sopir)->toBeFalse();
+    expect(PenyewaanKendaraan::first()->dengan_sopir)->toBeFalse();
 });
 
 test('mobil yang admin tandai selalu dengan sopir ikut ditolak', function () {

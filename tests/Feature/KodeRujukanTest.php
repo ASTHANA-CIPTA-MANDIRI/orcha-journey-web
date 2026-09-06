@@ -6,6 +6,7 @@ use App\Models\Rujukan\KodeRujukan;
 use App\Support\RincianBiaya;
 use App\Support\Rujukan;
 use App\Support\TagihanPesanan;
+use Livewire\Volt\Volt;
 
 /**
  * Kode rujukan: alumni trip yang membawa pendaftaran baru.
@@ -322,7 +323,7 @@ test('kode yang dipakai langsung menurunkan harga di layar', function () {
     $kode = kodeMilik('Budi', '081234567890');
     $paket = paketRujukan();
 
-    $halaman = Livewire\Volt\Volt::test('public.open-trip.pendaftaran')
+    $halaman = Volt::test('public.open-trip.pendaftaran')
         ->set('paketId', $paket->uuid)
         ->set('jumlahPeserta', 2);
 
@@ -342,7 +343,7 @@ test('kode salah ketik ditegur di layar, bukan dibuang diam-diam', function () {
      */
     $paket = paketRujukan();
 
-    Livewire\Volt\Volt::test('public.open-trip.pendaftaran')
+    Volt::test('public.open-trip.pendaftaran')
         ->set('paketId', $paket->uuid)
         ->set('nama', 'Pendaftar Uji')
         ->set('whatsapp', '081200000000')
@@ -359,7 +360,7 @@ test('formulir tanpa kode rujukan tetap bisa dikirim', function () {
     // kotak yang menghapus pendaftaran.
     $paket = paketRujukan();
 
-    Livewire\Volt\Volt::test('public.open-trip.pendaftaran')
+    Volt::test('public.open-trip.pendaftaran')
         ->set('paketId', $paket->uuid)
         ->set('nama', 'Pendaftar Uji')
         ->set('whatsapp', '081200000000')

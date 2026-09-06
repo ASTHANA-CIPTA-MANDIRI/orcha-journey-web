@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Blog\Artikel;
+use App\Models\Blog\KategoriArtikel;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -314,25 +315,25 @@ test('kategori yang masih dipakai artikel tidak bisa dihapus', function () {
      | rubriknya tidak menimbulkan galat apa pun. Yang terjadi lebih buruk:
      | artikelnya kehilangan rubrik tanpa satu pun pesan.
      */
-    $kategori = \App\Models\Blog\KategoriArtikel::where('slug', 'panduan')->firstOrFail();
+    $kategori = KategoriArtikel::where('slug', 'panduan')->firstOrFail();
     artikelApi(['kategori' => 'panduan']);
 
     $this->deleteJson("/api/v1/kategori-artikel/{$kategori->id}", [], $this->kepala)
         ->assertStatus(422);
 
-    expect(\App\Models\Blog\KategoriArtikel::find($kategori->id))->not->toBeNull();
+    expect(KategoriArtikel::find($kategori->id))->not->toBeNull();
 });
 
 test('kategori yang tidak dipakai bisa dihapus', function () {
-    $kategori = \App\Models\Blog\KategoriArtikel::where('slug', 'kabar')->firstOrFail();
+    $kategori = KategoriArtikel::where('slug', 'kabar')->firstOrFail();
 
     $this->deleteJson("/api/v1/kategori-artikel/{$kategori->id}", [], $this->kepala)->assertOk();
 
-    expect(\App\Models\Blog\KategoriArtikel::find($kategori->id))->toBeNull();
+    expect(KategoriArtikel::find($kategori->id))->toBeNull();
 });
 
 test('tab kategori di halaman blog ikut kategori tabel, bukan config', function () {
-    \App\Models\Blog\KategoriArtikel::create(['nama' => 'Kuliner Lokal', 'slug' => 'kuliner-lokal']);
+    KategoriArtikel::create(['nama' => 'Kuliner Lokal', 'slug' => 'kuliner-lokal']);
 
     $this->get(route('blog'))->assertOk()->assertSee('Kuliner Lokal');
 });

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\JejakAudit;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\DaftarTunggu;
 use App\Models\PaketWisata\TravelPackage;
@@ -307,7 +308,7 @@ test('antrean bisa dikeluarkan lewat api', function () {
 
     expect(DaftarTunggu::count())->toBe(0)
         // Perubahannya tercatat seperti perubahan lain.
-        ->and(App\Models\JejakAudit::where('aksi', 'keluarkan dari daftar tunggu')->exists())->toBeTrue();
+        ->and(JejakAudit::where('aksi', 'keluarkan dari daftar tunggu')->exists())->toBeTrue();
 });
 
 test('tanpa kunci api ditolak', function () {

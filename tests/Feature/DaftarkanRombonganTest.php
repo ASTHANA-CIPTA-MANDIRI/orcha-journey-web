@@ -1,7 +1,10 @@
 <?php
 
+use App\Models\JejakAudit;
+use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
+use App\Support\TagihanPesanan;
 
 /**
  * Mendaftarkan rombongan dari sisi admin.
@@ -182,7 +185,7 @@ test('pendaftarannya ikut tercatat di jejak audit', function () {
 
     $this->postJson('/api/v1/pendaftaran', isianRombongan($paket), kepalaRombongan());
 
-    expect(\App\Models\JejakAudit::where('aksi', 'daftarkan rombongan dari admin')->exists())
+    expect(JejakAudit::where('aksi', 'daftarkan rombongan dari admin')->exists())
         ->toBeTrue();
 });
 
@@ -212,7 +215,7 @@ test('study tour memakai persentase DP-nya sendiri', function () {
         isianRombongan($paket, ['jumlah_peserta' => 40, 'harga_jual' => 500000]),
         kepalaRombongan());
 
-    $tagihan = \App\Support\TagihanPesanan::untuk(PendaftaranOpenTrip::first());
+    $tagihan = TagihanPesanan::untuk(PendaftaranOpenTrip::first());
 
     expect($tagihan['dp_persen'])->toBe(25)
         ->and($tagihan['total'])->toBe(40 * 500000)
@@ -230,7 +233,7 @@ test('private trip tetap memakai DP bawaan', function () {
     $this->postJson('/api/v1/pendaftaran',
         isianRombongan($paket, ['harga_jual' => 500000]), kepalaRombongan());
 
-    expect(\App\Support\TagihanPesanan::untuk(PendaftaranOpenTrip::first())['dp_persen'])
+    expect(TagihanPesanan::untuk(PendaftaranOpenTrip::first())['dp_persen'])
         ->toBe(30);
 });
 
@@ -253,14 +256,14 @@ test('sekolah bisa mencicil lebih dari dua kali', function () {
     $daftar = PendaftaranOpenTrip::first();
 
     foreach ([2000000, 1500000, 1500000] as $nominal) {
-        \App\Models\OpenTrip\KonfirmasiPembayaran::create([
+        KonfirmasiPembayaran::create([
             'kode' => $daftar->kode, 'jenis' => 'dp', 'nominal' => $nominal,
             'tanggal_transfer' => now()->toDateString(), 'bank_pengirim' => 'BCA',
             'atas_nama_pengirim' => 'Panitia Sekolah', 'status' => 'diterima',
         ]);
     }
 
-    $tagihan = \App\Support\TagihanPesanan::untuk($daftar->fresh(), hanyaDiterima: true);
+    $tagihan = TagihanPesanan::untuk($daftar->fresh(), hanyaDiterima: true);
 
     expect($tagihan['total'])->toBe(5000000)
         ->and($tagihan['sudah'])->toBe(5000000)
@@ -294,7 +297,7 @@ test('guru pendamping ikut berangkat tetapi tidak ditagih', function () {
     expect($daftar->jumlah_peserta)->toBe(42)
         ->and($daftar->peserta_dibayar)->toBe(40)
         ->and($daftar->omzet)->toBe(40 * 500000)
-        ->and(\App\Support\TagihanPesanan::untuk($daftar)['total'])->toBe(40 * 500000);
+        ->and(TagihanPesanan::untuk($daftar)['total'])->toBe(40 * 500000);
 });
 
 test('pendamping gratis tidak boleh sebanyak seluruh rombongan', function () {

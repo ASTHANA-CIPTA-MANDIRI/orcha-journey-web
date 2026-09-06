@@ -3,10 +3,11 @@
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
 use App\Support\PaketWisata\ItineraryTeks;
+use Database\Seeders\TravelPackageSeeder;
 use Livewire\Volt\Volt;
 
 beforeEach(function () {
-    (new Database\Seeders\TravelPackageSeeder)->run();
+    (new TravelPackageSeeder)->run();
 
     $this->banyuwangi = TravelPackage::where('name', 'Open Trip Banyuwangi')->firstOrFail();
 });

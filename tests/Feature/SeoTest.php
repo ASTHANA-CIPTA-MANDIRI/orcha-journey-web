@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Etalase\DestinationPopuler;
 use App\Models\PaketWisata\TravelPackage;
 use App\Support\Seo;
 
@@ -292,7 +293,7 @@ test('kedua pelacak memakai penjagaan yang sama, tidak mungkin salah satu lolos'
  */
 
 test('halaman paket memakai nama paketnya sendiri, bukan judul beranda', function () {
-    $paket = App\Models\PaketWisata\TravelPackage::create([
+    $paket = TravelPackage::create([
         'name' => 'Open Trip Bromo Midnight',
         'category' => 'open_trip',
         'price' => 750000,
@@ -321,7 +322,7 @@ test('halaman paket memakai nama paketnya sendiri, bukan judul beranda', functio
 });
 
 test('halaman paket mengirim harga sebagai data, bukan hanya kalimat', function () {
-    $paket = App\Models\PaketWisata\TravelPackage::create([
+    $paket = TravelPackage::create([
         'name' => 'Private Trip Dieng',
         'category' => 'private_trip',
         'price' => 1250000,
@@ -343,7 +344,7 @@ test('halaman paket mengirim harga sebagai data, bukan hanya kalimat', function 
 });
 
 test('tiap destinasi punya halaman dan judulnya sendiri', function () {
-    $destinasi = App\Models\Etalase\DestinationPopuler::create([
+    $destinasi = DestinationPopuler::create([
         'destination_name' => 'Raja Ampat',
         'wilayah' => 'papua',
         'provinsi' => 'Papua Barat Daya',
@@ -368,7 +369,7 @@ test('tiap destinasi punya halaman dan judulnya sendiri', function () {
 });
 
 test('slug destinasi tidak berubah saat namanya disunting', function () {
-    $destinasi = App\Models\Etalase\DestinationPopuler::create([
+    $destinasi = DestinationPopuler::create([
         'destination_name' => 'Pantai Indrayanti',
         'wilayah' => 'jawa',
     ]);
@@ -386,13 +387,13 @@ test('slug destinasi tidak berubah saat namanya disunting', function () {
 });
 
 test('destinasi bernama sama tetap dapat alamat masing-masing', function () {
-    $satu = App\Models\Etalase\DestinationPopuler::create([
+    $satu = DestinationPopuler::create([
         'destination_name' => 'Pantai Selatan', 'wilayah' => 'jawa',
     ]);
 
     // Dua tempat boleh bernama sama di kabupaten yang berbeda. Tanpa akhiran
     // angka, yang kedua ditolak kunci unik saat admin menekan simpan.
-    $dua = App\Models\Etalase\DestinationPopuler::create([
+    $dua = DestinationPopuler::create([
         'destination_name' => 'Pantai Selatan', 'wilayah' => 'jawa',
     ]);
 
@@ -401,7 +402,7 @@ test('destinasi bernama sama tetap dapat alamat masing-masing', function () {
 });
 
 test('nama destinasi di daftar bisa diikuti mesin pencari', function () {
-    $destinasi = App\Models\Etalase\DestinationPopuler::create([
+    $destinasi = DestinationPopuler::create([
         'destination_name' => 'Kawah Ijen', 'wilayah' => 'jawa',
     ]);
 
@@ -417,7 +418,7 @@ test('nama destinasi di daftar bisa diikuti mesin pencari', function () {
 });
 
 test('peta situs memuat tiap destinasi', function () {
-    $destinasi = App\Models\Etalase\DestinationPopuler::create([
+    $destinasi = DestinationPopuler::create([
         'destination_name' => 'Labuan Bajo', 'wilayah' => 'nusa-tenggara',
     ]);
 

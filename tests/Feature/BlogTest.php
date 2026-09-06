@@ -343,9 +343,18 @@ test('gaya tempelan tidak membajak tampilan artikel', function () {
     $html = $this->get(route('blog.detail', $artikel))->assertOk()->getContent();
 
     expect($html)->toContain('Kutipan tertempel.')
-        // Warna, latar, dan jenis huruf urusan situs — bukan urusan tempelan.
-        ->not->toContain('background-color')
-        ->not->toContain('color: rgb')
+        /*
+         | Diperiksa lewat DEKLARASI yang ditempel, bukan lewat nama sifatnya.
+         |
+         | Versi lama uji ini menuntut seluruh dokumen tidak memuat kata
+         | "background-color" — kebetulan benar saat ditulis, lalu merah
+         | begitu Livewire mulai menyuntikkan lembar gayanya sendiri
+         | (dialog#livewire-error::backdrop). Yang gagal bukan penyaringnya
+         | melainkan ujinya, dan uji yang merah karena hal di luar
+         | jangkauannya mengajari orang berikutnya untuk memelonggarkannya.
+         */
+        ->not->toContain('background-color: rgb(255,255,255)')
+        ->not->toContain('color: rgb(58,63,74)')
         ->not->toContain('font-family: Arial')
         // Perataan teks keputusan penulis, jadi dipertahankan.
         ->toContain('text-align: center');

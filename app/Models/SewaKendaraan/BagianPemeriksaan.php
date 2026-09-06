@@ -2,6 +2,7 @@
 
 namespace App\Models\SewaKendaraan;
 
+use App\Support\Pemeriksaan;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -43,8 +44,8 @@ class BagianPemeriksaan extends Model
          */
         // Pembacaan diingat sepanjang satu permintaan; begitu barisnya berubah
         // ingatan itu dibuang, supaya satu permintaan tidak membaca dua keadaan.
-        static::saved(fn () => \App\Support\Pemeriksaan::lupakan());
-        static::deleted(fn () => \App\Support\Pemeriksaan::lupakan());
+        static::saved(fn () => Pemeriksaan::lupakan());
+        static::deleted(fn () => Pemeriksaan::lupakan());
 
         static::creating(function (self $bagian) {
             if (blank($bagian->kunci)) {

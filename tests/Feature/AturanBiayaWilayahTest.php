@@ -2,6 +2,7 @@
 
 use App\Models\SewaKendaraan\Car;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
+use Illuminate\Testing\TestResponse;
 use Livewire\Volt\Volt;
 
 /**
@@ -159,7 +160,7 @@ test('surat menyebut aturan wilayah pesanannya', function () {
 
 /* -------- API -------- */
 
-function kirimUnit(array $isi): \Illuminate\Testing\TestResponse
+function kirimUnit(array $isi): TestResponse
 {
     config()->set('orcha.api.kunci', 'kunci-uji');
     config()->set('orcha.api.ip_diizinkan', []);

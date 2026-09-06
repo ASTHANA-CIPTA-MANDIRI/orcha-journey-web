@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use App\Mail\PemberitahuanFormulir;
+use App\Models\JejakAudit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -126,10 +128,10 @@ class KirimPemberitahuan
     private static function catatGagal(string $judul, string $kode, \Throwable $e): void
     {
         try {
-            $permintaan = \Illuminate\Http\Request::create('/', 'POST');
+            $permintaan = Request::create('/', 'POST');
             $permintaan->attributes->set('admin_pemanggil', 'Sistem');
 
-            \App\Models\JejakAudit::catat(
+            JejakAudit::catat(
                 $permintaan,
                 'surat gagal terkirim',
                 'Surat "'.$judul.'" gagal terkirim. Pelanggan kemungkinan besar '

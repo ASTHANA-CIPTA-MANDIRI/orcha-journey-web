@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\PaketWisata;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Models\PaketWisata\DaftarTunggu;
+use App\Models\PaketWisata\TravelPackage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -61,7 +62,7 @@ class DaftarTungguController extends ApiController
             ])->all(),
             [
                 // Dipakai penyaring di layar admin.
-                'paket' => \App\Models\PaketWisata\TravelPackage::query()
+                'paket' => TravelPackage::query()
                     ->whereIn('id', DaftarTunggu::select('travel_package_id'))
                     ->pluck('name', 'id'),
 

@@ -2,8 +2,11 @@
 
 namespace App\Models\Rujukan;
 
+use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Support\KodePesanan;
+use App\Support\NomorTelepon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 /**
@@ -39,7 +42,7 @@ class KodeRujukan extends Model
     protected static function booted(): void
     {
         static::creating(function (self $rujukan) {
-            $rujukan->whatsapp = \App\Support\NomorTelepon::angka($rujukan->whatsapp);
+            $rujukan->whatsapp = NomorTelepon::angka($rujukan->whatsapp);
 
             if (blank($rujukan->kode)) {
                 do {
@@ -51,7 +54,7 @@ class KodeRujukan extends Model
         });
 
         static::updating(function (self $rujukan) {
-            $rujukan->whatsapp = \App\Support\NomorTelepon::angka($rujukan->whatsapp);
+            $rujukan->whatsapp = NomorTelepon::angka($rujukan->whatsapp);
         });
     }
 
@@ -90,9 +93,9 @@ class KodeRujukan extends Model
      * justru supaya tautan ini tetap sah — dan pendaftaran yang lama tetap
      * terhitung meski barisnya suatu saat dibuat ulang.
      */
-    public function pendaftaran(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function pendaftaran(): HasMany
     {
-        return $this->hasMany(\App\Models\OpenTrip\PendaftaranOpenTrip::class, 'kode_rujukan', 'kode');
+        return $this->hasMany(PendaftaranOpenTrip::class, 'kode_rujukan', 'kode');
     }
 
     public function scopeAktif($query)

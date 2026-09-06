@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\JejakAudit;
 use App\Models\PaketWisata\DaftarTunggu;
 use App\Models\PaketWisata\TravelPackage;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Hitungan daftar tunggu untuk penanda di bilah samping lemon.
@@ -115,7 +117,7 @@ test('penandaannya masuk jejak audit', function () {
 
     $this->postJson("/api/v1/daftar-tunggu/{$satu->id}/dihubungi", [], kepalaTunggu());
 
-    expect(\App\Models\JejakAudit::where('aksi', 'hubungi daftar tunggu')->exists())->toBeTrue();
+    expect(JejakAudit::where('aksi', 'hubungi daftar tunggu')->exists())->toBeTrue();
 });
 
 test('antrean kosong menjawab nol, bukan galat', function () {
@@ -239,7 +241,7 @@ test('daftarnya tetap tampil walau hitungan lencananya gagal', function () {
      */
     antre();
 
-    \Illuminate\Support\Facades\Schema::table('tbl_daftar_tunggu',
+    Schema::table('tbl_daftar_tunggu',
         fn ($t) => $t->dropColumn('dihubungi_pada'));
 
     $jawab = $this->getJson('/api/v1/daftar-tunggu', kepalaTunggu())->assertOk();
@@ -254,7 +256,7 @@ test('penanda menu juga tidak ikut roboh saat kolomnya belum ada', function () {
     // seluruh admin ikut mati, bukan cuma satu layar.
     antre();
 
-    \Illuminate\Support\Facades\Schema::table('tbl_daftar_tunggu',
+    Schema::table('tbl_daftar_tunggu',
         fn ($t) => $t->dropColumn('dihubungi_pada'));
 
     $this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTunggu())

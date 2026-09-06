@@ -5,6 +5,8 @@ namespace App\Console\Commands;
 use App\Models\Etalase\Testimoni;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Support\KirimPemberitahuan;
+use App\Support\RincianBiaya;
+use App\Support\Rujukan;
 use App\Support\SalinanPelanggan;
 use Illuminate\Console\Command;
 
@@ -99,7 +101,7 @@ class AjakTestimoni extends Command
          | tersendiri. Dua surat dalam dua hari untuk orang yang sama membuat
          | keduanya terbaca sebagai gangguan.
          */
-        $rujukan = \App\Support\Rujukan::untukAlumni($daftar);
+        $rujukan = Rujukan::untukAlumni($daftar);
 
         KirimPemberitahuan::kirim(
             'Ajakan Testimoni Terkirim',
@@ -138,9 +140,9 @@ class AjakTestimoni extends Command
                      */
                     .'Oh ya, ini kode rujukan Anda: '.$rujukan->kode.'. '
                     .'Teman yang mendaftar dengan kode ini dapat potongan '
-                    .\App\Support\RincianBiaya::rupiah(\App\Support\Rujukan::potongan())
+                    .RincianBiaya::rupiah(Rujukan::potongan())
                     .', dan Anda dapat '
-                    .\App\Support\RincianBiaya::rupiah(\App\Support\Rujukan::imbalan())
+                    .RincianBiaya::rupiah(Rujukan::imbalan())
                     .' untuk tiap pendaftaran yang memakainya.',
 
                 tautan: route('testimoni', ['kode' => $daftar->kode]),

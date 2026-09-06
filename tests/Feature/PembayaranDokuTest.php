@@ -1,11 +1,16 @@
 <?php
 
+use App\Http\Resources\OpenTrip\PembayaranResource;
+use App\Mail\PemberitahuanFormulir;
 use App\Mail\TagihanPembayaran;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\PembayaranDoku;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Services\DokuCheckout;
+use App\Support\KabarPembayaran;
+use App\Support\MulaiPembayaranDoku;
 use App\Support\TagihanPesanan;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Volt\Volt;
@@ -467,7 +472,7 @@ test('tagihan dikirim dari Orcha, bukan menunggu surel gerbang', function () {
     // Kotak kantor TIDAK ikut dikirimi. Tiap penekanan tombol bayar membuat
     // satu tagihan, termasuk yang ditinggalkan setengah jalan; kantor dikabari
     // saat uangnya benar-benar masuk, bukan saat halaman bayarnya dibuka.
-    Mail::assertNotSent(App\Mail\PemberitahuanFormulir::class);
+    Mail::assertNotSent(PemberitahuanFormulir::class);
 });
 
 test('faktur tagihan berbentuk faktur, bukan daftar pemberitahuan', function () {
@@ -811,7 +816,7 @@ test('catatan admin tidak ikut ke kwitansi pelanggan', function () {
         ->and($konfirmasi->catatan_admin)->toContain('Masuk sendiri lewat gerbang')
         ->and($konfirmasi->catatan_admin)->not->toContain('Nomor tagihan')
         // Tetapi tidak diteruskan ke berkas yang dibaca pelanggan.
-        ->and(App\Support\KabarPembayaran::catatanUntukPelanggan($konfirmasi))->toBeNull();
+        ->and(KabarPembayaran::catatanUntukPelanggan($konfirmasi))->toBeNull();
 });
 
 test('alasan penolakan tetap sampai ke pelanggan', function () {
@@ -831,7 +836,7 @@ test('alasan penolakan tetap sampai ke pelanggan', function () {
         'catatan_admin' => 'Nominalnya kurang Rp 50.000 dari uang muka.',
     ]);
 
-    expect(App\Support\KabarPembayaran::catatanUntukPelanggan($ditolak))
+    expect(KabarPembayaran::catatanUntukPelanggan($ditolak))
         ->toBe('Nominalnya kurang Rp 50.000 dari uang muka.');
 });
 
@@ -891,7 +896,7 @@ test('bukti transfer manual tetap dikirim tanpa rincian gerbang', function () {
 /** Isi kwitansi sebagai teks polos, supaya kalimatnya bisa diperiksa. */
 function kwitansiTeks(bool $lewatGerbang): string
 {
-    $html = Illuminate\Support\Facades\Blade::render(
+    $html = Blade::render(
         file_get_contents(resource_path('views/pdf/kwitansi.blade.php')),
         [
             'judul' => 'Tanda Terima Pembayaran',
@@ -973,7 +978,7 @@ test('admin menerima pecahan nominalnya, bukan satu angka gelondongan', function
     $bayar = pembayaranMenunggu($this->pendaftaran);
     kirimNotifikasi(badanSukses($bayar->invoice))->assertOk();
 
-    $data = (new App\Http\Resources\OpenTrip\PembayaranResource(
+    $data = (new PembayaranResource(
         KonfirmasiPembayaran::firstOrFail()
     ))->resolve();
 
@@ -1002,7 +1007,7 @@ test('bukti transfer manual tidak dikarang pecahannya', function () {
         'status' => 'diterima',
     ]);
 
-    $data = (new App\Http\Resources\OpenTrip\PembayaranResource($manual))->resolve();
+    $data = (new PembayaranResource($manual))->resolve();
 
     expect($data['kanal'])->toBe('transfer')
         ->and($data['rincian'])->toBeNull();
@@ -1355,8 +1360,8 @@ test('menekan bayar dua kali dalam jendelanya tidak melahirkan dua tautan', func
     Mail::fake();
     palsukanDokuBerurutan('https://sandbox.doku.com/bayar/a', 'https://sandbox.doku.com/bayar/b');
 
-    $pertama = App\Support\MulaiPembayaranDoku::untuk($this->pendaftaran, 'dp');
-    $kedua = App\Support\MulaiPembayaranDoku::untuk($this->pendaftaran->fresh(), 'dp');
+    $pertama = MulaiPembayaranDoku::untuk($this->pendaftaran, 'dp');
+    $kedua = MulaiPembayaranDoku::untuk($this->pendaftaran->fresh(), 'dp');
 
     expect($kedua->id)->toBe($pertama->id)
         ->and(PembayaranDoku::where('kode', $this->pendaftaran->kode)->count())->toBe(1)
@@ -1376,10 +1381,10 @@ test('setelah kedaluwarsa, halaman pembayaran memberi tautan yang benar-benar ba
     Mail::fake();
     palsukanDokuBerurutan('https://sandbox.doku.com/bayar/a', 'https://sandbox.doku.com/bayar/b');
 
-    $lama = App\Support\MulaiPembayaranDoku::untuk($this->pendaftaran, 'dp');
+    $lama = MulaiPembayaranDoku::untuk($this->pendaftaran, 'dp');
     $lama->update(['kedaluwarsa_pada' => now()->subMinute()]);
 
-    $baru = App\Support\MulaiPembayaranDoku::untuk($this->pendaftaran->fresh(), 'dp');
+    $baru = MulaiPembayaranDoku::untuk($this->pendaftaran->fresh(), 'dp');
 
     expect($baru->id)->not->toBe($lama->id)
         ->and($baru->invoice)->not->toBe($lama->invoice)
@@ -1396,7 +1401,7 @@ test('tagihan yang nominalnya sudah basi tidak disodorkan lagi', function () {
     Mail::fake();
     palsukanDokuBerurutan('https://sandbox.doku.com/bayar/a', 'https://sandbox.doku.com/bayar/c');
 
-    $lama = App\Support\MulaiPembayaranDoku::untuk($this->pendaftaran, 'dp');
+    $lama = MulaiPembayaranDoku::untuk($this->pendaftaran, 'dp');
 
     KonfirmasiPembayaran::create([
         'kode' => $this->pendaftaran->kode, 'jenis' => 'dp', 'nominal' => 200_000,
@@ -1404,7 +1409,7 @@ test('tagihan yang nominalnya sudah basi tidak disodorkan lagi', function () {
         'atas_nama_pengirim' => 'Budi', 'status' => 'diterima',
     ]);
 
-    $baru = App\Support\MulaiPembayaranDoku::untuk($this->pendaftaran->fresh(), 'dp');
+    $baru = MulaiPembayaranDoku::untuk($this->pendaftaran->fresh(), 'dp');
 
     expect($baru->id)->not->toBe($lama->id)
         ->and($baru->nominal_pokok)->not->toBe($lama->nominal_pokok);
@@ -1431,7 +1436,7 @@ test('tagihan tanpa url tidak pernah dipakai ulang', function () {
     ]);
 
     palsukanDokuBerurutan('https://sandbox.doku.com/bayar/d');
-    $baru = App\Support\MulaiPembayaranDoku::untuk($this->pendaftaran->fresh(), 'dp');
+    $baru = MulaiPembayaranDoku::untuk($this->pendaftaran->fresh(), 'dp');
 
     expect($baru->id)->not->toBe($rusak->id)
         ->and($baru->url)->toBe('https://sandbox.doku.com/bayar/d');
@@ -1478,12 +1483,12 @@ test('tautan berumur lebih panjang daripada aturan hari ini tidak dipakai ulang'
 
     palsukanDokuBerurutan('https://sandbox.doku.com/lama', 'https://sandbox.doku.com/baru');
 
-    $lama = App\Support\MulaiPembayaranDoku::untuk($this->pendaftaran, 'dp');
+    $lama = MulaiPembayaranDoku::untuk($this->pendaftaran, 'dp');
 
     // Umur lama: masih hidup, tetapi jauh melewati aturan hari ini.
     $lama->update(['kedaluwarsa_pada' => now()->addHours(23)]);
 
-    $baru = App\Support\MulaiPembayaranDoku::untuk($this->pendaftaran->fresh(), 'dp');
+    $baru = MulaiPembayaranDoku::untuk($this->pendaftaran->fresh(), 'dp');
 
     expect($baru->id)->not->toBe($lama->id)
         ->and($baru->url)->toBe('https://sandbox.doku.com/baru')
@@ -1499,8 +1504,8 @@ test('tautan yang umurnya sesuai aturan tetap dipakai ulang', function () {
 
     palsukanDokuBerurutan('https://sandbox.doku.com/lama', 'https://sandbox.doku.com/baru');
 
-    $pertama = App\Support\MulaiPembayaranDoku::untuk($this->pendaftaran, 'dp');
-    $kedua = App\Support\MulaiPembayaranDoku::untuk($this->pendaftaran->fresh(), 'dp');
+    $pertama = MulaiPembayaranDoku::untuk($this->pendaftaran, 'dp');
+    $kedua = MulaiPembayaranDoku::untuk($this->pendaftaran->fresh(), 'dp');
 
     expect($kedua->id)->toBe($pertama->id);
 });

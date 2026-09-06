@@ -3,13 +3,15 @@
 namespace App\Http\Resources\OpenTrip;
 
 use App\Models\OpenTrip\KonfirmasiPembayaran;
+use App\Models\OpenTrip\Pembatalan;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
+use App\Support\BerkasRahasia;
 use App\Support\PerkiraanPotongan;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @property \App\Models\OpenTrip\Pembatalan $resource
+ * @property Pembatalan $resource
  */
 class PembatalanResource extends JsonResource
 {
@@ -85,7 +87,7 @@ class PembatalanResource extends JsonResource
                     'tanggal_transfer' => $bayar->tanggal_transfer?->toDateString(),
                     'bank_pengirim' => $bayar->bank_pengirim,
                     'atas_nama_pengirim' => $bayar->atas_nama_pengirim,
-                    'bukti' => \App\Support\BerkasRahasia::tautan($bayar->bukti),
+                    'bukti' => BerkasRahasia::tautan($bayar->bukti),
                     'status' => $bayar->status,
                     'status_label' => $bayar->status_label,
                     'catatan_admin' => $bayar->catatan_admin,

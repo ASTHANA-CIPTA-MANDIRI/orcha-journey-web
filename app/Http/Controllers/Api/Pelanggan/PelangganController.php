@@ -10,6 +10,7 @@ use App\Support\NomorTelepon;
 use App\Support\Rujukan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -186,7 +187,7 @@ class PelangganController extends ApiController
                 $baris['email'] = $email;
             }
 
-            $waktu = $tanggal ? \Illuminate\Support\Carbon::parse($tanggal) : null;
+            $waktu = $tanggal ? Carbon::parse($tanggal) : null;
 
             if ($waktu && (! $baris['terakhir_pada'] || $waktu->gt($baris['terakhir_pada']))) {
                 $baris['terakhir_pada'] = $waktu;

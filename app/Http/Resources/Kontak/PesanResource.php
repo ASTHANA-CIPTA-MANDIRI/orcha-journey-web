@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @property \App\Models\Kontak\PesanKontak $resource
+ * @property PesanKontak $resource
  */
 class PesanResource extends JsonResource
 {

@@ -3,6 +3,9 @@
 namespace App\Models\OpenTrip;
 
 use App\Models\PaketWisata\TravelPackage;
+use App\Support\KodePesanan;
+use App\Support\RincianBiaya;
+use App\Support\Rujukan;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -82,7 +85,7 @@ class PendaftaranOpenTrip extends Model
         static::creating(function (self $pendaftaran) {
             if (blank($pendaftaran->kode)) {
                 do {
-                    $kode = \App\Support\KodePesanan::untuk('OT');
+                    $kode = KodePesanan::untuk('OT');
                 } while (static::where('kode', $kode)->exists());
 
                 $pendaftaran->kode = $kode;
@@ -107,7 +110,7 @@ class PendaftaranOpenTrip extends Model
                  | kenapa angkanya bergeser.
                  */
                 $pendaftaran->potongan_promo ??= (int) (
-                    \App\Support\RincianBiaya::untuk($paket, (int) $pendaftaran->jumlah_peserta)['promo_potongan'] ?? 0
+                    RincianBiaya::untuk($paket, (int) $pendaftaran->jumlah_peserta)['promo_potongan'] ?? 0
                 );
             }
 
@@ -125,7 +128,7 @@ class PendaftaranOpenTrip extends Model
              | Menyimpannya berarti daftar rujukan memuat kode-kode yang tidak
              | pernah sah, dan yang membaca laporan komisi nanti menghitungnya.
              */
-            $periksa = \App\Support\Rujukan::periksa($pendaftaran->kode_rujukan, $pendaftaran->whatsapp);
+            $periksa = Rujukan::periksa($pendaftaran->kode_rujukan, $pendaftaran->whatsapp);
 
             if (! $periksa['sah']) {
                 $pendaftaran->kode_rujukan = null;
@@ -148,8 +151,8 @@ class PendaftaranOpenTrip extends Model
              | disunting hari ini — dan yang menagih nanti orang yang mengingat
              | angka lain daripada yang tertulis di layar kita.
              */
-            $pendaftaran->potongan_rujukan ??= \App\Support\Rujukan::potongan();
-            $pendaftaran->imbalan_rujukan ??= \App\Support\Rujukan::imbalan();
+            $pendaftaran->potongan_rujukan ??= Rujukan::potongan();
+            $pendaftaran->imbalan_rujukan ??= Rujukan::imbalan();
         });
     }
 

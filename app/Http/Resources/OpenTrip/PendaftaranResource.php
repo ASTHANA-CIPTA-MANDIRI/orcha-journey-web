@@ -2,12 +2,13 @@
 
 namespace App\Http\Resources\OpenTrip;
 
+use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Support\PenandaAngsuran;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @property \App\Models\OpenTrip\PendaftaranOpenTrip $resource
+ * @property PendaftaranOpenTrip $resource
  */
 class PendaftaranResource extends JsonResource
 {
