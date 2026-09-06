@@ -1,6 +1,9 @@
 <?php
 
 use App\Models\Etalase\Testimoni;
+use App\Models\OpenTrip\KonfirmasiPembayaran;
+use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Support\LepaskanKursiTertahan;
 
 $halaman = [
     'testimoni',
@@ -152,4 +155,50 @@ test('pembayaran diarahkan ke halaman bayar, bukan percakapan', function () {
     $this->get(route('faq'))
         ->assertOk()
         ->assertSee(route('konfirmasi-pembayaran'), false);
+});
+
+test('ketentuan pembayaran menyebut pembatalan otomatis apa adanya', function () {
+    /*
+     | Kalimat lamanya cuma menulis "kursinya dilepas kembali untuk pemesan
+     | lain". Yang benar-benar terjadi lebih dari itu: LepaskanKursiTertahan
+     | mengubah status pemesanan menjadi 'batal'.
+     |
+     | Pelanggan yang kemudian membuka Lacak Pesanan membaca "Batal" — kata
+     | yang halaman ketentuan tidak pernah mempersiapkannya. Selisih sekecil
+     | itu berakhir sebagai pesan WhatsApp yang menanyakan apakah uangnya
+     | hangus.
+     */
+    $isi = $this->get(route('ketentuan-pembayaran'))->assertOk()->getContent();
+
+    expect($isi)->toContain('menjadi Batal')
+        // Penjagaannya ikut disebut, dan itu bagian yang paling menenangkan:
+        // yang sudah membayar tidak pernah ikut dilepas.
+        ->toContain('tidak pernah ikut dilepas');
+});
+
+test('yang sudah mengirim bukti tidak pernah ikut dilepas', function () {
+    /*
+     | Janji di halaman ketentuan dijaga oleh perilaku, bukan hanya oleh
+     | kalimat. Kalau penjagaan di LepaskanKursiTertahan hilang, halaman itu
+     | berubah jadi janji yang tidak ditepati kepada orang yang justru sedang
+     | berusaha membayar.
+     */
+    $lama = PendaftaranOpenTrip::create([
+        'nama' => 'Budi', 'whatsapp' => '081234567890', 'jumlah_peserta' => 1,
+        'nama_paket' => 'Open Trip Bromo', 'harga_jual' => 500000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString(), 'status' => 'baru',
+    ]);
+    $lama->forceFill(['created_at' => now()->subDays(5)])->save();
+
+    KonfirmasiPembayaran::create([
+        'kode' => $lama->kode, 'jenis' => 'dp', 'nominal' => 150000,
+        'tanggal_transfer' => now()->subDays(4)->toDateString(), 'bank_pengirim' => 'BCA',
+        'atas_nama_pengirim' => 'Budi', 'status' => 'ditolak',
+    ]);
+
+    LepaskanKursiTertahan::jalankan(false);
+
+    // Buktinya DITOLAK pun tidak membuatnya dilepas: jawabannya memperbaiki
+    // bukti itu, bukan kehilangan kursinya diam-diam.
+    expect($lama->fresh()->status)->toBe('baru');
 });

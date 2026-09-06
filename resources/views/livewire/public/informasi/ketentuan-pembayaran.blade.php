@@ -20,6 +20,19 @@ new #[Layout('components.layouts.guest')] #[Title('Ketentuan Pembayaran & DP —
          | Menyembunyikan tenggang tiga harinya akan membuat kalimatnya lebih
          | tegas tetapi tidak benar — dan yang membacanya justru orang yang
          | sedang menghitung kapan ia harus mentransfer.
+         |
+         | Kata "Batal" disebut terang-terangan, dan itu perbaikan atas kalimat
+         | lama yang cuma menulis "kursinya dilepas". Yang benar-benar terjadi
+         | di basis data adalah status pemesanan berubah menjadi batal — lihat
+         | LepaskanKursiTertahan — jadi pelanggan yang membuka Lacak Pesanan
+         | akan membaca "Batal", kata yang halaman ini tidak pernah
+         | mempersiapkannya. Selisih kecil semacam itu berakhir sebagai pesan
+         | WhatsApp yang menanyakan apakah uangnya hangus.
+         |
+         | Penjagaannya juga disebut, dan itu bagian yang paling menenangkan:
+         | yang pernah membayar atau pernah mengirim bukti TIDAK pernah ikut
+         | dilepas. Tanpa kalimat itu, orang yang mentransfer di jam ke-70
+         | menghabiskan tiga hari berikutnya mengira kursinya melayang.
          */
         $lepasJam = config('orcha.pembayaran.dp_lepas_jam');
         $lepasHari = (int) round($lepasJam / 24);
@@ -80,7 +93,8 @@ new #[Layout('components.layouts.guest')] #[Title('Ketentuan Pembayaran & DP —
                                 <tr><td>Sewa kendaraan</td><td>{$dp}% dari total sewa</td><td>{$batasDp} jam setelah konfirmasi</td></tr>
                             </tbody>
                         </table></div>
-                        <p>Bila uang muka tidak diterima dalam batas waktu di atas, kami masih menahan kursi Anda hingga <strong>{$lepasJam} jam</strong> ({$lepasHari} hari) sejak pemesanan. Lewat itu, kursinya dilepas kembali untuk pemesan lain secara otomatis dan kami kabari lewat email — pemesanan Anda bisa diulang selama kursinya masih tersedia.</p>
+                        <p>Bila uang muka tidak diterima dalam batas waktu di atas, kami masih menahan kursi Anda hingga <strong>{$lepasJam} jam</strong> ({$lepasHari} hari) sejak pemesanan. Lewat itu, pemesanan Anda <strong>berubah status menjadi Batal</strong> secara otomatis, kursinya dilepas untuk pemesan lain, dan kami kabari lewat email. Kode pemesanan yang lama tidak bisa dipakai lagi — untuk ikut, daftar ulang selama kursinya masih tersedia.</p>
+                        <p><strong>Sudah membayar tetapi belum tercatat?</strong> Pemesanan yang pembayarannya sudah masuk — atau yang buktinya sudah Anda kirim dan masih kami periksa, termasuk yang kami tolak — <strong>tidak pernah ikut dilepas</strong>, berapa pun lamanya. Yang dilepas hanya pemesanan yang tidak pernah ada pembayarannya sama sekali.</p>
                     ",
                 ],
                 [
