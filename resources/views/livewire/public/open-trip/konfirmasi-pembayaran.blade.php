@@ -1,23 +1,37 @@
 <?php
 
-use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
-use App\Support\GambarWebp;
-use App\Support\BerkasKwitansi;
-use App\Support\KirimPemberitahuan;
-use App\Support\SalinanPelanggan;
-use App\Support\TagihanPesanan;
+use App\Services\DokuCheckout;
+use App\Models\OpenTrip\Angsuran;
+use App\Support\MulaiPembayaranDoku;
+use App\Support\RencanaAngsuran;
 use App\Support\PemilikPesanan;
+use App\Support\TagihanPesanan;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
-use Livewire\WithFileUploads;
 
-new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orcha Journey')] class extends Component {
-    use WithFileUploads;
-
+/**
+ * Halaman pembayaran pelanggan.
+ *
+ * Dulu halaman ini sebuah formulir: pelanggan mentransfer sendiri ke rekening
+ * yang dikirim admin lewat WhatsApp, lalu mengunggah tangkapan layarnya untuk
+ * dicek manusia. Seluruh jalur itu SUDAH DICABUT dari sisi publik.
+ *
+ * Yang menggantikannya bukan hanya kenyamanan. Bukti unggahan cuma klaim —
+ * ia harus diperiksa satu per satu terhadap mutasi rekening, dan selama
+ * pemeriksaan itu kursi pelanggan menggantung. Pembayaran lewat gerbang
+ * memastikan uangnya sebelum halaman ini selesai memuat.
+ *
+ * Unggah bukti transfer tetap ada, tetapi HANYA DI SISI ADMIN (lemon):
+ * pelanggan yang kesulitan membayar daring ditolong lewat percakapan, dan
+ * admin yang mencatatkan pembayarannya sesudah mencocokkan mutasi sendiri.
+ * Itu sengaja bukan sesuatu yang bisa dikerjakan orang tanpa admin — bedanya
+ * persis di situ.
+ */
+new #[Layout('components.layouts.guest')] #[Title('Bayar Pesanan — Orcha Journey')] class extends Component {
     public string $kode = '';
 
     /**
@@ -27,95 +41,43 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
      */
     public string $empatDigit = '';
 
+    /** dp | pelunasan */
     public string $jenis = 'dp';
 
-    /*
-     | Dua properti untuk satu isian: yang dilihat pengguna bertitik
-     | ("500.000"), yang divalidasi dan disimpan angka polosnya. Memaksakan
-     | satu properti berarti aturan `numeric` menolak titik pemisahnya.
-     */
-    public string $nominalTeks = '';
-
-    public $nominal = '';
-
-    public string $tanggalTransfer = '';
-
-    public string $bankPengirim = '';
-
-    public string $atasNamaPengirim = '';
-
-    public $bukti;
-
-    public string $catatan = '';
-
-    public bool $setuju = false;
-
-    /** Perangkap bot. */
-    public string $situs = '';
-
-    public bool $terkirim = false;
+    /** Begitu pelanggan memilih sendiri, sistem berhenti menebak. */
+    public bool $jenisDipilihSendiri = false;
 
     /**
-     * Nominal terakhir yang diisikan sistem.
+     * Kegagalan saat membuka halaman DOKU, untuk ditampilkan apa adanya.
      *
-     * Dipakai membedakan angka usulan dari angka ketikan pelanggan: yang
-     * kedua tidak pernah ditimpa.
+     * Sengaja tidak lewat addError(): ini bukan kesalahan pengisian yang
+     * menempel pada satu kolom, melainkan kabar bahwa gerbangnya tidak bisa
+     * dihubungi. Menggantungkannya di bawah salah satu isian membuat orang
+     * mengira ada yang salah dengan ketikannya.
      */
-    public ?int $nominalOtomatis = null;
+    public string $galatBayar = '';
 
-    /** Begitu pelanggan memilih jenisnya sendiri, sistem berhenti menebak. */
-    public bool $jenisDipilihSendiri = false;
+    /**
+     * Tagihan yang sudah dibuka di DOKU dan menunggu dilanjutkan pelanggan.
+     *
+     * Diisi bayar(), lalu digambar sebagai panel konfirmasi. Halaman TIDAK
+     * langsung melompat ke DOKU, dan itu disengaja: kode uniknya baru
+     * ditempelkan pada saat ini, dan pelanggan berhak melihat angka akhirnya
+     * berikut asal-usulnya selagi masih di situs kami — bukan mendadak
+     * menemukan nominal yang berbeda dari yang ia tekan, di halaman milik
+     * pihak lain.
+     *
+     * @var array{invoice: string, label: string, pokok: int, kode_unik: int, nominal: int, url: string}|null
+     */
+    public ?array $siapBayar = null;
 
     public function mount(): void
     {
         $this->kode = strtoupper(trim((string) request()->query('kode', '')));
-        $this->tanggalTransfer = now()->toDateString();
 
-        // Tautan dari surat pendaftaran sudah membawa kodenya, jadi nominal
-        // dan jenisnya bisa langsung terisi sebelum halaman tampil.
-        $this->isikanNominal();
-    }
-
-    /**
-     * Semua aturan ini berjalan di server. Kode pesanan sengaja TIDAK
-     * diwajibkan cocok dengan data: pelanggan bisa salah ketik, dan bila itu
-     * terjadi buktinya tetap masuk untuk diperiksa admin — lebih baik daripada
-     * ditolak mentah padahal uangnya sudah terlanjur berpindah.
-     */
-    protected function rules(): array
-    {
-        return [
-            'kode' => 'required|string|min:6|max:30',
-            'jenis' => 'required|in:'.implode(',', array_keys(config('orcha.jenis_pembayaran'))),
-            'nominal' => 'required|numeric|min:1000',
-            'tanggalTransfer' => 'required|date|before_or_equal:today',
-            'bankPengirim' => 'required|string|min:2|max:60',
-            'atasNamaPengirim' => 'required|string|min:3|max:120',
-            'bukti' => 'required|image|max:4096',
-            'catatan' => 'nullable|string|max:500',
-            'setuju' => 'accepted',
-        ];
-    }
-
-    protected function validationAttributes(): array
-    {
-        return [
-            'kode' => 'kode pesanan',
-            'jenis' => 'jenis pembayaran',
-            'tanggalTransfer' => 'tanggal transfer',
-            'bankPengirim' => 'bank pengirim',
-            'atasNamaPengirim' => 'nama pemilik rekening pengirim',
-            'bukti' => 'bukti transfer',
-            'setuju' => 'pernyataan kebenaran data',
-        ];
-    }
-
-    protected function messages(): array
-    {
-        return [
-            'bukti.required' => 'Bukti transfer wajib diunggah — tanpa itu pembayaran tidak bisa kami cek.',
-            'tanggalTransfer.before_or_equal' => 'Tanggal transfer tidak boleh di masa depan.',
-        ];
+        // Tautan dari surat pendaftaran sudah membawa kodenya, jadi pilihan
+        // yang pantas sudah bisa ditentukan sebelum halaman tampil.
+        $this->selaraskanJenis();
     }
 
     /** Digitnya diketik belakangan, jadi pemeriksaannya harus ikut berjalan. */
@@ -127,169 +89,200 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
     public function updatedKode(): void
     {
         $this->kode = strtoupper(trim($this->kode));
-        $this->isikanNominal();
+        $this->selaraskanJenis();
     }
 
-    /** Ganti jenis pembayaran berarti angka yang ditagih ikut berbeda. */
     public function updatedJenis(): void
     {
         $this->jenisDipilihSendiri = true;
-        $this->isikanNominal();
     }
 
     /**
-     * Mengisikan nominal dari tagihan pesanannya.
+     * Membuka halaman pembayaran DOKU, lalu mengantar pelanggan ke sana.
      *
-     * Angka yang telanjur diketik pelanggan TIDAK ditimpa. Transfer nyata
-     * sering tidak bulat — dibulatkan sendiri oleh pengirim, atau dipotong
-     * biaya antarbank — dan isian yang berubah sendiri setelah diketik
-     * membuat orang berhenti mempercayai formulirnya.
+     * Perhatikan yang TIDAK dikirim ke sini: nominalnya. Angka yang ditagihkan
+     * dihitung ulang di server dari tagihan yang tersimpan (lihat
+     * MulaiPembayaranDoku). Dulu nominal memang datang dari peramban, dan itu
+     * tidak apa-apa karena ia cuma laporan yang nanti dicocokkan admin. Di
+     * sini angkanya adalah yang benar-benar akan ditagihkan, jadi menerimanya
+     * dari peramban sama saja membiarkan orang menentukan harganya sendiri.
      */
-    private function isikanNominal(): void
+    public function bayar(): void
     {
-        $tagihan = TagihanPesanan::untuk($this->pesanan());
+        $this->galatBayar = '';
 
-        if ($tagihan === []) {
+        $pesanan = $this->pesanan();
+
+        if (! $pesanan) {
+            $this->addError('kode', 'Pesanan tidak ditemukan. Periksa lagi kode pesanan dan 4 digit terakhir nomor WhatsApp Anda.');
+
             return;
         }
 
-        // Kode baru dikenali: jenisnya ikut disesuaikan, selama pelanggan
-        // belum memilih sendiri.
-        if (! $this->jenisDipilihSendiri) {
-            $this->jenis = $tagihan['jenis_disarankan'];
-        }
+        // Jenis yang tidak sedang ditawarkan ditolak, bukan diam-diam
+        // diperbaiki: pelanggan yang mengirimkannya tidak sedang menekan
+        // tombol di halaman ini, dan menuruti kiriman semacam itu berarti
+        // membiarkan orang memilih sendiri berapa yang ia bayar.
+        if (! array_key_exists($this->jenis, $this->pilihanBayar())) {
+            $this->galatBayar = 'Pilihan pembayaran itu tidak tersedia untuk pesanan ini.';
 
-        $angka = TagihanPesanan::nominalUntukJenis($tagihan, $this->jenis);
-
-        if (! $angka) {
             return;
         }
 
-        $terisi = filled($this->nominal);
-        $masihSaran = (string) $this->nominal === (string) $this->nominalOtomatis;
+        /*
+         | Dibatasi, meski tiap percobaan cuma membuat baris "menunggu" yang
+         | tidak mempengaruhi tagihan.
+         |
+         | Yang dijaga bukan basis data kita, melainkan kuota panggilan ke
+         | DOKU: satu skrip yang menekan tombol ini berulang kali menghabiskan
+         | jatah permintaan yang dibutuhkan pelanggan yang sungguhan sedang
+         | membayar. Batasnya longgar — dua belas per jam cukup untuk orang
+         | yang berganti pikiran soal channel beberapa kali.
+         */
+        $kunci = 'bayar-doku:'.request()->ip();
 
-        if ($terisi && ! $masihSaran) {
+        if (RateLimiter::tooManyAttempts($kunci, 12)) {
+            $this->galatBayar = 'Terlalu banyak percobaan pembayaran dari perangkat ini. '
+                .'Coba lagi nanti, atau hubungi kami lewat WhatsApp.';
+
+            return;
+        }
+        RateLimiter::hit($kunci, 3600);
+
+        try {
+            $bayar = MulaiPembayaranDoku::untuk($pesanan, $this->jenis);
+        } catch (\RuntimeException $e) {
+            $this->galatBayar = $e->getMessage();
+
             return;
         }
 
-        $this->nominal = (string) $angka;
-        $this->nominalTeks = number_format($angka, 0, ',', '.');
-        $this->nominalOtomatis = $angka;
+        $this->siapBayar = [
+            'invoice' => $bayar->invoice,
+            'label' => $this->pilihanBayar()[$this->jenis]['label'] ?? 'Pembayaran',
+            'pokok' => $bayar->nominal_pokok,
+            'kode_unik' => $bayar->kode_unik,
+            'nominal' => $bayar->nominal,
+            'url' => (string) $bayar->url,
+        ];
+    }
+
+    /** Kembali memilih; tagihan yang telanjur dibuka dibiarkan kedaluwarsa sendiri. */
+    public function ulangi(): void
+    {
+        $this->siapBayar = null;
+        $this->galatBayar = '';
     }
 
     /**
      * Pesanan yang kodenya cocok DAN nomornya cocok.
      *
-     * Kode saja tidak cukup. Halaman ini mengisikan nominal tagihan begitu
+     * Kode saja tidak cukup. Halaman ini menampilkan posisi tagihan begitu
      * kodenya dikenali, jadi kode yang ditebak dengan beruntung ikut memberi
-     * tahu berapa sisa utang orang lain — dan kodenya memang bisa ditebak
-     * (lihat App\Support\PemilikPesanan).
+     * tahu siapa orangnya, ikut trip apa, dan berapa sisa utangnya — dan
+     * kodenya memang bisa ditebak (lihat App\Support\PemilikPesanan).
      */
     private function pesanan(): PendaftaranOpenTrip|PenyewaanKendaraan|null
     {
         return PemilikPesanan::cariTerbatas($this->kode, $this->empatDigit, request()->ip());
     }
 
-    /** Ketikan apa pun jadi angka polos, lalu ditampilkan kembali bertitik. */
-    public function updatedNominalTeks(): void
+    /**
+     * Menyetel jenis pembayaran ke yang paling masuk akal untuk pesanan ini.
+     *
+     * Berhenti bekerja begitu pelanggan memilih sendiri. Pilihan yang berubah
+     * sendiri setelah ditekan adalah cara tercepat membuat orang berhenti
+     * mempercayai angka di layar — dan yang sedang dibaca di sini adalah
+     * angka yang akan keluar dari rekeningnya.
+     */
+    private function selaraskanJenis(): void
     {
-        $angka = (int) preg_replace('/\D/', '', $this->nominalTeks);
-
-        $this->nominal = $angka > 0 ? (string) $angka : '';
-        $this->nominalTeks = $angka > 0 ? number_format($angka, 0, ',', '.') : '';
-    }
-
-    public function kirim(): void
-    {
-        if (filled($this->situs)) {
+        if ($this->jenisDipilihSendiri) {
             return;
         }
 
-        $this->validate();
+        $pilihan = $this->pilihanBayar();
 
-        $kunci = 'konfirmasi-bayar:'.request()->ip();
-        if (RateLimiter::tooManyAttempts($kunci, 8)) {
-            $this->addError('kode', 'Terlalu banyak pengiriman dari perangkat ini. Silakan hubungi kami lewat WhatsApp.');
-
+        if ($pilihan === [] || array_key_exists($this->jenis, $pilihan)) {
             return;
         }
-        RateLimiter::hit($kunci, 3600);
 
-        $bayar = KonfirmasiPembayaran::create([
-            'kode' => $this->kode,
-            'jenis' => $this->jenis,
-            'nominal' => (int) $this->nominal,
-            'tanggal_transfer' => $this->tanggalTransfer,
-            'bank_pengirim' => $this->bankPengirim,
-            'atas_nama_pengirim' => $this->atasNamaPengirim,
-            'bukti' => GambarWebp::simpan($this->bukti, 'bukti-bayar'),
-            'catatan' => $this->catatan ?: null,
-        ]);
-
-        // Bukti transfernya ikut dilampirkan supaya bisa dicocokkan langsung
-        // dari kotak masuk, tanpa membuka dashboard.
-        $rincian = [
-            'Jenis' => $bayar->jenis_label,
-            'Nominal' => $bayar->nominal_formatted,
-            'Tanggal transfer' => $bayar->tanggal_transfer->translatedFormat('j F Y'),
-            'Bank pengirim' => $bayar->bank_pengirim,
-            'Atas nama' => $bayar->atas_nama_pengirim,
-            'Pemesan' => $bayar->pesanan()?->nama ?? '— kode tidak dikenal —',
-        ];
-
-        // Kwitansi PDF dilampirkan supaya ada berkas yang bisa disimpan dan
-        // dicetak — capnya "Menunggu Dicek", bukan "Lunas", karena pada tahap
-        // ini pembayarannya memang belum diperiksa tim.
-        // Posisi tagihan dihitung SESUDAH bukti ini tersimpan, jadi angka yang
-        // baru dikirim sudah ikut terhitung. Tanpa blok ini berkasnya hanya
-        // mengulang angka yang baru saja diketik pelanggan sendiri — padahal
-        // yang ingin ia tahu adalah sisanya.
-        $tagihan = TagihanPesanan::untuk($bayar->pesanan());
-
-        $kwitansi = BerkasKwitansi::buat(
-            'Tanda Terima Pembayaran',
-            $bayar->kode,
-            $rincian,
-            $bayar->catatan,
-            $bayar->nominal_formatted,
-            'Nominal dilaporkan',
-            'Menunggu Dicek',
-            tagihan: $tagihan,
-        );
-
-        KirimPemberitahuan::kirim(
-            'Bukti Pembayaran Masuk',
-            $bayar->kode,
-            $rincian,
-            $bayar->catatan,
-            [$bayar->bukti],
-            $kwitansi ? [BerkasKwitansi::namaBerkas('tanda-terima', $bayar->kode) => $kwitansi] : [],
-            pelanggan: new SalinanPelanggan(
-                // Alamatnya diambil dari pendaftaran yang kodenya dicantumkan —
-                // formulir ini sendiri tidak menanyakan email. Kalau kodenya salah
-                // ketik, salinannya memang tidak terkirim; buktinya tetap tercatat.
-                email: $bayar->pesanan()?->email,
-                judul: 'Bukti Transfer Anda Sudah Kami Terima',
-                // Sesudah membayar, yang tersisa adalah data kesehatan peserta.
-                tautan: str_starts_with($bayar->kode, 'SK-')
-                    ? null
-                    : route('riwayat-kesehatan', ['kode' => $bayar->kode]),
-                labelTautan: 'Isi Riwayat Kesehatan',
-                langkah: "Bukti transfer Anda masuk dan akan dicek tim kami pada jam kerja, lalu hasilnya "
-                    ."dikabarkan lewat WhatsApp.\n\n"
-                    .'Perlu diketahui: tanda terima terlampir masih bertanda "Menunggu Dicek", jadi belum '
-                    .'berarti lunas. Simpan bukti transfer aslinya sampai pembayaran dinyatakan diterima.',
-            ),
-        );
-
-        $this->terkirim = true;
-        $this->reset(['nominal', 'nominalTeks', 'bankPengirim', 'atasNamaPengirim', 'bukti', 'catatan', 'setuju']);
+        $this->jenis = (string) array_key_first($pilihan);
     }
 
-    public function kirimLagi(): void
+    /**
+     * Pilihan pembayaran yang pantas ditawarkan, berikut angkanya.
+     *
+     * Dihitung di satu tempat lalu dipakai tiga kali — untuk menggambar
+     * tombolnya, untuk menentukan pilihan bawaannya, dan untuk memeriksa
+     * pilihan yang dikirim balik. Dua hitungan terpisah untuk pertanyaan yang
+     * sama adalah asal celah tempat tombol menawarkan satu angka sementara
+     * server menagihkan angka lain.
+     *
+     * Angkanya HARGA APA ADANYA, tanpa kode unik.
+     *
+     * Kode unik ditempelkan belakangan, saat percobaan bayarnya dibuat.
+     * Menampilkannya sudah tertempel di sini membuat pelanggan membandingkan
+     * dua angka ganjil yang tidak ia mengerti asalnya, tepat pada langkah
+     * ketika yang ia butuhkan cuma satu perbandingan: uang muka atau lunas.
+     *
+     * @return array<string, array{label: string, keterangan: string, pokok: int}>
+     */
+    private function pilihanBayar(): array
     {
-        $this->reset(['terkirim', 'kode', 'nominalOtomatis', 'jenisDipilihSendiri']);
-        $this->tanggalTransfer = now()->toDateString();
+        $pesanan = $this->pesanan();
+        $tagihan = TagihanPesanan::untuk($pesanan);
+
+        if (! $pesanan || $tagihan === [] || $tagihan['lunas']) {
+            return [];
+        }
+
+        $susun = function (string $jenis, string $label, string $keterangan) use ($tagihan): ?array {
+            $pokok = TagihanPesanan::nominalUntukJenis($tagihan, $jenis);
+
+            if (! $pokok || $pokok < 1000) {
+                return null;
+            }
+
+            return [
+                'label' => $label,
+                'keterangan' => $keterangan,
+                'pokok' => $pokok,
+            ];
+        };
+
+        /*
+         | Pesanan berencana angsuran hanya menawarkan SATU pilihan: termin
+         | yang jatuh tempo berikutnya.
+         |
+         | Menyodorkan "bayar lunas" di sebelahnya membatalkan gunanya
+         | keringanan — yang meminta angsuran justru orang yang tidak sanggup
+         | membayar sekaligus, dan tombol itu cuma mengingatkannya pada hal
+         | yang sedang ia hindari. Yang ingin melunasi lebih awal tetap bisa,
+         | lewat admin.
+         */
+        $rencana = Angsuran::aktifUntuk($pesanan->kode);
+        $termin = RencanaAngsuran::terminBerikutnya($rencana);
+
+        if ($termin) {
+            return ['angsuran' => [
+                'label' => $termin['urutan'] === 1 ? 'Uang Muka' : 'Angsuran ke-'.($termin['urutan'] - 1),
+                'keterangan' => 'Jatuh tempo '.$termin['jatuh_tempo']->translatedFormat('j F Y').'.',
+                'pokok' => $termin['kurang'],
+            ]];
+        }
+
+        // Uang muka hanya ditawarkan selama belum ada yang masuk. Sesudah itu
+        // yang tersisa memang cuma pelunasannya, dan menawarkan "DP" untuk
+        // kedua kalinya cuma membingungkan.
+        $pilihan = $tagihan['sudah'] > 0
+            ? ['pelunasan' => $susun('pelunasan', 'Lunasi Sisa', 'Sisa tagihan Anda.')]
+            : [
+                'dp' => $susun('dp', 'Uang Muka '.$tagihan['dp_persen'].'%', 'Kursi ditahan setelah uang muka masuk.'),
+                'pelunasan' => $susun('pelunasan', 'Bayar Lunas', 'Sekali bayar, selesai.'),
+            ];
+
+        return array_filter($pilihan);
     }
 
     public function with(): array
@@ -299,7 +292,28 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
         return [
             'pesanan' => $pesanan,
             'tagihan' => TagihanPesanan::untuk($pesanan),
-            'pilihanJenis' => config('orcha.jenis_pembayaran'),
+
+            /*
+             | Gerbang mati BUKAN berarti kembali ke formulir unggahan.
+             |
+             | Formulir itu sudah dicabut dari sisi publik, dan menghidupkannya
+             | kembali diam-diam saat gerbangnya bermasalah justru memulihkan
+             | persis hal yang hendak dihilangkan: pembayaran yang dinyatakan
+             | lewat gambar, dicek manusia, sementara kursinya menggantung.
+             |
+             | Yang ditampilkan sebagai gantinya adalah kabar jujur berikut
+             | jalan keluarnya — hubungi admin, dan admin yang mencatatkan
+             | pembayarannya dari sisi dalam.
+             */
+            'gerbangAktif' => app(DokuCheckout::class)->aktif(),
+            'pilihanBayar' => $this->pilihanBayar(),
+
+            // Jadwal ditampilkan seluruhnya, bukan hanya termin berikutnya:
+            // yang sedang kesulitan keuangan perlu melihat seluruh
+            // kewajibannya untuk merencanakan, bukan disodori satu per satu.
+            'jadwalAngsuran' => RencanaAngsuran::posisi(
+                $pesanan ? Angsuran::aktifUntuk($pesanan->kode) : null
+            ),
         ];
     }
 }; ?>
@@ -309,8 +323,8 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
 @endphp
 
 <div>
-    <x-page-hero title="Konfirmasi Pembayaran" eyebrow="Sudah Transfer?"
-        subtitle="Kirim bukti transfer di sini supaya pembayaran Anda tercatat dan segera kami cek."
+    <x-page-hero title="Bayar Pesanan" eyebrow="Pembayaran Online"
+        subtitle="Bayar uang muka atau pelunasan langsung di sini — lewat transfer bank, QRIS, atau dompet digital."
         image="images/HERO/form-konfirmasi-pembayaran.webp" />
 
     <section class="bg-white section-orcha">
@@ -318,277 +332,302 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
             <div class="grid gap-6 lg:grid-cols-12">
 
                 <div class="lg:col-span-8">
-                    @if ($terkirim)
-                        <div class="p-8 text-center card-orcha sm:p-10">
-                            <x-heroicon-s-check-circle class="w-16 h-16 mx-auto text-orcha-sky" />
-                            <h2 class="mt-4 text-2xl font-bold font-heading text-orcha-navy">Bukti transfer terkirim</h2>
-                            <p class="max-w-lg mx-auto mt-2 text-slate-600">
-                                Tim kami mengeceknya pada jam kerja, lalu mengabari Anda lewat WhatsApp.
-                                Simpan bukti transfer aslinya sampai pembayaran dinyatakan diterima.
-                            </p>
+                    @if ($gerbangAktif)
+                        <div class="p-6 card-orcha sm:p-8 space-y-7">
+                            @include('livewire.public.open-trip.partials.pencari-pesanan')
 
-                            <div class="flex flex-col justify-center gap-3 mt-6 sm:flex-row">
-                                <a href="{{ $wa }}" target="_blank" rel="noopener"
-                                    class="btn-orcha btn-orcha-primary">
-                                    <x-bi-whatsapp class="w-5 h-5" />
-                                    Hubungi Kami
-                                </a>
-                                <button type="button" wire:click="kirimLagi" class="btn-orcha btn-orcha-outline">
-                                    Kirim Bukti Lain
-                                </button>
-                            </div>
-                        </div>
-                    @else
-                        <form wire:submit="kirim" class="p-6 card-orcha sm:p-8 space-y-7">
-                            {{-- Perangkap bot: manusia tidak melihat kolom ini --}}
-                            <div class="hidden" aria-hidden="true">
-                                <label>Situs<input type="text" wire:model="situs" tabindex="-1"
-                                        autocomplete="off"></label>
-                            </div>
-
-                            <div>
-                                <h2 class="text-xl font-bold font-heading text-orcha-navy">Pesanan yang Dibayar</h2>
-
-                                <div class="mt-4">
-                                    <label for="kb-kode" class="label-orcha">Kode pesanan <x-wajib /></label>
-                                    <input id="kb-kode" type="text" required maxlength="30"
-                                        wire:model.live.debounce.500ms="kode" placeholder="OT-1508-A7K3 atau SK-1508-B2M9"
-                                        class="isian-orcha uppercase @error('kode') isian-galat @enderror">
-                                    <p class="mt-1.5 text-sm text-slate-500">
-                                        Kode yang Anda terima saat mendaftar open trip atau memesan sewa kendaraan.
-                                    </p>
-                                    @error('kode')
-                                        <p class="galat-orcha">{{ $message }}</p>
-                                    @enderror
+                            @if ($galatBayar)
+                                <div
+                                    class="p-4 text-sm border rounded-2xl border-red-200 bg-red-50 text-red-800">
+                                    {{ $galatBayar }}
+                                    <a href="{{ $wa }}" target="_blank" rel="noopener"
+                                        class="font-semibold underline">Hubungi kami lewat WhatsApp</a>
+                                    bila berulang.
                                 </div>
+                            @endif
 
-                                {{-- Kunci kedua.
+                            @if ($siapBayar)
+                                {{-- Langkah terakhir sebelum meninggalkan situs.
 
-                                     Kotak di bawah menampilkan nama pemesan dan trip yang
-                                     diikutinya, lalu mengisikan nominal tagihannya. Kode saja
-                                     tidak boleh cukup untuk membuka semua itu: kodenya bisa
-                                     ditebak, dan yang menebaknya jadi tahu siapa orangnya,
-                                     ikut trip apa, dan berapa sisa utangnya. --}}
-                                <div class="mt-4">
-                                    <label for="kb-digit" class="label-orcha">
-                                        4 digit terakhir WhatsApp Anda <x-wajib />
-                                    </label>
-                                    <input id="kb-digit" type="text" inputmode="numeric" required maxlength="4"
-                                        wire:model.live.debounce.500ms="empatDigit" placeholder="7890"
-                                        class="isian-orcha tracking-[.5em] font-bold max-w-[9rem] @error('empatDigit') isian-galat @enderror">
-                                    <p class="mt-1.5 text-sm text-slate-500">
-                                        Nomor yang Anda pakai saat memesan. Untuk 0812-3456-<strong>7890</strong>,
-                                        isi <strong>7890</strong>.
+                                     Di sinilah kode uniknya muncul — sesudah dipilih, bukan
+                                     sebelumnya. Angka ganjil di ujung nominal akan disangka
+                                     salah hitung kalau tidak diterangkan, dan orang yang
+                                     mengira begitu berhenti untuk bertanya, tepat pada
+                                     langkah yang paling tidak boleh terputus. --}}
+                                <div class="p-5 border-2 rounded-2xl border-orcha-ocean bg-orcha-foam/50 sm:p-6">
+                                    <p class="text-sm font-bold text-orcha-ocean">{{ $siapBayar['label'] }}</p>
+
+                                    <p class="mt-1 text-xs font-semibold tracking-wide uppercase text-slate-500">
+                                        Total yang harus dibayar
                                     </p>
-                                    @error('empatDigit')
-                                        <p class="galat-orcha">{{ $message }}</p>
-                                    @enderror
+                                    <p class="text-3xl font-bold font-heading text-orcha-navy">
+                                        Rp {{ number_format($siapBayar['nominal'], 0, ',', '.') }}
+                                    </p>
+
+                                    <dl class="pt-4 mt-4 space-y-1 text-sm border-t border-white/70">
+                                        <div class="flex justify-between">
+                                            <dt class="text-slate-600">Tagihan</dt>
+                                            <dd class="font-semibold text-orcha-navy">
+                                                Rp {{ number_format($siapBayar['pokok'], 0, ',', '.') }}
+                                            </dd>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <dt class="text-slate-600">Kode unik</dt>
+                                            <dd class="font-semibold text-orcha-ocean">
+                                                + {{ number_format($siapBayar['kode_unik'], 0, ',', '.') }}
+                                            </dd>
+                                        </div>
+                                    </dl>
+
+                                    <p class="mt-3 text-sm text-slate-600">
+                                        Kode unik <strong>{{ $siapBayar['kode_unik'] }}</strong> adalah penanda
+                                        pembayaran ini supaya langsung kami kenali. Harga pesanan Anda tidak naik.
+                                    </p>
+
+                                    <p class="mt-2 text-xs text-slate-500">
+                                        Nomor tagihan: <span class="font-mono">{{ $siapBayar['invoice'] }}</span>
+                                    </p>
+
+                                    {{-- Tautan biasa, bukan tombol Livewire.
+
+                                         Alamat DOKU-nya sudah ada di tangan; melompatinya lewat
+                                         satu perjalanan bolak-balik ke server hanya menambah satu
+                                         titik yang bisa gagal, tepat sebelum uang berpindah. --}}
+                                    <a href="{{ $siapBayar['url'] }}" class="w-full mt-5 btn-orcha btn-orcha-primary">
+                                        Lanjutkan ke Pembayaran
+                                    </a>
+
+                                    <button type="button" wire:click="ulangi"
+                                        class="w-full mt-2 text-sm font-semibold text-slate-500 hover:text-orcha-ocean">
+                                        Ganti pilihan
+                                    </button>
                                 </div>
+                            @elseif ($pilihanBayar)
+                                {{-- Jadwal angsuran, bila pesanan ini mendapatkannya.
 
-                                @if ($pesanan)
-                                    <div class="p-4 mt-4 border rounded-2xl border-orcha-sky/40 bg-orcha-foam/50">
-                                        <p class="text-sm font-bold text-orcha-ocean">Pesanan ditemukan</p>
-                                        <p class="mt-1 font-bold text-orcha-navy">{{ $pesanan->nama }}</p>
-                                        <p class="text-sm text-slate-600">
-                                            @if ($pesanan instanceof App\Models\OpenTrip\PendaftaranOpenTrip)
-                                                {{ $pesanan->nama_paket }} · {{ $pesanan->jumlah_peserta }} peserta
-                                            @else
-                                                {{ $pesanan->nama_kendaraan }} · {{ $pesanan->durasi_label }}
-                                            @endif
-                                        </p>
+                                     Ditampilkan SELURUHNYA, bukan hanya termin
+                                     berikutnya. Yang sedang kesulitan keuangan perlu
+                                     melihat seluruh kewajibannya untuk merencanakan;
+                                     disodori satu per satu ia tidak pernah tahu kapan
+                                     ini berakhir. --}}
+                                @if ($jadwalAngsuran)
+                                    @php
+                                        $lunasTermin = collect($jadwalAngsuran)->where('status', 'lunas')->count();
+                                        $totalTermin = count($jadwalAngsuran);
+                                        // 'kurang' sudah KUMULATIF — termin ke-3 memuat
+                                        // kekurangan termin ke-2 di dalamnya. Menjumlahkannya
+                                        // menghitung uang yang sama dua kali, dan angka sisa yang
+                                        // lebih besar daripada tagihannya adalah jenis salah yang
+                                        // membuat orang berhenti percaya seluruh halaman.
+                                        $sisaTermin = (int) collect($jadwalAngsuran)->max('kurang');
+                                        // Termin terdekat yang belum tertutup — satu-satunya baris
+                                        // yang menuntut tindakan, jadi satu-satunya yang ditonjolkan.
+                                        $terminBerikutnya = collect($jadwalAngsuran)->firstWhere('status', '!=', 'lunas')['urutan'] ?? null;
+                                    @endphp
 
-                                        {{-- ============ POSISI TAGIHAN ============
-                                             Angka yang perlu ditransfer diambilkan dari sini, bukan
-                                             dari ingatan pelanggan. Salah ketik satu digit membuat
-                                             pembayaran tidak cocok dengan mutasi rekening, dan
-                                             pekerjaannya berakhir di WhatsApp admin. --}}
-                                        @if ($tagihan)
-                                            <dl class="grid grid-cols-3 gap-3 pt-4 mt-4 border-t border-white/70">
-                                                @foreach ([['Total tagihan', $tagihan['total_teks'], 'text-orcha-navy'], ['Sudah dilaporkan', $tagihan['sudah_teks'], 'text-orcha-ocean'], ['Sisa', $tagihan['sisa_teks'], $tagihan['lunas'] ? 'text-emerald-600' : 'text-orcha-navy']] as [$label, $nilai, $warna])
-                                                    <div>
-                                                        <dt class="text-[0.68rem] font-semibold tracking-wide uppercase text-slate-500">
-                                                            {{ $label }}</dt>
-                                                        <dd class="text-sm font-bold {{ $warna }}">{{ $nilai }}</dd>
-                                                    </div>
-                                                @endforeach
-                                            </dl>
+                                    <div class="mb-7">
+                                        <div class="flex flex-wrap items-baseline justify-between gap-2">
+                                            <h2 class="text-xl font-bold font-heading text-orcha-navy">Jadwal Angsuran Anda</h2>
 
-                                            <p class="mt-3 text-sm {{ $tagihan['lunas'] ? 'text-emerald-700' : 'text-slate-600' }}">
-                                                @if ($tagihan['lunas'])
-                                                    Seluruh pembayaran Anda sudah tercatat. Bila ini transfer
-                                                    tambahan, isi nominalnya sendiri.
-                                                @elseif ($tagihan['sudah'] > 0)
-                                                    Uang muka sudah tercatat, jadi yang kami isikan sisanya.
-                                                @else
-                                                    Belum ada pembayaran masuk, jadi yang kami isikan uang muka
-                                                    {{ $tagihan['dp_persen'] }}%.
-                                                    {{-- Sebagian pelanggan lebih suka sekali bayar dan selesai.
-                                                         Tanpa keterangan ini mereka mengira DP itu wajib, lalu
-                                                         mentransfer dua kali untuk sesuatu yang bisa sekali. --}}
-                                                    <span class="font-semibold text-orcha-ocean">
-                                                        Mau langsung lunas? Pilih jenis
-                                                        <strong>Pelunasan</strong> — nominalnya berubah jadi
-                                                        {{ $tagihan['total_teks'] }}.
-                                                    </span>
+                                            {{-- Ringkasan sebelum daftarnya.
+
+                                                 Yang membuka halaman ini sedang menjawab satu
+                                                 pertanyaan: saya masih harus bayar berapa. Menyuruhnya
+                                                 menjumlahkan sendiri tiga baris di bawah adalah
+                                                 pekerjaan yang bisa kita kerjakan untuknya, dan
+                                                 hasilnya tidak akan salah hitung. --}}
+                                            <p class="text-sm font-semibold text-slate-500">
+                                                <span class="text-emerald-700">{{ $lunasTermin }} dari {{ $totalTermin }}</span> termin lunas
+                                                @if ($sisaTermin > 0)
+                                                    · sisa <span class="text-orcha-navy">Rp {{ number_format($sisaTermin, 0, ',', '.') }}</span>
                                                 @endif
+                                            </p>
+                                        </div>
+
+                                        {{-- Keadaan tiap termin ditandai TIGA kali: garis warna di
+                                             tepi kiri, ikon, dan pilnya. Berlebihan dengan sengaja —
+                                             yang membaca halaman ini sedang cemas soal uang, dan
+                                             satu pil kecil di pojok kanan terlewat persis saat ia
+                                             paling perlu terbaca. Garis tepinya juga yang membuat
+                                             seluruh jadwal terbaca dalam sekali sapu, tanpa
+                                             membaca satu kata pun. --}}
+                                        <ul class="mt-4 overflow-hidden border divide-y divide-slate-100 rounded-2xl border-orcha-mist">
+                                            @foreach ($jadwalAngsuran as $baris)
+                                                <li @class([
+                                                    'flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-l-4',
+                                                    'border-l-emerald-500 bg-emerald-50/60' => $baris['status'] === 'lunas',
+                                                    'border-l-red-500 bg-red-50/60' => $baris['status'] === 'telat',
+                                                    // Kedua cabang ini SALING MENIADAKAN dengan
+                                                    // sengaja. Menempelkan dua kelas border-l pada
+                                                    // elemen yang sama membuat warnanya ditentukan
+                                                    // urutan di berkas CSS terbangun, bukan oleh
+                                                    // niat yang tertulis di sini — dan urutan itu
+                                                    // bisa berubah tanpa satu pun baris blade
+                                                    // disentuh.
+                                                    'border-l-slate-200' =>
+                                                        $baris['status'] === 'menunggu' && $baris['urutan'] !== $terminBerikutnya,
+                                                    // Termin yang sedang ditagih diberi biru yang
+                                                    // sama dengan kartu di bawahnya — keduanya
+                                                    // bicara tentang uang yang sama.
+                                                    'border-l-orcha-ocean bg-orcha-foam/50' =>
+                                                        $baris['status'] === 'menunggu' && $baris['urutan'] === $terminBerikutnya,
+                                                ])>
+                                                    <div class="flex items-start gap-2.5">
+                                                        @if ($baris['status'] === 'lunas')
+                                                            <x-heroicon-s-check-circle class="w-5 h-5 mt-0.5 shrink-0 text-emerald-600" />
+                                                        @elseif ($baris['status'] === 'telat')
+                                                            <x-heroicon-s-exclamation-triangle class="w-5 h-5 mt-0.5 shrink-0 text-red-600" />
+                                                        @else
+                                                            <x-heroicon-o-clock class="w-5 h-5 mt-0.5 shrink-0 text-slate-400" />
+                                                        @endif
+
+                                                        <div>
+                                                            <p class="font-bold text-orcha-navy">
+                                                                {{-- Nama terminnya dari satu tempat, bukan dirakit
+                                                                     di sini. Surat tanda terima menyebut termin yang
+                                                                     sama, dan penamaan yang dirakit dua kali akan
+                                                                     berbeda suatu saat — pelanggan lalu membaca
+                                                                     "Angsuran ke-1" di email untuk baris yang di
+                                                                     layar ini bernama "Uang muka". --}}
+                                                                {{ \App\Support\RencanaAngsuran::labelTermin($baris['urutan']) }}
+
+                                                                @if ($baris['status'] !== 'lunas' && $baris['urutan'] === $terminBerikutnya)
+                                                                    <span class="ml-1 text-xs font-bold align-middle text-orcha-ocean">← giliran ini</span>
+                                                                @endif
+                                                            </p>
+                                                            <p class="text-sm text-slate-500">
+                                                                Jatuh tempo {{ $baris['jatuh_tempo']->translatedFormat('j F Y') }}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="text-right">
+                                                        <p @class([
+                                                            'font-bold',
+                                                            // Yang sudah lunas tidak perlu menuntut
+                                                            // perhatian lagi; angkanya dipudarkan
+                                                            // supaya yang belum dibayar menonjol
+                                                            // tanpa harus dibuat lebih besar.
+                                                            'text-slate-400 line-through' => $baris['status'] === 'lunas',
+                                                            'text-orcha-navy' => $baris['status'] !== 'lunas',
+                                                        ])>
+                                                            Rp {{ number_format($baris['nominal'], 0, ',', '.') }}
+                                                        </p>
+                                                        <span @class([
+                                                            'inline-flex items-center gap-1 mt-0.5 text-xs font-bold px-2 py-0.5 rounded-full',
+                                                            'bg-emerald-100 text-emerald-800' => $baris['status'] === 'lunas',
+                                                            'bg-red-100 text-red-800' => $baris['status'] === 'telat',
+                                                            'bg-slate-100 text-slate-600' => $baris['status'] === 'menunggu',
+                                                        ])>
+                                                            {{ ['lunas' => 'Sudah dibayar', 'telat' => 'Lewat jatuh tempo', 'menunggu' => 'Belum dibayar'][$baris['status']] }}
+                                                        </span>
+                                                    </div>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+
+                                        @if (collect($jadwalAngsuran)->where('status', 'telat')->isNotEmpty())
+                                            {{-- Yang terlewat disebutkan sekali lagi di luar daftar.
+                                                 Nadanya sengaja tenang: yang menunggak tahu ia
+                                                 menunggak, dan kalimat yang menghakimi membuatnya
+                                                 menghindari kami — persis kebalikan dari yang kita
+                                                 butuhkan. --}}
+                                            <p class="px-4 py-3 mt-3 text-sm font-semibold text-red-800 border border-red-200 bg-red-50 rounded-xl">
+                                                Ada termin yang sudah lewat jatuh tempo. Silakan
+                                                selesaikan lewat tombol di bawah, atau hubungi kami
+                                                bila perlu penyesuaian jadwal.
                                             </p>
                                         @endif
                                     </div>
-                                @elseif (strlen(trim($kode)) >= 6)
-                                    <div class="p-4 mt-4 text-sm border rounded-2xl border-orcha-sun/50 bg-orcha-sun/10 text-slate-700">
-                                        Kode ini belum kami temukan. Bukti tetap boleh dikirim — tim kami akan
-                                        mencocokkannya, tapi periksa lagi kodenya supaya lebih cepat.
-                                    </div>
                                 @endif
-                            </div>
 
-                            <div>
-                                <h2 class="text-xl font-bold font-heading text-orcha-navy">Rincian Transfer</h2>
+                                <div>
+                                    <h2 class="text-xl font-bold font-heading text-orcha-navy">
+                                        {{ $jadwalAngsuran ? 'Bayar Termin Berikutnya' : 'Pilih Pembayaran' }}
+                                    </h2>
 
-                                <div class="grid gap-5 mt-4 sm:grid-cols-2">
-                                    <div>
-                                        <label for="kb-jenis" class="label-orcha">Jenis pembayaran <x-wajib /></label>
-                                        <select id="kb-jenis" required wire:model.live="jenis"
-                                            class="isian-orcha @error('jenis') isian-galat @enderror">
-                                            @foreach ($pilihanJenis as $kunci => $label)
-                                                <option value="{{ $kunci }}">{{ $label }}</option>
-                                            @endforeach
-                                        </select>
-                                        @error('jenis')
-                                            <p class="galat-orcha">{{ $message }}</p>
-                                        @enderror
-                                    </div>
+                                    {{-- Kartu, bukan dropdown.
 
-                                    <div>
-                                        <label for="kb-nominal" class="label-orcha">Nominal transfer <x-wajib /></label>
-                                        <div class="relative">
-                                            <span
-                                                class="absolute inset-y-0 left-0 flex items-center pl-4 font-bold pointer-events-none text-orcha-navy">Rp</span>
-                                            <input id="kb-nominal" type="text" inputmode="numeric" required
-                                                wire:model.blur="nominalTeks" value="{{ $nominalTeks }}"
-                                                placeholder="500.000"
-                                                class="isian-orcha orcha-uang !pl-12 @error('nominal') isian-galat @enderror">
-                                        </div>
-                                        <p class="mt-1.5 text-sm {{ $tagihan && $nominalOtomatis ? 'text-orcha-ocean' : 'text-slate-500' }}">
-                                            @if ($tagihan && $nominalOtomatis)
-                                                {{-- Kode uniknya DISEBUT, bukan disembunyikan.
+                                         Yang dipilih di sini menentukan berapa uang yang keluar dari
+                                         rekening orang, dan angkanya harus terbaca SEBELUM memilih —
+                                         bukan sesudah, setelah isian lain ikut berubah. Dropdown
+                                         menyembunyikan tepat bagian yang paling perlu dibandingkan. --}}
+                                    <div class="grid gap-3 mt-4 sm:grid-cols-2">
+                                        @foreach ($pilihanBayar as $kunci => $opsi)
+                                            <label
+                                                class="relative flex flex-col p-4 transition border-2 cursor-pointer rounded-2xl
+                                                    {{ $jenis === $kunci ? 'border-orcha-ocean bg-orcha-foam/60' : 'border-orcha-mist hover:border-orcha-sky' }}">
+                                                <input type="radio" wire:model.live="jenis" value="{{ $kunci }}"
+                                                    class="sr-only">
+                                                <span class="text-sm font-bold text-orcha-ocean">{{ $opsi['label'] }}</span>
+                                                <span class="mt-1 text-2xl font-bold font-heading text-orcha-navy">
+                                                    Rp {{ number_format($opsi['pokok'], 0, ',', '.') }}
+                                                </span>
+                                                <span class="mt-1 text-sm text-slate-500">{{ $opsi['keterangan'] }}</span>
 
-                                                     Angka ganjil di ujung nominal akan disangka salah
-                                                     hitung kalau tidak diterangkan, dan orang yang
-                                                     mengira begitu justru membulatkannya sendiri —
-                                                     tepat merusak hal yang dituju kode unik ini. --}}
-                                                @if (($tagihan['kode_unik'] ?? 0) > 0)
-                                                    Mohon transfer <strong>tepat sampai angka
-                                                        terakhirnya</strong>. Tiga digit di ujung
-                                                    ({{ $tagihan['kode_unik'] }}) adalah kode unik
-                                                    pemesanan Anda — itu yang membuat kami langsung
-                                                    mengenali transfer Anda di mutasi rekening.
-                                                @else
-                                                    Terisi otomatis dari tagihan Anda — ubah bila nominal
-                                                    transfernya berbeda.
+                                                @if ($jenis === $kunci)
+                                                    <x-heroicon-s-check-circle
+                                                        class="absolute w-6 h-6 top-3 right-3 text-orcha-ocean" />
                                                 @endif
-                                            @else
-                                                Tulis apa adanya sesuai yang tertera di bukti transfer.
-                                            @endif
-                                        </p>
-                                        @error('nominal')
-                                            <p class="galat-orcha">{{ $message }}</p>
-                                        @enderror
+                                            </label>
+                                        @endforeach
                                     </div>
 
-                                    <div>
-                                        <label for="kb-tanggal" class="label-orcha">Tanggal transfer <x-wajib /></label>
-                                        <input id="kb-tanggal" type="date" required wire:model="tanggalTransfer"
-                                            max="{{ now()->toDateString() }}"
-                                            class="isian-orcha @error('tanggalTransfer') isian-galat @enderror">
-                                        @error('tanggalTransfer')
-                                            <p class="galat-orcha">{{ $message }}</p>
-                                        @enderror
-                                    </div>
+                                    <button type="button" wire:click="bayar" class="w-full mt-5 btn-orcha btn-orcha-primary"
+                                        wire:loading.attr="disabled" wire:target="bayar">
+                                        <span wire:loading.remove wire:target="bayar">Bayar Sekarang</span>
+                                        <span wire:loading wire:target="bayar">Menyiapkan pembayaran…</span>
+                                    </button>
 
-                                    <div>
-                                        <label for="kb-bank" class="label-orcha">Bank pengirim <x-wajib /></label>
-                                        <input id="kb-bank" type="text" required maxlength="60"
-                                            wire:model="bankPengirim" placeholder="BCA / Mandiri / BRI"
-                                            class="isian-orcha @error('bankPengirim') isian-galat @enderror">
-                                        @error('bankPengirim')
-                                            <p class="galat-orcha">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-
-                                    <div class="sm:col-span-2">
-                                        <label for="kb-atas-nama" class="label-orcha">Nama pemilik rekening pengirim
-                                            <x-wajib /></label>
-                                        <input id="kb-atas-nama" type="text" required maxlength="120"
-                                            wire:model="atasNamaPengirim" placeholder="Sesuai buku tabungan"
-                                            class="isian-orcha @error('atasNamaPengirim') isian-galat @enderror">
-                                        @error('atasNamaPengirim')
-                                            <p class="galat-orcha">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <h2 class="text-xl font-bold font-heading text-orcha-navy">Bukti Transfer</h2>
-
-                                <div class="mt-4">
-                                    <label for="kb-bukti" class="label-orcha">Foto atau tangkapan layar <x-wajib /></label>
-                                    <input id="kb-bukti" type="file" required accept="image/*" wire:model="bukti"
-                                        class="isian-orcha @error('bukti') isian-galat @enderror">
-                                    <p class="mt-1.5 text-sm text-slate-500">
-                                        Maksimal 4 MB. Pastikan nominal, tanggal, dan nama penerima terbaca jelas.
+                                    <p class="mt-3 text-sm text-center text-slate-500">
+                                        Harga di atas belum termasuk kode unik — penandanya ditambahkan pada
+                                        langkah berikutnya, dan angkanya kami tampilkan sebelum Anda membayar.
                                     </p>
-                                    @error('bukti')
-                                        <p class="galat-orcha">{{ $message }}</p>
-                                    @enderror
-
-                                    <div wire:loading wire:target="bukti" class="mt-2 text-sm text-orcha-ocean">
-                                        Mengunggah…
-                                    </div>
-
-                                    @if ($bukti)
-                                        <img src="{{ $bukti->temporaryUrl() }}" alt="Pratinjau bukti transfer"
-                                            loading="lazy" decoding="async"
-                                            class="mt-3 border rounded-2xl border-orcha-foam max-h-64">
-                                    @endif
                                 </div>
-
-                                <div class="mt-5">
-                                    <label for="kb-catatan" class="label-orcha">Catatan <span
-                                            class="font-normal text-slate-400">(opsional)</span></label>
-                                    <textarea id="kb-catatan" rows="3" maxlength="500" wire:model="catatan"
-                                        placeholder="Misalnya: pembayaran untuk 2 peserta atas nama Budi dan Sari."
-                                        class="isian-orcha @error('catatan') isian-galat @enderror"></textarea>
-                                    @error('catatan')
-                                        <p class="galat-orcha">{{ $message }}</p>
-                                    @enderror
+                            @elseif ($pesanan && $tagihan && $tagihan['lunas'])
+                                <div
+                                    class="p-5 text-center border rounded-2xl border-emerald-200 bg-emerald-50">
+                                    <x-heroicon-s-check-circle class="w-12 h-12 mx-auto text-emerald-600" />
+                                    <p class="mt-2 font-bold text-emerald-800">Pesanan ini sudah lunas</p>
+                                    <p class="mt-1 text-sm text-emerald-700">
+                                        Tidak ada yang perlu dibayar lagi. Sampai jumpa di perjalanan.
+                                    </p>
                                 </div>
-                            </div>
+                            @endif
+                        </div>
+                    @else
+                        {{-- Gerbang tidak bisa dihubungi.
 
-                            <div>
-                                <label class="flex items-start gap-3 text-sm text-slate-600">
-                                    <input type="checkbox" required wire:model="setuju"
-                                        class="w-5 h-5 mt-0.5 rounded border-orcha-mist text-orcha-ocean">
-                                    <span>
-                                        <x-wajib /> Saya menyatakan bukti transfer ini benar dan saya kirim sendiri.
-                                        Bukti palsu dapat membatalkan pesanan.
-                                    </span>
-                                </label>
-                                @error('setuju')
-                                    <p class="galat-orcha">{{ $message }}</p>
-                                @enderror
+                             Yang TIDAK dilakukan di sini: menghidupkan kembali formulir
+                             unggah bukti. Formulir itu sudah dicabut dari sisi publik, dan
+                             memunculkannya diam-diam saat gerbang bermasalah justru
+                             memulihkan persis hal yang hendak dihilangkan — pembayaran yang
+                             dinyatakan lewat gambar, dicek manusia, sementara kursinya
+                             menggantung.
 
-                                <p class="mt-3 text-xs text-slate-400">Kolom bertanda <span
-                                        class="text-red-500">*</span> wajib diisi.</p>
+                             Yang ditampilkan: kabar jujur berikut jalan keluarnya. Admin
+                             tetap bisa mencatatkan pembayaran dari sisi dalam, dan jalur
+                             itu memang sengaja tidak bisa ditempuh tanpa admin. --}}
+                        <div class="p-8 text-center card-orcha sm:p-10">
+                            <x-heroicon-s-wrench-screwdriver class="w-16 h-16 mx-auto text-orcha-sun" />
+                            <h2 class="mt-4 text-2xl font-bold font-heading text-orcha-navy">
+                                Pembayaran online sedang tidak tersedia
+                            </h2>
+                            <p class="max-w-lg mx-auto mt-2 text-slate-600">
+                                Kami sedang tidak bisa memproses pembayaran daring untuk sementara.
+                                Pesanan Anda tetap tersimpan dan kursinya tidak hilang.
+                            </p>
+                            <p class="max-w-lg mx-auto mt-2 text-slate-600">
+                                Hubungi kami lewat WhatsApp dengan menyebutkan kode pesanan Anda —
+                                tim kami akan menuntun pembayarannya dan mencatatkannya langsung.
+                            </p>
 
-                                <button type="submit" class="w-full mt-4 btn-orcha btn-orcha-primary"
-                                    wire:loading.attr="disabled" wire:target="kirim,bukti">
-                                    <span wire:loading.remove wire:target="kirim">Kirim Bukti Transfer</span>
-                                    <span wire:loading wire:target="kirim">Mengirim…</span>
-                                </button>
-                            </div>
-                        </form>
+                            <a href="{{ $wa }}" target="_blank" rel="noopener"
+                                class="inline-flex mt-6 btn-orcha btn-orcha-primary">
+                                <x-bi-whatsapp class="w-5 h-5" />
+                                Hubungi Kami
+                            </a>
+                        </div>
                     @endif
                 </div>
 
@@ -596,37 +635,40 @@ new #[Layout('components.layouts.guest')] #[Title('Konfirmasi Pembayaran — Orc
                     <div class="space-y-6 lg:sticky lg:top-24">
                         <x-peringatan-pembayaran />
 
-                        <div class="p-6 card-orcha sm:p-7">
-                            <h2 class="text-lg font-bold font-heading text-orcha-navy">Setelah bukti dikirim</h2>
-                            <ol class="mt-4 space-y-3 text-sm text-slate-600">
-                                @foreach (['Bukti masuk ke daftar pembayaran kami.', 'Tim mengecek nominal dan tanggalnya.', 'Anda dikabari lewat WhatsApp bila sudah diterima.', 'Kursi atau unit dikunci setelah pembayaran diterima.'] as $i => $langkah)
-                                    <li class="flex gap-3">
-                                        <span
-                                            class="flex items-center justify-center w-6 h-6 text-xs font-bold text-white rounded-full shrink-0 bg-orcha-ocean">{{ $i + 1 }}</span>
-                                        <span>{{ $langkah }}</span>
-                                    </li>
-                                @endforeach
-                            </ol>
+                        {{-- Langkah-langkahnya hanya ditampilkan saat memang bisa
+                             ditempuh. Daftar "pilih uang muka → diarahkan ke DOKU"
+                             di sebelah kartu yang menyatakan pembayaran online sedang
+                             mati adalah dua kalimat yang saling membantah di layar
+                             yang sama. --}}
+                        @if ($gerbangAktif)
+                            <div class="p-6 card-orcha sm:p-7">
+                                <h2 class="text-lg font-bold font-heading text-orcha-navy">Bagaimana prosesnya</h2>
+                                <ol class="mt-4 space-y-3 text-sm text-slate-600">
+                                    @foreach (['Masukkan kode pesanan dan 4 digit terakhir WhatsApp Anda.', 'Pilih uang muka atau bayar lunas.', 'Bayar lewat bank, QRIS, atau dompet digital.', 'Pembayaran tercatat sendiri dalam hitungan detik — tanpa menunggu dicek.'] as $i => $langkah)
+                                        <li class="flex gap-3">
+                                            <span
+                                                class="flex items-center justify-center w-6 h-6 text-xs font-bold text-white rounded-full shrink-0 bg-orcha-ocean">{{ $i + 1 }}</span>
+                                            <span>{{ $langkah }}</span>
+                                        </li>
+                                    @endforeach
+                                </ol>
 
-                            <p class="mt-5 text-sm text-slate-500">
-                                Simpan bukti transfer aslinya sampai pembayaran dinyatakan diterima.
-                            </p>
+                                <p class="mt-5 text-sm text-slate-500">
+                                    Pembayaran diproses DOKU, penyedia jasa pembayaran berizin Bank
+                                    Indonesia. Kami tidak pernah meminta PIN, OTP, atau nomor kartu Anda
+                                    lewat pesan apa pun.
+                                </p>
 
-                            <a href="{{ route('ketentuan-pembayaran') }}"
-                                class="inline-block mt-3 text-sm font-semibold text-orcha-ocean hover:underline">
-                                Lihat ketentuan pembayaran
-                            </a>
-                        </div>
+                                <a href="{{ route('ketentuan-pembayaran') }}"
+                                    class="inline-block mt-3 text-sm font-semibold text-orcha-ocean hover:underline">
+                                    Lihat ketentuan pembayaran
+                                </a>
+                            </div>
+                        @endif
                     </div>
                 </aside>
             </div>
         </div>
     </section>
 
-    {{-- Angka bertitik SAMBIL diketik. Server tetap yang memegang nilainya
-         (wire:model.blur memformat ulang dengan aturan yang sama); ini hanya
-         supaya pengguna tidak menunggu pindah kolom untuk melihat "500.000".
-         Ditulis inline karena berkas Vite tidak ikut ter-deploy. --}}
-
-    <x-skrip-isian />
 </div>

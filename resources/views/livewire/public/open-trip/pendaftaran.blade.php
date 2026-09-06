@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Services\DokuCheckout;
 use App\Models\PaketWisata\TravelPackage;
 use App\Support\BerkasKwitansi;
 use App\Support\KirimPemberitahuan;
@@ -349,6 +350,10 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
         ]) : $rincian;
 
         // Dikirim SETELAH tersimpan, dan kegagalannya tidak membatalkan apa pun.
+        // Ajakan di suratnya harus cocok dengan yang benar-benar ditemui
+        // pelanggan saat tautannya dibuka.
+        $gerbang = app(DokuCheckout::class)->aktif();
+
         KirimPemberitahuan::kirim(
             'Pendaftaran Open Trip Baru',
             $pendaftaran->kode,
@@ -359,22 +364,31 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             pelanggan: new SalinanPelanggan(
                 email: $pendaftaran->email,
                 judul: 'Pendaftaran Anda Sudah Kami Terima',
-                // Tombolnya langsung ke langkah berikutnya, bukan ke beranda:
-                // yang ditunggu sekarang adalah bukti transfernya.
+                /*
+                 | Tombolnya langsung ke langkah berikutnya, bukan ke beranda:
+                 | yang ditunggu sekarang pembayarannya.
+                 |
+                 | Alamatnya sama untuk kedua jalur — halaman itu sendiri yang
+                 | memutuskan menampilkan tombol bayar atau formulir bukti. Yang
+                 | perlu berbeda cuma ajakannya, karena "Kirim Bukti Transfer"
+                 | pada halaman yang menagih pembayaran akan membuat orang
+                 | mencari-cari bukti yang belum ada.
+                 */
                 tautan: route('konfirmasi-pembayaran', ['kode' => $pendaftaran->kode]),
-                labelTautan: 'Kirim Bukti Transfer',
-                langkah: "Simpan kode {$pendaftaran->kode}. Kode inilah yang dipakai untuk mengirim bukti "
-                ."transfer, mengisi riwayat kesehatan tiap peserta, sampai mengajukan pembatalan.\n\n"
+                labelTautan: $gerbang ? 'Bayar Sekarang' : 'Kirim Bukti Transfer',
+                langkah: "Simpan kode {$pendaftaran->kode}. Kode inilah yang dipakai untuk membayar, "
+                ."mengisi riwayat kesehatan tiap peserta, sampai mengajukan pembatalan.\n\n"
                 .($biaya
-                    ? 'Berikutnya: transfer DP '.$biaya['dp_persen'].'% sebesar '.$biaya['dp_teks'].' paling lambat '
-                        .$biaya['dp_batas_jam'].' jam sejak pendaftaran ini, lalu unggah buktinya lewat halaman '
-                        .'Konfirmasi Pembayaran. Sisanya '.$biaya['sisa_teks'].' dilunasi paling lambat H-'
+                    ? 'Berikutnya: bayar DP '.$biaya['dp_persen'].'% sebesar '.$biaya['dp_teks'].' paling lambat '
+                        .$biaya['dp_batas_jam'].' jam sejak pendaftaran ini, lewat halaman '
+                        .($gerbang ? 'pembayaran kami.' : 'Konfirmasi Pembayaran berikut buktinya.')
+                        .' Sisanya '.$biaya['sisa_teks'].' dilunasi paling lambat H-'
                         .$biaya['pelunasan_hari'].' sebelum berangkat. Rinciannya ada di lampiran surat ini.'
                         // Sebagian pelanggan lebih suka sekali bayar dan selesai. Tanpa
-                        // disebutkan, mereka mengira DP itu wajib lalu mentransfer dua
+                        // disebutkan, mereka mengira DP itu wajib lalu membayar dua
                         // kali untuk sesuatu yang bisa sekali.
                         .' Boleh juga langsung lunas '.$biaya['total_teks'].' sekaligus — '
-                        .'pilih jenis "Pelunasan" di formulirnya.'
+                        .($gerbang ? 'pilih "Bayar Lunas" di halaman itu.' : 'pilih jenis "Pelunasan" di formulirnya.')
                     : 'Berikutnya: tim kami menghitung biayanya lebih dulu, lalu mengabari Anda lewat WhatsApp.')
                 .' Tempat duduk baru terkunci setelah DP masuk.'
                 // Rombongan besar butuh pintunya sejak awal: tiap peserta mengisi

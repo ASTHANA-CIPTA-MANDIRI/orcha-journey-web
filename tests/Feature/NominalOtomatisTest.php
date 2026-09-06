@@ -8,14 +8,21 @@ use Illuminate\Support\Facades\Mail;
 use Livewire\Volt\Volt;
 
 /**
- * Nominal di formulir bukti pembayaran diisikan sistem.
+ * Angka yang ditagihkan dihitung sistem, bukan diketik pelanggan.
  *
- * Sebelumnya pelanggan mengetiknya dari ingatan. Salah ketik satu digit
- * membuat pembayaran tidak cocok dengan mutasi rekening, dan pekerjaan
- * mencocokkannya berakhir di WhatsApp admin.
+ * Dulu ia mengetiknya dari ingatan, dan salah ketik satu digit membuat
+ * pembayaran tidak cocok dengan mutasi rekening — pekerjaan yang berakhir di
+ * WhatsApp admin. Sejak pembayaran publik lewat gerbang DOKU, angkanya bahkan
+ * tidak lagi bisa diketik: ia dikunci di tagihan gerbang sebelum halaman
+ * pembayaran terbuka.
  */
 beforeEach(function () {
     Mail::fake();
+
+    // Halaman publik hanya menggambar pilihan bayarnya bila gerbangnya hidup.
+    config()->set('doku.aktif', true);
+    config()->set('doku.client_id', 'BRN-0227-UJI');
+    config()->set('doku.secret_key', 'SK-UJI-RAHASIA');
 
     $paket = TravelPackage::create([
         'name' => 'Open Trip Banyuwangi',
@@ -32,6 +39,12 @@ beforeEach(function () {
         'jumlah_peserta' => 2,
     ]);
 });
+
+/** Angka rupiah seperti yang tertulis di layar. */
+function rupiah(int $angka): string
+{
+    return 'Rp '.number_format($angka, 0, ',', '.');
+}
 
 function catatBayar(string $kode, int $nominal, string $status = 'menunggu'): KonfirmasiPembayaran
 {
@@ -53,14 +66,15 @@ test('belum ada pembayaran: yang ditawarkan uang mukanya', function () {
     expect($tagihan['total_teks'])->toBe('Rp 2.860.000')
         ->and($tagihan['sudah'])->toBe(0)
         ->and($tagihan['jenis_disarankan'])->toBe('dp')
-        ->and($tagihan['nominal_pokok'])->toBe(858000);
+        ->and($tagihan['dp'])->toBe(858000);
 
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $this->pendaftaran->kode)
         ->set('empatDigit', '5432')
         ->assertSet('jenis', 'dp')
-        ->assertSet('nominal', '858000')
-        ->assertSet('nominalTeks', '858.000');
+        // Harga apa adanya. Kode unik baru ditempelkan setelah tombol bayar
+        // ditekan — lihat PembayaranDokuTest.
+        ->assertSee(rupiah(858000));
 });
 
 test('dp sudah masuk: yang ditawarkan sisanya', function () {
@@ -69,10 +83,11 @@ test('dp sudah masuk: yang ditawarkan sisanya', function () {
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $this->pendaftaran->kode)
         ->set('empatDigit', '5432')
+        // Uang muka tidak ditawarkan dua kali; yang tersisa pelunasannya.
         ->assertSet('jenis', 'pelunasan')
         // 2.860.000 − 858.000
-        ->assertSet('nominal', '2002000')
-        ->assertSet('nominalTeks', '2.002.000');
+        ->assertSee(rupiah(2002000))
+        ->assertDontSee('Uang Muka 30%');
 });
 
 test('bukti yang masih menunggu dicek tetap dihitung', function () {
@@ -99,28 +114,41 @@ test('pembayaran sebagian tetap menawarkan sisa sebenarnya', function () {
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $this->pendaftaran->kode)
         ->set('empatDigit', '5432')
-        ->assertSet('nominal', '2060000');
+        ->assertSee(rupiah(2060000));
 });
 
-test('angka yang sudah diketik pelanggan tidak ditimpa', function () {
-    // Transfer nyata sering tidak bulat — isian yang berubah sendiri
-    // setelah diketik membuat orang berhenti mempercayai formulirnya.
+test('pilihan yang sudah ditekan pelanggan tidak ditimpa', function () {
+    /*
+     | Pilihan yang berubah sendiri setelah ditekan adalah cara tercepat
+     | membuat orang berhenti mempercayai angka di layar — dan yang sedang ia
+     | baca adalah angka yang akan keluar dari rekeningnya.
+     |
+     | Dulu yang dijaga isian nominalnya. Isian itu ikut tercabut bersama
+     | formulir buktinya; yang tersisa untuk dijaga adalah pilihan jenisnya.
+     */
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $this->pendaftaran->kode)
         ->set('empatDigit', '5432')
-        ->set('nominalTeks', '900000')
         ->set('jenis', 'pelunasan')
-        ->assertSet('nominal', '900000');
+        // Mengetik ulang kodenya tidak menarik pilihannya kembali ke DP.
+        ->set('kode', $this->pendaftaran->kode)
+        ->assertSet('jenis', 'pelunasan');
 });
 
-test('ganti jenis pembayaran mengubah angka yang ditawarkan', function () {
+test('kedua pilihan tampil berikut angkanya masing-masing', function () {
+    /*
+     | Angkanya harus terbaca SEBELUM memilih, bukan sesudah.
+     |
+     | Yang dipilih di sini menentukan berapa uang yang keluar dari rekening
+     | orang. Menyembunyikan salah satunya di balik pilihan yang harus ditekan
+     | dulu justru menutupi bagian yang paling perlu dibandingkan.
+     */
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $this->pendaftaran->kode)
         ->set('empatDigit', '5432')
-        ->assertSet('nominal', '858000')
-        ->set('jenis', 'pelunasan')
+        ->assertSee(rupiah(858000))
         // Belum ada yang masuk, jadi pelunasannya sebesar seluruh tagihan
-        ->assertSet('nominal', '2860000');
+        ->assertSee(rupiah(2860000));
 });
 
 test('sudah lunas: sistem berhenti menawarkan angka', function () {
@@ -129,7 +157,6 @@ test('sudah lunas: sistem berhenti menawarkan angka', function () {
     $tagihan = TagihanPesanan::untuk($this->pendaftaran);
 
     expect($tagihan['lunas'])->toBeTrue()
-        ->and($tagihan['nominal_disarankan'])->toBe(0)
         ->and(TagihanPesanan::nominalUntukJenis($tagihan, 'pelunasan'))->toBeNull();
 });
 
@@ -208,56 +235,23 @@ test('posisi tagihan baru terbuka setelah nomornya cocok', function () {
         ->set('empatDigit', '5432')
         ->assertSee('Total tagihan')
         ->assertSee('Rp 2.860.000')
-        ->assertSee('Sudah dilaporkan')
+        // "Sudah dibayar", bukan "Sudah dilaporkan": tiap rupiah di kolom itu
+        // kini dipastikan gerbang, bukan diklaim lewat gambar.
+        ->assertSee('Sudah dibayar')
         ->assertSee('Rp 858.000')
         ->assertSee('Rp 2.002.000')
-        // Kalimatnya berubah sejak ada kode unik: yang perlu dibaca pelanggan
-        // bukan lagi "terisi otomatis", melainkan bahwa angka terakhirnya
-        // harus ditransfer apa adanya.
-        ->assertSee('tepat sampai angka');
+        // Angka di kartu pilihan masih harga apa adanya; halaman menyebut
+        // sendiri bahwa kode uniknya menyusul, supaya selisih di langkah
+        // berikutnya tidak datang sebagai kejutan.
+        ->assertSee('belum termasuk kode unik');
 });
 
-test('nominal transfer memuat kode unik yang tetap', function () {
-    /*
-     | Tagihan bulat memaksa admin mencocokkan tangkapan layar dengan mutasi
-     | rekening satu per satu — dan sejak kursi dilepas otomatis dalam 72 jam,
-     | verifikasi yang lambat langsung berbiaya kursi.
-     */
-    $tagihan = App\Support\TagihanPesanan::untuk($this->pendaftaran);
+test('yang sudah lunas tidak lagi ditawari apa pun untuk dibayar', function () {
+    catatBayar($this->pendaftaran->kode, 2860000, 'diterima');
 
-    expect($tagihan['kode_unik'])->toBeGreaterThan(0)
-        // Tidak pernah mencapai seribu, sesuai batas yang ditetapkan.
-        ->and($tagihan['kode_unik'])->toBeLessThan(1000)
-        ->and($tagihan['nominal_disarankan'])
-        ->toBe($tagihan['nominal_pokok'] + $tagihan['kode_unik']);
-});
-
-test('kode unik tidak berubah tiap halaman dibuka', function () {
-    /*
-     | Pelanggan sering membuka halaman pembayaran berkali-kali — melihat
-     | nominalnya, menutup, membuka lagi saat sudah di depan aplikasi bank.
-     | Angka yang berubah tiap muat akan membuatnya mentransfer jumlah yang
-     | tidak kita tunggu, dan justru merusak hal yang hendak diperbaiki.
-     */
-    $satu = App\Support\TagihanPesanan::untuk($this->pendaftaran)['kode_unik'];
-    $dua = App\Support\TagihanPesanan::untuk($this->pendaftaran->fresh())['kode_unik'];
-
-    expect($satu)->toBe($dua);
-});
-
-test('dua pemesanan berbeda mendapat kode unik yang berbeda', function () {
-    $lain = App\Models\OpenTrip\PendaftaranOpenTrip::create([
-        'nama' => 'Siti', 'whatsapp' => '081200000000', 'jumlah_peserta' => 1,
-        'nama_paket' => 'Open Trip Bromo', 'harga_jual' => 2860000,
-    ]);
-
-    expect(App\Support\TagihanPesanan::kodeUnik($this->pendaftaran))
-        ->not->toBe(App\Support\TagihanPesanan::kodeUnik($lain));
-});
-
-test('yang sudah lunas tidak lagi diberi kode unik', function () {
-    // Tidak ada yang perlu ditransfer, jadi tidak ada yang perlu dicocokkan.
-    $tagihan = App\Support\TagihanPesanan::untuk(null);
-
-    expect($tagihan['kode_unik'] ?? 0)->toBe(0);
+    Volt::test('public.open-trip.konfirmasi-pembayaran')
+        ->set('kode', $this->pendaftaran->kode)
+        ->set('empatDigit', '5432')
+        ->assertSee('sudah lunas')
+        ->assertDontSee('Pilih Pembayaran');
 });

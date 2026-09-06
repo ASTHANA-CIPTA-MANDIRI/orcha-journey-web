@@ -75,9 +75,15 @@ test('tabel pengembalian dana mengikuti config', function () {
 test('halaman pembayaran menyebut nama penerima yang sah, tanpa nomor rekening', function () {
     $halaman = $this->get(route('ketentuan-pembayaran'))->assertOk();
 
-    // Nama penerima adalah patokan yang bisa dicek pelanggan di mesin bank
+    /*
+     | Nama penerima tetap disebut meski pembayarannya lewat gerbang.
+     |
+     | Ia patokan yang bisa dicek pelanggan sendiri, dan justru itu yang
+     | dipakai membedakan kami dari penipu yang mengirim nomor rekening
+     | pribadi mengatasnamakan kami.
+     */
     $halaman->assertSee(config('orcha.pembayaran.atas_nama'))
-        ->assertSee('bukan kami', false);
+        ->assertSee('rekening pribadi atas nama perorangan');
 
     // Nomornya sengaja tidak dipajang supaya tidak disalin penipu
     expect(config('orcha.pembayaran.rekening'))->toBeEmpty();
@@ -98,24 +104,50 @@ test('nama penerima yang sah muncul di semua halaman yang menyinggung pembayaran
 
 /* ------------------- METODE & BUKTI PEMBAYARAN ------------------- */
 
-test('hanya transfer bank yang ditawarkan', function () {
-    $halaman = $this->get(route('ketentuan-pembayaran'))->assertOk();
-
-    $halaman->assertSee('Transfer bank')
-        // QRIS dan tunai sempat tercantum padahal tidak dilayani
-        ->assertDontSee('QRIS')
+test('metode yang disebut adalah yang benar-benar dilayani', function () {
+    /*
+     | QRIS dan tunai dulu dicabut dari halaman ini karena tercantum padahal
+     | tidak dilayani — cara bayar yang dijanjikan di situs lalu ditolak saat
+     | pemesanan bikin pelanggan ragu.
+     |
+     | QRIS kembali disebut sekarang bukan karena aturannya melonggar,
+     | melainkan karena gerbang pembayaran memang melayaninya. Yang tetap
+     | dijaga: tunai tidak pernah dijanjikan, dan channel-nya tidak didaftar
+     | satu per satu — daftar yang basi diam-diam adalah janji yang sama.
+     */
+    $this->get(route('ketentuan-pembayaran'))
+        ->assertOk()
+        ->assertSee('Virtual Account')
+        ->assertSee('QRIS')
         ->assertDontSee('Tunai di kantor');
+});
+
+test('gerbang mati mengembalikan keterangan transfer bank', function () {
+    config()->set('doku.aktif', false);
+
+    $this->get(route('ketentuan-pembayaran'))
+        ->assertOk()
+        ->assertSee('Transfer bank')
+        ->assertDontSee('QRIS');
 
     expect(config('orcha.pembayaran.metode'))->toBe(['Transfer bank']);
 });
 
-test('bukti pembayaran diarahkan ke formulir, bukan percakapan', function () {
+test('pembayaran diarahkan ke halaman bayar, bukan percakapan', function () {
+    /*
+     | Yang berubah tujuannya, bukan alasannya. Dulu yang dijauhkan adalah
+     | bukti transfer yang dikirim lewat WhatsApp lalu tenggelam di antara
+     | pesan lain. Sekarang tidak ada bukti untuk dikirim sama sekali — tetapi
+     | halaman ini tetap tidak boleh menyuruh orang mengurus pembayarannya
+     | lewat percakapan.
+     */
     $this->get(route('ketentuan-pembayaran'))
         ->assertOk()
-        ->assertSee('formulir Konfirmasi Pembayaran')
+        ->assertSee('halaman pembayaran')
         ->assertSee(route('konfirmasi-pembayaran'), false)
-        // Bukan lagi "kirim bukti ke nomor WhatsApp"
-        ->assertDontSee('Kirimkan bukti transfer ke nomor WhatsApp');
+        ->assertDontSee('Kirimkan bukti transfer ke nomor WhatsApp')
+        // Tidak lagi menjanjikan nomor rekening yang dikirim admin
+        ->assertDontSee('Nomor rekeningnya dikirim');
 
     $this->get(route('faq'))
         ->assertOk()

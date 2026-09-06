@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\DokuCheckout;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Volt\Component;
@@ -27,16 +28,42 @@ new #[Layout('components.layouts.guest')] #[Title('Ketentuan Pembayaran & DP —
         $metode = config('orcha.pembayaran.metode');
         $rekening = config('orcha.pembayaran.rekening');
 
-        $daftarMetode = collect($metode)->map(fn ($m) => "<li>{$m}</li>")->implode('');
-
         $atasNama = config('orcha.pembayaran.atas_nama');
 
-        $blokRekening = empty($rekening)
+        /*
+         | Halaman ini menerangkan jalur yang BENAR-BENAR berlaku, bukan yang
+         | direncanakan.
+         |
+         | Cara bayar yang dijanjikan di situs tetapi ditolak saat pemesanan
+         | membuat pelanggan ragu — itu sebabnya QRIS dan tunai dulu dicabut
+         | dari daftar metode. Kesalahan yang sama akan terulang terbalik bila
+         | halaman ini terus menyuruh orang mengirim bukti transfer padahal
+         | pembayarannya sudah pindah ke gerbang.
+         */
+        $gerbang = app(DokuCheckout::class)->aktif();
+
+        /*
+         | Channel-nya sengaja TIDAK didaftar satu per satu.
+         |
+         | Yang aktif di akun DOKU bisa bertambah dan berkurang tanpa satu baris
+         | kode pun berubah, dan daftar yang basi di halaman ketentuan adalah
+         | persis jenis janji yang dulu bikin repot. Yang disebut cukup: di mana
+         | membayarnya. Pilihannya ditampilkan halaman pembayaran itu sendiri,
+         | dan di sana daftarnya selalu benar.
+         */
+        $daftarMetode = $gerbang
+            ? '<li>Transfer bank &amp; Virtual Account</li><li>QRIS</li><li>Dompet digital</li>'
+            : collect($metode)->map(fn ($m) => "<li>{$m}</li>")->implode('');
+
+        $blokRekening = $gerbang
+            ? "<p>Pembayaran diselesaikan di <strong>halaman pembayaran resmi kami</strong>, dan pilihan metode yang tersedia ditampilkan di halaman itu — daftar di atas adalah gambaran umumnya. Penerima dananya tetap satu: <strong>{$atasNama}</strong>.</p>"
+                .'<p>Kami <strong>tidak pernah</strong> meminta transfer ke rekening pribadi atas nama perorangan. Bila ada yang mengirimi Anda nomor rekening pribadi mengatasnamakan kami, hentikan dan konfirmasikan dulu ke nomor resmi kami.</p>'
+            : (empty($rekening)
             ? "<p>Seluruh pembayaran hanya sah ke rekening atas nama <strong>{$atasNama}</strong>. Nama selain itu <strong>bukan kami</strong> — jangan ditransfer.</p>"
                 ."<p>Nomor rekeningnya sengaja tidak kami pajang di situs ini: nomor yang terpampang mudah disalin penipu untuk membuat halaman tiruan. Nomornya dikirim tim kami lewat WhatsApp resmi saat konfirmasi pemesanan. Yang perlu Anda periksa di mesin bank cukup nama penerimanya.</p>"
             : '<div class="table-wrap"><table class="table-orcha"><thead><tr><th>Bank</th><th>Nomor Rekening</th><th>Atas Nama</th></tr></thead><tbody>'
                 .collect($rekening)->map(fn ($r) => "<tr><td>{$r['bank']}</td><td>{$r['nomor']}</td><td>{$atasNama}</td></tr>")->implode('')
-                .'</tbody></table></div>';
+                .'</tbody></table></div>');
 
         return [
             'sections' => [
@@ -75,8 +102,18 @@ new #[Layout('components.layouts.guest')] #[Title('Ketentuan Pembayaran & DP —
                 ],
                 [
                     'slug' => 'bukti-bayar',
-                    'judul' => '4. Bukti Pembayaran',
-                    'isi' => '
+                    'judul' => $gerbang ? '4. Cara Membayar' : '4. Bukti Pembayaran',
+                    'isi' => $gerbang
+                        ? '
+                        <ol>
+                            <li>Buka <a href="'.route('konfirmasi-pembayaran').'">halaman pembayaran</a>, lalu masukkan kode pesanan Anda (mis. OT-1508-A7K3) dan 4 digit terakhir nomor WhatsApp yang Anda pakai saat memesan.</li>
+                            <li>Pilih membayar uang muka dulu atau langsung lunas. Nominalnya kami hitungkan, termasuk kode unik pemesanan Anda — angkanya tidak perlu diketik sendiri.</li>
+                            <li>Selesaikan pembayaran di halaman yang muncul berikutnya.</li>
+                            <li>Pembayaran tercatat sendiri dalam hitungan detik, dan tanda terimanya dikirim ke email Anda. Tidak perlu mengirim bukti apa pun kepada kami.</li>
+                        </ol>
+                        <p>Simpan tanda terima itu sampai perjalanan selesai; itu dasarnya bila terjadi selisih catatan. Bila pembayaran Anda sudah keluar dari rekening tetapi belum tercatat setelah beberapa menit, hubungi kami lewat WhatsApp resmi dengan menyebutkan kode pesanan — uang yang sudah berpindah tidak hilang.</p>
+                    '
+                        : '
                         <ol>
                             <li>Kirim bukti transfer lewat <a href="'.route('konfirmasi-pembayaran').'">formulir Konfirmasi Pembayaran</a> paling lambat 1×24 jam setelah pembayaran.</li>
                             <li>Sertakan kode pesanan Anda (mis. OT-1508-A7K3) supaya pembayaran langsung tercocokkan.</li>
@@ -121,7 +158,7 @@ new #[Layout('components.layouts.guest')] #[Title('Ketentuan Pembayaran & DP —
 }; ?>
 
 <x-halaman-ketentuan title="Ketentuan Pembayaran & DP" eyebrow="Pembayaran"
-    subtitle="Besaran uang muka, tenggat pelunasan, metode pembayaran, dan cara mengirim bukti transfer."
+    subtitle="Besaran uang muka, tenggat pelunasan, metode pembayaran, dan cara menyelesaikannya."
     image="images/HERO/ketentuan-pembayaran.webp" posisi="center 80%" diperbarui="14 Agustus 2026" :sections="$sections">
     <p>
         Halaman ini merangkum seluruh aturan pembayaran di Orcha Journey. Bila ada perbedaan dengan penawaran tertulis

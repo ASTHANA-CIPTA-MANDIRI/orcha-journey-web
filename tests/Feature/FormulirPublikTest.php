@@ -532,7 +532,9 @@ test('pesan penolakannya mengantar ke langkah berikutnya', function () {
         ->call('simpan')
         ->errors()->get('kode')[0];
 
-    expect($galat)->toContain('uang muka')->toContain('Konfirmasi Pembayaran');
+    // Kalimatnya mengikuti jalur yang berlaku: menyuruh menyelesaikan
+    // pembayaran, bukan menyuruh mengirim bukti yang sudah tidak ada.
+    expect($galat)->toContain('uang muka')->toContain('halaman Pembayaran');
 });
 
 test('kode yang belum membayar tidak menampilkan apa pun tentang tripnya', function () {

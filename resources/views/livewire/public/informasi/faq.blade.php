@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\DokuCheckout;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -12,6 +13,13 @@ new #[Layout('components.layouts.guest')] #[Title('FAQ — Pertanyaan yang Serin
         $dpStudy = config('orcha.pembayaran.dp_persen_study_tour');
         $pelunasan = config('orcha.pembayaran.pelunasan_hari_sebelum');
         $batasDp = config('orcha.pembayaran.dp_batas_jam');
+
+        // Jawaban tentang cara membayar harus mengikuti jalur yang benar-benar
+        // berlaku. FAQ yang menyuruh orang menunggu nomor rekening lewat
+        // WhatsApp, padahal pembayarannya sudah bisa diselesaikan sendiri
+        // dalam dua menit, membuat orang menunggu untuk sesuatu yang tidak
+        // akan datang.
+        $gerbang = app(DokuCheckout::class)->aktif();
 
         $kelompok = [
                 [
@@ -50,7 +58,9 @@ new #[Layout('components.layouts.guest')] #[Title('FAQ — Pertanyaan yang Serin
                         ],
                         [
                             'q' => 'Metode pembayaran apa saja yang diterima?',
-                            'a' => 'Pembayaran hanya lewat transfer bank, dan hanya sah ke rekening atas nama ' . config('orcha.pembayaran.atas_nama') . ' — nama selain itu bukan kami. Nomor rekeningnya dikirim tim kami lewat WhatsApp saat konfirmasi pemesanan, sengaja tidak dipajang di situs supaya tidak disalin penipu. Setelah transfer, kirim buktinya lewat <a href="' . route('konfirmasi-pembayaran') . '">formulir Konfirmasi Pembayaran</a>.',
+                            'a' => $gerbang
+                                ? 'Pembayaran diselesaikan di <a href="' . route('konfirmasi-pembayaran') . '">halaman pembayaran</a> kami: masukkan kode pesanan dan 4 digit terakhir nomor WhatsApp Anda, pilih uang muka atau lunas, lalu bayar lewat transfer bank, virtual account, QRIS, atau dompet digital. Pembayarannya tercatat sendiri — Anda tidak perlu mengirim bukti apa pun. Penerima dananya tetap ' . config('orcha.pembayaran.atas_nama') . ', dan kami tidak pernah meminta transfer ke rekening pribadi atas nama perorangan.'
+                                : 'Pembayaran hanya lewat transfer bank, dan hanya sah ke rekening atas nama ' . config('orcha.pembayaran.atas_nama') . ' — nama selain itu bukan kami. Nomor rekeningnya dikirim tim kami lewat WhatsApp saat konfirmasi pemesanan, sengaja tidak dipajang di situs supaya tidak disalin penipu. Setelah transfer, kirim buktinya lewat <a href="' . route('konfirmasi-pembayaran') . '">formulir Konfirmasi Pembayaran</a>.',
                         ],
                         [
                             'q' => 'Apakah harga yang tertera sudah final?',

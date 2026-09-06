@@ -61,6 +61,18 @@
     // kwitansi yang sudah lunas: "simpan berkas ini sampai perjalanan
     // selesai", tanpa sepatah pun tentang cara membayarnya.
     $menungguBayar = ! empty($biaya) || $capStatus === 'Belum Dibayar';
+
+    /*
+     | Uang yang masuk lewat gerbang pembayaran menuntut kalimat yang berbeda,
+     | bukan kalimat yang sama dengan kata "transfer" diganti.
+     |
+     | Pelanggan gerbang TIDAK PERNAH mentransfer ke rekening mana pun: ia
+     | membayar di halaman pembayaran, lewat virtual account, QRIS, atau dompet
+     | digital. Petunjuk "pembayaran hanya sah ke nama di atas" menyuruhnya
+     | mencocokkan sesuatu yang tidak pernah ia lihat — dan yang lebih buruk,
+     | mengesankan transfer manual sebagai jalur yang berlaku.
+     */
+    $lewatGerbang = $lewatGerbang ?? false;
 @endphp
 
 <!DOCTYPE html>
@@ -423,8 +435,15 @@
                 </tr>
                 <tr>
                     <td>
-                        Sudah dilaporkan masuk
-                        <div class="tempo">termasuk pembayaran ini, sebelum dicek tim</div>
+                        {{ $lewatGerbang ? 'Sudah dibayar' : 'Sudah dilaporkan masuk' }}
+                        {{-- "Sebelum dicek tim" adalah peringatan yang jujur untuk bukti
+                             unggahan: angkanya memuat klaim yang belum diperiksa siapa
+                             pun. Uang gerbang sudah dipastikan sebelum baris ini lahir,
+                             jadi peringatan yang sama di sana justru menanam ragu yang
+                             tidak berdasar. --}}
+                        @unless ($lewatGerbang)
+                            <div class="tempo">termasuk pembayaran ini, sebelum dicek tim</div>
+                        @endunless
                     </td>
                     <td align="right" valign="top">
                         <span class="nilai" style="color:{{ $ocean }};">{{ $tagihan['sudah_teks'] }}</span>
@@ -477,30 +496,48 @@
                                 {{-- Nama penerima ditaruh di kotaknya sendiri. Inilah
                                      satu-satunya hal yang bisa dicocokkan pelanggan di
                                      layar ATM sebelum uangnya berpindah, jadi tidak
-                                     boleh tenggelam di tengah paragraf. --}}
-                                <table width="100%" cellpadding="0" cellspacing="0" class="kotak-nama">
-                                    <tr>
-                                        <td>
-                                            <div class="label" style="color:{{ $ocean }};">
-                                                Satu-satunya nama penerima yang sah
-                                            </div>
-                                            <div class="nama-penerima">{{ config('orcha.pembayaran.atas_nama') }}</div>
-                                        </td>
-                                    </tr>
-                                </table>
+                                     boleh tenggelam di tengah paragraf.
+
+                                     Kotak ini HANYA untuk transfer manual. Pelanggan yang
+                                     membayar lewat gerbang tidak pernah melihat nama
+                                     penerima di layar mana pun — menyuruhnya mencocokkan
+                                     berarti menyuruh memeriksa sesuatu yang tidak ada. --}}
+                                @unless ($lewatGerbang)
+                                    <table width="100%" cellpadding="0" cellspacing="0" class="kotak-nama">
+                                        <tr>
+                                            <td>
+                                                <div class="label" style="color:{{ $ocean }};">
+                                                    Satu-satunya nama penerima yang sah
+                                                </div>
+                                                <div class="nama-penerima">{{ config('orcha.pembayaran.atas_nama') }}</div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                @endunless
 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:11px;">
                                     @php
-                                        $langkah = $menungguBayar
-                                            ? [
+                                        $langkah = match (true) {
+                                            /*
+                                             | Pembayaran gerbang: tidak ada nama penerima yang
+                                             | perlu dicocokkan, dan tidak ada bukti yang perlu
+                                             | dikirim. Yang tersisa berguna cuma dua — di mana
+                                             | pembayaran sah dilakukan, dan simpan berkas ini.
+                                             */
+                                            $lewatGerbang => [
+                                                'Pembayaran ini diselesaikan di halaman pembayaran resmi kami.',
+                                                'Simpan berkas ini sampai perjalanan selesai.',
+                                            ],
+                                            $menungguBayar => [
                                                 'Transfer bank — tidak ada cara pembayaran lain.',
                                                 'Nomor rekening dikirim tim kami lewat WhatsApp.',
                                                 'Setelah transfer, unggah buktinya lewat halaman Konfirmasi Pembayaran.',
-                                            ]
-                                            : [
+                                            ],
+                                            default => [
                                                 'Pembayaran hanya sah ke nama di atas.',
                                                 'Simpan berkas ini sampai perjalanan selesai.',
-                                            ];
+                                            ],
+                                        };
                                     @endphp
 
                                     @foreach ($langkah as $urut => $satu)
@@ -516,8 +553,19 @@
                                 <table width="100%" cellpadding="0" cellspacing="0" class="kotak-awas" style="margin-top:9px;">
                                     <tr>
                                         <td>
-                                            Nama penerima selain itu <strong>bukan kami</strong> — termasuk rekening
-                                            pribadi yang mengatasnamakan Orcha Journey.
+                                            @if ($lewatGerbang)
+                                                {{-- Peringatan penipuannya tetap ada, tetapi menunjuk
+                                                     bahaya yang benar-benar mengintai pelanggan gerbang:
+                                                     bukan nama rekening yang keliru, melainkan orang
+                                                     yang menghubunginya belakangan meminta transfer
+                                                     pribadi atau kode OTP. --}}
+                                                Kami <strong>tidak pernah</strong> meminta transfer ke rekening pribadi
+                                                atas nama perorangan, dan tidak pernah meminta PIN, OTP, atau nomor
+                                                kartu Anda lewat pesan apa pun.
+                                            @else
+                                                Nama penerima selain itu <strong>bukan kami</strong> — termasuk rekening
+                                                pribadi yang mengatasnamakan Orcha Journey.
+                                            @endif
                                         </td>
                                     </tr>
                                 </table>

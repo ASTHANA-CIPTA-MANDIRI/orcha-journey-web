@@ -254,6 +254,16 @@
     @endif
 
     @vite(['resources/css/new-homepage.css', 'resources/js/new-homepage.js'])
+
+    {{-- x-cloak dipakai di beberapa tempat pada tata letak ini, tetapi aturan
+         yang benar-benar menyembunyikannya tidak pernah ada — jadi selama ini
+         atributnya tidak melakukan apa pun, dan menu yang seharusnya tertutup
+         berkedip terbuka sepersekian detik pada tiap pemuatan halaman.
+
+         Ditulis sebaris, bukan di berkas CSS: ia harus berlaku sebelum satu
+         pun lembar gaya selesai diunduh, dan justru pada saat itulah kedipan
+         terjadi. --}}
+    <style>[x-cloak] { display: none !important; }</style>
 </head>
 
 @php

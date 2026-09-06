@@ -1,14 +1,25 @@
 <?php
 
-use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Volt;
 
+/**
+ * Halaman pembayaran pelanggan.
+ *
+ * Berkas ini dulu menguji formulir unggah bukti transfer. Formulir itu SUDAH
+ * DICABUT dari sisi publik sejak pembayaran pindah ke gerbang DOKU — unggah
+ * bukti kini hanya ada di sisi admin, dan uji jalur itu berpindah ke
+ * PembayaranManualTest serta PembayaranDokuTest.
+ *
+ * Yang tersisa di sini adalah bagian yang tidak ikut berubah, dan justru itu
+ * yang paling perlu dijaga: DUA KUNCI yang membuka sebuah pesanan. Kode saja
+ * tidak pernah cukup, karena kotak yang terbuka menyebut nama pemesan, trip
+ * yang diikutinya, dan sisa utangnya.
+ */
 beforeEach(function () {
-    Storage::fake('public');
-    Storage::fake('rahasia');
+    config()->set('doku.aktif', true);
+    config()->set('doku.client_id', 'BRN-0227-UJI');
+    config()->set('doku.secret_key', 'SK-UJI-RAHASIA');
 
     $this->pendaftaran = PendaftaranOpenTrip::create([
         'nama' => 'Budi Santoso',
@@ -20,49 +31,12 @@ beforeEach(function () {
     ]);
 });
 
-test('halaman konfirmasi pembayaran bisa dibuka publik', function () {
+test('halaman pembayaran bisa dibuka publik', function () {
     $this->get(route('konfirmasi-pembayaran'))
         ->assertOk()
-        ->assertSee('Konfirmasi Pembayaran')
+        ->assertSee('Bayar Pesanan')
         // Patokan anti-penipuan ikut tampil di halaman ini
         ->assertSee(config('orcha.pembayaran.atas_nama'));
-});
-
-test('bukti transfer tersimpan sebagai webp', function () {
-    Volt::test('public.open-trip.konfirmasi-pembayaran')
-        ->set('kode', $this->pendaftaran->kode)
-        ->set('jenis', 'dp')
-        ->set('nominalTeks', '500000')
-        ->set('tanggalTransfer', now()->toDateString())
-        ->set('bankPengirim', 'BCA')
-        ->set('atasNamaPengirim', 'Budi Santoso')
-        ->set('bukti', UploadedFile::fake()->image('bukti.jpg', 800, 1200))
-        ->set('setuju', true)
-        ->call('kirim')
-        ->assertHasNoErrors()
-        ->assertSet('terkirim', true);
-
-    $bayar = KonfirmasiPembayaran::firstOrFail();
-
-    expect($bayar->kode)->toBe($this->pendaftaran->kode)
-        ->and($bayar->nominal)->toBe(500000)
-        ->and($bayar->status)->toBe('menunggu')
-        ->and($bayar->jenis_label)->toBe('Uang Muka (DP)')
-        ->and($bayar->nominal_formatted)->toBe('Rp 500.000')
-        ->and($bayar->bukti)->toEndWith('.webp');
-
-    /*
-     | Buktinya ada di disk RAHASIA, dan tidak ada di disk publik.
-     |
-     | Dulu ia disimpan di disk public yang di-symlink ke public/storage,
-     | sehingga tangkapan layar mutasi bank — berikut nama pemilik rekening,
-     | bank, dan nominalnya — bisa diambil siapa pun yang memegang alamatnya,
-     | tanpa login dan tanpa batas waktu.
-     */
-    $relatif = str_replace('/storage/', '', $bayar->bukti);
-
-    Storage::disk('rahasia')->assertExists($relatif);
-    Storage::disk('public')->assertMissing($relatif);
 });
 
 test('kode pesanan menampilkan ringkasan pesanannya', function () {
@@ -113,95 +87,26 @@ test('pencarian kode yang gagal berulang kali ikut dibatasi', function () {
         ->assertDontSee('Budi Santoso');
 });
 
-test('kode yang tidak dikenal tetap boleh dikirim, dengan peringatan', function () {
-    $halaman = Volt::test('public.open-trip.konfirmasi-pembayaran')
-        ->set('kode', 'OT-0000-XXXX');
-
-    $halaman->assertSee('belum kami temukan');
-
-    // Uang sudah terlanjur pindah — buktinya harus tetap masuk untuk dicek
-    $halaman->set('nominalTeks', '500000')
-        ->set('tanggalTransfer', now()->toDateString())
-        ->set('bankPengirim', 'BCA')
-        ->set('atasNamaPengirim', 'Budi Santoso')
-        ->set('bukti', UploadedFile::fake()->image('bukti.jpg'))
-        ->set('setuju', true)
-        ->call('kirim')
-        ->assertHasNoErrors();
-
-    expect(KonfirmasiPembayaran::count())->toBe(1);
-});
-
-test('isian yang tidak lengkap ditolak', function () {
-    Volt::test('public.open-trip.konfirmasi-pembayaran')
-        ->set('kode', '')
-        ->set('tanggalTransfer', now()->addWeek()->toDateString())
-        ->call('kirim')
-        ->assertHasErrors(['kode', 'nominal', 'tanggalTransfer', 'bankPengirim', 'atasNamaPengirim', 'bukti', 'setuju']);
-
-    expect(KonfirmasiPembayaran::count())->toBe(0);
-});
-
-test('tanpa bukti transfer tidak bisa dikirim', function () {
-    Volt::test('public.open-trip.konfirmasi-pembayaran')
-        ->set('kode', $this->pendaftaran->kode)
-        ->set('nominalTeks', '500000')
-        ->set('tanggalTransfer', now()->toDateString())
-        ->set('bankPengirim', 'BCA')
-        ->set('atasNamaPengirim', 'Budi Santoso')
-        ->set('setuju', true)
-        ->call('kirim')
-        ->assertHasErrors(['bukti']);
-
-    expect(KonfirmasiPembayaran::count())->toBe(0);
-});
-
 test('kode diseragamkan jadi huruf besar', function () {
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', strtolower($this->pendaftaran->kode))
         ->assertSet('kode', $this->pendaftaran->kode);
 });
 
-test('nominal transfer tampil bertitik dan tersimpan sebagai angka', function () {
-    $halaman = Volt::test('public.open-trip.konfirmasi-pembayaran')
-        ->set('nominalTeks', '500000');
-
-    expect($halaman->get('nominalTeks'))->toBe('500.000')
-        ->and($halaman->get('nominal'))->toBe('500000');
-
-    // Ketikan berantakan tetap terbaca
-    $halaman->set('nominalTeks', 'Rp 1.430.000,-');
-    expect($halaman->get('nominalTeks'))->toBe('1.430.000')
-        ->and($halaman->get('nominal'))->toBe('1430000');
-
-    // Dikosongkan: kembali kosong, bukan "0" yang harus dihapus dulu
-    $halaman->set('nominalTeks', '');
-    expect($halaman->get('nominalTeks'))->toBe('')
-        ->and($halaman->get('nominal'))->toBe('');
-
-    $halaman->set('kode', $this->pendaftaran->kode)
-        ->set('nominalTeks', '500000')
-        ->set('tanggalTransfer', now()->toDateString())
-        ->set('bankPengirim', 'BCA')
-        ->set('atasNamaPengirim', 'Budi Santoso')
-        ->set('bukti', UploadedFile::fake()->image('bukti.jpg'))
-        ->set('setuju', true)
-        ->call('kirim')
-        ->assertHasNoErrors();
-
-    // Titik pemisah tidak pernah ikut tersimpan
-    expect(KonfirmasiPembayaran::firstOrFail()->nominal)->toBe(500000);
-});
-
-test('nominal kosong ditolak validasi', function () {
+test('kode yang tidak dikenal tidak membuka apa pun', function () {
+    /*
+     | Dulu kode asing tetap boleh dipakai mengirim bukti: uangnya mungkin
+     | sudah terlanjur pindah, dan menolaknya mentah lebih buruk daripada
+     | menerimanya untuk diperiksa.
+     |
+     | Perhitungan itu berubah sejak pembayaran lewat gerbang. Di sini tidak
+     | ada uang yang bisa terlanjur pindah tanpa kode yang benar — halaman
+     | bayarnya dibuat DARI pesanannya. Yang tersisa hanyalah pesan yang
+     | menuntun orang memeriksa ketikannya.
+     */
     Volt::test('public.open-trip.konfirmasi-pembayaran')
-        ->set('kode', $this->pendaftaran->kode)
-        ->set('nominalTeks', '')
-        ->set('tanggalTransfer', now()->toDateString())
-        ->set('bankPengirim', 'BCA')
-        ->set('atasNamaPengirim', 'Budi Santoso')
-        ->set('bukti', UploadedFile::fake()->image('bukti.jpg'))
-        ->set('setuju', true)
-        ->call('kirim')
-        ->assertHasErrors(['nominal']);
+        ->set('kode', 'OT-0000-XXXX')
+        ->set('empatDigit', '7890')
+        ->assertSee('belum kami temukan')
+        ->assertDontSee('Pilih Pembayaran');
 });

@@ -20,7 +20,7 @@ new #[Layout('components.layouts.guest')] #[Title('Kebijakan Privasi — Orcha J
                             <li><strong>Data pemesan:</strong> nama, nomor WhatsApp, dan alamat surel.</li>
                             <li><strong>Data peserta:</strong> nama peserta, dan bila diperlukan nomor identitas untuk asuransi, perizinan, atau pemesanan akomodasi.</li>
                             <li><strong>Data perjalanan:</strong> tanggal, tujuan, titik jemput, serta catatan kebutuhan khusus seperti alergi makanan.</li>
-                            <li><strong>Bukti pembayaran</strong> yang Anda kirimkan kepada kami.</li>
+                            <li><strong>Catatan pembayaran</strong> — nominal, tanggal, dan metode yang Anda pakai. Pembayaran diproses penyedia jasa pembayaran berizin; kami tidak pernah menyimpan nomor kartu, PIN, maupun OTP Anda. Bila pembayaran ditangani manual, bukti transfer yang Anda kirimkan lewat tim kami juga ikut tersimpan.</li>
                             <li><strong>Dokumentasi perjalanan</strong> berupa foto dan video kegiatan.</li>
                         </ul>
                         <p>Kami tidak pernah meminta PIN, kata sandi, maupun kode OTP perbankan Anda.</p>

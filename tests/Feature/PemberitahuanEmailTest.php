@@ -3,7 +3,6 @@
 use App\Mail\PemberitahuanFormulir;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Volt;
@@ -23,6 +22,33 @@ beforeEach(function () {
         'titik_jemput' => 'Jogja, Klaten, Surakarta',
     ]);
 });
+
+/**
+ * Satu pembayaran DOKU yang berhasil, sampai suratnya terkirim.
+ *
+ * Tanda tangannya tidak ikut diuji di sini — itu urusan PembayaranDokuTest.
+ * Yang dipanggil langsung adalah pemroses notifikasinya, karena yang sedang
+ * diperiksa berkas ini adalah SURATNYA.
+ */
+function bayarLewatGerbang(PendaftaranOpenTrip $pendaftaran, int $nominal = 500000): void
+{
+    App\Models\OpenTrip\PembayaranDoku::create([
+        'invoice' => $pendaftaran->kode.'-DP-SURAT',
+        'kode' => $pendaftaran->kode,
+        'jenis' => 'dp',
+        'nominal_pokok' => $nominal,
+        'kode_unik' => 0,
+        'nominal' => $nominal,
+        'status' => 'menunggu',
+    ]);
+
+    App\Support\TerimaNotifikasiDoku::proses([
+        'service' => ['id' => 'VIRTUAL_ACCOUNT'],
+        'channel' => ['id' => 'VIRTUAL_ACCOUNT_BCA'],
+        'transaction' => ['status' => 'SUCCESS', 'date' => now()->toIso8601String()],
+        'order' => ['invoice_number' => $pendaftaran->kode.'-DP-SURAT', 'amount' => $nominal],
+    ]);
+}
 
 function pendaftaranUji(?string $email = null): PendaftaranOpenTrip
 {
@@ -73,31 +99,24 @@ test('pendaftaran mengirim surat beserta bukti pendaftaran pdf', function () {
 
 /* ------------------------ KONFIRMASI PEMBAYARAN ------------------------ */
 
-test('bukti pembayaran mengirim surat dengan foto bukti dan kwitansi pdf', function () {
+test('pembayaran lewat gerbang mengabari kantor, tanpa lampiran gambar', function () {
+    /*
+     | Dulu surat ini membawa foto bukti transfer, karena memang itu yang
+     | dikirim pelanggan dan itu yang harus dicocokkan admin dengan mutasi.
+     |
+     | Sejak pembayaran publik lewat gerbang, tidak ada gambar apa pun — dan
+     | tidak ada yang perlu dicocokkan. Buktinya adalah notifikasi bertanda
+     | tangan yang tersimpan utuh di tbl_pembayaran_doku.
+     */
     $pendaftaran = pendaftaranUji();
 
-    Volt::test('public.open-trip.konfirmasi-pembayaran')
-        ->set('kode', $pendaftaran->kode)
-        ->set('jenis', 'dp')
-        ->set('nominalTeks', '500000')
-        ->set('tanggalTransfer', now()->toDateString())
-        ->set('bankPengirim', 'BCA')
-        ->set('atasNamaPengirim', 'Siti Aminah')
-        ->set('bukti', UploadedFile::fake()->image('bukti.jpg'))
-        ->set('setuju', true)
-        ->call('kirim')
-        ->assertHasNoErrors();
+    bayarLewatGerbang($pendaftaran);
 
     Mail::assertSent(PemberitahuanFormulir::class, function ($surat) use ($pendaftaran) {
-        $namaBerkas = array_key_first($surat->berkasPdf);
-
         return $surat->kode === $pendaftaran->kode
-            && $surat->rincian['Nominal'] === 'Rp 500.000'
-            // Foto buktinya ikut dilampirkan
-            && count($surat->lampiran) === 1
-            && str_ends_with($surat->lampiran[0], '.webp')
-            && str_contains($namaBerkas, 'TANDA-TERIMA')
-            && str_starts_with($surat->berkasPdf[$namaBerkas], '%PDF-');
+            && ($surat->rincian['Nominal'] ?? null) === 'Rp 500.000'
+            && ($surat->rincian['Metode'] ?? null) === 'Virtual Account BCA'
+            && $surat->lampiran === [];
     });
 });
 
@@ -378,8 +397,9 @@ test('surat pendaftaran menyebut lampirannya sebagai tagihan, bukan kwitansi', f
             // Belum ada uang yang masuk — menyebutnya kwitansi membuat
             // pelanggan mengira pembayarannya sudah lunas
             && ! str_contains($html, 'Kwitansi PDF terlampir')
-            // Tombolnya menuju langkah berikutnya: mengirim bukti transfer
-            && str_contains($html, 'Kirim Bukti Transfer')
+            // Tombolnya menuju langkah berikutnya: membayar. Bukan lagi
+            // "Kirim Bukti Transfer" — tidak ada bukti untuk dikirim.
+            && str_contains($html, 'Bayar Sekarang')
             && str_contains($html, route('konfirmasi-pembayaran', ['kode' => $kode]))
             // WhatsApp turun jadi tautan kedua, tidak hilang
             && str_contains($html, 'api.whatsapp.com');
@@ -405,29 +425,26 @@ test('subjek surat pelanggan tidak memakai awalan kotak kantor', function () {
     expect($pelanggan->envelope()->subject)->toBe('Orcha Journey — Pendaftaran Anda Sudah Kami Terima (OT-1508-ABCD)');
 });
 
-test('salinan pembayaran dikirim ke alamat pendaftarnya, tanpa mengembalikan fotonya', function () {
+test('salinan pembayaran dikirim ke alamat pendaftarnya, bercap diterima', function () {
+    /*
+     | Capnya "Diterima", bukan lagi "Menunggu Dicek".
+     |
+     | Perbedaannya bukan kata-kata. Bukti unggahan memang belum uang saat
+     | suratnya terkirim — pelanggan diminta menyimpan bukti aslinya sampai
+     | ada yang memeriksanya. Pembayaran yang masuk lewat gerbang sudah
+     | dipastikan sebelum surat ini disusun, jadi menahannya di "menunggu"
+     | hanya membuat orang mengira ia belum selesai membayar.
+     */
     $pendaftaran = pendaftaranUji('siti@contoh.test');
 
-    Volt::test('public.open-trip.konfirmasi-pembayaran')
-        ->set('kode', $pendaftaran->kode)
-        ->set('jenis', 'dp')
-        ->set('nominalTeks', '500000')
-        ->set('tanggalTransfer', now()->toDateString())
-        ->set('bankPengirim', 'BCA')
-        ->set('atasNamaPengirim', 'Siti Aminah')
-        ->set('bukti', UploadedFile::fake()->image('bukti.jpg'))
-        ->set('setuju', true)
-        ->call('kirim')
-        ->assertHasNoErrors();
+    bayarLewatGerbang($pendaftaran);
 
     Mail::assertSent(PemberitahuanFormulir::class, function ($surat) {
         return $surat->hasTo('siti@contoh.test')
             && $surat->untukPelanggan === true
-            // Foto bukti berasal dari pelanggan sendiri — tak perlu dikirim balik
             && $surat->lampiran === []
             && count($surat->berkasPdf) === 1
-            // Jangan sampai terbaca sebagai tanda lunas
-            && str_contains($surat->catatan, 'Menunggu Dicek');
+            && ($surat->rincian['Status'] ?? null) === 'Diterima';
     });
 });
 

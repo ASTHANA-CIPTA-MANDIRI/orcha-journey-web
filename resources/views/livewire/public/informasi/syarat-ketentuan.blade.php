@@ -64,7 +64,7 @@ new #[Layout('components.layouts.guest')] #[Title('Syarat & Ketentuan — Orcha 
                     'slug' => 'pembayaran',
                     'judul' => '4. Pembayaran',
                     'isi' => "
-                        <p>Uang muka sebesar {$dp}% saat pemesanan, dan pelunasan paling lambat H-{$pelunasan} sebelum keberangkatan. Rincian lengkap, termasuk metode pembayaran dan bukti transfer, dijelaskan pada halaman <a href=\"" . route('ketentuan-pembayaran') . "\">Ketentuan Pembayaran &amp; DP</a>.</p>
+                        <p>Uang muka sebesar {$dp}% saat pemesanan, dan pelunasan paling lambat H-{$pelunasan} sebelum keberangkatan. Rincian lengkap, termasuk metode pembayaran yang tersedia, dijelaskan pada halaman <a href=\"" . route('ketentuan-pembayaran') . "\">Ketentuan Pembayaran &amp; DP</a>.</p>
                         <p>Keterlambatan pelunasan tanpa pemberitahuan dapat menyebabkan pemesanan dianggap batal dan tunduk pada ketentuan pembatalan.</p>
                     ",
                 ],

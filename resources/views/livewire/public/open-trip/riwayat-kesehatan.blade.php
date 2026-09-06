@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\DokuCheckout;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\OpenTrip\RiwayatKesehatan;
 use App\Support\KirimPemberitahuan;
@@ -159,7 +160,9 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
 
                 if (! in_array($daftar->status, self::SUDAH_BAYAR, true)) {
                     return $gagal('Formulir kesehatan bisa diisi setelah uang muka kami terima. '
-                        .'Sudah transfer? Kirim buktinya lebih dulu di halaman Konfirmasi Pembayaran.');
+                        .(app(DokuCheckout::class)->aktif()
+                            ? 'Selesaikan pembayarannya lebih dulu di halaman Pembayaran.'
+                            : 'Sudah transfer? Kirim buktinya lebih dulu di halaman Konfirmasi Pembayaran.'));
                 }
             }],
             'namaPeserta' => 'required|string|min:3|max:120',
@@ -466,15 +469,25 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                                          menyatakan "belum bisa" tanpa mengatakan apa yang harus
                                          dikerjakan hanya memindahkan pertanyaannya ke WhatsApp
                                          tim. --}}
+                                    @php
+                                        $gerbangBayar = app(App\Services\DokuCheckout::class)->aktif();
+                                    @endphp
+
                                     <div class="p-4 mt-3 text-sm rounded-2xl bg-orcha-foam text-orcha-navy">
                                         <p class="font-bold">Formulir ini terbuka setelah uang muka kami terima.</p>
                                         <p class="mt-1 text-slate-600">
-                                            Kode Anda benar, tetapi pembayarannya belum tercatat. Sudah transfer?
-                                            Kirim buktinya lebih dulu — biasanya kami cek di hari yang sama.
+                                            Kode Anda benar, tetapi pembayarannya belum tercatat.
+                                            @if ($gerbangBayar)
+                                                Selesaikan pembayarannya lebih dulu — begitu masuk, formulir ini
+                                                langsung terbuka.
+                                            @else
+                                                Sudah transfer? Kirim buktinya lebih dulu — biasanya kami cek di
+                                                hari yang sama.
+                                            @endif
                                         </p>
                                         <a href="{{ route('konfirmasi-pembayaran', ['kode' => $kode]) }}" wire:navigate
                                             class="inline-flex items-center gap-1.5 mt-3 font-bold text-orcha-ocean hover:underline">
-                                            Kirim bukti pembayaran
+                                            {{ $gerbangBayar ? 'Bayar sekarang' : 'Kirim bukti pembayaran' }}
                                             <x-heroicon-o-arrow-right class="w-4 h-4" />
                                         </a>
                                     </div>

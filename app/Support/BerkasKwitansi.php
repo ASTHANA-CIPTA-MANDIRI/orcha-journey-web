@@ -20,6 +20,8 @@ class BerkasKwitansi
      * @param  array<string, mixed>  $tagihan  hasil TagihanPesanan::untuk(); kosong = tanpa blok posisi tagihan
      * @param  array<string, mixed>  $keadaan  kalimat keadaan pembayaran: ['kalimat' => ..., 'nada' => aman|awas|netral]
      * @param  bool  $caraBayar  false untuk pesanan yang tidak lagi menunggu pembayaran
+     * @param  bool  $lewatGerbang  true bila uangnya masuk lewat gerbang pembayaran,
+     *                              bukan transfer manual yang dicek admin
      * @return string|null isi berkas PDF, atau null bila gagal dibuat
      */
     public static function buat(
@@ -35,11 +37,12 @@ class BerkasKwitansi
         array $nota = [],
         array $keadaan = [],
         bool $caraBayar = true,
+        bool $lewatGerbang = false,
     ): ?string {
         try {
             return Pdf::loadView('pdf.kwitansi', compact(
                 'judul', 'kode', 'rincian', 'catatan', 'jumlah', 'jumlahLabel', 'capStatus',
-                'biaya', 'tagihan', 'nota', 'keadaan', 'caraBayar'
+                'biaya', 'tagihan', 'nota', 'keadaan', 'caraBayar', 'lewatGerbang'
             ))->setPaper('a4')->output();
         } catch (\Throwable $e) {
             Log::error('Kwitansi PDF gagal dibuat', [

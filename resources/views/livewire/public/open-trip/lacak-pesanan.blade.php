@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\DokuCheckout;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\PemilikPesanan;
@@ -44,12 +45,23 @@ new #[Layout('components.layouts.guest')] #[Title('Lacak Pesanan — Orcha Journ
     {
         $pesanan = PemilikPesanan::cariTerbatas($this->kode, $this->empatDigit, request()->ip());
 
+        // Dipakai menentukan ajakan yang ditampilkan, jadi harus ada di kedua
+        // cabang — termasuk saat pesanannya belum ketemu.
+        $gerbangAktif = app(DokuCheckout::class)->aktif();
+
         if (! $pesanan) {
-            return ['pesanan' => null, 'sewa' => false, 'tagihan' => [], 'pembayaran' => collect()];
+            return [
+                'pesanan' => null,
+                'sewa' => false,
+                'tagihan' => [],
+                'pembayaran' => collect(),
+                'gerbangAktif' => $gerbangAktif,
+            ];
         }
 
         return [
             'pesanan' => $pesanan,
+            'gerbangAktif' => $gerbangAktif,
             'sewa' => $pesanan instanceof PenyewaanKendaraan,
             'tagihan' => TagihanPesanan::untuk($pesanan),
 
@@ -82,7 +94,7 @@ new #[Layout('components.layouts.guest')] #[Title('Lacak Pesanan — Orcha Journ
 
 <div>
     <x-page-hero title="Lacak Pesanan" eyebrow="Open Trip & Sewa Kendaraan"
-        subtitle="Lihat status pesanan, sisa tagihan, dan bukti pembayaran yang sudah Anda kirim — tanpa perlu bertanya lewat WhatsApp."
+        subtitle="Lihat status pesanan, sisa tagihan, dan pembayaran yang sudah masuk — tanpa perlu bertanya lewat WhatsApp."
         image="images/HERO/form-konfirmasi-pembayaran.webp" />
 
     <section class="py-12 sm:py-16">
@@ -192,10 +204,13 @@ new #[Layout('components.layouts.guest')] #[Title('Lacak Pesanan — Orcha Journ
                             @endforeach
                         </dl>
 
+                        {{-- Ajakannya mengikuti yang benar-benar ditemui pelanggan saat
+                             tautannya dibuka: tombol bayar, atau formulir bukti bila
+                             gerbangnya sedang tidak bisa dihubungi. --}}
                         @if ($tagihan['sisa'] > 0 && $status !== 'batal')
                             <a href="{{ route('konfirmasi-pembayaran', ['kode' => $pesanan->kode]) }}" wire:navigate
                                 class="w-full mt-5 btn-orcha btn-orcha-primary sm:w-auto">
-                                Kirim Bukti Pembayaran
+                                {{ $gerbangAktif ? 'Bayar Sekarang' : 'Kirim Bukti Pembayaran' }}
                             </a>
                         @endif
                     </div>
@@ -203,7 +218,14 @@ new #[Layout('components.layouts.guest')] #[Title('Lacak Pesanan — Orcha Journ
 
                 @if ($pembayaran->isNotEmpty())
                     <div class="p-6 mt-6 sm:p-8 card-orcha">
-                        <h2 class="text-lg font-bold font-heading text-orcha-navy">Bukti yang Anda Kirim</h2>
+                        {{-- "Bukti yang Anda Kirim" hanya benar bila pelanggan memang
+                             mengirimkannya. Sejak pembayaran publik lewat gerbang, daftar
+                             ini berisi pembayaran yang masuk sendiri — dan sebagian
+                             dicatatkan admin. Judul yang salah membuat pelanggan mencari
+                             gambar yang tidak pernah ia unggah. --}}
+                        <h2 class="text-lg font-bold font-heading text-orcha-navy">
+                            {{ $gerbangAktif ? 'Pembayaran Anda' : 'Bukti yang Anda Kirim' }}
+                        </h2>
 
                         <ul class="mt-4 divide-y divide-slate-100">
                             @foreach ($pembayaran as $bayar)

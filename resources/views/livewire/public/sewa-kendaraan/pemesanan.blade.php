@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Validation\Rule;
+use App\Services\DokuCheckout;
 use App\Models\SewaKendaraan\Car;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\BerkasKwitansi;
@@ -545,8 +546,10 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                 email: $sewa->email,
                 judul: 'Pemesanan Sewa Kendaraan Sudah Kami Terima',
                 tautan: route('konfirmasi-pembayaran', ['kode' => $sewa->kode]),
-                labelTautan: 'Kirim Bukti Transfer',
-                langkah: "Simpan kode {$sewa->kode} — dipakai saat mengirim bukti transfer.\n\n"
+                // Ajakannya mengikuti yang benar-benar ditemui penyewa saat
+                // tautannya dibuka: tombol bayar, atau formulir bukti.
+                labelTautan: app(DokuCheckout::class)->aktif() ? 'Bayar Sekarang' : 'Kirim Bukti Transfer',
+                langkah: "Simpan kode {$sewa->kode} — dipakai saat membayar.\n\n"
                     .'Unit ditunggu kembali '.$selesai->translatedFormat('l, j F Y').' pukul '
                     .$selesai->format('H:i').' WIB di '.$sewa->lokasi_kembali.'. Ada tenggang '
                     .config('orcha.denda_sewa.tenggang_menit').' menit; lewat dari itu dikenakan denda '
