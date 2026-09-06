@@ -12,7 +12,8 @@ Jalur aplikasinya di server hPanel ada di bawah `~/domains/<domain>/app`, bukan
 # Sekaligus mengabari yang menunggu di daftar tunggu bahwa kursinya terbuka.
 0 * * * * cd ~/domains/orchajourney.com/app && php artisan orcha:lepas-kursi >> storage/logs/cron.log 2>&1
 
-# Pengingat pelunasan dan briefing keberangkatan.
+# Pengingat pelunasan, angsuran, dan briefing keberangkatan. Sekaligus
+# melaporkan angsuran yang lewat jatuh tempo ke kotak kantor.
 # Pukul sembilan pagi: jam saat orang bisa benar-benar ke bank dan berkemas.
 0 9 * * * cd ~/domains/orchajourney.com/app && php artisan orcha:pengingat >> storage/logs/cron.log 2>&1
 
@@ -39,7 +40,8 @@ Jalur aplikasinya di server hPanel ada di bawah `~/domains/<domain>/app`, bukan
 ## Yang perlu diperhatikan
 
 **Pengingat dikirim sekali.** `orcha:pengingat` menandai tiap pendaftaran yang
-sudah dikirimi di basis data. Menjalankannya manual untuk memeriksa akan
+sudah dikirimi di basis data — begitu pula tiap termin angsuran, lewat kolom
+`diingatkan_pada` dan `dilaporkan_telat_pada`. Menjalankannya manual untuk memeriksa akan
 benar-benar mengirim surat — pakai `--percobaan` untuk melihat siapa saja tanpa
 mengirim apa pun.
 

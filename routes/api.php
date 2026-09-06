@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Blog\KategoriArtikelController;
 use App\Http\Controllers\Api\Etalase\EtalaseController;
 use App\Http\Controllers\Api\Etalase\ProvinsiController;
 use App\Http\Controllers\Api\Kontak\PesanController;
+use App\Http\Controllers\Api\OpenTrip\AngsuranController;
 use App\Http\Controllers\Api\OpenTrip\PembatalanController;
 use App\Http\Controllers\Api\OpenTrip\PembayaranController;
 use App\Http\Controllers\Api\OpenTrip\PendaftaranController;
@@ -91,6 +92,18 @@ Route::prefix('v1')
         Route::patch('/pembayaran/{pembayaran}/status', [PembayaranController::class, 'ubahStatus']);
 
         /*
+         | Bukti susulan untuk catatan pembayaran yang sudah ada.
+         |
+         | Admin yang lupa melampirkannya sebelumnya hanya punya dua pilihan,
+         | dan dua-duanya buruk: mencatat ulang — yang menghitung uangnya dua
+         | kali — atau membiarkannya tanpa gambar untuk ditelusuri.
+         |
+         | POST, bukan PATCH: kirimannya multipart, dan sebagian server
+         | menolak badan multipart pada PATCH.
+         */
+        Route::post('/pembayaran/{pembayaran}/bukti', [PembayaranController::class, 'unggahBukti']);
+
+        /*
          | Pembayaran yang diterima admin sendiri, tanpa lewat formulir publik.
          |
          | Private trip dan study tour mentransfer lalu mengabari lewat
@@ -99,6 +112,19 @@ Route::prefix('v1')
          | sekarang tidak ada tempat mencatat pemeriksaan itu.
          */
         Route::post('/pendaftaran/{pendaftaran}/pembayaran', [PembayaranController::class, 'catatManual']);
+
+        /*
+         | Rencana angsuran.
+         |
+         | Berapa kali ditentukan sistem — endpoint show menyebutkan yang
+         | diizinkan BERIKUT nominalnya, supaya admin bisa menyebut angkanya
+         | saat berbicara dengan pelanggan. store menolak jumlah di luar itu,
+         | bukan hanya layarnya: batasnya bergantung pada tanggal berangkat,
+         | dan tanggal itu bisa berubah antara layar dibuka dan tombol ditekan.
+         */
+        Route::get('/pendaftaran/{pendaftaran}/angsuran', [AngsuranController::class, 'show']);
+        Route::post('/pendaftaran/{pendaftaran}/angsuran', [AngsuranController::class, 'store']);
+        Route::delete('/pendaftaran/{pendaftaran}/angsuran', [AngsuranController::class, 'destroy']);
 
         Route::get('/pembatalan', [PembatalanController::class, 'index']);
         // Sebelum /{pembatalan}: tanpa ini "perhatian" terbaca sebagai nomor.
@@ -236,6 +262,16 @@ Route::prefix('v1')
          | surelnya.
          */
         Route::get('/daftar-tunggu', [\App\Http\Controllers\Api\PaketWisata\DaftarTungguController::class, 'index']);
+        // Hitungan untuk penanda di bilah samping lemon.
+        Route::get('/daftar-tunggu/perhatian', [\App\Http\Controllers\Api\PaketWisata\DaftarTungguController::class, 'perhatian']);
+        /*
+         | Menandai bahwa orangnya sudah dihubungi lewat WhatsApp.
+         |
+         | Dipanggil saat admin menekan tombol WhatsApp di barisnya, bukan
+         | lewat tombol tersendiri: langkah tambahan yang harus diingat adalah
+         | langkah yang akhirnya terlewat.
+         */
+        Route::post('/daftar-tunggu/{tunggu:id}/dihubungi', [\App\Http\Controllers\Api\PaketWisata\DaftarTungguController::class, 'dihubungi']);
         Route::delete('/daftar-tunggu/{tunggu:id}', [\App\Http\Controllers\Api\PaketWisata\DaftarTungguController::class, 'destroy']);
 
         Route::get('/promo-rombongan', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'index']);

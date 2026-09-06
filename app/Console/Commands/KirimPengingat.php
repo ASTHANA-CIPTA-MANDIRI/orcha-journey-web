@@ -23,7 +23,7 @@ class KirimPengingat extends Command
     protected $signature = 'orcha:pengingat
                             {--percobaan : Hanya menampilkan siapa yang akan dikirimi}';
 
-    protected $description = 'Mengirim pengingat pelunasan dan briefing keberangkatan';
+    protected $description = 'Mengirim pengingat pelunasan, angsuran, dan briefing keberangkatan';
 
     public function handle(): int
     {
@@ -33,9 +33,11 @@ class KirimPengingat extends Command
         $awalan = $percobaan ? '[PERCOBAAN] ' : '';
 
         $this->baris('Pengingat pelunasan', $hasil['pelunasan']);
+        $this->baris('Pengingat angsuran', $hasil['angsuran']);
+        $this->baris('Angsuran telat (ke kantor)', $hasil['angsuran_telat']);
         $this->baris('Briefing keberangkatan', $hasil['briefing']);
 
-        $jumlah = count($hasil['pelunasan']) + count($hasil['briefing']);
+        $jumlah = array_sum(array_map('count', $hasil));
 
         $this->info($awalan.$jumlah.' pengingat dikirim.');
 
