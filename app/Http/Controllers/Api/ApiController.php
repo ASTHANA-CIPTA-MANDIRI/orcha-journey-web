@@ -44,18 +44,27 @@ abstract class ApiController extends Controller
      * yang sama — dan penomoran halaman di lemon membaca meta itu apa adanya,
      * jadi selisih sekecil apa pun langsung terasa di layar admin.
      *
+     * $metaTambahan untuk keterangan yang MENEMANI daftarnya — daftar pilihan
+     * penyaring, misalnya. Disediakan supaya controller yang membutuhkannya
+     * tidak perlu merakit sendiri seluruh metanya lalu diam-diam berbeda
+     * bentuk dari yang lain.
+     *
      * @param  callable(): array<int, mixed>  $petakan
+     * @param  array<string, mixed>  $metaTambahan
      */
-    protected function halamanDipeta(LengthAwarePaginator $paginator, callable $petakan): JsonResponse
-    {
+    protected function halamanDipeta(
+        LengthAwarePaginator $paginator,
+        callable $petakan,
+        array $metaTambahan = [],
+    ): JsonResponse {
         return response()->json([
             'data' => $petakan(),
-            'meta' => [
+            'meta' => array_merge([
                 'halaman' => $paginator->currentPage(),
                 'per_halaman' => $paginator->perPage(),
                 'total' => $paginator->total(),
                 'halaman_terakhir' => $paginator->lastPage(),
-            ],
+            ], $metaTambahan),
         ]);
     }
 

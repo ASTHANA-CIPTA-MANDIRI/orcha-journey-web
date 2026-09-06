@@ -41,9 +41,32 @@ class KodeRujukanController extends ApiController
              | dibayarkan tiap akhir bulan.
              */
             ->withCount(['pendaftaran as jumlah_dipakai'])
-            ->withSum(['pendaftaran as imbalan_total' => fn ($q) => $q], 'imbalan_rujukan')
+
+            /*
+             | Yang dihitung sebagai imbalan HANYA pendaftaran yang sudah lunas.
+             |
+             | Sebelum ini imbalannya terhitung sejak orangnya mengisi formulir,
+             | sehingga laporan komisi memuat uang yang belum pernah masuk:
+             | yang mendaftar lalu tidak pernah membayar, dan yang membatalkan,
+             | keduanya tetap menambah tagihan. Yang menagihnya kemudian pemilik
+             | kode — dengan angka yang kita sendiri yang menampilkan.
+             */
             ->withSum([
-                'pendaftaran as imbalan_belum_dibayar' => fn ($q) => $q->whereNull('imbalan_dibayar_pada'),
+                'pendaftaran as imbalan_total' => fn ($q) => $q->imbalanBerhak(),
+            ], 'imbalan_rujukan')
+            ->withSum([
+                'pendaftaran as imbalan_belum_dibayar' => fn ($q) => $q->imbalanBelumDibayar(),
+            ], 'imbalan_rujukan')
+
+            /*
+             | Yang sudah memakai kode tetapi belum lunas, dihitung terpisah.
+             |
+             | Ditampilkan, bukan disembunyikan: pemilik kode yang bertanya
+             | "kenapa komisi saya belum muncul" perlu dijawab dengan angka,
+             | bukan dengan keterangan bahwa datanya tidak ada.
+             */
+            ->withSum([
+                'pendaftaran as imbalan_menunggu' => fn ($q) => $q->imbalanMenunggu(),
             ], 'imbalan_rujukan')
 
             ->latest('id')
@@ -66,6 +89,10 @@ class KodeRujukanController extends ApiController
              */
             'imbalan_total' => (int) ($satu->imbalan_total ?? 0),
             'imbalan_belum_dibayar' => (int) ($satu->imbalan_belum_dibayar ?? 0),
+            // Sudah memakai kodenya, tetapi belum lunas — jadi belum jadi hak
+            // siapa pun. Ditampilkan supaya pertanyaan "kenapa komisi saya
+            // belum muncul" bisa dijawab dengan angka.
+            'imbalan_menunggu' => (int) ($satu->imbalan_menunggu ?? 0),
             'dibuat_pada' => $satu->created_at?->toIso8601String(),
         ]);
 
@@ -101,6 +128,16 @@ class KodeRujukanController extends ApiController
                 'status' => $satu->status,
                 'imbalan' => (int) $satu->imbalan_rujukan,
                 'dibayar_pada' => $satu->imbalan_dibayar_pada?->toIso8601String(),
+
+                /*
+                 | Apakah imbalannya sudah jadi HAK pemilik kode.
+                 |
+                 | Dikirim sebagai keputusan, bukan dibiarkan lemon
+                 | menyimpulkannya sendiri dari status. Aturannya ada di satu
+                 | tempat — kalau tidak, layar dan server bisa berbeda pendapat
+                 | tentang komisi yang sama, dan yang menengahi tidak ada.
+                 */
+                'berhak' => $satu->status === 'lunas',
             ]);
 
         return response()->json(['data' => $pakai->all()]);
@@ -157,6 +194,27 @@ class KodeRujukanController extends ApiController
     {
         if (blank($pendaftaran->kode_rujukan)) {
             abort(422, 'Pendaftaran ini tidak memakai kode rujukan.');
+        }
+
+        /*
+         | Komisi baru jadi hak setelah pendaftarannya LUNAS.
+         |
+         | Ditahan di sini, bukan cuma disembunyikan tombolnya di layar: yang
+         | dibayarkan uang, dan uang yang sudah berpindah tidak bisa ditarik
+         | kembali. Layar bisa saja tertinggal keadaannya — dibuka sebelum
+         | statusnya berubah, lalu tombolnya ditekan semenit kemudian.
+         |
+         | Uang muka tidak cukup. DP bisa hangus, pesanannya bisa batal, dan
+         | kursinya bisa dilepas karena pelunasannya tidak pernah datang.
+         | Membayar komisi atas pesanan yang kemudian batal berarti kehilangan
+         | dua kali: trip yang tidak jadi, dan komisi yang tidak bisa ditagih
+         | balik dari orang yang sudah menerimanya.
+         */
+        if ($pendaftaran->status !== 'lunas') {
+            $label = config('orcha.status_pendaftaran')[$pendaftaran->status] ?? $pendaftaran->status;
+
+            abort(422, 'Imbalan baru bisa dibayarkan setelah pendaftarannya lunas. '
+                ."Pendaftaran {$pendaftaran->kode} masih berstatus {$label}.");
         }
 
         // Membayar dua kali tidak bisa ditarik kembali, jadi ditahan di sini

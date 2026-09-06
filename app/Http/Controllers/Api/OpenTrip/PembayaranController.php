@@ -180,6 +180,68 @@ class PembayaranController extends ApiController
         ], 201);
     }
 
+    /**
+     * Melampirkan bukti pada catatan pembayaran yang SUDAH ada.
+     *
+     * Bukti susulan dan bukti pengganti sama-sama lewat sini.
+     *
+     * Sebelum ini satu-satunya jalur yang menerima berkas adalah pencatatan
+     * pembayaran BARU. Admin yang lupa melampirkan buktinya tinggal punya dua
+     * pilihan, dan dua-duanya buruk: mencatat ulang — yang menghitung uangnya
+     * dua kali sehingga tagihannya salah — atau membiarkannya tanpa gambar,
+     * sehingga tidak ada yang bisa ditelusuri kalau suatu saat dipersoalkan.
+     *
+     * BUKTI LAMA DIARSIPKAN, TIDAK DIHAPUS. Mengganti bukti pada catatan uang
+     * adalah tindakan yang paling mungkin dipersoalkan belakangan, dan yang
+     * mempersoalkannya akan bertanya "yang lama mana?". Pertanyaan itu tidak
+     * bisa dijawab kalau jawabannya sudah ditimpa.
+     */
+    public function unggahBukti(KonfirmasiPembayaran $pembayaran, Request $request): JsonResponse
+    {
+        $request->validate([
+            // Wajib di sini, berbeda dengan pencatatan manual: jalur ini TIDAK
+            // punya guna lain selain melampirkan berkasnya.
+            'bukti' => ['required', 'image', 'max:4096'],
+        ], [], ['bukti' => 'bukti transfer']);
+
+        $lama = $pembayaran->bukti;
+
+        // Disimpan lewat jalur yang sama dengan bukti dari pelanggan: folder
+        // rahasia, di luar disk publik. Bukti transfer memuat nomor rekening
+        // dan nama orang.
+        $baru = GambarWebp::simpan($request->file('bukti'), 'bukti-bayar');
+
+        $riwayat = $pembayaran->bukti_riwayat ?? [];
+
+        if ($lama !== null) {
+            $riwayat[] = [
+                'jalur' => $lama,
+                'diganti_pada' => now()->toIso8601String(),
+                'oleh' => $request->attributes->get('admin_pemanggil') ?: 'admin',
+            ];
+        }
+
+        $pembayaran->update([
+            'bukti' => $baru,
+            'bukti_riwayat' => $riwayat,
+        ]);
+
+        $this->catat($request, $lama === null ? 'lampirkan bukti susulan' : 'ganti bukti pembayaran', [
+            'kode' => $pembayaran->kode,
+            'nominal' => $pembayaran->nominal,
+            // Bukti yang DIGANTI disebut jalurnya: yang menelusuri perlu bisa
+            // menemukan gambar lamanya, bukan sekadar tahu bahwa ada.
+            'bukti_lama' => $lama,
+        ]);
+
+        return response()->json([
+            'pesan' => $lama === null
+                ? 'Bukti transfer dilampirkan.'
+                : 'Bukti transfer diganti. Yang lama tetap tersimpan.',
+            'data' => (new PembayaranResource($pembayaran->fresh()))->resolve(),
+        ]);
+    }
+
     public function ubahStatus(KonfirmasiPembayaran $pembayaran, Request $request): JsonResponse
     {
         $data = $request->validate([

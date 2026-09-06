@@ -243,3 +243,188 @@ test('berkas yang bukan gambar ditolak', function () {
         'bukti' => \Illuminate\Http\UploadedFile::fake()->create('daftar.pdf', 100, 'application/pdf'),
     ]), kepalaBayar())->assertStatus(422);
 });
+
+/* -------------------------- BUKTI SUSULAN -------------------------- */
+
+/** Catatan pembayaran yang sudah ada, dengan atau tanpa bukti. */
+function catatanBayar(?string $bukti = null): KonfirmasiPembayaran
+{
+    $daftar = rombonganBayar();
+
+    return KonfirmasiPembayaran::create([
+        'kode' => $daftar->kode, 'jenis' => 'dp', 'nominal' => 1250000,
+        'tanggal_transfer' => now()->subDay()->toDateString(),
+        'bank_pengirim' => 'BCA', 'atas_nama_pengirim' => 'SMA Negeri 3',
+        'bukti' => $bukti, 'status' => 'diterima',
+    ]);
+}
+
+test('bukti bisa dilampirkan susulan pada catatan yang sudah ada', function () {
+    /*
+     | Sebelum ini satu-satunya jalur yang menerima berkas adalah pencatatan
+     | pembayaran BARU. Admin yang lupa melampirkan buktinya tinggal punya dua
+     | pilihan, dan dua-duanya buruk: mencatat ulang — yang menghitung uangnya
+     | dua kali sehingga tagihannya salah — atau membiarkannya tanpa gambar.
+     */
+    \Illuminate\Support\Facades\Storage::fake('rahasia');
+    \Illuminate\Support\Facades\Storage::fake('public');
+
+    $bayar = catatanBayar();
+
+    $this->postJson("/api/v1/pembayaran/{$bayar->id}/bukti", [
+        'bukti' => \Illuminate\Http\UploadedFile::fake()->image('mutasi.jpg'),
+    ], kepalaBayar())->assertOk();
+
+    expect($bayar->fresh()->bukti)->not->toBeNull();
+});
+
+test('mengganti bukti TIDAK menghapus yang lama', function () {
+    /*
+     | Mengganti bukti pada catatan uang adalah tindakan yang paling mungkin
+     | dipersoalkan belakangan, dan yang mempersoalkannya akan bertanya "yang
+     | lama mana?". Pertanyaan itu tidak bisa dijawab kalau jawabannya sudah
+     | ditimpa.
+     */
+    \Illuminate\Support\Facades\Storage::fake('rahasia');
+    \Illuminate\Support\Facades\Storage::fake('public');
+
+    $bayar = catatanBayar('/storage/bukti-bayar/lama.webp');
+
+    $this->postJson("/api/v1/pembayaran/{$bayar->id}/bukti", [
+        'bukti' => \Illuminate\Http\UploadedFile::fake()->image('baru.jpg'),
+    ], kepalaBayar())->assertOk();
+
+    $segar = $bayar->fresh();
+
+    expect($segar->bukti)->not->toBe('/storage/bukti-bayar/lama.webp')
+        ->and($segar->bukti_riwayat)->toHaveCount(1)
+        ->and($segar->bukti_riwayat[0]['jalur'])->toBe('/storage/bukti-bayar/lama.webp');
+});
+
+test('lampiran pertama tidak mengarang riwayat penggantian', function () {
+    // Tidak ada yang diganti, jadi tidak ada yang diarsipkan. Riwayat yang
+    // berisi entri kosong membuat layar menyebut "bukti pernah diganti" pada
+    // catatan yang buktinya baru dilampirkan sekali.
+    \Illuminate\Support\Facades\Storage::fake('rahasia');
+    \Illuminate\Support\Facades\Storage::fake('public');
+
+    $bayar = catatanBayar();
+
+    $this->postJson("/api/v1/pembayaran/{$bayar->id}/bukti", [
+        'bukti' => \Illuminate\Http\UploadedFile::fake()->image('mutasi.jpg'),
+    ], kepalaBayar());
+
+    expect($bayar->fresh()->bukti_riwayat)->toBe([]);
+});
+
+test('penggantian berkali-kali menumpuk arsipnya, bukan menimpanya', function () {
+    \Illuminate\Support\Facades\Storage::fake('rahasia');
+    \Illuminate\Support\Facades\Storage::fake('public');
+
+    $bayar = catatanBayar('/storage/bukti-bayar/pertama.webp');
+
+    foreach (['kedua.jpg', 'ketiga.jpg'] as $nama) {
+        $this->postJson("/api/v1/pembayaran/{$bayar->id}/bukti", [
+            'bukti' => \Illuminate\Http\UploadedFile::fake()->image($nama),
+        ], kepalaBayar())->assertOk();
+    }
+
+    expect($bayar->fresh()->bukti_riwayat)->toHaveCount(2);
+});
+
+test('bukti susulan pun masuk folder rahasia, bukan disk publik', function () {
+    // Bukti transfer memuat nomor rekening dan nama orang.
+    \Illuminate\Support\Facades\Storage::fake('rahasia');
+    \Illuminate\Support\Facades\Storage::fake('public');
+
+    $bayar = catatanBayar();
+
+    $this->postJson("/api/v1/pembayaran/{$bayar->id}/bukti", [
+        'bukti' => \Illuminate\Http\UploadedFile::fake()->image('mutasi.jpg'),
+    ], kepalaBayar());
+
+    $jalur = \App\Support\BerkasRahasia::relatif($bayar->fresh()->bukti);
+
+    \Illuminate\Support\Facades\Storage::disk('rahasia')->assertExists($jalur);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertMissing($jalur);
+});
+
+test('bukti WAJIB di jalur ini, berbeda dengan pencatatan manual', function () {
+    // Jalur ini tidak punya guna lain selain melampirkan berkasnya.
+    $bayar = catatanBayar();
+
+    $this->postJson("/api/v1/pembayaran/{$bayar->id}/bukti", [], kepalaBayar())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('bukti');
+});
+
+test('berkas yang bukan gambar ditolak di jalur bukti susulan', function () {
+    $bayar = catatanBayar();
+
+    $this->postJson("/api/v1/pembayaran/{$bayar->id}/bukti", [
+        'bukti' => \Illuminate\Http\UploadedFile::fake()->create('daftar.pdf', 100, 'application/pdf'),
+    ], kepalaBayar())->assertStatus(422);
+});
+
+test('penggantiannya masuk jejak audit lengkap dengan jalur yang lama', function () {
+    /*
+     | Ini mengubah bukti sebuah transaksi. Tanpa jejak, tidak ada cara
+     | menjawab kapan dan oleh siapa — dan jalur yang lama disebut supaya yang
+     | menelusuri bisa menemukan gambarnya, bukan sekadar tahu bahwa ada.
+     */
+    \Illuminate\Support\Facades\Storage::fake('rahasia');
+    \Illuminate\Support\Facades\Storage::fake('public');
+
+    $bayar = catatanBayar('/storage/bukti-bayar/lama.webp');
+
+    $this->postJson("/api/v1/pembayaran/{$bayar->id}/bukti", [
+        'bukti' => \Illuminate\Http\UploadedFile::fake()->image('baru.jpg'),
+    ], kepalaBayar());
+
+    $jejak = JejakAudit::where('aksi', 'ganti bukti pembayaran')->first();
+
+    expect($jejak)->not->toBeNull()
+        ->and($jejak->keterangan ?? json_encode($jejak))->toContain('lama.webp');
+});
+
+test('lampiran pertama dicatat sebagai susulan, bukan penggantian', function () {
+    // Dua kejadian yang berbeda artinya: satu melengkapi catatan yang kurang,
+    // satu mengubah bukti yang sudah pernah dipakai memutuskan.
+    \Illuminate\Support\Facades\Storage::fake('rahasia');
+    \Illuminate\Support\Facades\Storage::fake('public');
+
+    $bayar = catatanBayar();
+
+    $this->postJson("/api/v1/pembayaran/{$bayar->id}/bukti", [
+        'bukti' => \Illuminate\Http\UploadedFile::fake()->image('mutasi.jpg'),
+    ], kepalaBayar());
+
+    expect(JejakAudit::where('aksi', 'lampirkan bukti susulan')->exists())->toBeTrue()
+        ->and(JejakAudit::where('aksi', 'ganti bukti pembayaran')->exists())->toBeFalse();
+});
+
+test('riwayatnya ikut terkirim ke lemon, terbaru lebih dulu', function () {
+    \Illuminate\Support\Facades\Storage::fake('rahasia');
+    \Illuminate\Support\Facades\Storage::fake('public');
+
+    $bayar = catatanBayar('/storage/bukti-bayar/pertama.webp');
+
+    $this->postJson("/api/v1/pembayaran/{$bayar->id}/bukti", [
+        'bukti' => \Illuminate\Http\UploadedFile::fake()->image('kedua.jpg'),
+    ], kepalaBayar());
+
+    $data = $this->getJson("/api/v1/pembayaran/{$bayar->id}", kepalaBayar())
+        ->assertOk()
+        ->json('data');
+
+    expect($data['bukti_riwayat'])->toHaveCount(1)
+        ->and($data['bukti_riwayat'][0]['bukti'])->toContain('pertama');
+});
+
+test('tanpa kunci API, jalur bukti susulan tertutup', function () {
+    $bayar = catatanBayar();
+
+    $this->postJson("/api/v1/pembayaran/{$bayar->id}/bukti", [
+        'bukti' => \Illuminate\Http\UploadedFile::fake()->image('mutasi.jpg'),
+    ], ['Accept' => 'application/json'])->assertStatus(401);
+});

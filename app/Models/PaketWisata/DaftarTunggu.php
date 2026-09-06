@@ -19,12 +19,14 @@ class DaftarTunggu extends Model
     protected $table = 'tbl_daftar_tunggu';
 
     protected $fillable = [
-        'travel_package_id', 'nama', 'whatsapp', 'email', 'jumlah_peserta', 'dikabari_pada',
+        'travel_package_id', 'nama', 'whatsapp', 'email', 'jumlah_peserta',
+        'dikabari_pada', 'dihubungi_pada', 'dihubungi_oleh',
     ];
 
     protected $casts = [
         'jumlah_peserta' => 'integer',
         'dikabari_pada' => 'datetime',
+        'dihubungi_pada' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -49,5 +51,26 @@ class DaftarTunggu extends Model
     public function scopeBelumDikabari($query)
     {
         return $query->whereNull('dikabari_pada')->orderBy('created_at');
+    }
+
+    /**
+     * Yang menuntut seseorang mengangkat telepon.
+     *
+     * Tiga syarat sekaligus, dan ketiganya perlu:
+     *
+     *   kursinya sudah terbuka   — sebelum itu tidak ada yang bisa dikabarkan
+     *   tidak punya surel        — sistem tidak bisa menjangkaunya sama sekali
+     *   belum dihubungi siapa pun
+     *
+     * Yang tanpa surel TETAPI kursinya belum terbuka tidak termasuk: ia cuma
+     * menunggu, dan menghitungnya membuat penandanya menyala terus tanpa
+     * pernah bisa dinolkan.
+     */
+    public function scopePerluDihubungi($query)
+    {
+        return $query
+            ->whereNotNull('dikabari_pada')
+            ->whereNull('dihubungi_pada')
+            ->where(fn ($q) => $q->whereNull('email')->orWhere('email', ''));
     }
 }

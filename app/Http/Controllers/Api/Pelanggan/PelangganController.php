@@ -242,8 +242,15 @@ class PelangganController extends ApiController
     {
         $kode = KodeRujukan::query()
             ->whereIn('whatsapp', $orang->keys()->all())
+            /*
+             | Yang dihitung HANYA pendaftaran yang sudah lunas.
+             |
+             | Komisi baru jadi hak setelah pelunasan. Menghitungnya sejak
+             | orangnya mendaftar membuat layar ini menjanjikan uang yang belum
+             | pernah masuk — termasuk dari pendaftaran yang kemudian batal.
+             */
             ->withSum([
-                'pendaftaran as komisi_belum_dibayar' => fn ($q) => $q->whereNull('imbalan_dibayar_pada'),
+                'pendaftaran as komisi_belum_dibayar' => fn ($q) => $q->imbalanBelumDibayar(),
             ], 'imbalan_rujukan')
             ->withCount('pendaftaran as rujukan_dipakai')
             ->get()

@@ -710,6 +710,7 @@ return [
     */
     'jenis_pembayaran' => [
         'dp' => 'Uang Muka (DP)',
+        'angsuran' => 'Angsuran',
         'pelunasan' => 'Pelunasan',
         'sewa' => 'Sewa Kendaraan',
         'lainnya' => 'Lainnya',
@@ -1015,6 +1016,61 @@ return [
         // dilayani — dan cara bayar yang dijanjikan di situs tapi ditolak saat
         // pemesanan justru bikin pelanggan ragu.
         'metode' => ['Transfer bank'],
+
+        /*
+        |----------------------------------------------------------------------
+        | Angsuran
+        |----------------------------------------------------------------------
+        |
+        | Untuk pelanggan yang meminta keringanan — biasanya rombongan private
+        | trip atau study tour. Diberikan admin per pesanan, tidak pernah
+        | dipilih sendiri oleh pelanggan.
+        |
+        | BERAPA KALI DITENTUKAN SISTEM, bukan diketik siapa pun. Nominal bebas
+        | pernah dipertimbangkan dan ditolak: pelanggan yang membayar Rp 10.000
+        | tiga kali merasa sudah mencicil, padahal pada H-5 ia masih harus
+        | melunasi hampir seluruhnya. Yang dipindahkan bukan bebannya,
+        | melainkan waktu kejutannya.
+        |
+        | Termin PERTAMA selalu sebesar uang muka. Kursi ditahan setelah uang
+        | muka masuk (lihat dp_lepas_jam), jadi termin pertama yang lebih kecil
+        | berarti kursi tertahan berhari-hari oleh pembayaran seuprit.
+        |
+        */
+        'angsuran' => [
+            /*
+             | Tangga menurut TOTAL tagihan, dibaca dari atas ke bawah —
+             | ambang pertama yang terpenuhi yang berlaku.
+             |
+             | Pesanan di bawah ambang terkecil tidak bisa diangsur sama
+             | sekali, dan itu disengaja: memecah Rp 1,5 juta jadi tiga kali
+             | menambah dua kali pekerjaan menagih tanpa meringankan siapa pun.
+             */
+            'tangga' => [
+                ['min_total' => 10_000_000, 'maks_termin' => 5],
+                ['min_total' => 2_000_000, 'maks_termin' => 3],
+            ],
+
+            /*
+             | Jarak minimal antar termin, dalam hari.
+             |
+             | Empat belas hari sejalan dengan siklus gajian dua mingguan, dan
+             | inilah yang menentukan berapa termin MUAT sampai tenggat
+             | pelunasan. Jarak yang lebih rapat membuat lebih banyak pesanan
+             | memenuhi syarat tetapi tidak benar-benar meringankan — pelanggan
+             | menghadapi tagihan baru tiap minggu.
+             */
+            'jarak_hari' => 14,
+
+            /*
+             | Berapa hari sebelum jatuh tempo termin, pelanggan diingatkan.
+             |
+             | Tiga hari: cukup untuk menyiapkan uangnya, dan belum cukup lama
+             | untuk dilupakan lagi. Pengingat yang datang sehari sebelumnya
+             | tidak menolong orang yang harus menunggu gajian.
+             */
+            'ingatkan_hari_sebelum' => 3,
+        ],
     ],
 
     /*
