@@ -115,7 +115,7 @@ new #[Layout('components.layouts.guest')] class extends Component {
 @endphp
 
 <div>
-    <script type="application/ld+json">{!! json_encode($skemaDestinasi, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    <script type="application/ld+json">{!! \App\Support\SkemaJson::tag($skemaDestinasi) !!}</script>
 
     <x-page-hero :title="$d->destination_name" :eyebrow="$d->wilayah_label"
         :subtitle="$d->alamat_singkat" image="images/HERO/destinasi.webp" />

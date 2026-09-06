@@ -67,7 +67,7 @@ new #[Layout('components.layouts.guest')] class extends Component
      | artikel tidak perlu ikut terbit ke hasil pencarian, dan Google membaca
      | tipe Organization sebagai nama penerbit.
      */
-    $dataTerstruktur = json_encode([
+    $dataTerstruktur = \App\Support\SkemaJson::tag([
         '@context' => 'https://schema.org',
         '@type' => 'BlogPosting',
         'headline' => $a->judul,
@@ -82,7 +82,7 @@ new #[Layout('components.layouts.guest')] class extends Component
             'logo' => ['@type' => 'ImageObject', 'url' => asset('orcha-logo-only.png')],
         ],
         'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => $url],
-    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    ]);
 @endphp
 
 <div class="orc-artikel">

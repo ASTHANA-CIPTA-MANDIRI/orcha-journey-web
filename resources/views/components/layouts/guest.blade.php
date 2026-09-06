@@ -146,7 +146,7 @@
          Ditulis di layout supaya melekat di SELURUH halaman: mesin pencari
          boleh mendarat di halaman mana pun lebih dulu, tidak selalu beranda. --}}
     <script type="application/ld+json">
-        {!! json_encode($skemaSitus, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+        {!! \App\Support\SkemaJson::tag($skemaSitus) !!}
     </script>
 
     {{-- Data terstruktur khusus halaman ini, bila ada.
@@ -165,7 +165,7 @@
          mengirimkannya lewat sini. --}}
     @isset($seoSkema)
         <script type="application/ld+json">
-            {!! json_encode($seoSkema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+            {!! \App\Support\SkemaJson::tag($seoSkema) !!}
         </script>
     @endisset
 

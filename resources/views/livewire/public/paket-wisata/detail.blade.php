@@ -225,7 +225,7 @@ new #[Layout('components.layouts.guest')] class extends Component
 @endphp
 
 <div>
-    <script type="application/ld+json">{!! json_encode($skemaPaket, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    <script type="application/ld+json">{!! \App\Support\SkemaJson::tag($skemaPaket) !!}</script>
 
     <x-page-hero :title="$paket->name" :eyebrow="$paket->category_label"
         :subtitle="$paket->jadwal_label ? 'Keberangkatan ' . $paket->jadwal_label : $paket->duration"
