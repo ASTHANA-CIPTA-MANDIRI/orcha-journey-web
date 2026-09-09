@@ -87,6 +87,29 @@ class DokuCheckout
                 'line_items' => self::barisTagihan($judul, $nominal, $rincian),
             ], fn ($nilai) => $nilai !== null),
 
+            /*
+             | Alamat notifikasi dikirim BERSAMA permintaannya, bukan disetel
+             | di dashboard.
+             |
+             | Dashboard DOKU yang sekarang tidak lagi menyediakan medannya —
+             | halaman HTTP Notification hanya mengatur ke siapa laporan
+             | KEGAGALAN dikirim. Yang menentukan ke mana notifikasi
+             | pembayaran dikirim adalah medan ini.
+             |
+             | Dikirim per permintaan juga lebih baik daripada disetel sekali
+             | di dashboard: alamatnya mengikuti APP_URL, jadi sandbox, lokal,
+             | dan produksi masing-masing menerima notifikasinya sendiri tanpa
+             | ada yang perlu diingat siapa pun. Setelan dashboard yang tunggal
+             | selalu salah untuk dua dari tiga lingkungan itu.
+             |
+             | Dipastikan DIKENALI, bukan diduga: sandbox mengembalikannya utuh
+             | di additional_info pada jawabannya. Medan yang tidak dikenal
+             | DOKU tidak dikembalikan.
+             */
+            'additional_info' => [
+                'override_notification_url' => route('pembayaran.doku.notifikasi'),
+            ],
+
             'payment' => array_filter([
                 'payment_due_date' => (int) config('doku.batas_bayar_menit'),
                 'type' => 'SALE',

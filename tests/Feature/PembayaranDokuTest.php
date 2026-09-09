@@ -1623,3 +1623,34 @@ test('lingkungan produksi menunjuk endpoint produksi', function () {
 
     Http::assertSent(fn ($p) => str_starts_with($p->url(), 'https://api.doku.com/'));
 });
+
+test('alamat notifikasi dikirim bersama permintaan, bukan diandalkan dari dashboard', function () {
+    /*
+     | Dashboard DOKU yang sekarang tidak lagi menyediakan medan Notification
+     | URL — halaman HTTP Notification hanya mengatur ke siapa laporan
+     | KEGAGALAN dikirim. Tanpa medan ini, notifikasi pembayaran tidak punya
+     | tujuan sama sekali, dan satu-satunya yang menyelamatkan adalah polling
+     | cadangan di halaman hasil.
+     |
+     | Dikirim per permintaan juga lebih baik: alamatnya mengikuti APP_URL,
+     | jadi sandbox, lokal, dan produksi masing-masing menerima notifikasinya
+     | sendiri. Setelan dashboard yang tunggal selalu salah untuk dua dari tiga
+     | lingkungan itu.
+     */
+    Http::fake(['api-sandbox.doku.com/*' => Http::response([
+        'response' => ['payment' => ['url' => 'https://sandbox.doku.com/x', 'token_id' => 't']],
+    ], 200)]);
+
+    app(DokuCheckout::class)->buatHalamanBayar(
+        'OT-UJI-NOTIF', 600000, 'Uang Muka', [], ['nama' => 'Siti'],
+        ['selesai' => 'https://orcha.test/kembali']
+    );
+
+    Http::assertSent(function ($p) {
+        $alamat = $p['additional_info']['override_notification_url'] ?? null;
+
+        return $alamat === route('pembayaran.doku.notifikasi')
+            // Bukan alamat relatif: DOKU memanggilnya dari luar.
+            && str_starts_with($alamat, 'http');
+    });
+});
