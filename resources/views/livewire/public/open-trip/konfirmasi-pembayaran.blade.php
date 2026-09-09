@@ -593,6 +593,41 @@ new #[Layout('components.layouts.guest')] #[Title('Bayar Pesanan — Orcha Journ
                                         Tidak ada yang perlu dibayar lagi. Sampai jumpa di perjalanan.
                                     </p>
                                 </div>
+
+                            @elseif ($pesanan)
+                                {{-- Pesanan ketemu, belum lunas, tetapi tidak ada satu pun
+                                     pilihan bayar yang bisa disusun.
+
+                                     Sebelum cabang ini ada, rantainya berakhir di @endif dan
+                                     halaman berhenti begitu saja: pelanggan membaca "Pilih di
+                                     bawah", lalu tidak ada apa-apa di bawah. Buntu tanpa
+                                     sepatah kata, dan tidak ada cara menebak apa yang salah.
+
+                                     Penyebabnya penjaga nominal minimum di pilihanBayar():
+                                     tagihan di bawah Rp 1.000 tidak bisa dikirim ke gerbang
+                                     mana pun. Nyata pada pesanan uji bertotal Rp 3, dan bisa
+                                     terjadi pada pesanan sungguhan yang menyisakan recehan
+                                     setelah promo atau pembayaran sebagian. --}}
+                                <div class="p-5 border rounded-2xl border-amber-200 bg-amber-50">
+                                    <div class="flex gap-3">
+                                        <x-heroicon-s-exclamation-triangle
+                                            class="w-6 h-6 shrink-0 text-amber-600" />
+                                        <div>
+                                            <p class="font-bold text-amber-900">
+                                                Sisa tagihannya terlalu kecil untuk dibayar online
+                                            </p>
+                                            <p class="mt-1 text-sm text-amber-900">
+                                                Sisa <strong>{{ $tagihan['sisa_teks'] ?? '-' }}</strong> berada di
+                                                bawah batas terendah yang bisa diproses gerbang pembayaran.
+                                                Hubungi kami lewat
+                                                <a href="{{ $wa }}" target="_blank" rel="noopener"
+                                                    class="font-semibold underline">WhatsApp</a>
+                                                dengan menyebut kode <strong>{{ $pesanan->kode }}</strong> —
+                                                tim kami yang menyelesaikannya dari sisi dalam.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
                             @endif
                         </div>
                     @else

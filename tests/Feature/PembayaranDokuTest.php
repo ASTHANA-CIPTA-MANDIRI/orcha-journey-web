@@ -1654,3 +1654,60 @@ test('alamat notifikasi dikirim bersama permintaan, bukan diandalkan dari dashbo
             && str_starts_with($alamat, 'http');
     });
 });
+
+test('tagihan yang terlalu kecil menjelaskan dirinya, bukan berakhir buntu', function () {
+    /*
+     | Rantai @if/@elseif di halaman bayar dulu berakhir tanpa @else. Kalau
+     | pesanan ketemu, belum lunas, tetapi tidak ada satu pun pilihan bayar
+     | yang bisa disusun, halaman berhenti begitu saja: pelanggan membaca
+     | "Pilih di bawah", lalu tidak ada apa-apa di bawah.
+     |
+     | Nyata pada pesanan uji bertotal Rp 3 — penjaga nominal di pilihanBayar()
+     | menolak apa pun di bawah Rp 1.000, dan keduanya tersaring. Bisa terjadi
+     | pada pesanan sungguhan yang menyisakan recehan setelah promo atau
+     | pembayaran sebagian.
+     |
+     | Buntu tanpa sepatah kata adalah kegagalan yang paling mahal: pelanggan
+     | tidak punya cara menebak apa yang salah, dan yang ia lakukan bukan
+     | bertanya melainkan pergi.
+     */
+    $kecil = PendaftaranOpenTrip::create([
+        'nama' => 'Uji Receh',
+        'whatsapp' => '081234567890',
+        'jumlah_peserta' => 3,
+        'harga_jual' => 1,
+        'nama_paket' => 'Open Trip Uji',
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+    ])->fresh();
+
+    $layar = Volt::test('public.open-trip.konfirmasi-pembayaran')
+        ->set('kode', $kecil->kode)
+        ->set('empatDigit', '7890');
+
+    $layar->assertSee('Uji Receh')
+        // Sebabnya disebut, bukan disembunyikan.
+        ->assertSee('terlalu kecil untuk dibayar online')
+        ->assertSee($kecil->kode)
+        // Dan ada jalan keluarnya.
+        ->assertSee('WhatsApp');
+});
+
+test('tagihan yang cukup besar tetap menampilkan pilihan bayarnya', function () {
+    // Penjaga arah sebaliknya: cabang baru itu tidak boleh menelan pesanan
+    // normal yang seharusnya bisa membayar.
+    $wajar = PendaftaranOpenTrip::create([
+        'nama' => 'Uji Wajar',
+        'whatsapp' => '081234567890',
+        'jumlah_peserta' => 2,
+        'harga_jual' => 500000,
+        'nama_paket' => 'Open Trip Uji',
+        'tanggal_berangkat' => now()->addMonth()->toDateString(),
+    ])->fresh();
+
+    Volt::test('public.open-trip.konfirmasi-pembayaran')
+        ->set('kode', $wajar->kode)
+        ->set('empatDigit', '7890')
+        ->assertSee('Uji Wajar')
+        ->assertDontSee('terlalu kecil untuk dibayar online')
+        ->assertSee('Bayar Sekarang');
+});
