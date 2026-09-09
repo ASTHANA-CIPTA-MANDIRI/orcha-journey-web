@@ -4,37 +4,50 @@ Penjadwal Laravel **tidak dipakai di sini**. Hosting mematikan `proc_open`,
 sehingga `schedule:run` gagal tiap menit tanpa menjalankan apa pun — dan
 kegagalannya diam. Semua perintah berkala dipanggil cron **satu per satu**.
 
-Jalur aplikasinya di server hPanel ada di bawah `~/domains/<domain>/app`, bukan
-`public_html`. Panjang satu baris cron di hPanel dibatasi 255 karakter.
+Jalur aplikasinya di server — DIPERIKSA LANGSUNG 9 Sep 2026, bukan dikira:
+
+    ~/domains/orchajourney.com/public_html/OrchaJourney
+
+Berkas ini sebelumnya menulis `~/domains/<domain>/app`, dan jalur itu tidak
+pernah ada. Siapa pun yang menyalin barisnya ke hPanel memasang cron yang gagal
+diam-diam: `cd` ke folder yang tidak ada membuat perintahnya tidak pernah
+berjalan, dan tidak ada satu pun yang berteriak. Bukti bahwa itu memang terjadi:
+sampai hari ini `storage/logs/cron.log` belum pernah dibuat sama sekali.
+
+Panjang satu baris cron di hPanel dibatasi 255 karakter; baris terpanjang di
+bawah 145, jadi masih lapang.
+
+`crontab` TIDAK tersedia lewat SSH di hosting ini — memasangnya hanya bisa dari
+hPanel → Advanced → Cron Jobs.
 
 ```cron
 # Melepas kursi yang ditahan pemesanan yang tidak pernah membayar (72 jam).
 # Sekaligus mengabari yang menunggu di daftar tunggu bahwa kursinya terbuka.
-0 * * * * cd ~/domains/orchajourney.com/app && php artisan orcha:lepas-kursi >> storage/logs/cron.log 2>&1
+0 * * * * cd ~/domains/orchajourney.com/public_html/OrchaJourney && php artisan orcha:lepas-kursi >> storage/logs/cron.log 2>&1
 
 # Pengingat pelunasan, angsuran, dan briefing keberangkatan. Sekaligus
 # melaporkan angsuran yang lewat jatuh tempo ke kotak kantor.
 # Pukul sembilan pagi: jam saat orang bisa benar-benar ke bank dan berkemas.
-0 9 * * * cd ~/domains/orchajourney.com/app && php artisan orcha:pengingat >> storage/logs/cron.log 2>&1
+0 9 * * * cd ~/domains/orchajourney.com/public_html/OrchaJourney && php artisan orcha:pengingat >> storage/logs/cron.log 2>&1
 
 # Mengajak peserta yang pulang dua hari lalu menulis testimoni.
 # Suratnya sekaligus membawakan kode rujukan miliknya.
-30 9 * * * cd ~/domains/orchajourney.com/app && php artisan orcha:ajak-testimoni >> storage/logs/cron.log 2>&1
+30 9 * * * cd ~/domains/orchajourney.com/public_html/OrchaJourney && php artisan orcha:ajak-testimoni >> storage/logs/cron.log 2>&1
 
 # Menyelaraskan status pesanan dengan pembayaran yang benar-benar diterima.
-15 * * * * cd ~/domains/orchajourney.com/app && php artisan orcha:selaraskan-status >> storage/logs/cron.log 2>&1
+15 * * * * cd ~/domains/orchajourney.com/public_html/OrchaJourney && php artisan orcha:selaraskan-status >> storage/logs/cron.log 2>&1
 
 # Membuang riwayat kesehatan yang sudah lewat masa simpannya (90 hari).
-0 2 * * * cd ~/domains/orchajourney.com/app && php artisan orcha:bersihkan-kesehatan >> storage/logs/cron.log 2>&1
+0 2 * * * cd ~/domains/orchajourney.com/public_html/OrchaJourney && php artisan orcha:bersihkan-kesehatan >> storage/logs/cron.log 2>&1
 
 # Cadangan basis data, lalu diunggah ke Google Drive.
 # Setengah tiga pagi: jam paling sepi, dan menyalin basis data membebani
 # server sebentar. Lihat config/orcha.php kunci "drive" untuk penyiapannya.
-30 2 * * * cd ~/domains/orchajourney.com/app && php artisan orcha:cadangan >> storage/logs/cron.log 2>&1
+30 2 * * * cd ~/domains/orchajourney.com/public_html/OrchaJourney && php artisan orcha:cadangan >> storage/logs/cron.log 2>&1
 
 # Berkas unggahan yang tidak lagi ditunjuk baris mana pun.
 # Mingguan, dan JALANKAN DULU TANPA --hapus untuk melihat daftarnya.
-0 3 * * 0 cd ~/domains/orchajourney.com/app && php artisan orcha:berkas-yatim --hapus >> storage/logs/cron.log 2>&1
+0 3 * * 0 cd ~/domains/orchajourney.com/public_html/OrchaJourney && php artisan orcha:berkas-yatim --hapus >> storage/logs/cron.log 2>&1
 ```
 
 ## Yang perlu diperhatikan
