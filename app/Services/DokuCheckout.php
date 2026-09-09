@@ -426,11 +426,33 @@ class DokuCheckout
         return trim(preg_replace('/\s+/', ' ', (string) $bersih));
     }
 
-    /** Pangkalan endpoint sesuai lingkungan; sandbox bila tidak dikenali. */
+    /**
+     * Pangkalan endpoint sesuai lingkungan.
+     *
+     * Lingkungan yang tidak dikenali MELEDAK, tidak diam-diam jatuh ke sandbox.
+     *
+     * Jatuh ke sandbox terasa seperti pilihan aman, dan justru sebaliknya:
+     * DOKU_LINGKUNGAN=production (bukan "produksi") adalah salah ketik yang
+     * sangat mudah dilakukan saat memasang .env di server, dan akibatnya situs
+     * produksi menagih pelanggan sungguhan lewat gerbang yang tidak memindahkan
+     * uang sepeser pun. Yang menyadarinya bukan kita, melainkan pelanggan yang
+     * kursinya tidak pernah terkunci.
+     *
+     * Meledak di sini berarti tombol "Bayar Sekarang" gagal dengan pesan jujur
+     * pada percobaan pertama, bukan pada rekonsiliasi bulan depan.
+     */
     private function pangkalan(): string
     {
         $daftar = (array) config('doku.endpoint');
+        $lingkungan = (string) config('doku.lingkungan');
 
-        return $daftar[config('doku.lingkungan')] ?? $daftar['sandbox'];
+        if (! isset($daftar[$lingkungan])) {
+            throw new \RuntimeException(
+                'DOKU_LINGKUNGAN tidak dikenali: "'.$lingkungan.'". '
+                .'Yang diterima: '.implode(', ', array_keys($daftar)).'.'
+            );
+        }
+
+        return $daftar[$lingkungan];
     }
 }

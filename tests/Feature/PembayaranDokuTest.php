@@ -1587,3 +1587,39 @@ test('cap waktu yang tidak bisa dibaca ditolak', function () {
 
     expect($bayar->fresh()->status)->toBe('menunggu');
 });
+
+test('lingkungan yang salah ketik meledak, tidak diam-diam memakai sandbox', function () {
+    /*
+     | DOKU_LINGKUNGAN=production — bukan "produksi" — adalah salah ketik yang
+     | sangat mudah dilakukan saat memasang .env di server.
+     |
+     | Dulu ia jatuh ke sandbox tanpa sepatah kata, dan akibatnya situs
+     | produksi menagih pelanggan sungguhan lewat gerbang yang tidak
+     | memindahkan uang sepeser pun. Yang menyadarinya bukan kita, melainkan
+     | pelanggan yang kursinya tidak pernah terkunci — berminggu-minggu
+     | kemudian.
+     */
+    config()->set('doku.lingkungan', 'production');
+
+    expect(fn () => app(DokuCheckout::class)->buatHalamanBayar(
+        'OT-UJI-1', 600000, 'Uang Muka', [], ['nama' => 'Siti'],
+        ['success' => 'https://orcha.test/kembali']
+    ))->toThrow(RuntimeException::class, 'DOKU_LINGKUNGAN tidak dikenali');
+});
+
+test('lingkungan produksi menunjuk endpoint produksi', function () {
+    // Penjaga arah sebaliknya: ejaan yang benar harus benar-benar sampai ke
+    // api.doku.com, bukan ikut tertolak penjaga di atas.
+    config()->set('doku.lingkungan', 'produksi');
+
+    Http::fake(['api.doku.com/*' => Http::response([
+        'response' => ['payment' => ['url' => 'https://doku.com/x', 'token_id' => 't']],
+    ], 200)]);
+
+    app(DokuCheckout::class)->buatHalamanBayar(
+        'OT-UJI-2', 600000, 'Uang Muka', [], ['nama' => 'Siti'],
+        ['success' => 'https://orcha.test/kembali']
+    );
+
+    Http::assertSent(fn ($p) => str_starts_with($p->url(), 'https://api.doku.com/'));
+});
