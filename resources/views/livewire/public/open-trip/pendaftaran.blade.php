@@ -478,10 +478,75 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                             <p class="mt-2 text-sm text-slate-600">Simpan kode di bawah ini. Kode dipakai untuk mengisi
                                 formulir riwayat kesehatan peserta.</p>
 
-                            <p
-                                class="inline-block px-6 py-3 mt-5 text-2xl font-black tracking-widest rounded-2xl font-heading bg-orcha-foam text-orcha-navy">
-                                {{ $kodeTerdaftar }}
-                            </p>
+                            {{-- Kode + tombol salin.
+
+                                 Kodenya dipakai di tiga tempat lain — formulir riwayat
+                                 kesehatan tiap peserta, halaman bayar, dan lacak pesanan —
+                                 jadi yang membacanya hampir pasti perlu memindahkannya.
+                                 Menyalin dengan tangan deretan huruf-angka acak adalah
+                                 tempat salah ketik paling mudah terjadi, dan salahnya baru
+                                 ketahuan saat formulirnya menolak.
+
+                                 navigator.clipboard butuh HTTPS. Di produksi selalu ada,
+                                 tetapi di http lokal ia undefined — jadi ada jalan cadangan
+                                 lewat textarea + execCommand, dan bila keduanya gagal
+                                 tombolnya berkata jujur "gagal menyalin" alih-alih diam
+                                 seolah berhasil. --}}
+                            <div class="flex flex-wrap items-center justify-center gap-2 mt-5"
+                                x-data="{
+                                    keadaan: 'diam',
+                                    async salin() {
+                                        const kode = @js($kodeTerdaftar);
+                                        try {
+                                            if (navigator.clipboard && window.isSecureContext) {
+                                                await navigator.clipboard.writeText(kode);
+                                            } else {
+                                                const kotak = document.createElement('textarea');
+                                                kotak.value = kode;
+                                                kotak.setAttribute('readonly', '');
+                                                kotak.style.position = 'fixed';
+                                                kotak.style.opacity = '0';
+                                                document.body.appendChild(kotak);
+                                                kotak.select();
+                                                const berhasil = document.execCommand('copy');
+                                                document.body.removeChild(kotak);
+                                                if (! berhasil) throw new Error('execCommand gagal');
+                                            }
+                                            this.keadaan = 'tersalin';
+                                        } catch (e) {
+                                            this.keadaan = 'gagal';
+                                        }
+                                        setTimeout(() => this.keadaan = 'diam', 2500);
+                                    }
+                                }">
+                                <p
+                                    class="px-6 py-3 text-2xl font-black tracking-widest rounded-2xl font-heading bg-orcha-foam text-orcha-navy">
+                                    {{ $kodeTerdaftar }}
+                                </p>
+
+                                <button type="button" x-on:click="salin()"
+                                    class="inline-flex items-center gap-2 px-4 py-3 text-sm font-bold transition border rounded-2xl border-orcha-mist text-orcha-ocean hover:border-orcha-sky hover:bg-orcha-foam/60"
+                                    x-bind:aria-label="keadaan === 'tersalin' ? 'Kode tersalin' : 'Salin kode pesanan'">
+                                    <template x-if="keadaan === 'diam'">
+                                        <span class="inline-flex items-center gap-2">
+                                            <x-heroicon-o-clipboard-document class="w-5 h-5" />
+                                            Salin
+                                        </span>
+                                    </template>
+                                    <template x-if="keadaan === 'tersalin'">
+                                        <span class="inline-flex items-center gap-2 text-emerald-700">
+                                            <x-heroicon-s-check-circle class="w-5 h-5" />
+                                            Tersalin
+                                        </span>
+                                    </template>
+                                    <template x-if="keadaan === 'gagal'">
+                                        <span class="inline-flex items-center gap-2 text-amber-700">
+                                            <x-heroicon-s-exclamation-triangle class="w-5 h-5" />
+                                            Gagal — salin manual
+                                        </span>
+                                    </template>
+                                </button>
+                            </div>
 
                             <div class="p-4 mt-6 text-sm text-left rounded-2xl bg-orcha-foam/60 text-slate-600">
                                 <p class="font-bold text-orcha-navy">Langkah berikutnya</p>

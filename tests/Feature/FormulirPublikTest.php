@@ -610,3 +610,30 @@ test('isian kesehatan tersembunyi sampai kodenya sah dan sudah membayar', functi
         ->assertSee('Data Peserta')
         ->assertDontSee('setelah uang muka kami terima');
 });
+
+test('kode pendaftaran punya tombol salin di sampingnya', function () {
+    /*
+     | Kodenya dipakai di tiga tempat lain — formulir riwayat kesehatan tiap
+     | peserta, halaman bayar, dan lacak pesanan — jadi yang membacanya hampir
+     | pasti perlu memindahkannya. Menyalin deretan huruf-angka acak dengan
+     | tangan adalah tempat salah ketik paling mudah terjadi, dan salahnya baru
+     | ketahuan saat formulirnya menolak.
+     |
+     | Yang diuji keadaan SUKSESNYA saja: kodeTerdaftar disetel langsung, bukan
+     | lewat seluruh alur simpan. Uji yang menyeret alur pendaftaran penuh akan
+     | merah setiap kali ada medan formulir berubah — dan merahnya tidak akan
+     | ada hubungannya dengan tombol salin.
+     */
+    Volt::test('public.open-trip.pendaftaran')
+        ->set('kodeTerdaftar', 'OT-0909-UJI1')
+        ->assertSee('OT-0909-UJI1')
+        ->assertSee('Salin')
+        ->assertSee('Tersalin')
+        // Ada jalan cadangan saat clipboard API tidak tersedia (http lokal),
+        // dan pengakuan jujur bila keduanya gagal.
+        ->assertSee('execCommand', escape: false)
+        ->assertSee('Gagal')
+        // Kodenya disuntikkan lewat @js, bukan dirangkai tangan di dalam
+        // skrip — string yang dirakit manual adalah tempat kutip lolos.
+        ->assertSee('salin()', escape: false);
+});
