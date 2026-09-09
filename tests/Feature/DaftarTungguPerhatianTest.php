@@ -16,9 +16,25 @@ use Illuminate\Support\Facades\Schema;
  * menghitung seluruhnya akan menyala terus tanpa pernah bisa dinolkan, dan
  * penanda yang tidak pernah padam berhenti dibaca orang.
  */
-// kepalaTunggu() sudah dideklarasikan DaftarTungguTest.php. Pest memuat
-// seluruh berkas uji ke ruang nama yang sama, jadi menyalinnya ke sini
-// membuat SELURUH suite berhenti dengan galat fatal — bukan cuma berkas ini.
+/**
+ * Kepala permintaan bagi berkas INI, dengan namanya sendiri.
+ *
+ * Sempat memakai kepalaTungguPerhatian() milik DaftarTungguTest.php, dan itu keliru
+ * dua kali. Menyalin deklarasinya membuat SELURUH suite berhenti dengan galat
+ * fatal — Pest memuat semua berkas uji ke ruang nama yang sama. Tetapi
+ * membuangnya begitu saja dan menumpang deklarasi berkas lain membuat berkas
+ * ini tidak bisa dijalankan sendirian: `php artisan test tests/Feature/
+ * DaftarTungguPerhatianTest.php` gagal dengan "Call to undefined function",
+ * dan menjalankan satu berkas uji adalah hal yang dikerjakan orang tiap hari.
+ *
+ * Nama sendiri menyelesaikan keduanya sekaligus.
+ */
+function kepalaTungguPerhatian(): array
+{
+    config()->set('orcha.api.kunci', 'kunci-uji-tunggu');
+
+    return ['X-Orcha-Key' => 'kunci-uji-tunggu', 'Accept' => 'application/json'];
+}
 
 function paketTunggu(): TravelPackage
 {
@@ -51,7 +67,7 @@ test('yang dihitung hanya yang kursinya terbuka, tanpa surel, belum dihubungi', 
     antre(['email' => '', 'dikabari_pada' => now()]);                // ← dan ini
     antre(['email' => null, 'dikabari_pada' => now(), 'dihubungi_pada' => now()]); // sudah ditelepon
 
-    $data = $this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTunggu())
+    $data = $this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTungguPerhatian())
         ->assertOk()
         ->json('data');
 
@@ -70,7 +86,7 @@ test('yang tanpa surel tetapi kursinya belum terbuka TIDAK dihitung', function (
      */
     antre(['email' => null]);
 
-    expect($this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTunggu())->json('data.perlu_dihubungi'))
+    expect($this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTungguPerhatian())->json('data.perlu_dihubungi'))
         ->toBe(0);
 });
 
@@ -79,12 +95,12 @@ test('yang sudah dihubungi keluar dari hitungan', function () {
     // antrean — ia bisa saja menjawab "nanti saya kabari lagi".
     $satu = antre(['email' => null, 'dikabari_pada' => now()]);
 
-    expect($this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTunggu())->json('data.perlu_dihubungi'))
+    expect($this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTungguPerhatian())->json('data.perlu_dihubungi'))
         ->toBe(1);
 
-    $this->postJson("/api/v1/daftar-tunggu/{$satu->id}/dihubungi", [], kepalaTunggu())->assertOk();
+    $this->postJson("/api/v1/daftar-tunggu/{$satu->id}/dihubungi", [], kepalaTungguPerhatian())->assertOk();
 
-    expect($this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTunggu())->json('data.perlu_dihubungi'))
+    expect($this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTungguPerhatian())->json('data.perlu_dihubungi'))
         ->toBe(0);
 });
 
@@ -96,7 +112,7 @@ test('menandai dihubungi TIDAK mengeluarkannya dari antrean', function () {
      */
     $satu = antre(['email' => null, 'dikabari_pada' => now()]);
 
-    $this->postJson("/api/v1/daftar-tunggu/{$satu->id}/dihubungi", [], kepalaTunggu());
+    $this->postJson("/api/v1/daftar-tunggu/{$satu->id}/dihubungi", [], kepalaTungguPerhatian());
 
     expect(DaftarTunggu::find($satu->id))->not->toBeNull()
         ->and($satu->fresh()->dihubungi_pada)->not->toBeNull();
@@ -107,7 +123,7 @@ test('siapa yang menghubungi ikut tercatat', function () {
     // tanpa nama membuat dua admin sama-sama mengira yang lain mengerjakannya.
     $satu = antre(['email' => null, 'dikabari_pada' => now()]);
 
-    $this->postJson("/api/v1/daftar-tunggu/{$satu->id}/dihubungi", [], kepalaTunggu());
+    $this->postJson("/api/v1/daftar-tunggu/{$satu->id}/dihubungi", [], kepalaTungguPerhatian());
 
     expect($satu->fresh()->dihubungi_oleh)->not->toBeNull();
 });
@@ -115,14 +131,14 @@ test('siapa yang menghubungi ikut tercatat', function () {
 test('penandaannya masuk jejak audit', function () {
     $satu = antre(['email' => null, 'dikabari_pada' => now()]);
 
-    $this->postJson("/api/v1/daftar-tunggu/{$satu->id}/dihubungi", [], kepalaTunggu());
+    $this->postJson("/api/v1/daftar-tunggu/{$satu->id}/dihubungi", [], kepalaTungguPerhatian());
 
     expect(JejakAudit::where('aksi', 'hubungi daftar tunggu')->exists())->toBeTrue();
 });
 
 test('antrean kosong menjawab nol, bukan galat', function () {
     // Penanda ini dipanggil di TIAP halaman admin lemon.
-    $data = $this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTunggu())->json('data');
+    $data = $this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTungguPerhatian())->json('data');
 
     expect($data)->toBe(['perlu_dihubungi' => 0, 'menunggu' => 0, 'dikabari' => 0]);
 });
@@ -147,9 +163,13 @@ test('"perhatian" tidak terbaca sebagai nomor antrean', function () {
      */
     antre();
 
-    $this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTunggu())
+    $this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTungguPerhatian())
         ->assertOk()
-        ->assertJsonStructure(['data' => ['menunggu', 'tanpa_email', 'dikabari']]);
+        // 'perlu_dihubungi', bukan 'tanpa_email': namanya sempat berubah selama
+        // dikerjakan, dan baris ini tertinggal memakai nama lama. Kunci yang
+        // benar-benar dibaca sidebar lemon adalah yang di bawah — kalau salah,
+        // yang jatuh bukan uji ini melainkan lencana di menu admin.
+        ->assertJsonStructure(['data' => ['menunggu', 'perlu_dihubungi', 'dikabari']]);
 });
 
 /* ---------------------------- PAGINASI ---------------------------- */
@@ -163,7 +183,7 @@ test('metanya berbentuk sama dengan daftar Orcha lain', function () {
      */
     antre();
 
-    $meta = $this->getJson('/api/v1/daftar-tunggu', kepalaTunggu())
+    $meta = $this->getJson('/api/v1/daftar-tunggu', kepalaTungguPerhatian())
         ->assertOk()
         ->json('meta');
 
@@ -182,8 +202,8 @@ test('halaman kedua berisi orang yang berbeda', function () {
         ]);
     }
 
-    $satu = $this->getJson('/api/v1/daftar-tunggu?per_halaman=2', kepalaTunggu())->json();
-    $dua = $this->getJson('/api/v1/daftar-tunggu?per_halaman=2&page=2', kepalaTunggu())->json();
+    $satu = $this->getJson('/api/v1/daftar-tunggu?per_halaman=2', kepalaTungguPerhatian())->json();
+    $dua = $this->getJson('/api/v1/daftar-tunggu?per_halaman=2&page=2', kepalaTungguPerhatian())->json();
 
     expect($satu['data'])->toHaveCount(2)
         ->and($satu['meta']['halaman_terakhir'])->toBe(3)
@@ -203,8 +223,8 @@ test('meta daftar membawa angka yang sama dengan penanda menu', function () {
     antre(['email' => null, 'dikabari_pada' => now()]);
     antre();
 
-    $meta = $this->getJson('/api/v1/daftar-tunggu', kepalaTunggu())->json('meta');
-    $penanda = $this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTunggu())->json('data');
+    $meta = $this->getJson('/api/v1/daftar-tunggu', kepalaTungguPerhatian())->json('meta');
+    $penanda = $this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTungguPerhatian())->json('data');
 
     expect($meta['perlu_dihubungi'])->toBe(1)
         // Angkanya harus PERSIS sama; dua sumber untuk satu angka akan
@@ -223,7 +243,7 @@ test('saringan dan penomoran halaman tidak mengubah angka perlu dihubungi', func
     antre(['email' => null, 'dikabari_pada' => now()]);
     antre(['email' => null, 'dikabari_pada' => now()]);
 
-    $meta = $this->getJson('/api/v1/daftar-tunggu?per_halaman=1', kepalaTunggu())->json('meta');
+    $meta = $this->getJson('/api/v1/daftar-tunggu?per_halaman=1', kepalaTungguPerhatian())->json('meta');
 
     expect($meta['perlu_dihubungi'])->toBe(2)
         ->and($meta['per_halaman'])->toBe(1);
@@ -244,7 +264,7 @@ test('daftarnya tetap tampil walau hitungan lencananya gagal', function () {
     Schema::table('tbl_daftar_tunggu',
         fn ($t) => $t->dropColumn('dihubungi_pada'));
 
-    $jawab = $this->getJson('/api/v1/daftar-tunggu', kepalaTunggu())->assertOk();
+    $jawab = $this->getJson('/api/v1/daftar-tunggu', kepalaTungguPerhatian())->assertOk();
 
     expect($jawab->json('data'))->toHaveCount(1)
         // Angkanya menyerah jadi nol, daftarnya tetap utuh.
@@ -259,7 +279,7 @@ test('penanda menu juga tidak ikut roboh saat kolomnya belum ada', function () {
     Schema::table('tbl_daftar_tunggu',
         fn ($t) => $t->dropColumn('dihubungi_pada'));
 
-    $this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTunggu())
+    $this->getJson('/api/v1/daftar-tunggu/perhatian', kepalaTungguPerhatian())
         ->assertOk()
         ->assertJsonPath('data.perlu_dihubungi', 0);
 });
@@ -269,7 +289,7 @@ test('daftar pilihan paket ikut di meta, tidak hilang oleh pembungkus bersama', 
     // ke pembungkus bersama yang tidak menerima keterangan tambahan.
     antre();
 
-    $meta = $this->getJson('/api/v1/daftar-tunggu', kepalaTunggu())->json('meta');
+    $meta = $this->getJson('/api/v1/daftar-tunggu', kepalaTungguPerhatian())->json('meta');
 
     expect($meta['paket'])->not->toBeEmpty();
 });
