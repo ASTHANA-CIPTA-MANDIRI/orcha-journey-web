@@ -147,7 +147,21 @@ class HitungRab
                     ? (int) $b->master->harga
                     : null,
             ];
-        })->values();
+        })
+            /*
+             | Dikelompokkan menurut urutan kategori di config — tiket,
+             | transportasi, akomodasi, … — bukan urutan baris ditambahkan.
+             | Tanpa ini "Pemandu" (biaya wajib, masuk paling dulu) memimpin
+             | rincian di layar dan PDF internal, padahal yang dicari mata
+             | pertama kali adalah tiket dan armada. sortBy stabil, jadi urutan
+             | di dalam satu kategori tetap urutan admin.
+             */
+            ->sortBy(function ($b) {
+                $i = array_search($b['kategori'], array_keys(config('orcha.rab.kategori', [])), true);
+
+                return $i === false ? PHP_INT_MAX : $i;
+            })
+            ->values();
 
         $modalVariabel = (int) $baris->where('variabel', true)->sum('subtotal');
         $modalTetap = (int) $baris->where('variabel', false)->sum('subtotal');

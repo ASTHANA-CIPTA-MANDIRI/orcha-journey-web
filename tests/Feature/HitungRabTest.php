@@ -138,3 +138,13 @@ test('rab tanpa biaya tidak meledak', function () {
         ->and($r['harga_per_orang'])->toBe(0)
         ->and($r['persen_untung'])->toBeNull();
 });
+
+test('rincian dikelompokkan menurut urutan kategori, bukan urutan ditambahkan', function () {
+    $rab = rabUji();
+    foreach ([['pemandu', 'Tour leader'], ['tiket', 'Tiket A'], ['transportasi', 'Hiace'], ['tiket', 'Tiket B']] as $i => [$kat, $nama]) {
+        RabBiaya::create(['rab_id' => $rab->id, 'kategori' => $kat, 'nama' => $nama, 'satuan' => 'rombongan', 'harga_satuan' => 1000, 'jumlah' => 1, 'urutan' => $i]);
+    }
+
+    expect(collect(HitungRab::ringkas($rab->fresh())['baris'])->pluck('nama')->all())
+        ->toBe(['Tiket A', 'Tiket B', 'Hiace', 'Tour leader']);
+});

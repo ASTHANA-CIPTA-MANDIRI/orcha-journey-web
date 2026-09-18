@@ -85,6 +85,7 @@ class RabController extends ApiController
             ->filter(fn ($v) => ! $provinsi || ($v['provinsi'] ?? null) === $provinsi)
             ->map(fn ($v, $nama) => [
                 'nama' => $nama,
+                'provinsi' => $v['provinsi'] ?? null,
                 'daerah' => $v['daerah'] ?? null,
                 // Punya tiket di master? Ditandai supaya admin tahu mana yang
                 // biayanya akan tertarik sendiri dan mana yang harus diisi.
@@ -520,6 +521,10 @@ class RabController extends ApiController
         $rab->loadMissing('itinerary', 'biaya.master');
 
         return $this->kepala($rab) + [
+            // Supaya layar bisa menautkan langsung ke pendaftarannya.
+            'pendaftaran_id' => $rab->kode_pendaftaran
+                ? PendaftaranOpenTrip::where('kode', $rab->kode_pendaftaran)->value('id')
+                : null,
             'catatan' => $rab->catatan,
             'catatan_penawaran' => $rab->catatan_penawaran,
             'itinerary' => $rab->itinerary->map(fn (RabItinerary $i) => [

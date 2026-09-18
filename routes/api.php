@@ -200,7 +200,7 @@ Route::prefix('v1')
         Route::get('/rab/{rab}', [RabController::class, 'show']);
         Route::patch('/rab/{rab}', [RabController::class, 'update']);
         Route::delete('/rab/{rab}', [RabController::class, 'destroy']);
-        Route::put('/rab/{rab}/itinerary', [RabController::class, 'simpanItinerary']);
+        Route::match(['put', 'patch'], '/rab/{rab}/itinerary', [RabController::class, 'simpanItinerary']);
         Route::post('/rab/{rab}/biaya', [RabController::class, 'tambahBiaya']);
         Route::patch('/rab/{rab}/biaya/{biaya}', [RabController::class, 'ubahBiaya']);
         Route::delete('/rab/{rab}/biaya/{biaya}', [RabController::class, 'hapusBiaya']);
