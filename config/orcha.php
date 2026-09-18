@@ -1568,4 +1568,61 @@ return [
         'per_halaman' => 25,
         'per_halaman_maks' => 100,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | RAB & itinerary private trip
+    |--------------------------------------------------------------------------
+    |
+    | SATUAN adalah inti hitungannya: ia yang menentukan sebuah harga dikali
+    | apa. Menambah satuan baru berarti menambah cabangnya di
+    | App\Support\Rab\HitungRab::faktor() — tanpa itu barisnya terhitung nol,
+    | dan uji HitungRabTest menjaga agar setiap satuan di sini punya cabang.
+    |
+    | "variabel" menandai satuan yang ikut bertambah per kepala. Ia yang
+    | memisahkan modal per orang dari biaya tetap rombongan saat RAB dijadikan
+    | pendaftaran — dua kolom yang sama persis dengan harga_modal dan
+    | biaya_tetap di pendaftaran.
+    */
+    'rab' => [
+        'kategori' => [
+            'tiket' => 'Tiket & Retribusi',
+            'transportasi' => 'Transportasi',
+            'akomodasi' => 'Akomodasi',
+            'konsumsi' => 'Konsumsi',
+            'pemandu' => 'Pemandu & Kru',
+            'lainnya' => 'Lain-lain',
+        ],
+
+        'satuan' => [
+            'orang' => ['label' => 'per orang', 'variabel' => true],
+            'orang_hari' => ['label' => 'per orang per hari', 'variabel' => true],
+            'rombongan' => ['label' => 'per rombongan', 'variabel' => false],
+            'hari' => ['label' => 'per hari', 'variabel' => false],
+            'unit_hari' => ['label' => 'per unit per hari', 'variabel' => false],
+            'kamar_malam' => ['label' => 'per kamar per malam', 'variabel' => false],
+        ],
+
+        'margin_jenis' => [
+            'persen' => 'Persen dari modal',
+            'per_orang' => 'Nominal per orang',
+            'total' => 'Nominal per rombongan',
+        ],
+
+        'status' => [
+            'draf' => 'Draf',
+            'dikirim' => 'Dikirim ke pelanggan',
+            'disetujui' => 'Disetujui',
+            'batal' => 'Batal',
+        ],
+
+        // Harga per orang dibulatkan ke atas ke kelipatan ini. Penawaran
+        // Rp 1.237.418 per orang terbaca seperti hasil kalkulator, bukan harga.
+        'pembulatan' => 1000,
+
+        // Penawaran berlaku berapa hari sejak dibuat. Harga tiket dan sewa bus
+        // bergerak; penawaran tanpa batas adalah janji harga lama selamanya.
+        'berlaku_hari' => 14,
+    ],
+
 ];

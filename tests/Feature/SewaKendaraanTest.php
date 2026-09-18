@@ -13,6 +13,13 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Volt\Volt;
 
+/*
+ | Tanggal sewa di berkas ini ditulis mati (10 September 2026). Jam dibekukan
+ | sebelum tanggal itu supaya pemesanan tidak ditolak sebagai "tanggal lampau"
+ | begitu kalender asli melewatinya.
+ */
+beforeEach(fn () => $this->travelTo(\Illuminate\Support\Carbon::parse('2026-09-01 09:00')));
+
 function buatMobil(array $ubah = []): Car
 {
     return Car::create(array_merge([

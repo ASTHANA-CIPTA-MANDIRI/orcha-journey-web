@@ -9,8 +9,14 @@ use App\Http\Controllers\Api\OpenTrip\AngsuranController;
 use App\Http\Controllers\Api\OpenTrip\PembatalanController;
 use App\Http\Controllers\Api\OpenTrip\PembayaranController;
 use App\Http\Controllers\Api\OpenTrip\PendaftaranController;
+use App\Http\Controllers\Api\PaketWisata\DaftarTungguController;
 use App\Http\Controllers\Api\PaketWisata\KeuntunganController;
 use App\Http\Controllers\Api\PaketWisata\PaketWisataController;
+use App\Http\Controllers\Api\PaketWisata\PromoRombonganController;
+use App\Http\Controllers\Api\Pelanggan\PelangganController;
+use App\Http\Controllers\Api\Rab\MasterHargaController;
+use App\Http\Controllers\Api\Rab\RabController;
+use App\Http\Controllers\Api\Rujukan\KodeRujukanController;
 use App\Http\Controllers\Api\SewaKendaraan\BagianPemeriksaanController;
 use App\Http\Controllers\Api\SewaKendaraan\KatalogKendaraanController;
 use App\Http\Controllers\Api\SewaKendaraan\KendaraanController;
@@ -176,6 +182,32 @@ Route::prefix('v1')
          | pada permintaan PUT.
          */
         // Keuntungan: rekapnya utuh, rinciannya berhalaman.
+        /*
+         | RAB & itinerary private trip.
+         |
+         | /rab/katalog WAJIB terdaftar sebelum /rab/{rab}: rute berparameter
+         | yang terdaftar lebih dulu menelan rute bernama — jebakan yang sudah
+         | pernah kena dua kali di aplikasi ini.
+         */
+        Route::get('/master-harga', [MasterHargaController::class, 'index']);
+        Route::post('/master-harga', [MasterHargaController::class, 'store']);
+        Route::patch('/master-harga/{master}', [MasterHargaController::class, 'update']);
+        Route::delete('/master-harga/{master}', [MasterHargaController::class, 'destroy']);
+
+        Route::get('/rab', [RabController::class, 'index']);
+        Route::get('/rab/katalog', [RabController::class, 'katalog']);
+        Route::post('/rab', [RabController::class, 'store']);
+        Route::get('/rab/{rab}', [RabController::class, 'show']);
+        Route::patch('/rab/{rab}', [RabController::class, 'update']);
+        Route::delete('/rab/{rab}', [RabController::class, 'destroy']);
+        Route::put('/rab/{rab}/itinerary', [RabController::class, 'simpanItinerary']);
+        Route::post('/rab/{rab}/biaya', [RabController::class, 'tambahBiaya']);
+        Route::patch('/rab/{rab}/biaya/{biaya}', [RabController::class, 'ubahBiaya']);
+        Route::delete('/rab/{rab}/biaya/{biaya}', [RabController::class, 'hapusBiaya']);
+        Route::post('/rab/{rab}/tarik-biaya', [RabController::class, 'tarikBiaya']);
+        Route::get('/rab/{rab}/pdf', [RabController::class, 'pdf']);
+        Route::post('/rab/{rab}/jadikan-pendaftaran', [RabController::class, 'jadikanPendaftaran']);
+
         Route::get('/keuntungan', [KeuntunganController::class, 'index']);
         Route::get('/keuntungan/rincian', [KeuntunganController::class, 'rincian']);
 
@@ -261,9 +293,9 @@ Route::prefix('v1')
          | mencantumkan surel — nomor WhatsApp yang wajib di formulir, bukan
          | surelnya.
          */
-        Route::get('/daftar-tunggu', [\App\Http\Controllers\Api\PaketWisata\DaftarTungguController::class, 'index']);
+        Route::get('/daftar-tunggu', [DaftarTungguController::class, 'index']);
         // Hitungan untuk penanda di bilah samping lemon.
-        Route::get('/daftar-tunggu/perhatian', [\App\Http\Controllers\Api\PaketWisata\DaftarTungguController::class, 'perhatian']);
+        Route::get('/daftar-tunggu/perhatian', [DaftarTungguController::class, 'perhatian']);
         /*
          | Menandai bahwa orangnya sudah dihubungi lewat WhatsApp.
          |
@@ -271,31 +303,31 @@ Route::prefix('v1')
          | lewat tombol tersendiri: langkah tambahan yang harus diingat adalah
          | langkah yang akhirnya terlewat.
          */
-        Route::post('/daftar-tunggu/{tunggu:id}/dihubungi', [\App\Http\Controllers\Api\PaketWisata\DaftarTungguController::class, 'dihubungi']);
-        Route::delete('/daftar-tunggu/{tunggu:id}', [\App\Http\Controllers\Api\PaketWisata\DaftarTungguController::class, 'destroy']);
+        Route::post('/daftar-tunggu/{tunggu:id}/dihubungi', [DaftarTungguController::class, 'dihubungi']);
+        Route::delete('/daftar-tunggu/{tunggu:id}', [DaftarTungguController::class, 'destroy']);
 
-        Route::get('/promo-rombongan', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'index']);
-        Route::post('/promo-rombongan', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'store']);
-        Route::match(['put', 'post'], '/promo-rombongan/{tingkat:id}', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'update']);
-        Route::delete('/promo-rombongan/{tingkat:id}', [\App\Http\Controllers\Api\PaketWisata\PromoRombonganController::class, 'destroy']);
+        Route::get('/promo-rombongan', [PromoRombonganController::class, 'index']);
+        Route::post('/promo-rombongan', [PromoRombonganController::class, 'store']);
+        Route::match(['put', 'post'], '/promo-rombongan/{tingkat:id}', [PromoRombonganController::class, 'update']);
+        Route::delete('/promo-rombongan/{tingkat:id}', [PromoRombonganController::class, 'destroy']);
 
         /*
          | Kode rujukan. Tidak ada destroy — kode yang dihapus memutus jejak
          | pendaftaran yang sudah memakainya, dan komisi yang belum dibayarkan
          | ikut hilang bersamanya. Yang tersedia mematikannya.
          */
-        Route::get('/kode-rujukan', [\App\Http\Controllers\Api\Rujukan\KodeRujukanController::class, 'index']);
-        Route::get('/kode-rujukan/{rujukan:id}/pemakaian', [\App\Http\Controllers\Api\Rujukan\KodeRujukanController::class, 'pemakaian']);
-        Route::post('/kode-rujukan', [\App\Http\Controllers\Api\Rujukan\KodeRujukanController::class, 'store']);
-        Route::match(['put', 'post'], '/kode-rujukan/{rujukan:id}', [\App\Http\Controllers\Api\Rujukan\KodeRujukanController::class, 'update']);
-        Route::post('/kode-rujukan/bayar/{pendaftaran:id}', [\App\Http\Controllers\Api\Rujukan\KodeRujukanController::class, 'bayar']);
+        Route::get('/kode-rujukan', [KodeRujukanController::class, 'index']);
+        Route::get('/kode-rujukan/{rujukan:id}/pemakaian', [KodeRujukanController::class, 'pemakaian']);
+        Route::post('/kode-rujukan', [KodeRujukanController::class, 'store']);
+        Route::match(['put', 'post'], '/kode-rujukan/{rujukan:id}', [KodeRujukanController::class, 'update']);
+        Route::post('/kode-rujukan/bayar/{pendaftaran:id}', [KodeRujukanController::class, 'bayar']);
 
         /*
          | Pelanggan — orang, bukan pesanan. Disusun dari pendaftaran dan
          | penyewaan; tidak ada tabelnya sendiri.
          */
-        Route::get('/pelanggan', [\App\Http\Controllers\Api\Pelanggan\PelangganController::class, 'index']);
-        Route::post('/pelanggan/kode-rujukan', [\App\Http\Controllers\Api\Pelanggan\PelangganController::class, 'buatkanKode']);
+        Route::get('/pelanggan', [PelangganController::class, 'index']);
+        Route::post('/pelanggan/kode-rujukan', [PelangganController::class, 'buatkanKode']);
 
         Route::post('/destinasi', [EtalaseController::class, 'simpanDestinasi']);
         Route::match(['put', 'post'], '/destinasi/{destinasi:id}', [EtalaseController::class, 'perbaruiDestinasi']);

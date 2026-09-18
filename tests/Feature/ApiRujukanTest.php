@@ -30,6 +30,8 @@ function pakaiKode(KodeRujukan $kode, string $whatsapp = '081200000000'): Pendaf
         'nama' => 'Pendaftar', 'whatsapp' => $whatsapp, 'jumlah_peserta' => 1,
         'travel_package_id' => $paket->id, 'nama_paket' => $paket->name,
         'kode_rujukan' => $kode->kode,
+        // Imbalan baru terhitung setelah lunas (ImbalanRujukanLunasTest).
+        'status' => 'lunas',
     ])->fresh();
 }
 
