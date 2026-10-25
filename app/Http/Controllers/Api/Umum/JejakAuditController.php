@@ -30,6 +30,18 @@ class JejakAuditController extends ApiController
              | bawah).
              */
             ->when($request->query('admin'), fn ($q, $admin) => $q->where('admin', $admin))
+
+            /*
+             | Penyaring per JENIS AKSI dan per IP.
+             |
+             | Tanpa keduanya, "siapa saja yang pernah menyentuh pembayaran?"
+             | dan "adakah akses dari alamat yang tidak dikenal?" hanya bisa
+             | dijawab dengan mengetik kata di pencarian lalu berharap
+             | kalimatnya cocok — padahal keduanya pertanyaan audit yang paling
+             | sering diajukan.
+             */
+            ->when($request->query('aksi'), fn ($q, $aksi) => $q->where('aksi', $aksi))
+            ->when($request->query('ip'), fn ($q, $ip) => $q->where('ip', 'like', "%{$ip}%"))
             ->when($request->query('dari'), fn ($q, $dari) => $q->whereDate('created_at', '>=', $dari))
             ->when($request->query('sampai'), fn ($q, $sampai) => $q->whereDate('created_at', '<=', $sampai))
             ->latest()
@@ -49,6 +61,24 @@ class JejakAuditController extends ApiController
                 'waktu_teks' => $jejak->created_at?->locale('id')->translatedFormat('j F Y, H:i'),
             ])
             ->all());
+    }
+
+    /**
+     * Daftar jenis aksi yang pernah tercatat — untuk mengisi penyaringnya.
+     *
+     * Diambil dari jejaknya sendiri, bukan daftar tetap di kode: aksi baru
+     * muncul seiring fitur bertambah, dan daftar tetap akan ketinggalan diam-
+     * diam tanpa ada yang menyadarinya.
+     */
+    public function aksi(): JsonResponse
+    {
+        return response()->json([
+            'data' => JejakAudit::query()
+                ->select('aksi')
+                ->distinct()
+                ->orderBy('aksi')
+                ->pluck('aksi'),
+        ]);
     }
 
     /** Daftar nama admin yang pernah tercatat — untuk mengisi penyaringnya. */

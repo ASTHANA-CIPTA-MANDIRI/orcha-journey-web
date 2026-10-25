@@ -99,6 +99,78 @@ test('jejak bisa disaring per admin', function () {
         ->assertJsonPath('data.0.admin', 'Budi Admin');
 });
 
+test('jejak bisa disaring per jenis aksi', function () {
+    /*
+     | "Siapa saja yang pernah menyentuh pembayaran?" adalah pertanyaan audit
+     | yang paling sering diajukan, dan sebelumnya hanya bisa dijawab dengan
+     | mengetik kata di pencarian lalu berharap kalimat ringkasannya cocok.
+     */
+    $permintaan = request();
+
+    JejakAudit::catat($permintaan, 'catat pembayaran manual', 'satu');
+    JejakAudit::catat($permintaan, 'ubah paket wisata', 'dua');
+
+    $this->withHeaders(kepalaOrcha())
+        ->getJson('/api/v1/jejak-audit?aksi='.urlencode('catat pembayaran manual'))
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.aksi', 'catat pembayaran manual');
+});
+
+test('penyaring aksi mencocokkan utuh, bukan sepotong', function () {
+    // 'hapus' tidak boleh ikut menarik 'hapus paksa': penyaring yang
+    // mencocokkan sepotong memulangkan baris yang tak diminta tanpa ada
+    // tandanya, dan hitungan di laporan jadi lebih besar dari semestinya.
+    $permintaan = request();
+
+    JejakAudit::catat($permintaan, 'hapus', 'satu');
+    JejakAudit::catat($permintaan, 'hapus paksa', 'dua');
+
+    $this->withHeaders(kepalaOrcha())
+        ->getJson('/api/v1/jejak-audit?aksi=hapus')
+        ->assertOk()
+        ->assertJsonCount(1, 'data');
+});
+
+test('jejak bisa disaring per alamat ip', function () {
+    // "Adakah akses dari tempat yang tidak dikenal?" — dicocokkan sepotong,
+    // karena yang dicurigai biasanya satu jaringan, bukan satu alamat persis.
+    JejakAudit::create(['admin' => 'Rina', 'aksi' => 'a', 'ringkasan' => 'satu', 'ip' => '103.10.20.30']);
+    JejakAudit::create(['admin' => 'Budi', 'aksi' => 'b', 'ringkasan' => 'dua', 'ip' => '36.72.1.9']);
+
+    $this->withHeaders(kepalaOrcha())
+        ->getJson('/api/v1/jejak-audit?ip=103.10')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.ip', '103.10.20.30');
+});
+
+test('daftar jenis aksi diambil dari jejaknya sendiri', function () {
+    /*
+     | Bukan daftar tetap di kode: aksi baru bermunculan seiring fitur
+     | bertambah, dan daftar tetap akan ketinggalan diam-diam — penyaringnya
+     | tetap tampak lengkap sementara aksi terbarunya tidak ada di sana.
+     */
+    $permintaan = request();
+
+    JejakAudit::catat($permintaan, 'ubah paket wisata', 'satu');
+    JejakAudit::catat($permintaan, 'catat pembayaran manual', 'dua');
+    JejakAudit::catat($permintaan, 'ubah paket wisata', 'tiga');
+
+    $this->withHeaders(kepalaOrcha())
+        ->getJson('/api/v1/jejak-audit/aksi')
+        ->assertOk()
+        // Tanpa pengulangan, dan berurut supaya penyaringnya bisa ditelusuri
+        // mata tanpa membacanya satu per satu.
+        ->assertExactJson(['data' => ['catat pembayaran manual', 'ubah paket wisata']]);
+});
+
+test('daftar jenis aksi ikut dijaga kunci api', function () {
+    JejakAudit::catat(request(), 'a', 'satu');
+
+    $this->getJson('/api/v1/jejak-audit/aksi')->assertUnauthorized();
+});
+
 test('jejak audit tidak bisa dihapus lewat api', function () {
     /*
      | Catatan audit yang bisa dihapus lewat API bukan catatan audit — ia cuma

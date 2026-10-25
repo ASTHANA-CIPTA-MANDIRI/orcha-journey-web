@@ -61,6 +61,7 @@ Route::prefix('v1')
          */
         Route::get('/jejak-audit', [JejakAuditController::class, 'index']);
         Route::get('/jejak-audit/admin', [JejakAuditController::class, 'admin']);
+        Route::get('/jejak-audit/aksi', [JejakAuditController::class, 'aksi']);
 
         /* ----------------------------- OPEN TRIP ----------------------------- */
         Route::get('/pendaftaran', [PendaftaranController::class, 'index']);
