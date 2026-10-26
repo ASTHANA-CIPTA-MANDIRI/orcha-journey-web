@@ -13,6 +13,21 @@
     $emas = '#ffc74e';
     $kabut = '#f4f8fb';
     $hijau = '#1f7a44';
+
+    /*
+     | Warna per jenis kegiatan — peta yang SAMA dengan PDF penawaran, supaya
+     | dua berkas tentang perjalanan yang sama tidak memakai warna berbeda
+     | untuk hal yang sama. Jenisnya ditebak di BerkasRab::jenis.
+     */
+    $rupa = [
+        'destinasi' => ['Destinasi', $hijau],
+        'perjalanan' => ['Perjalanan', $ocean],
+        'makan' => ['Makan / singgah', '#e0912f'],
+        'snack' => ['Snack', $langit],
+        'istirahat' => ['Istirahat', $navy],
+        'lain' => ['Lainnya', '#94a3b8'],
+    ];
+    $jenisKeg = fn ($k) => \App\Support\Rab\BerkasRab::jenis($k->nama, $k->keterangan, $k->destinasi);
     $merah = '#b42318';
 
     $aman = fn ($t) => strtr((string) $t, ['→' => '->', '←' => '<-', '−' => '-', '✓' => '', '×' => 'x']);
@@ -51,7 +66,7 @@
     .sub { font-size: 9.5px; color: #64748b; padding-top: 4px; }
     .sub b { color: {{ $navy }}; }
 
-    .ubin td { width: 25%; padding: 0 4px; vertical-align: top; }
+    .ubin td { width: 20%; padding: 0 4px; vertical-align: top; }
     .ubin td:first-child { padding-left: 0; }
     .ubin td:last-child { padding-right: 0; }
     .ubin-isi { background-color: {{ $kabut }}; border: 1px solid #dbe7f0; padding: 9px 11px; }
@@ -86,13 +101,67 @@
     .peringatan { margin-top: 12px; border-left: 3px solid {{ $merah }}; background-color: #fef3f2; padding: 8px 12px; font-size: 9px; color: {{ $merah }}; }
     .catatan { margin-top: 12px; border-left: 3px solid {{ $emas }}; background-color: #fffbf0; padding: 8px 12px; font-size: 9px; color: #5b4a1a; line-height: 1.55; }
 
-    .jadwal td { padding: 4px 8px; border-bottom: 1px solid #eef3f7; font-size: 9px; vertical-align: top; }
-    .jadwal .hr { width: 46px; color: {{ $ocean }}; font-weight: bold; }
-    .jadwal .jm { width: 40px; font-family: Courier, monospace; color: #64748b; }
+    /* ---------- keterangan penanda ---------- */
+    .legenda { padding: 9px 0 1px; }
+    .legenda-butir { display: inline-block; font-size: 7.5px; color: #64748b; margin-right: 11px; }
+    .legenda-titik { display: inline-block; width: 6px; height: 6px; border-radius: 3px; margin-right: 5px; }
+
+    /* ---------- itinerary ---------- */
+    .hari { margin-top: 10px; border: 1px solid #e2eaf1; page-break-inside: avoid; }
+    .hari-kepala { background-color: {{ $navy }}; padding: 8px 12px; }
+    .hari-lencana { background-color: {{ $ocean }}; padding: 3px 0 4px; text-align: center; border-radius: 6px; }
+    .hari-lencana-kata { display: block; font-size: 5px; letter-spacing: 1.3px; color: {{ $langit }}; font-weight: bold; }
+    .hari-lencana-no { display: block; font-size: 13px; color: #fff; font-weight: bold; line-height: 1.1; }
+    .hari-judul { font-size: 11px; color: #fff; font-weight: bold; }
+    .hari-sub { font-size: 7.5px; color: {{ $langit }}; padding-top: 2px; line-height: 1.4; }
+    .hari-tgl { font-size: 8px; color: {{ $langit }}; text-align: right; vertical-align: middle; width: 100px; }
+
+    .keg td { padding: 6px 11px; border-bottom: 1px solid #eef3f7; vertical-align: top; }
+    .keg tr:last-child td { border-bottom: none; }
+    .keg-kepala td {
+        background-color: {{ $kabut }}; font-size: 7px; letter-spacing: 1.1px; text-transform: uppercase;
+        font-weight: bold; color: {{ $ocean }}; border-bottom: 1px solid #dbe7f0;
+    }
+    .keg .jam { width: 80px; font-family: Courier, monospace; font-weight: bold; color: {{ $ocean }}; font-size: 9px; }
+    .keg-kepala .jam, .keg-kepala .lama { font-family: Helvetica, Arial, sans-serif; }
+    .keg .lama { width: 54px; }
+    .pil-lama { display: inline-block; background-color: #eef4f9; color: {{ $ocean }}; font-size: 7px; font-weight: bold; padding: 2px 5px 3px; border-radius: 6px; }
+    .keg .tuju { width: 162px; }
+    .keg .nama { font-weight: bold; color: {{ $navy }}; font-size: 9px; }
+    .keg .dest { color: #94a3b8; font-size: 8px; }
+    .keg .ket { color: #64748b; font-size: 8.5px; line-height: 1.45; }
+    .keg .kosong { color: #cbd5e1; }
+    .bebas { padding: 9px 12px; color: #94a3b8; font-style: italic; font-size: 9px; }
+
+    /* ---------- urutan singgah ---------- */
+    .rute-ket { font-size: 8px; color: #94a3b8; padding-top: 7px; }
+    .rute-hari { margin-top: 9px; border: 1px solid #e2eaf1; page-break-inside: avoid; }
+    .rute-hari-judul {
+        background-color: {{ $kabut }}; padding: 5px 11px; font-size: 8px; font-weight: bold;
+        color: {{ $navy }}; letter-spacing: .9px; text-transform: uppercase; border-bottom: 1px solid #dbe7f0;
+    }
+    .rute td { padding: 4px 11px; border-bottom: 1px solid #f2f6fa; vertical-align: middle; }
+    .rute tr:last-child td { border-bottom: none; }
+    .rute-no { width: 24px; padding-right: 0; }
+    .bulat-no { display: inline-block; width: 14px; height: 14px; border-radius: 7px; color: #fff; font-size: 7.5px; font-weight: bold; text-align: center; line-height: 14px; }
+    .rute-jam { width: 86px; font-family: Courier, monospace; font-size: 8px; color: {{ $ocean }}; font-weight: bold; }
+    .rute-nama { font-size: 9px; color: {{ $navy }}; font-weight: bold; }
 
     .kaki-luar { position: fixed; bottom: -56px; left: 0; right: 0; }
     .kaki { background-color: {{ $navy }}; padding: 9px 32px 10px; border-top: 2px solid {{ $merah }}; }
     .kaki td { font-size: 7.5px; color: {{ $langit }}; }
+    /* Nomor halaman: dompdf mengisi counter(page) sendiri saat mencetak.
+       Berkas tanpa nomor halaman yang tercetak lalu tercecer di meja tidak
+       bisa disusun ulang oleh siapa pun. */
+    /* HANYA nomor halamannya, tanpa totalnya.
+
+       counter(pages) di dompdf memulangkan angka yang bukan jumlah halaman
+       — berkas tiga halaman tercetak "Hal. 1/9". Total yang salah lebih buruk
+       daripada tanpa total: yang membacanya akan mengira ada enam halaman
+       yang tidak ikut tercetak. Totalnya menuntut berkas dirender dua kali
+       (sekali untuk menghitung), dan itu belum sepadan harganya di hosting
+       ini. */
+    .hal:after { content: "Hal. " counter(page); color: #fff; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -101,7 +170,7 @@
     <div class="kaki">
         <table><tr>
             <td><b style="color:#fff">DOKUMEN INTERNAL</b> — berisi modal & margin. Jangan dikirim ke pelanggan; kirim PDF Penawaran.</td>
-            <td style="text-align:right">{{ $rab->kode }} · dicetak {{ $terbit }}</td>
+            <td style="text-align:right">{{ $rab->kode }} · dicetak {{ $terbit }} &nbsp;·&nbsp; <span class="hal"></span></td>
         </tr></table>
     </div>
 </div>
@@ -147,6 +216,19 @@
             <div class="ubin-label">Harga total</div>
             <div class="ubin-nilai">{{ $r['harga_total_teks'] }}</div>
             <div class="ubin-ket">{{ $rab->jumlah_peserta }} × {{ $r['harga_per_orang_teks'] }}</div>
+        </div></td>
+        <td><div class="ubin-isi" style="border-top:3px solid {{ ($r['bep_tercapai'] ?? false) ? $hijau : $merah }}">
+            <div class="ubin-label">Balik modal mulai</div>
+            <div class="ubin-nilai" style="color:{{ ($r['bep_tercapai'] ?? false) ? $hijau : $merah }}">
+                {{ $r['bep_peserta'] !== null ? $r['bep_peserta'].' peserta' : '-' }}
+            </div>
+            <div class="ubin-ket">
+                @if ($r['bep_peserta'] !== null)
+                    biaya tetap {{ $r['modal_tetap_teks'] }} ÷ {{ $r['sumbangan_per_orang_teks'] }}/kepala
+                @else
+                    harga belum menutup biaya per orang
+                @endif
+            </div>
         </div></td>
         <td><div class="ubin-isi" style="border-top:3px solid {{ $hijau }}">
             <div class="ubin-label">Untung</div>
@@ -245,24 +327,84 @@
         <div class="catatan"><b>Catatan internal:</b> {!! nl2br(e($aman($rab->catatan))) !!}</div>
     @endif
 
-    {{-- ======================= JADWAL RINGKAS ======================= --}}
-    <div class="bagian" style="page-break-inside:avoid">
-        <div class="bagian-judul">Itinerary Ringkas</div>
+    {{-- ======================= JADWAL ======================= --}}
+    <div class="bagian">
+        <div class="bagian-judul">Itinerary</div>
         <div class="bagian-garis"></div>
-        <table class="jadwal" style="margin-top:8px">
-            @foreach ($hari as $h)
-                @forelse ($h['kegiatan'] as $i => $k)
-                    <tr>
-                        <td class="hr">{{ $i === 0 ? 'Hari '.$h['hari_ke'] : '' }}</td>
-                        <td class="jm">{{ $k->jam ?: '' }}@if ($k->jam && $k->jam_selesai)–{{ $k->jam_selesai }}@endif</td>
-                        <td><b style="color:{{ $navy }}">{{ $aman($k->nama) }}</b>@if ($k->destinasi) <span style="color:#94a3b8">· {{ $aman($k->destinasi) }}</span>@endif</td>
-                    </tr>
-                @empty
-                    <tr><td class="hr">Hari {{ $h['hari_ke'] }}</td><td class="jm"></td><td style="color:#94a3b8; font-style:italic">Waktu bebas</td></tr>
-                @endforelse
+
+        <div class="legenda">
+            @foreach ($rupa as $kunci => [$label, $warna])
+                <span class="legenda-butir"><span class="legenda-titik" style="background-color: {{ $warna }}"></span>{{ $label }}</span>
             @endforeach
-        </table>
+        </div>
+
+        @foreach ($hari as $h)
+            <div class="hari">
+                <div class="hari-kepala">
+                    <table><tr>
+                        <td style="width:40px; vertical-align:middle">
+                            <div class="hari-lencana"><span class="hari-lencana-kata">HARI</span><span class="hari-lencana-no">{{ $h['hari_ke'] }}</span></div>
+                        </td>
+                        <td style="vertical-align:middle; padding-left:9px">
+                            <div class="hari-judul">{{ $aman($h['judul']) }}</div>
+                            @if ($h['ringkasan'])<div class="hari-sub">{{ $aman($h['ringkasan']) }}</div>@endif
+                        </td>
+                        <td class="hari-tgl">{{ $h['tanggal'] ?? '' }}</td>
+                    </tr></table>
+                </div>
+
+                @if (count($h['kegiatan']) === 0)
+                    <div class="bebas">Waktu bebas — belum ada kegiatan yang disusun untuk hari ini.</div>
+                @else
+                    <table class="keg">
+                        <tr class="keg-kepala">
+                            <td class="jam">Waktu (WIB)</td>
+                            <td class="lama">Durasi</td>
+                            <td class="tuju">Tujuan</td>
+                            <td>Kegiatan</td>
+                        </tr>
+                        @foreach ($h['kegiatan'] as $k)
+                            @php [$labelJenis, $warnaJenis] = $rupa[$jenisKeg($k)]; @endphp
+                            <tr>
+                                <td class="jam">{{ $k->jam ?: '' }}@if ($k->jam && $k->jam_selesai) – {{ $k->jam_selesai }}@endif</td>
+                                <td class="lama">@if ($k->durasi_teks)<span class="pil-lama">{{ $k->durasi_teks }}</span>@endif</td>
+                                <td class="tuju">
+                                    <span class="legenda-titik" style="background-color: {{ $warnaJenis }}"></span><span class="nama">{{ $aman($k->nama) }}</span>
+                                    @if ($k->destinasi)<span class="dest">· {{ $aman($k->destinasi) }}</span>@endif
+                                </td>
+                                <td>@if ($k->keterangan)<span class="ket">{{ $aman($k->keterangan) }}</span>@else<span class="kosong">&mdash;</span>@endif</td>
+                            </tr>
+                        @endforeach
+                    </table>
+                @endif
+            </div>
+        @endforeach
     </div>
+
+    {{-- ======================= URUTAN SINGGAH ======================= --}}
+    @if ($rute !== [])
+        <div class="bagian" style="page-break-inside:avoid">
+            <div class="bagian-judul">Urutan Singgah</div>
+            <div class="bagian-garis"></div>
+            <div class="rute-ket">Nomor mengikuti urutan kunjungan; ruas perjalanan di antaranya tidak dinomori.</div>
+
+            @foreach ($rute as $hr)
+                <div class="rute-hari">
+                    <div class="rute-hari-judul">Hari {{ $hr['hari_ke'] }}</div>
+                    <table class="rute">
+                        @foreach ($hr['titik'] as $t)
+                            @php [$labelT, $warnaT] = $rupa[$t['jenis']]; @endphp
+                            <tr>
+                                <td class="rute-no"><span class="bulat-no" style="background-color: {{ $warnaT }}">{{ $t['no'] }}</span></td>
+                                <td class="rute-jam">{{ $t['waktu'] }}</td>
+                                <td class="rute-nama">{{ $aman($t['nama']) }}</td>
+                            </tr>
+                        @endforeach
+                    </table>
+                </div>
+            @endforeach
+        </div>
+    @endif
 </div>
 </body>
 </html>

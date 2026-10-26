@@ -214,3 +214,17 @@ test('pos biaya yang mudah terlupa punya kategorinya sendiri', function () {
     // "Lain-lain" tetap paling belakang: ia penampung, bukan pos.
     expect(array_key_last(config('orcha.rab.kategori')))->toBe('lainnya');
 });
+
+test('tanpa biaya tetap, titik impasnya satu peserta — bukan nol', function () {
+    // "Balik modal mulai 0 peserta" bukan jawaban, cuma pembagian yang
+    // kebetulan nol.
+    $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen', 'margin_nilai' => 20]);
+
+    RabBiaya::create(['rab_id' => $rab->id, 'kategori' => 'tiket', 'nama' => 'Tiket',
+        'satuan' => 'orang', 'harga_satuan' => 50_000, 'jumlah' => 1, 'urutan' => 1]);
+
+    $r = HitungRab::ringkas($rab->fresh());
+
+    expect($r['modal_tetap'])->toBe(0)
+        ->and($r['bep_peserta'])->toBe(1);
+});

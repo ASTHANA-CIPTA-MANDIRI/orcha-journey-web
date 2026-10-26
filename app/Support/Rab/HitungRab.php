@@ -214,7 +214,10 @@ class HitungRab
          */
         $variabelPerOrang = (int) ceil($modalVariabel / $peserta);
         $sumbanganPerOrang = $hargaPerOrang - $variabelPerOrang;
-        $bep = $sumbanganPerOrang > 0 ? (int) ceil($modalTetap / $sumbanganPerOrang) : null;
+        // max(1, …): tanpa biaya tetap pun perjalanan butuh satu peserta.
+        // "Balik modal mulai 0 peserta" bukan jawaban, cuma pembagian yang
+        // kebetulan nol.
+        $bep = $sumbanganPerOrang > 0 ? max(1, (int) ceil($modalTetap / $sumbanganPerOrang)) : null;
 
         $angka = [
             'modal_variabel' => $modalVariabel,

@@ -53,7 +53,11 @@ class BerkasRab
                 'alamat' => config('orcha.alamat'),
             ],
             'logo' => file_exists(public_path('orcha-logo-surat.png')) ? public_path('orcha-logo-surat.png') : null,
+            'sorotan' => self::sorotan($rab),
+            'rute' => self::rute($rab),
         ];
+
+        $data['hari'] = self::berjudul($data['hari']);
 
         if ($jenis === 'internal') {
             $data['r'] = $r;
@@ -105,6 +109,175 @@ class BerkasRab
         }
 
         return $hasil;
+    }
+
+    /**
+     * Jenis sebuah kegiatan, ditebak dari isinya.
+     *
+     * Jadwal yang seluruh barisnya tampil sama menuntut pembacanya mengeja
+     * tiap baris untuk tahu mana yang perjalanan, mana yang destinasi, dan
+     * mana yang cuma makan. Satu penanda berwarna menjawabnya sebelum
+     * kalimatnya dibaca.
+     *
+     * TEBAKAN, dan sengaja begitu: memaksa admin memilih jenis pada tiap
+     * kegiatan menambah satu isian pada pekerjaan yang paling sering
+     * dilakukan, demi sesuatu yang hampir selalu bisa dibaca dari namanya
+     * sendiri. Yang tidak terbaca jatuh ke 'lain' — tanpa penanda, bukan
+     * dengan penanda yang salah.
+     */
+    public static function jenis(string $nama, ?string $keterangan = null, ?string $destinasi = null): string
+    {
+        $teks = mb_strtolower($nama.' '.$keterangan);
+
+        return match (true) {
+            str_contains($teks, 'snack') => 'snack',
+            (bool) preg_match('/\b(makan|sarapan|ishoma|kuliner|oleh-oleh)\b/u', $teks) => 'makan',
+            (bool) preg_match('/\b(perjalanan|menuju|transit|pulang|berangkat|kumpul|penjemputan)\b/u', $teks) => 'perjalanan',
+            (bool) preg_match('/\b(istirahat|check-in|check in|check-out|check out|bersih|briefing|bebas)\b/u', $teks) => 'istirahat',
+            trim((string) $destinasi) !== '' => 'destinasi',
+            default => 'lain',
+        };
+    }
+
+    /**
+     * Judul dan ringkasan tiap hari, dirakit dari isinya sendiri.
+     *
+     * Tidak disimpan sebagai kolom: satu isian lagi per hari untuk kalimat
+     * yang bisa dibaca dari daftar kegiatannya. Yang dipakai destinasi hari
+     * itu — "Baluran · Djawatan" — karena itulah yang diingat orang tentang
+     * sebuah hari, bukan jam berangkatnya.
+     *
+     * @param  array<int, array<string, mixed>>  $hari
+     * @return array<int, array<string, mixed>>
+     */
+    private static function berjudul(array $hari): array
+    {
+        foreach ($hari as $i => $h) {
+            $kegiatan = collect($h['kegiatan']);
+
+            $utama = $kegiatan
+                ->filter(fn ($k) => self::jenis($k->nama, $k->keterangan, $k->destinasi) === 'destinasi')
+                ->map(fn ($k) => trim((string) ($k->destinasi ?: $k->nama)))
+                ->unique()->values();
+
+            // Tanpa satu pun destinasi, nama kegiatannya sendiri yang dipakai
+            // — hari perjalanan tetap punya judul, bukan kotak kosong.
+            if ($utama->isEmpty()) {
+                $utama = $kegiatan
+                    ->reject(fn ($k) => self::jenis($k->nama, $k->keterangan, $k->destinasi) === 'perjalanan')
+                    ->map(fn ($k) => trim((string) $k->nama))
+                    ->filter()->unique()->values();
+            }
+
+            /*
+             | Dipendekkan. Judul hari yang memuat kalimat utuh "Kumpul di
+             | meeting point Jogja Jombor, Prambanan, Tugu Kartasura" bukan
+             | judul lagi — ia kegiatan pertama yang kebetulan dicetak besar,
+             | dan mendorong tanggalnya keluar dari barisnya.
+             */
+            $judul = $utama->take(3)->map(fn ($t) => self::pendek($t, 34));
+
+            $hari[$i]['judul'] = $judul->implode(' · ') ?: 'Waktu bebas';
+
+            /*
+             | Ringkasannya menyebut yang BELUM ada di judul. Mengulang kata
+             | yang sama dua baris berturut-turut membuat baris kedua tidak
+             | dibaca sama sekali — lalu kegiatan yang benar-benar baru ikut
+             | tidak terbaca.
+             */
+            $hari[$i]['ringkasan'] = $kegiatan
+                ->map(fn ($k) => trim((string) $k->nama))
+                ->filter()
+                ->unique()
+                ->reject(fn ($n) => $judul->contains(fn ($j) => str_starts_with($n, rtrim($j, '…'))))
+                ->take(5)
+                ->map(fn ($n) => self::pendek($n, 44))
+                ->implode(', ');
+        }
+
+        return $hari;
+    }
+
+    /** Memotong di batas kata; "Perjalanan Mepo…" terbaca, "Perjalanan Me…" tidak. */
+    private static function pendek(string $teks, int $batas): string
+    {
+        if (mb_strlen($teks) <= $batas) {
+            return $teks;
+        }
+
+        $potong = mb_substr($teks, 0, $batas);
+        $spasi = mb_strrpos($potong, ' ');
+
+        return rtrim($spasi !== false && $spasi > $batas - 14 ? mb_substr($potong, 0, $spasi) : $potong, ' ,.·-').'…';
+    }
+
+    /**
+     * Destinasi yang jadi daya tarik perjalanan ini — untuk cip di kepala.
+     *
+     * @return array<int, string>
+     */
+    private static function sorotan(Rab $rab): array
+    {
+        return $rab->itinerary
+            ->filter(fn ($k) => trim((string) $k->destinasi) !== '')
+            ->map(fn ($k) => trim((string) $k->destinasi))
+            ->unique()->take(8)->values()->all();
+    }
+
+    /**
+     * Urutan singgah per hari: nomor, waktu, dan namanya.
+     *
+     * BUKAN peta: menggambar peta menuntut data geografis yang tidak ada saat
+     * berkas dicetak, dan peta yang dikarang lebih buruk daripada tidak ada
+     * peta. Yang diberikan di sini urutan kunjungannya — isi yang sama dengan
+     * yang dibaca orang dari daftar di samping peta.
+     *
+     * @return array<int, array{hari_ke:int, judul:string, titik:array}>
+     */
+    private static function rute(Rab $rab): array
+    {
+        $hasil = [];
+
+        foreach ($rab->itinerary->groupBy('hari_ke') as $hariKe => $kegiatan) {
+            $titik = [];
+            $no = 0;
+
+            foreach ($kegiatan as $k) {
+                $jenis = self::jenis($k->nama, $k->keterangan, $k->destinasi);
+
+                // Perjalanan adalah RUAS antara dua singgahan, bukan
+                // singgahannya; menomorinya membuat urutannya terbaca seolah
+                // rombongan berhenti di tengah jalan tol.
+                if ($jenis === 'perjalanan') {
+                    continue;
+                }
+
+                $titik[] = [
+                    'no' => ++$no,
+                    'waktu' => self::rentangJam($k),
+                    'nama' => trim((string) ($k->destinasi ?: $k->nama)),
+                    'jenis' => $jenis,
+                ];
+            }
+
+            if ($titik !== []) {
+                $hasil[] = ['hari_ke' => (int) $hariKe, 'titik' => $titik];
+            }
+        }
+
+        return $hasil;
+    }
+
+    private static function rentangJam($k): string
+    {
+        $mulai = trim((string) $k->jam);
+        $selesai = trim((string) $k->jam_selesai);
+
+        return match (true) {
+            $mulai !== '' && $selesai !== '' => $mulai.' – '.$selesai,
+            $mulai !== '' => $mulai,
+            default => '',
+        };
     }
 
     /**

@@ -5,6 +5,7 @@ use App\Models\PaketWisata\TravelPackage;
 use App\Models\Rab\MasterHarga;
 use App\Models\Rab\Rab;
 use App\Support\Rab\BerkasRab;
+use App\Support\Rab\HitungRab;
 
 /**
  * Jalur admin untuk master harga dan RAB.
@@ -308,4 +309,101 @@ test('ringkasan membawa titik impas ke pemanggilnya', function () {
     $r = $this->getJson('/api/v1/rab/'.$rab['id'], kepalaRab())->assertOk()->json('data.ringkasan');
 
     expect($r)->toHaveKeys(['bep_peserta', 'bep_tercapai', 'untung_per_orang', 'sumbangan_per_orang']);
+});
+
+/*
+ | ---------------------------------------------------------------------------
+ | Bentuk berkas: selengkap kertas kerja tim, tanpa menggeser batas penawaran
+ | ---------------------------------------------------------------------------
+ */
+
+test('kedua berkas memuat jadwal berkolom, penanda jenis, dan urutan singgah', function () {
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson('/api/v1/rab/'.$rab['id'].'/itinerary', ['itinerary' => [
+        ['hari_ke' => 1, 'jam' => '18:00', 'jam_selesai' => '05:00', 'nama' => 'Kumpul di meeting point', 'keterangan' => 'Briefing & packing armada'],
+        ['hari_ke' => 2, 'jam' => '07:30', 'jam_selesai' => '09:00', 'nama' => 'Baluran', 'destinasi' => 'Baluran'],
+        ['hari_ke' => 2, 'jam' => '09:00', 'jam_selesai' => '10:30', 'nama' => 'Perjalanan menuju BJ Pool'],
+    ]], kepalaRab())->assertOk();
+
+    $model = Rab::find($rab['id']);
+
+    foreach (['penawaran', 'internal'] as $jenis) {
+        $isi = view(...BerkasRab::bahan($model, $jenis))->render();
+
+        // Empat kolom seperti kertas kerjanya: waktu, lamanya, tujuan, kegiatan.
+        expect($isi)->toContain('Waktu (WIB)')
+            ->and($isi)->toContain('Durasi')
+            ->and($isi)->toContain('Tujuan')
+            ->and($isi)->toContain('Kegiatan')
+            // Lamanya dihitung, tidak diketik: 18.00–05.00 memang sebelas jam.
+            ->and($isi)->toContain('11 jam')
+            ->and($isi)->toContain('1 jam 30 menit')
+            // Arti warnanya disebut, bukan ditebak pembaca.
+            ->and($isi)->toContain('Destinasi')
+            ->and($isi)->toContain('Urutan Singgah');
+    }
+});
+
+test('ruas perjalanan tidak ikut dinomori sebagai singgahan', function () {
+    /*
+     | Perjalanan adalah RUAS antara dua singgahan, bukan singgahannya.
+     | Menomorinya membuat urutan terbaca seolah rombongan berhenti di tengah
+     | jalan tol.
+     */
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson('/api/v1/rab/'.$rab['id'].'/itinerary', ['itinerary' => [
+        ['hari_ke' => 1, 'jam' => '07:00', 'nama' => 'Warung Prasmanan Cakput'],
+        ['hari_ke' => 1, 'jam' => '07:30', 'nama' => 'Perjalanan ke Baluran National Park'],
+        ['hari_ke' => 1, 'jam' => '08:00', 'nama' => 'Savana Bekol', 'destinasi' => 'Savana Bekol'],
+    ]], kepalaRab())->assertOk();
+
+    [$view, $data] = BerkasRab::bahan(Rab::find($rab['id']), 'penawaran');
+
+    $titik = collect($data['rute'])->firstWhere('hari_ke', 1)['titik'];
+
+    expect(collect($titik)->pluck('nama')->all())->toBe(['Warung Prasmanan Cakput', 'Savana Bekol'])
+        // Nomornya rapat: 1 lalu 2, bukan 1 lalu 3.
+        ->and(collect($titik)->pluck('no')->all())->toBe([1, 2]);
+});
+
+test('jenis kegiatan ditebak dari namanya, dan yang tak terbaca tidak dikarang', function () {
+    expect(BerkasRab::jenis('Perjalanan menuju BJ Pool'))->toBe('perjalanan')
+        ->and(BerkasRab::jenis('ISHOMA dan mandi, sarapan'))->toBe('makan')
+        ->and(BerkasRab::jenis('Pembagian snack & merchandise'))->toBe('snack')
+        ->and(BerkasRab::jenis('Briefing untuk esok dan istirahat'))->toBe('istirahat')
+        ->and(BerkasRab::jenis('Savana Bekol', null, 'Savana Bekol'))->toBe('destinasi')
+        // Tanpa penanda lebih baik daripada penanda yang salah.
+        ->and(BerkasRab::jenis('Agenda khusus rombongan'))->toBe('lain');
+});
+
+test('bagian baru tidak membocorkan satu angka biaya pun ke penawaran', function () {
+    /*
+     | Penjaga yang paling penting di berkas ini. Urutan singgah, judul hari,
+     | dan penanda jenis semuanya dirakit dari itinerary — tetapi satu
+     | kelalaian di templat bisa menyeret angka modal ikut masuk. Yang
+     | diperiksa di sini bukan kata kuncinya, melainkan SELURUH angka rupiah
+     | yang muncul: hanya harga jual yang boleh ada.
+     */
+    $rab = buatRabLewatApi($this);
+
+    foreach ([
+        ['kategori' => 'transportasi', 'nama' => 'Hiace', 'satuan' => 'unit_hari', 'harga_satuan' => 850_000, 'kapasitas' => 14],
+        ['kategori' => 'akomodasi', 'nama' => 'Homestay', 'satuan' => 'kamar_malam', 'harga_satuan' => 350_000, 'kapasitas' => 4],
+        ['kategori' => 'operasional', 'nama' => 'Koordinator', 'satuan' => 'rombongan', 'harga_satuan' => 541_667],
+    ] as $biaya) {
+        $this->postJson('/api/v1/rab/'.$rab['id'].'/biaya', $biaya, kepalaRab())->assertOk();
+    }
+
+    $model = Rab::find($rab['id']);
+    $r = HitungRab::ringkas($model);
+    $isi = view(...BerkasRab::bahan($model, 'penawaran'))->render();
+
+    $teks = preg_replace('/\s+/', ' ', strip_tags(preg_replace('#<style.*?</style>#s', '', $isi)));
+    preg_match_all('/Rp\s?[\d.]+/', $teks, $cocok);
+
+    $boleh = [$r['harga_per_orang_teks'], $r['harga_total_teks']];
+
+    expect(array_values(array_unique($cocok[0])))->toBe($boleh);
 });
