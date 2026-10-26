@@ -70,7 +70,8 @@
     .hari-tgl { font-size: 8.5px; color: {{ $langit }}; text-align: right; }
     .keg td { padding: 8px 14px; border-bottom: 1px solid #eef3f7; vertical-align: top; }
     .keg tr:last-child td { border-bottom: none; }
-    .keg .jam { width: 52px; font-family: Courier, monospace; font-weight: bold; color: {{ $ocean }}; font-size: 10px; }
+    .keg .jam { width: 62px; font-family: Courier, monospace; font-weight: bold; color: {{ $ocean }}; font-size: 10px; vertical-align: top; }
+    .keg .durasi { font-family: sans-serif; font-weight: normal; color: #94a3b8; font-size: 8px; margin-top: 2px; }
     .keg .titik { width: 10px; padding-left: 0; padding-right: 0; }
     .titik-bulat { width: 7px; height: 7px; background-color: {{ $emas }}; border-radius: 4px; margin-top: 3px; }
     .keg .nama { font-weight: bold; color: {{ $navy }}; font-size: 10.5px; }
@@ -178,7 +179,12 @@
                     <table class="keg">
                         @foreach ($h['kegiatan'] as $k)
                             <tr>
-                                <td class="jam">{{ $k->jam ?: '' }}</td>
+                                {{-- Rentang, bukan satu jam: yang ditanyakan pembaca
+                                     jadwal adalah berapa lama, bukan mulai kapan. --}}
+                                <td class="jam">
+                                    {{ $k->jam ?: '' }}@if ($k->jam && $k->jam_selesai)<br>{{ $k->jam_selesai }}@endif
+                                    @if ($k->durasi_teks)<div class="durasi">{{ $k->durasi_teks }}</div>@endif
+                                </td>
                                 <td class="titik"><div class="titik-bulat"></div></td>
                                 <td>
                                     <div class="nama">{{ $aman($k->nama) }}</div>

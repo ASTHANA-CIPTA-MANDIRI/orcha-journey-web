@@ -254,7 +254,7 @@
                 @forelse ($h['kegiatan'] as $i => $k)
                     <tr>
                         <td class="hr">{{ $i === 0 ? 'Hari '.$h['hari_ke'] : '' }}</td>
-                        <td class="jm">{{ $k->jam ?: '' }}</td>
+                        <td class="jm">{{ $k->jam ?: '' }}@if ($k->jam && $k->jam_selesai)–{{ $k->jam_selesai }}@endif</td>
                         <td><b style="color:{{ $navy }}">{{ $aman($k->nama) }}</b>@if ($k->destinasi) <span style="color:#94a3b8">· {{ $aman($k->destinasi) }}</span>@endif</td>
                     </tr>
                 @empty

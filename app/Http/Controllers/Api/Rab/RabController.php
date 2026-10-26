@@ -197,12 +197,14 @@ class RabController extends ApiController
             'itinerary' => ['present', 'array', 'max:200'],
             'itinerary.*.hari_ke' => ['required', 'integer', 'min:1', 'max:'.max(1, $rab->jumlah_hari)],
             'itinerary.*.jam' => ['nullable', 'regex:/^\d{2}:\d{2}$/'],
+            'itinerary.*.jam_selesai' => ['nullable', 'regex:/^\d{2}:\d{2}$/'],
             'itinerary.*.nama' => ['required', 'string', 'max:150'],
             'itinerary.*.keterangan' => ['nullable', 'string', 'max:500'],
             'itinerary.*.destinasi' => ['nullable', 'string', 'max:150'],
         ], [
             'itinerary.*.hari_ke.max' => 'Ada kegiatan di hari ke-:input, padahal perjalanannya hanya '.$rab->jumlah_hari.' hari.',
             'itinerary.*.jam.regex' => 'Jam ditulis seperti 08:30.',
+            'itinerary.*.jam_selesai.regex' => 'Jam selesai ditulis seperti 11:00.',
         ]);
 
         DB::transaction(function () use ($rab, $data) {
@@ -219,6 +221,7 @@ class RabController extends ApiController
                     'hari_ke' => $hari,
                     'urutan' => $urutanPerHari[$hari],
                     'jam' => $baris['jam'] ?? null,
+                    'jam_selesai' => $baris['jam_selesai'] ?? null,
                     'nama' => trim($baris['nama']),
                     'keterangan' => trim((string) ($baris['keterangan'] ?? '')) ?: null,
                     'destinasi' => trim((string) ($baris['destinasi'] ?? '')) ?: null,
@@ -532,6 +535,11 @@ class RabController extends ApiController
                 'hari_ke' => $i->hari_ke,
                 'urutan' => $i->urutan,
                 'jam' => $i->jam,
+                'jam_selesai' => $i->jam_selesai,
+                // Lamanya ikut dikirim supaya lemon dan PDF menulis angka
+                // yang sama; dihitung di satu tempat, bukan dua.
+                'durasi_menit' => $i->durasi_menit,
+                'durasi_teks' => $i->durasi_teks,
                 'nama' => $i->nama,
                 'keterangan' => $i->keterangan,
                 'destinasi' => $i->destinasi,

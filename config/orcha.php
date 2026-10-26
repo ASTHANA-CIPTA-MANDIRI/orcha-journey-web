@@ -1585,12 +1585,30 @@ return [
     | biaya_tetap di pendaftaran.
     */
     'rab' => [
+        /*
+         | Komponen biaya, urut sesuai urutan bacanya di rincian dan PDF.
+         |
+         | Daftarnya mengikuti kertas kerja yang sudah dipakai tim menghitung
+         | private trip — sampai ke pos-pos yang mudah terlupa justru karena
+         | kecil: asuransi, dokumentasi, honor koordinator, dan konsumsi
+         | sopir. Dimasukkan sebagai kategori sendiri, bukan ditumpuk di
+         | "Lain-lain", supaya ketika sebuah penawaran meleset ketahuan pos
+         | mana yang belum diisi — bukan sekadar "lain-lain terlalu kecil".
+         |
+         | Kuncinya ditulis di kolom string biasa (bukan enum), jadi menambah
+         | pos di sini TIDAK menuntut migrasi; baris lama yang kategorinya
+         | tidak lagi terdaftar pun tetap tampil apa adanya.
+         */
         'kategori' => [
-            'tiket' => 'Tiket & Retribusi',
             'transportasi' => 'Transportasi',
             'akomodasi' => 'Akomodasi',
             'konsumsi' => 'Konsumsi',
+            'tiket' => 'Tiket & Retribusi',
             'pemandu' => 'Pemandu & Kru',
+            'asuransi' => 'Asuransi Perjalanan',
+            'dokumentasi' => 'Dokumentasi',
+            'operasional' => 'Operasional Tim',
+            'sopir' => 'Konsumsi & Rokok Sopir',
             'lainnya' => 'Lain-lain',
         ],
 

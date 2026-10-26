@@ -145,6 +145,72 @@ test('rincian dikelompokkan menurut urutan kategori, bukan urutan ditambahkan', 
         RabBiaya::create(['rab_id' => $rab->id, 'kategori' => $kat, 'nama' => $nama, 'satuan' => 'rombongan', 'harga_satuan' => 1000, 'jumlah' => 1, 'urutan' => $i]);
     }
 
+    /*
+     | Urutannya mengikuti config, bukan urutan baris ditambahkan — dan
+     | urutan config itu urutan BACA: transportasi dan akomodasi lebih dulu
+     | karena itulah dua pos terbesar yang dicari mata pertama kali.
+     | Dipatok di sini supaya perubahan urutannya jadi keputusan yang
+     | disengaja, bukan efek samping yang baru ketahuan di PDF pelanggan.
+     */
     expect(collect(HitungRab::ringkas($rab->fresh())['baris'])->pluck('nama')->all())
-        ->toBe(['Tiket A', 'Tiket B', 'Hiace', 'Tour leader']);
+        ->toBe(['Hiace', 'Tiket A', 'Tiket B', 'Tour leader']);
+});
+
+test('titik impas memberi tahu rombongan sekecil apa yang masih menutup biaya tetap', function () {
+    /*
+     | Sewa bus dan honor koordinator dibayar sama saja entah yang berangkat
+     | sepuluh atau lima belas orang — dan itulah yang membuat rombongan kecil
+     | diam-diam merugi walau harganya terlihat untung di atas kertas.
+     */
+    $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen', 'margin_nilai' => 5, 'pembulatan' => 1000]);
+
+    // Satu pos tetap (sewa bus) dan satu pos per orang (tiket).
+    RabBiaya::create(['rab_id' => $rab->id, 'kategori' => 'transportasi', 'nama' => 'Bus',
+        'satuan' => 'rombongan', 'harga_satuan' => 5_000_000, 'jumlah' => 1, 'urutan' => 1]);
+    RabBiaya::create(['rab_id' => $rab->id, 'kategori' => 'tiket', 'nama' => 'Tiket',
+        'satuan' => 'orang', 'harga_satuan' => 50_000, 'jumlah' => 1, 'urutan' => 2]);
+
+    $r = HitungRab::ringkas($rab->fresh());
+
+    expect($r['bep_peserta'])->toBeInt()
+        ->and($r['bep_peserta'])->toBeGreaterThan(0)
+        // Sumbangan tiap kepala = harga jual − biaya yang menempel padanya.
+        ->and($r['sumbangan_per_orang'])->toBe($r['harga_per_orang'] - $r['modal_variabel_per_orang'])
+        // Biaya tetapnya tertutup tepat pada jumlah peserta itu.
+        ->and($r['bep_peserta'] * $r['sumbangan_per_orang'])->toBeGreaterThanOrEqual($r['modal_tetap'])
+        ->and($r['bep_tercapai'])->toBe($r['bep_peserta'] <= 10);
+});
+
+test('titik impas kosong saat harga tidak menutup biaya per orangnya sendiri', function () {
+    // Tidak ada jumlah peserta yang menolong harga semacam itu; angka BEP di
+    // situ hanya akan menyesatkan orang yang membacanya.
+    $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen', 'margin_nilai' => 0, 'pembulatan' => 1]);
+
+    RabBiaya::create(['rab_id' => $rab->id, 'kategori' => 'tiket', 'nama' => 'Tiket mahal',
+        'satuan' => 'orang', 'harga_satuan' => 100_000, 'jumlah' => 1, 'urutan' => 1]);
+
+    $r = HitungRab::ringkas($rab->fresh());
+
+    // Harga = modal per orang, jadi sumbangannya nol — tidak ada yang tersisa
+    // untuk menutup biaya tetap.
+    expect($r['sumbangan_per_orang'])->toBe(0)
+        ->and($r['bep_peserta'])->toBeNull()
+        ->and($r['bep_tercapai'])->toBeFalse();
+});
+
+test('pos biaya yang mudah terlupa punya kategorinya sendiri', function () {
+    /*
+     | Asuransi, dokumentasi, honor koordinator, dan konsumsi sopir dulu
+     | menumpuk di "Lain-lain". Ketika sebuah penawaran meleset, yang bisa
+     | dibaca cuma "lain-lain terlalu kecil" — bukan pos mana yang belum
+     | diisi.
+     */
+    $kategori = array_keys(config('orcha.rab.kategori'));
+
+    foreach (['asuransi', 'dokumentasi', 'operasional', 'sopir'] as $pos) {
+        expect(in_array($pos, $kategori, true))->toBeTrue("kategori {$pos} tidak terdaftar");
+    }
+
+    // "Lain-lain" tetap paling belakang: ia penampung, bukan pos.
+    expect(array_key_last(config('orcha.rab.kategori')))->toBe('lainnya');
 });

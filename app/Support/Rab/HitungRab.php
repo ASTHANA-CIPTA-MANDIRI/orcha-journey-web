@@ -197,21 +197,47 @@ class HitungRab
             'total_teks' => RincianBiaya::rupiah((int) $isi->sum('subtotal')),
         ])->values();
 
+        /*
+         | Titik impas: berapa peserta minimal supaya biaya yang TIDAK ikut
+         | jumlah orang tertutup.
+         |
+         | Sewa bus, honor koordinator, dan dokumentasi dibayar sama saja
+         | entah yang berangkat sepuluh atau lima belas orang — dan itulah
+         | yang membuat rombongan kecil diam-diam merugi walau harganya
+         | terlihat untung di atas kertas. Dengan harga jual yang sekarang,
+         | tiap kepala menyumbang (harga − biaya yang menempel padanya);
+         | sumbangan itulah yang menutup biaya tetap.
+         |
+         | Null bila sumbangannya nol atau minus: tidak ada jumlah peserta
+         | yang menolong harga yang tidak menutup biaya per orangnya sendiri,
+         | dan angka BEP di situ hanya akan menyesatkan.
+         */
+        $variabelPerOrang = (int) ceil($modalVariabel / $peserta);
+        $sumbanganPerOrang = $hargaPerOrang - $variabelPerOrang;
+        $bep = $sumbanganPerOrang > 0 ? (int) ceil($modalTetap / $sumbanganPerOrang) : null;
+
         $angka = [
             'modal_variabel' => $modalVariabel,
             'modal_tetap' => $modalTetap,
             'modal_total' => $modal,
             'modal_per_kepala' => (int) round($modal / $peserta),
+            'modal_variabel_per_orang' => $variabelPerOrang,
             'margin_diminta' => $marginDiminta,
             'harga_per_orang' => $hargaPerOrang,
             'harga_total' => $hargaTotal,
             'untung' => $untung,
+            'untung_per_orang' => (int) floor($untung / $peserta),
+            'sumbangan_per_orang' => $sumbanganPerOrang,
         ];
 
         return $angka + [
             'baris' => $baris->all(),
             'per_kategori' => $perKategori->all(),
             'persen_untung' => $modal > 0 ? round($untung / $modal * 100, 1) : null,
+            'bep_peserta' => $bep,
+            // Rombongan sekecil ini sudah menutup biaya tetapnya? Pertanyaan
+            // yang ditanyakan admin adalah ini, bukan angka BEP-nya sendiri.
+            'bep_tercapai' => $bep !== null && $peserta >= $bep,
             'untuk_pendaftaran' => [
                 'harga_jual' => $hargaPerOrang,
                 'harga_modal' => $modalPerOrang,

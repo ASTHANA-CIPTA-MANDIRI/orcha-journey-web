@@ -260,3 +260,52 @@ test('tanpa kunci API semua jalur RAB tertutup', function () {
     $this->getJson('/api/v1/rab')->assertUnauthorized();
     $this->getJson('/api/v1/master-harga')->assertUnauthorized();
 });
+
+test('kegiatan menyimpan rentang waktu dan lamanya ikut terhitung', function () {
+    /*
+     | Kertas kerja yang dipakai tim menulis waktunya sebagai RENTANG —
+     | "07.30 – 09.00" — berikut lamanya. Satu jam mulai saja tidak menjawab
+     | pertanyaan yang sebenarnya diajukan pembaca jadwal: kegiatan ini
+     | memakan waktu berapa lama, dan kapan rombongan bisa bergerak lagi.
+     */
+    $rab = buatRabLewatApi($this);
+
+    $data = $this->putJson('/api/v1/rab/'.$rab['id'].'/itinerary', ['itinerary' => [
+        ['hari_ke' => 1, 'jam' => '07:30', 'jam_selesai' => '09:00', 'nama' => 'Baluran'],
+        ['hari_ke' => 1, 'jam' => '18:00', 'jam_selesai' => '05:00', 'nama' => 'Perjalanan malam'],
+        ['hari_ke' => 2, 'jam' => '08:00', 'nama' => 'Tanpa jam selesai'],
+    ]], kepalaRab())->assertOk()->json('data.itinerary');
+
+    expect($data[0]['durasi_menit'])->toBe(90)
+        ->and($data[0]['durasi_teks'])->toBe('1 jam 30 menit')
+        // Lewat tengah malam dihitung sebagai hari berikutnya: perjalanan
+        // 18.00–05.00 memang sebelas jam, bukan minus tiga belas.
+        ->and($data[1]['durasi_menit'])->toBe(660)
+        ->and($data[1]['durasi_teks'])->toBe('11 jam')
+        // Tanpa jam selesai tidak ada durasi yang bisa dikarang.
+        ->and($data[2]['durasi_menit'])->toBeNull()
+        ->and($data[2]['durasi_teks'])->toBeNull();
+});
+
+test('jam selesai yang bentuknya salah ditolak, bukan disimpan apa adanya', function () {
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson('/api/v1/rab/'.$rab['id'].'/itinerary', ['itinerary' => [
+        ['hari_ke' => 1, 'jam' => '07:30', 'jam_selesai' => 'sore', 'nama' => 'Baluran'],
+    ]], kepalaRab())->assertUnprocessable()->assertJsonValidationErrors('itinerary.0.jam_selesai');
+});
+
+test('ringkasan membawa titik impas ke pemanggilnya', function () {
+    // Dihitung sekali di HitungRab; lemon dan PDF membacanya, tidak
+    // menghitung ulang — hitungan yang diulang di dua tempat akan berbeda.
+    masterUji();
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson('/api/v1/rab/'.$rab['id'].'/biaya', [
+        'kategori' => 'transportasi', 'nama' => 'Bus', 'satuan' => 'rombongan', 'harga_satuan' => 5_000_000,
+    ], kepalaRab())->assertOk();
+
+    $r = $this->getJson('/api/v1/rab/'.$rab['id'], kepalaRab())->assertOk()->json('data.ringkasan');
+
+    expect($r)->toHaveKeys(['bep_peserta', 'bep_tercapai', 'untung_per_orang', 'sumbangan_per_orang']);
+});
