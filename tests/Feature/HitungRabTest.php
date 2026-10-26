@@ -181,21 +181,104 @@ test('titik impas memberi tahu rombongan sekecil apa yang masih menutup biaya te
         ->and($r['bep_tercapai'])->toBe($r['bep_peserta'] <= 10);
 });
 
-test('titik impas kosong saat harga tidak menutup biaya per orangnya sendiri', function () {
-    // Tidak ada jumlah peserta yang menolong harga semacam itu; angka BEP di
-    // situ hanya akan menyesatkan orang yang membacanya.
+test('tanpa biaya tetap dan tanpa margin, impasnya di peserta pertama', function () {
+    /*
+     | Seluruh biayanya menempel pada orang, harganya persis menutup biaya
+     | itu: trip tidak rugi pada jumlah berapa pun, termasuk satu orang.
+     |
+     | Rumus lama menjawab "tidak ada titik impas" di sini — hasil membagi
+     | biaya tetap nol dengan sumbangan nol. Yang dicari sekarang jumlah
+     | peserta terkecil yang sudah tidak rugi, dan jawabannya 1.
+     */
     $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen', 'margin_nilai' => 0, 'pembulatan' => 1]);
 
-    RabBiaya::create(['rab_id' => $rab->id, 'kategori' => 'tiket', 'nama' => 'Tiket mahal',
+    RabBiaya::create(['rab_id' => $rab->id, 'kategori' => 'tiket', 'nama' => 'Tiket',
         'satuan' => 'orang', 'harga_satuan' => 100_000, 'jumlah' => 1, 'urutan' => 1]);
 
     $r = HitungRab::ringkas($rab->fresh());
 
-    // Harga = modal per orang, jadi sumbangannya nol — tidak ada yang tersisa
-    // untuk menutup biaya tetap.
-    expect($r['sumbangan_per_orang'])->toBe(0)
-        ->and($r['bep_peserta'])->toBeNull()
-        ->and($r['bep_tercapai'])->toBeFalse();
+    expect($r['modal_tetap'])->toBe(0)
+        ->and($r['sumbangan_per_orang'])->toBe(0)
+        ->and($r['bep_peserta'])->toBe(1);
+});
+
+test('tidak ada titik impas bila tiap jumlah peserta tetap rugi', function () {
+    // Tidak ada jumlah peserta yang menolong harga semacam itu; angka impas
+    // di situ hanya akan menyesatkan orang yang membacanya.
+    $semuaRugi = [
+        ['peserta' => 1, 'laba' => -500],
+        ['peserta' => 2, 'laba' => -400],
+        ['peserta' => 3, 'laba' => -300],
+    ];
+
+    expect(HitungRab::impas($semuaRugi))->toBeNull();
+
+    // Dan yang impasnya ada dikembalikan pada baris PERTAMA yang tidak rugi,
+    // bukan baris terakhir yang kebetulan untung besar.
+    expect(HitungRab::impas([
+        ['peserta' => 1, 'laba' => -500],
+        ['peserta' => 2, 'laba' => 0],
+        ['peserta' => 3, 'laba' => 9000],
+    ]))->toBe(2);
+});
+
+test('titik impas dicari, bukan dibagi — dan bedanya satu kursi', function () {
+    /*
+     | Angka ini bukan teori. Pada contoh tiga hari Banyuwangi, biaya tetap
+     | dibagi sumbangan per kepala menjawab 13 peserta, padahal pada 12
+     | peserta trip sudah untung — karena kamar keempat baru disewa pada
+     | peserta ke-13. Selisih satu kursi itulah yang dipakai memutuskan
+     | berangkat atau tidak.
+     */
+    $rab = rabUji(['jumlah_peserta' => 14, 'margin_jenis' => 'persen', 'margin_nilai' => 5, 'pembulatan' => 1000]);
+
+    foreach ([
+        ['transportasi', 'Hiace', 'unit_hari', 850_000, 14],
+        ['akomodasi', 'Homestay', 'kamar_malam', 350_000, 4],
+        ['konsumsi', 'Makan', 'orang', 170_000, null],
+        ['tiket', 'Snorkeling', 'orang', 281_000, null],
+        ['pemandu', 'Tour leader', 'hari', 300_000, null],
+        ['dokumentasi', 'Fotografer', 'rombongan', 500_000, null],
+        ['operasional', 'Koordinator', 'rombongan', 541_667, null],
+        ['sopir', 'Konsumsi sopir', 'hari', 50_000, null],
+        ['asuransi', 'Asuransi', 'orang', 15_000, null],
+    ] as $i => [$kat, $nama, $satuan, $harga, $kap]) {
+        RabBiaya::create(['rab_id' => $rab->id, 'kategori' => $kat, 'nama' => $nama, 'satuan' => $satuan,
+            'harga_satuan' => $harga, 'kapasitas' => $kap, 'jumlah' => 1, 'urutan' => $i + 1]);
+    }
+
+    $r = HitungRab::ringkas($rab->fresh());
+
+    $lurus = (int) ceil($r['modal_tetap'] / $r['sumbangan_per_orang']);
+
+    expect($r['bep_peserta'])->toBe(12)
+        ->and($lurus)->toBe(13)
+        // Dan simulasinya membuktikannya: 12 untung, 11 masih rugi.
+        ->and(collect($r['simulasi'])->firstWhere('peserta', 12)['laba'])->toBeGreaterThanOrEqual(0)
+        ->and(collect($r['simulasi'])->firstWhere('peserta', 11)['laba'])->toBeLessThan(0);
+});
+
+test('satu peserta tambahan bisa justru menambah rugi', function () {
+    /*
+     | Tangga kamar dan armada membuat untung-rugi TIDAK naik mulus. Peserta
+     | ke-9 memaksa kamar ketiga seharga Rp 700.000 sementara ia sendiri cuma
+     | menyumbang sekian ratus ribu — jadi menambah satu orang justru
+     | memperburuk.
+     |
+     | Penting untuk menetapkan peserta minimum: letakkan tepat DI BAWAH
+     | tangganya, bukan di angka bulat yang enak diucapkan.
+     */
+    $rab = rabUji(['jumlah_peserta' => 14, 'margin_jenis' => 'persen', 'margin_nilai' => 5, 'pembulatan' => 1000]);
+
+    RabBiaya::create(['rab_id' => $rab->id, 'kategori' => 'akomodasi', 'nama' => 'Homestay',
+        'satuan' => 'kamar_malam', 'harga_satuan' => 350_000, 'kapasitas' => 4, 'jumlah' => 1, 'urutan' => 1]);
+    RabBiaya::create(['rab_id' => $rab->id, 'kategori' => 'konsumsi', 'nama' => 'Makan',
+        'satuan' => 'orang', 'harga_satuan' => 170_000, 'jumlah' => 1, 'urutan' => 2]);
+
+    $sim = collect(HitungRab::ringkas($rab->fresh())['simulasi'])->keyBy('peserta');
+
+    // Kamar ketiga disewa pada peserta ke-9.
+    expect($sim[9]['modal_tetap'])->toBeGreaterThan($sim[8]['modal_tetap']);
 });
 
 test('pos biaya yang mudah terlupa punya kategorinya sendiri', function () {

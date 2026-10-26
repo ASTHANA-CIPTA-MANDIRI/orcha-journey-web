@@ -407,3 +407,144 @@ test('bagian baru tidak membocorkan satu angka biaya pun ke penawaran', function
 
     expect(array_values(array_unique($cocok[0])))->toBe($boleh);
 });
+
+/*
+ | ---------------------------------------------------------------------------
+ | Open trip: harga diumumkan lebih dulu, jumlah orangnya belum pasti
+ | ---------------------------------------------------------------------------
+ */
+
+/** RAB berisi satu pos tetap besar dan satu pos per orang. */
+function rabOpenUji($t, array $ubah = []): array
+{
+    $rab = buatRabLewatApi($t);
+
+    $t->patchJson('/api/v1/rab/'.$rab['id'], array_merge([
+        'jenis' => 'open',
+        'jumlah_peserta' => 14,
+        'peserta_minimum' => 5,
+        'harga_dasar' => 'minimum',
+    ], $ubah), kepalaRab())->assertOk();
+
+    foreach ([
+        ['kategori' => 'transportasi', 'nama' => 'Hiace', 'satuan' => 'unit_hari', 'harga_satuan' => 850_000, 'kapasitas' => 14],
+        ['kategori' => 'konsumsi', 'nama' => 'Makan', 'satuan' => 'orang', 'harga_satuan' => 170_000],
+    ] as $biaya) {
+        $t->postJson('/api/v1/rab/'.$rab['id'].'/biaya', $biaya, kepalaRab())->assertOk();
+    }
+
+    return $rab;
+}
+
+test('harga open trip dihitung dari jumlah paling rendah, bukan dari target', function () {
+    /*
+     | Inti bedanya dengan private trip. Harga diumumkan lebih dulu atas dasar
+     | jumlah paling rendah yang masih mau diberangkatkan; yang datang di atas
+     | angka itu jadi untung, bukan penyelamat.
+     |
+     | Menyamakan dasar dengan target berarti harga ikut TURUN tiap kali
+     | targetnya dinaikkan — persis kebalikan dari yang dimaksud.
+     */
+    $rab = rabOpenUji($this);
+
+    $dasarMinimum = $this->getJson('/api/v1/rab/'.$rab['id'], kepalaRab())->json('data.ringkasan');
+
+    $this->patchJson('/api/v1/rab/'.$rab['id'], ['harga_dasar' => 'peserta'], kepalaRab())->assertOk();
+    $dasarTarget = $this->getJson('/api/v1/rab/'.$rab['id'], kepalaRab())->json('data.ringkasan');
+
+    expect($dasarMinimum['peserta_dasar'])->toBe(5)
+        ->and($dasarTarget['peserta_dasar'])->toBe(14)
+        // Biaya tetap yang sama dibagi lima kepala jauh lebih mahal daripada
+        // dibagi empat belas.
+        ->and($dasarMinimum['harga_per_orang'])->toBeGreaterThan($dasarTarget['harga_per_orang']);
+});
+
+test('private trip tidak bergeser satu rupiah pun oleh perubahan ini', function () {
+    // Penawaran yang sudah dikirim tidak boleh berubah harganya karena fitur
+    // yang ditambahkan untuk jenis perjalanan yang lain.
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson('/api/v1/rab/'.$rab['id'].'/biaya', [
+        'kategori' => 'transportasi', 'nama' => 'Hiace', 'satuan' => 'unit_hari',
+        'harga_satuan' => 850_000, 'kapasitas' => 14,
+    ], kepalaRab())->assertOk();
+
+    $r = $this->getJson('/api/v1/rab/'.$rab['id'], kepalaRab())->json('data');
+
+    expect($r['jenis'])->toBe('private')
+        // Dasar harganya jumlah pesertanya sendiri — seperti sebelum ada
+        // jenis trip sama sekali.
+        ->and($r['ringkasan']['peserta_dasar'])->toBe($r['jumlah_peserta']);
+});
+
+test('open trip di bawah titik impas ditahan sebelum jadi pendaftaran', function () {
+    /*
+     | Yang menekan tombol ini biasanya sedang mengejar tenggat. Rugi dua juta
+     | jauh lebih mudah dicegah di sini daripada dijelaskan di laporan bulan
+     | depan.
+     */
+    /*
+     | Harga sudah diumumkan atas dasar 5 orang, tetapi yang mendaftar baru 2.
+     | Inilah kerugian yang nyata pada open trip — bukan "harga ikut jumlah
+     | yang ada", karena harga yang ikut jumlah peserta tidak mungkin rugi
+     | dan juga tidak mungkin diumumkan lebih dulu.
+     */
+    $rab = rabOpenUji($this, ['jumlah_peserta' => 2, 'peserta_minimum' => 5, 'harga_dasar' => 'minimum']);
+
+    $paket = TravelPackage::create(['name' => 'Open Trip Uji', 'category' => 'open_trip', 'price' => 0, 'status' => 'terbit']);
+
+    $balasan = $this->postJson('/api/v1/rab/'.$rab['id'].'/jadikan-pendaftaran', [
+        'travel_package_id' => $paket->id,
+    ], kepalaRab());
+
+    // Ditahan, dan alasannya disebut dengan angka — bukan "tidak bisa".
+    $balasan->assertStatus(422);
+    expect($balasan->json('pesan'))->toContain('balik modal mulai')
+        ->and($balasan->json('impas'))->toBeInt();
+});
+
+test('penahanan itu bisa dilewati, tetapi harus disebut terang-terangan', function () {
+    // Kadang trip memang sengaja dijalankan merugi demi nama baik; keputusan
+    // itu milik manusia, bukan milik pemeriksaan ini.
+    $rab = rabOpenUji($this, ['jumlah_peserta' => 2, 'peserta_minimum' => 5, 'harga_dasar' => 'minimum']);
+
+    $paket = TravelPackage::create(['name' => 'Open Trip Uji', 'category' => 'open_trip', 'price' => 0, 'status' => 'terbit']);
+
+    $this->postJson('/api/v1/rab/'.$rab['id'].'/jadikan-pendaftaran', [
+        'travel_package_id' => $paket->id,
+        'abaikan_impas' => true,
+    ], kepalaRab())->assertCreated();
+});
+
+test('private trip tidak ikut ditahan — jumlah orangnya sudah pasti', function () {
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson('/api/v1/rab/'.$rab['id'].'/biaya', [
+        'kategori' => 'transportasi', 'nama' => 'Hiace', 'satuan' => 'rombongan', 'harga_satuan' => 9_000_000,
+    ], kepalaRab())->assertOk();
+
+    $paket = TravelPackage::create(['name' => 'Open Trip Uji', 'category' => 'open_trip', 'price' => 0, 'status' => 'terbit']);
+
+    $this->postJson('/api/v1/rab/'.$rab['id'].'/jadikan-pendaftaran', [
+        'travel_package_id' => $paket->id,
+    ], kepalaRab())->assertCreated();
+});
+
+test('simulasi ikut dikirim supaya angka impasnya bisa diperiksa', function () {
+    // Angka impas tanpa tabelnya menuntut pembacanya percaya begitu saja.
+    $rab = rabOpenUji($this);
+
+    $r = $this->getJson('/api/v1/rab/'.$rab['id'], kepalaRab())->json('data.ringkasan');
+
+    expect($r['simulasi'])->toBeArray()
+        ->and(count($r['simulasi']))->toBeGreaterThanOrEqual(14);
+
+    $baris = collect($r['simulasi'])->firstWhere('peserta', $r['bep_peserta']);
+    $sebelum = collect($r['simulasi'])->firstWhere('peserta', $r['bep_peserta'] - 1);
+
+    expect($baris['laba'])->toBeGreaterThanOrEqual(0);
+
+    if ($sebelum) {
+        expect($sebelum['laba'])->toBeLessThan(0);
+    }
+});

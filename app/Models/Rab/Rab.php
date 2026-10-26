@@ -19,11 +19,38 @@ class Rab extends Model
 
     protected $fillable = [
         'kode', 'judul', 'nama_pelanggan', 'whatsapp', 'email',
-        'provinsi', 'daerah', 'tanggal_mulai', 'jumlah_hari', 'jumlah_malam',
-        'jumlah_peserta', 'margin_jenis', 'margin_nilai', 'pembulatan',
+        'provinsi', 'jenis', 'daerah', 'tanggal_mulai', 'jumlah_hari', 'jumlah_malam',
+        'jumlah_peserta', 'peserta_minimum', 'harga_dasar',
+        'margin_jenis', 'margin_nilai', 'pembulatan',
         'catatan', 'catatan_penawaran', 'status', 'berlaku_sampai',
         'kode_pendaftaran', 'dibuat_oleh',
     ];
+
+    /**
+     * Jumlah peserta yang dipakai MENGHITUNG HARGA.
+     *
+     * Pada private trip sama dengan jumlah pesertanya: orangnya sudah pasti.
+     * Pada open trip boleh jumlah paling rendah yang masih mau
+     * diberangkatkan — harga diumumkan lebih dulu, dan yang datang di atas
+     * angka itu jadi untung, bukan penyelamat.
+     *
+     * Tidak pernah nol: pembagi nol akan meledak di tempat yang jauh dari
+     * sebabnya, dan RAB tanpa peserta minimum cukup dihitung seperti biasa.
+     *
+     * Catatan untuk open trip ber-harga_dasar 'peserta': harganya ikut jumlah
+     * yang sedang terdaftar, jadi ia tidak pernah rugi — dan juga tidak
+     * pernah bisa diumumkan lebih dulu. Itu perilaku private trip dengan nama
+     * lain; pengaman titik impas tidak akan pernah menyala di sana, dan
+     * memang tidak ada yang perlu diamankan.
+     */
+    public function pesertaDasar(): int
+    {
+        if ($this->jenis === 'open' && $this->harga_dasar === 'minimum' && (int) $this->peserta_minimum > 0) {
+            return (int) $this->peserta_minimum;
+        }
+
+        return max(1, (int) $this->jumlah_peserta);
+    }
 
     protected $casts = [
         'tanggal_mulai' => 'date',
@@ -31,6 +58,7 @@ class Rab extends Model
         'jumlah_hari' => 'integer',
         'jumlah_malam' => 'integer',
         'jumlah_peserta' => 'integer',
+        'peserta_minimum' => 'integer',
         'margin_nilai' => 'integer',
         'pembulatan' => 'integer',
     ];

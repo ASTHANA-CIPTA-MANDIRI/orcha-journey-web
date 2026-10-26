@@ -76,6 +76,86 @@ class HitungRab
         return implode(' × ', $bagian);
     }
 
+    /**
+     * Modal pada jumlah peserta tertentu — BUKAN modal dibagi rata.
+     *
+     * Biaya tetapnya sendiri ikut berubah saat jumlahnya berubah: peserta
+     * ke-9 memaksa kamar ketiga, peserta ke-15 memaksa armada kedua. Membagi
+     * modal secara lurus menyembunyikan tangga itu, dan tangga itulah yang
+     * membuat satu peserta tambahan kadang justru menambah rugi.
+     *
+     * @return array{variabel:int, tetap:int, total:int}
+     */
+    public static function modalPada(Rab $rab, int $peserta): array
+    {
+        $bayangan = clone $rab;
+        $bayangan->jumlah_peserta = max(1, $peserta);
+
+        $variabel = 0;
+        $tetap = 0;
+
+        foreach ($rab->biaya as $b) {
+            $sub = self::subtotal($b, $bayangan);
+
+            if (self::variabel($b->satuan)) {
+                $variabel += $sub;
+            } else {
+                $tetap += $sub;
+            }
+        }
+
+        return ['variabel' => $variabel, 'tetap' => $tetap, 'total' => $variabel + $tetap];
+    }
+
+    /**
+     * Untung-rugi pada tiap jumlah peserta, dengan harga jual yang sudah
+     * diumumkan.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function simulasi(Rab $rab, int $harga, int $sampai): array
+    {
+        $hasil = [];
+
+        for ($pax = 1; $pax <= max(1, $sampai); $pax++) {
+            $modal = self::modalPada($rab, $pax);
+            $masuk = $harga * $pax;
+
+            $hasil[] = [
+                'peserta' => $pax,
+                'modal' => $modal['total'],
+                'modal_tetap' => $modal['tetap'],
+                'pemasukan' => $masuk,
+                'laba' => $masuk - $modal['total'],
+                'modal_teks' => RincianBiaya::rupiah($modal['total']),
+                'pemasukan_teks' => RincianBiaya::rupiah($masuk),
+                'laba_teks' => RincianBiaya::rupiah($masuk - $modal['total']),
+            ];
+        }
+
+        return $hasil;
+    }
+
+    /**
+     * Jumlah peserta terkecil yang sudah tidak rugi, DICARI — bukan dibagi.
+     *
+     * Biaya tetap ÷ sumbangan per kepala memberi angka yang salah justru di
+     * sekitar tangga kamar dan armada: pada contoh tiga hari Banyuwangi ia
+     * menjawab 13, padahal pada 12 peserta trip sudah untung.
+     *
+     * @param  array<int, array<string, mixed>>  $simulasi
+     */
+    public static function impas(array $simulasi): ?int
+    {
+        foreach ($simulasi as $baris) {
+            if ($baris['laba'] >= 0) {
+                return (int) $baris['peserta'];
+            }
+        }
+
+        return null;
+    }
+
     public static function subtotal(RabBiaya $b, Rab $rab): int
     {
         return (int) $b->harga_satuan * max(1, (int) $b->jumlah)
@@ -95,13 +175,16 @@ class HitungRab
      *   per_orang — "tambah Rp 150.000 per kepala"
      *   total     — "saya mau bersih Rp 3 juta dari rombongan ini"
      */
-    public static function margin(Rab $rab, int $modal): int
+    public static function margin(Rab $rab, int $modal, ?int $peserta = null): int
     {
         $nilai = max(0, (int) $rab->margin_nilai);
 
         return match ($rab->margin_jenis) {
             'persen' => (int) round($modal * $nilai / 100),
-            'per_orang' => $nilai * max(1, (int) $rab->jumlah_peserta),
+            // Per kepala dihitung atas jumlah yang sama dengan pembagi
+            // harganya; kalau tidak, "tambah Rp 150.000 per kepala" pada open
+            // trip menghasilkan tambahan yang bukan Rp 150.000 per kepala.
+            'per_orang' => $nilai * max(1, $peserta ?? (int) $rab->jumlah_peserta),
             'total' => $nilai,
             default => 0,
         };
@@ -167,13 +250,30 @@ class HitungRab
         $modalTetap = (int) $baris->where('variabel', false)->sum('subtotal');
         $modal = $modalVariabel + $modalTetap;
 
-        $marginDiminta = self::margin($rab, $modal);
+        /*
+         | Harga dihitung dari jumlah DASAR, modalnya dari jumlah NYATA.
+         |
+         | Pada private trip keduanya sama — orangnya sudah pasti, dan tidak
+         | ada satu rupiah pun yang bergeser dari cara lama.
+         |
+         | Pada open trip keduanya sengaja berbeda: harga diumumkan lebih dulu
+         | atas dasar jumlah paling rendah yang masih mau diberangkatkan,
+         | sementara modal yang ditampilkan adalah modal pada jumlah yang
+         | ditargetkan. Menyamakan keduanya berarti harga ikut turun tiap kali
+         | targetnya dinaikkan — persis kebalikan dari yang dimaksud.
+         */
+        $pesertaDasar = $rab->pesertaDasar();
+        $modalDasar = $pesertaDasar === $peserta
+            ? $modal
+            : self::modalPada($rab, $pesertaDasar)['total'];
+
+        $marginDiminta = self::margin($rab, $modalDasar, $pesertaDasar);
         $bulat = max(1, (int) ($rab->pembulatan ?: 1));
 
         // Dibulatkan KE ATAS: margin boleh sedikit bertambah karena
         // pembulatan, tetapi tidak boleh berkurang diam-diam di bawah yang
         // diminta admin.
-        $hargaPerOrang = (int) (ceil(($modal + $marginDiminta) / $peserta / $bulat) * $bulat);
+        $hargaPerOrang = (int) (ceil(($modalDasar + $marginDiminta) / $pesertaDasar / $bulat) * $bulat);
         $hargaTotal = $hargaPerOrang * $peserta;
         $untung = $hargaTotal - $modal;
 
@@ -198,26 +298,24 @@ class HitungRab
         ])->values();
 
         /*
-         | Titik impas: berapa peserta minimal supaya biaya yang TIDAK ikut
-         | jumlah orang tertutup.
+         | Titik impas: berapa peserta minimal supaya trip tidak rugi.
          |
-         | Sewa bus, honor koordinator, dan dokumentasi dibayar sama saja
-         | entah yang berangkat sepuluh atau lima belas orang — dan itulah
-         | yang membuat rombongan kecil diam-diam merugi walau harganya
-         | terlihat untung di atas kertas. Dengan harga jual yang sekarang,
-         | tiap kepala menyumbang (harga − biaya yang menempel padanya);
-         | sumbangan itulah yang menutup biaya tetap.
+         | DICARI dengan menghitung ulang di tiap jumlah, bukan dengan membagi
+         | biaya tetap dengan sumbangan per kepala. Pembagian itu memberi
+         | angka yang salah justru di sekitar tangga kamar dan armada: pada
+         | contoh tiga hari Banyuwangi ia menjawab 13, padahal pada 12 peserta
+         | trip sudah untung — dan selisih satu kursi itulah yang dipakai
+         | memutuskan berangkat atau tidak.
          |
-         | Null bila sumbangannya nol atau minus: tidak ada jumlah peserta
-         | yang menolong harga yang tidak menutup biaya per orangnya sendiri,
-         | dan angka BEP di situ hanya akan menyesatkan.
+         | Simulasinya ikut dikirim: angka impas tanpa tabelnya menuntut
+         | pembacanya percaya begitu saja.
          */
+        $batasSimulasi = max($peserta, $rab->pesertaDasar()) + 2;
+        $simulasi = self::simulasi($rab, $hargaPerOrang, $batasSimulasi);
+        $bep = self::impas($simulasi);
+
         $variabelPerOrang = (int) ceil($modalVariabel / $peserta);
         $sumbanganPerOrang = $hargaPerOrang - $variabelPerOrang;
-        // max(1, …): tanpa biaya tetap pun perjalanan butuh satu peserta.
-        // "Balik modal mulai 0 peserta" bukan jawaban, cuma pembagian yang
-        // kebetulan nol.
-        $bep = $sumbanganPerOrang > 0 ? max(1, (int) ceil($modalTetap / $sumbanganPerOrang)) : null;
 
         $angka = [
             'modal_variabel' => $modalVariabel,
@@ -237,6 +335,8 @@ class HitungRab
             'baris' => $baris->all(),
             'per_kategori' => $perKategori->all(),
             'persen_untung' => $modal > 0 ? round($untung / $modal * 100, 1) : null,
+            'peserta_dasar' => $rab->pesertaDasar(),
+            'simulasi' => $simulasi,
             'bep_peserta' => $bep,
             // Rombongan sekecil ini sudah menutup biaya tetapnya? Pertanyaan
             // yang ditanyakan admin adalah ini, bukan angka BEP-nya sendiri.

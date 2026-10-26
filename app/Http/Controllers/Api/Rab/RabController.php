@@ -362,6 +362,8 @@ class RabController extends ApiController
         $data = $request->validate([
             'travel_package_id' => ['required', 'integer', 'exists:tbl_travel_package,id'],
             'tanggal_berangkat' => ['nullable', 'date'],
+            // Persetujuan sadar untuk tetap berangkat di bawah titik impas.
+            'abaikan_impas' => ['sometimes', 'boolean'],
         ], [], ['travel_package_id' => 'paket']);
 
         if (blank($rab->whatsapp)) {
@@ -375,6 +377,32 @@ class RabController extends ApiController
 
         if ($r['modal_total'] <= 0) {
             return response()->json(['pesan' => 'RAB ini belum berisi biaya apa pun.'], 422);
+        }
+
+        /*
+         | Pengaman keberangkatan: open trip yang pesertanya masih di bawah
+         | titik impas DITAHAN, bukan dibiarkan lewat dengan pesan kecil.
+         |
+         | Pada private trip jumlah orangnya sudah pasti di kesepakatan, jadi
+         | tidak ada yang perlu ditahan. Pada open trip, yang menekan tombol
+         | ini biasanya sedang mengejar tenggat — dan rugi dua juta jauh lebih
+         | mudah dicegah di sini daripada dijelaskan di laporan bulan depan.
+         |
+         | Bisa dilewati, TETAPI harus disebut terang-terangan (abaikan_impas):
+         | kadang trip memang sengaja dijalankan merugi demi nama baik, dan
+         | keputusan itu milik manusia, bukan milik pemeriksaan ini.
+         */
+        $impas = $r['bep_peserta'];
+
+        if ($rab->jenis === 'open' && ! ($data['abaikan_impas'] ?? false)
+            && $impas !== null && (int) $rab->jumlah_peserta < $impas) {
+            return response()->json([
+                'pesan' => 'Peserta baru '.$rab->jumlah_peserta.' orang, sementara trip ini baru balik modal mulai '
+                    .$impas.' orang — perkiraan rugi '.RincianBiaya::rupiah(abs($r['untung'])).'.',
+                'impas' => $impas,
+                'peserta' => (int) $rab->jumlah_peserta,
+                'rugi' => abs($r['untung']),
+            ], 422);
         }
 
         $pendaftaran = DB::transaction(function () use ($rab, $paket, $r, $data) {
@@ -454,6 +482,9 @@ class RabController extends ApiController
             'whatsapp' => ['nullable', 'string', 'max:32'],
             'email' => ['nullable', 'email', 'max:150'],
             'provinsi' => [$wajib, 'string', 'max:80'],
+            'jenis' => ['sometimes', Rule::in(['private', 'open'])],
+            'peserta_minimum' => ['nullable', 'integer', 'min:1', 'max:500'],
+            'harga_dasar' => ['sometimes', Rule::in(['peserta', 'minimum'])],
             'daerah' => ['nullable', 'string', 'max:80'],
             'tanggal_mulai' => ['nullable', 'date'],
             'jumlah_hari' => [$wajib, 'integer', 'min:1', 'max:30'],
@@ -510,6 +541,10 @@ class RabController extends ApiController
             'pembulatan' => $rab->pembulatan,
             'status' => $rab->status,
             'status_label' => $rab->status_label,
+            'jenis' => $rab->jenis,
+            'jenis_label' => $rab->jenis === 'open' ? 'Open Trip' : 'Private Trip',
+            'peserta_minimum' => $rab->peserta_minimum,
+            'harga_dasar' => $rab->harga_dasar,
             'berlaku_sampai' => $rab->berlaku_sampai?->toDateString(),
             'kedaluwarsa' => $rab->berlaku_sampai?->isPast() && in_array($rab->status, ['draf', 'dikirim'], true),
             'kode_pendaftaran' => $rab->kode_pendaftaran,

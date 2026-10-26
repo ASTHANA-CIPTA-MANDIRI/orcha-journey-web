@@ -133,6 +133,21 @@
     .keg .kosong { color: #cbd5e1; }
     .bebas { padding: 9px 12px; color: #94a3b8; font-style: italic; font-size: 9px; }
 
+    /* ---------- simulasi peserta ---------- */
+    .sim td { padding: 4px 10px; border-bottom: 1px solid #f2f6fa; font-size: 8.5px; }
+    .sim tr:last-child td { border-bottom: none; }
+    .sim-kepala td {
+        background-color: {{ $kabut }}; font-size: 7px; letter-spacing: 1px; text-transform: uppercase;
+        font-weight: bold; color: {{ $ocean }}; border-bottom: 1px solid #dbe7f0;
+    }
+    .sim .kanan { text-align: right; }
+    .sim .samar { color: #94a3b8; }
+    .sim-aman td { background-color: #f3faf6; }
+    .sim-tanda {
+        display: inline-block; background-color: {{ $hijau }}; color: #fff;
+        font-size: 6.5px; font-weight: bold; padding: 1px 5px 2px; border-radius: 6px; margin-left: 4px;
+    }
+
     /* ---------- urutan singgah ---------- */
     .rute-ket { font-size: 8px; color: #94a3b8; padding-top: 7px; }
     .rute-hari { margin-top: 9px; border: 1px solid #e2eaf1; page-break-inside: avoid; }
@@ -380,6 +395,46 @@
             </div>
         @endforeach
     </div>
+
+    {{-- ======================= SIMULASI PESERTA ======================= --}}
+    @if ($rab->jenis === 'open' && ($r['simulasi'] ?? []) !== [])
+        {{-- Tabel ini yang menjawab pertanyaan yang sebenarnya ditanyakan
+             sebelum memberangkatkan open trip: "dapat sekian orang, kita
+             untung atau rugi?"
+
+             Dihitung ulang di tiap jumlah, bukan dibagi rata — biaya tetapnya
+             sendiri ikut berubah saat kamar atau armada bertambah, dan tangga
+             itulah yang membuat satu peserta tambahan kadang justru menambah
+             rugi. --}}
+        <div class="bagian" style="page-break-inside:avoid">
+            <div class="bagian-judul">Simulasi Jumlah Peserta</div>
+            <div class="bagian-garis"></div>
+            <div class="rute-ket">
+                Harga jual {{ $r['harga_per_orang_teks'] }}/orang, dihitung atas dasar
+                {{ $r['peserta_dasar'] }} peserta. Baris bertanda hijau = sudah tidak rugi.
+            </div>
+
+            <table class="sim" style="margin-top:9px">
+                <tr class="sim-kepala">
+                    <td>Peserta</td>
+                    <td class="kanan">Modal</td>
+                    <td class="kanan">dari biaya tetap</td>
+                    <td class="kanan">Pemasukan</td>
+                    <td class="kanan">Untung / Rugi</td>
+                </tr>
+                @foreach ($r['simulasi'] as $s)
+                    @php $aman_ = $s['laba'] >= 0; @endphp
+                    <tr class="{{ $aman_ ? 'sim-aman' : '' }}">
+                        <td><b>{{ $s['peserta'] }}</b>@if ($s['peserta'] === $r['bep_peserta']) <span class="sim-tanda">titik impas</span>@endif</td>
+                        <td class="kanan">{{ $s['modal_teks'] }}</td>
+                        <td class="kanan samar">{{ \App\Support\RincianBiaya::rupiah($s['modal_tetap']) }}</td>
+                        <td class="kanan">{{ $s['pemasukan_teks'] }}</td>
+                        <td class="kanan" style="color: {{ $aman_ ? $hijau : $merah }}; font-weight: bold">{{ $s['laba_teks'] }}</td>
+                    </tr>
+                @endforeach
+            </table>
+        </div>
+    @endif
 
     {{-- ======================= URUTAN SINGGAH ======================= --}}
     @if ($rute !== [])
