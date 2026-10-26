@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\PaketWisata\PromoRombonganController;
 use App\Http\Controllers\Api\Pelanggan\PelangganController;
 use App\Http\Controllers\Api\Rab\MasterHargaController;
 use App\Http\Controllers\Api\Rab\RabController;
+use App\Http\Controllers\Api\Rab\VendorController;
 use App\Http\Controllers\Api\Rujukan\KodeRujukanController;
 use App\Http\Controllers\Api\SewaKendaraan\BagianPemeriksaanController;
 use App\Http\Controllers\Api\SewaKendaraan\KatalogKendaraanController;
@@ -190,6 +191,13 @@ Route::prefix('v1')
          | yang terdaftar lebih dulu menelan rute bernama — jebakan yang sudah
          | pernah kena dua kali di aplikasi ini.
          */
+        // Vendor sebelum master harga: kontaknya dipakai master harga DAN
+        // baris biaya RAB, jadi ia bagian dari kosakata yang sama.
+        Route::get('/vendor', [VendorController::class, 'index']);
+        Route::post('/vendor', [VendorController::class, 'store']);
+        Route::patch('/vendor/{vendor}', [VendorController::class, 'update']);
+        Route::delete('/vendor/{vendor}', [VendorController::class, 'destroy']);
+
         Route::get('/master-harga', [MasterHargaController::class, 'index']);
         Route::post('/master-harga', [MasterHargaController::class, 'store']);
         Route::patch('/master-harga/{master}', [MasterHargaController::class, 'update']);

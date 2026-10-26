@@ -16,7 +16,7 @@ class RabBiaya extends Model
     protected $table = 'tbl_rab_biaya';
 
     protected $fillable = [
-        'rab_id', 'master_harga_id', 'kategori', 'nama', 'satuan',
+        'rab_id', 'master_harga_id', 'vendor_id', 'kategori', 'nama', 'satuan',
         'harga_satuan', 'kapasitas', 'jumlah', 'urutan',
     ];
 
@@ -30,5 +30,18 @@ class RabBiaya extends Model
     public function master()
     {
         return $this->belongsTo(MasterHarga::class, 'master_harga_id');
+    }
+
+    /**
+     * Vendornya SENGAJA tidak ikut dibekukan.
+     *
+     * Harga dibekukan karena penawaran yang angkanya berubah sendiri adalah
+     * sengketa yang menunggu terjadi. Nomor telepon justru sebaliknya: yang
+     * dibutuhkan selalu nomor yang berlaku hari ini, bukan nomor yang
+     * berlaku saat penawaran dibuat.
+     */
+    public function vendor()
+    {
+        return $this->belongsTo(Vendor::class, 'vendor_id');
     }
 }

@@ -84,6 +84,7 @@
     .biaya .kat td { background-color: {{ $kabut }}; color: {{ $ocean }}; font-weight: bold; font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase; }
     .biaya .nama { color: {{ $navy }}; font-weight: bold; }
     .biaya .basi { color: {{ $merah }}; font-size: 7.5px; padding-top: 2px; }
+    .biaya .vendor { color: {{ $ocean }}; font-size: 7.5px; padding-top: 2px; }
     .biaya .jelas { color: #64748b; font-size: 8.5px; }
     .kanan { text-align: right; white-space: nowrap; }
     .jenis { font-size: 7px; font-weight: bold; letter-spacing: .8px; padding: 1px 5px; }
@@ -277,6 +278,13 @@
                         <tr>
                             <td>
                                 <div class="nama">{{ $aman($b['nama']) }}</div>
+                                {{-- Vendor & nomornya ikut dicetak: lembar ini yang
+                                     dibawa saat menyiapkan keberangkatan, dan nomor
+                                     yang harus dicari di menu lain adalah nomor yang
+                                     tidak sempat dicari. --}}
+                                @if (! empty($b['vendor']))
+                                    <div class="vendor">{{ $aman($b['vendor']) }}@if (! empty($b['vendor_kontak'])) &middot; {{ $aman($b['vendor_kontak']) }}@endif</div>
+                                @endif
                                 @if ($b['harga_master_kini'] !== null)
                                     <div class="basi">Harga master kini {{ $rp($b['harga_master_kini']) }}</div>
                                 @endif

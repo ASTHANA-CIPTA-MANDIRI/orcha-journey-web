@@ -10,6 +10,7 @@ use App\Models\Rab\MasterHarga;
 use App\Models\Rab\Rab;
 use App\Models\Rab\RabBiaya;
 use App\Models\Rab\RabItinerary;
+use App\Models\Rab\Vendor;
 use App\Support\Rab\BerkasRab;
 use App\Support\Rab\HitungRab;
 use App\Support\RincianBiaya;
@@ -93,7 +94,7 @@ class RabController extends ApiController
             ])
             ->sortBy('nama')->values();
 
-        $master = MasterHarga::query()->untukProvinsi($provinsi)
+        $master = MasterHarga::query()->untukProvinsi($provinsi)->with('vendor')
             ->orderBy('kategori')->orderBy('nama')->get()
             ->map(fn (MasterHarga $m) => [
                 'id' => $m->id,
@@ -109,6 +110,15 @@ class RabController extends ApiController
                 'kapasitas' => $m->kapasitas,
                 'otomatis' => $m->otomatis,
                 'umum' => $m->provinsi === null,
+                'vendor_id' => $m->vendor_id,
+                'vendor' => $m->vendor?->nama,
+                'vendor_kontak' => $m->vendor?->kontak,
+            ]);
+
+        $vendor = Vendor::aktif()->orderBy('nama')
+            ->get(['id', 'nama', 'kontak', 'jenis'])
+            ->map(fn (Vendor $v) => [
+                'id' => $v->id, 'nama' => $v->nama, 'kontak' => $v->kontak, 'jenis' => $v->jenis,
             ]);
 
         $daftarProvinsi = collect($katalog)->pluck('provinsi')
@@ -119,6 +129,7 @@ class RabController extends ApiController
             'provinsi' => $daftarProvinsi,
             'destinasi' => $destinasi,
             'master' => $master,
+            'vendor' => $vendor,
             'paket' => TravelPackage::query()->orderBy('name')->get(['id', 'name', 'category'])
                 ->map(fn ($p) => ['id' => $p->id, 'nama' => $p->name, 'kategori' => $p->category]),
             'kosakata' => MasterHargaController::kosakataRab(),
@@ -249,6 +260,9 @@ class RabController extends ApiController
                 'kapasitas' => ['nullable', 'integer', 'min:1', 'max:1000',
                     Rule::requiredIf(in_array($request->input('satuan'), ['unit_hari', 'kamar_malam'], true))],
                 'jumlah' => ['nullable', 'integer', 'min:1', 'max:100'],
+                // Biaya manual pun punya vendornya sendiri — justru di sinilah
+                // vendor dadakan muncul: sewa perahu, sewa jip, pemandu lokal.
+                'vendor_id' => ['nullable', 'integer', 'exists:tbl_vendor,id'],
             ], ['kapasitas.required' => 'Kapasitas wajib diisi untuk biaya per unit atau per kamar.']);
 
             RabBiaya::create($data + [
@@ -474,6 +488,9 @@ class RabController extends ApiController
             RabBiaya::create([
                 'rab_id' => $rab->id,
                 'master_harga_id' => $m->id,
+                // Dari siapa biaya ini dibeli ikut tersalin, jadi kontaknya
+                // ada di layar yang sedang dipakai — bukan di menu lain.
+                'vendor_id' => $m->vendor_id,
                 'kategori' => $m->kategori,
                 'nama' => $m->nama,
                 'satuan' => $m->satuan,

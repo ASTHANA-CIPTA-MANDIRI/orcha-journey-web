@@ -21,10 +21,14 @@ class MasterHargaController extends ApiController
     public function index(Request $request): JsonResponse
     {
         $daftar = MasterHarga::query()
+            ->with('vendor')
             ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
                 fn ($s) => $s->where('nama', 'like', "%{$cari}%")
                     ->orWhere('destinasi', 'like', "%{$cari}%")
                     ->orWhere('daerah', 'like', "%{$cari}%")
+                    // Vendornya ikut dicari: "siapa yang memasok Hiace" sama
+                    // seringnya ditanya dengan "berapa harga Hiace".
+                    ->orWhereHas('vendor', fn ($v) => $v->where('nama', 'like', "%{$cari}%"))
             ))
             ->when($request->string('kategori')->toString(), fn ($q, $k) => $q->where('kategori', $k))
             ->when($request->string('provinsi')->toString(), fn ($q, $p) => $p === '-'
@@ -42,7 +46,7 @@ class MasterHargaController extends ApiController
 
     public function store(Request $request): JsonResponse
     {
-        $m = MasterHarga::create($this->periksa($request));
+        $m = MasterHarga::create($this->periksa($request))->load('vendor');
 
         $this->catat($request, 'tambah master harga', ['nama' => $m->nama, 'harga' => $m->harga]);
 
@@ -58,7 +62,7 @@ class MasterHargaController extends ApiController
             'nama' => $master->nama, 'dari' => $lama, 'ke' => $master->harga,
         ]);
 
-        return response()->json(['data' => $this->baris($master->fresh()), 'pesan' => 'Harga diperbarui.']);
+        return response()->json(['data' => $this->baris($master->fresh()->load('vendor')), 'pesan' => 'Harga diperbarui.']);
     }
 
     public function destroy(MasterHarga $master, Request $request): JsonResponse
@@ -77,6 +81,7 @@ class MasterHargaController extends ApiController
     {
         $data = $request->validate([
             'kategori' => ['required', Rule::in(array_keys(config('orcha.rab.kategori')))],
+            'vendor_id' => ['nullable', 'integer', 'exists:tbl_vendor,id'],
             'nama' => ['required', 'string', 'min:2', 'max:150'],
             'provinsi' => ['nullable', 'string', 'max:80'],
             'daerah' => ['nullable', 'string', 'max:80'],
@@ -114,6 +119,12 @@ class MasterHargaController extends ApiController
             'id' => $m->id,
             'kategori' => $m->kategori,
             'kategori_label' => $m->kategori_label,
+            // Nama & nomor vendornya dibaca HIDUP dari tabel vendor, bukan
+            // disalin: nomor yang berganti harus sampai ke seluruh harga
+            // yang memakainya tanpa satu pun diubah tangan.
+            'vendor_id' => $m->vendor_id,
+            'vendor' => $m->vendor?->nama,
+            'vendor_kontak' => $m->vendor?->kontak,
             'nama' => $m->nama,
             'provinsi' => $m->provinsi,
             'daerah' => $m->daerah,

@@ -4,6 +4,7 @@ use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
 use App\Models\Rab\MasterHarga;
 use App\Models\Rab\Rab;
+use App\Models\Rab\Vendor;
 use App\Support\Rab\BerkasRab;
 use App\Support\Rab\HitungRab;
 
@@ -607,4 +608,156 @@ test('nama yang memang berbeda tetap tidak dijodohkan', function () {
 
     expect($balasan->json('data.ringkasan.baris'))->toBe([])
         ->and($balasan->json('tanpa_tiket'))->toBe(['Candi Prambanan']);
+});
+
+/*
+ | ---------------------------------------------------------------------------
+ | Vendor: dari siapa sebuah harga dibeli
+ |
+ | Sebelumnya kontak vendor cuma muat di kolom catatan master harga — teks
+ | bebas, tidak bisa dicari, dan tidak ikut tersalin ke RAB.
+ | ---------------------------------------------------------------------------
+ */
+
+function vendorUji(array $ubah = []): Vendor
+{
+    return Vendor::create(array_merge([
+        'nama' => 'PO Sumber Jaya',
+        'kontak' => '081234000111 (Pak Budi)',
+        'jenis' => 'Armada',
+    ], $ubah));
+}
+
+test('vendor bisa ditambah, dicari, diubah, dan dihapus', function () {
+    $this->postJson('/api/v1/vendor', [
+        'nama' => 'PO Sumber Jaya', 'kontak' => '081234000111 (Pak Budi)', 'jenis' => 'Armada',
+    ], kepalaRab())->assertCreated()->assertJsonPath('data.nama', 'PO Sumber Jaya');
+
+    $v = Vendor::first();
+
+    // Dicari lewat nama ATAU nomornya — nomor yang diingat separuh pun cukup.
+    $this->getJson('/api/v1/vendor?cari=sumber', kepalaRab())->assertOk()->assertJsonCount(1, 'data');
+    $this->getJson('/api/v1/vendor?cari=081234', kepalaRab())->assertOk()->assertJsonCount(1, 'data');
+
+    $this->patchJson('/api/v1/vendor/'.$v->id, [
+        'nama' => 'PO Sumber Jaya', 'kontak' => '082199900022 (Pak Budi)',
+    ], kepalaRab())->assertOk();
+
+    expect($v->fresh()->kontak)->toBe('082199900022 (Pak Budi)');
+
+    $this->deleteJson('/api/v1/vendor/'.$v->id, [], kepalaRab())->assertOk();
+});
+
+test('vendor bernama sama tidak dibuat dua kali', function () {
+    /*
+     | Vendor ganda membelah kontaknya: separuh harga menunjuk baris pertama,
+     | separuhnya baris kedua, dan memperbarui nomor di salah satunya
+     | meninggalkan nomor lama hidup di yang lain — persis keadaan yang
+     | hendak dihindari tabel ini.
+     */
+    vendorUji();
+
+    $this->postJson('/api/v1/vendor', ['nama' => '  po sumber   JAYA '], kepalaRab())
+        ->assertOk()
+        ->assertJsonPath('pesan', 'PO Sumber Jaya sudah ada di daftar vendor.');
+
+    expect(Vendor::count())->toBe(1);
+});
+
+test('menghapus vendor tidak menghapus harganya', function () {
+    // Menghapus vendor tidak boleh menghapus harganya, apalagi mengubah
+    // penawaran yang sudah dikirim.
+    $v = vendorUji();
+    $m = masterUji(['vendor_id' => $v->id]);
+
+    $this->deleteJson('/api/v1/vendor/'.$v->id, [], kepalaRab())->assertOk();
+
+    expect($m->fresh())->not->toBeNull()
+        ->and($m->fresh()->vendor_id)->toBeNull();
+});
+
+test('kontak vendor ikut ke biaya RAB dan terbaca HIDUP', function () {
+    /*
+     | Harga dibekukan, vendornya tidak. Yang dibutuhkan saat menelepon selalu
+     | nomor yang berlaku HARI INI, bukan nomor yang berlaku saat penawaran
+     | dibuat — dan nomor lama yang tersimpan rapi justru lebih berbahaya
+     | daripada nomor yang kosong.
+     */
+    $v = vendorUji();
+    $m = masterUji(['vendor_id' => $v->id]);
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id], kepalaRab())
+        ->assertOk();
+
+    $baris = collect($this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())
+        ->assertOk()->json('data.ringkasan.baris'))->firstWhere('master_harga_id', $m->id);
+
+    expect($baris['vendor'])->toBe('PO Sumber Jaya')
+        ->and($baris['vendor_kontak'])->toBe('081234000111 (Pak Budi)');
+
+    // Nomor diganti SESUDAH biaya masuk ke RAB: yang terbaca nomor baru.
+    $v->update(['kontak' => '082199900022']);
+
+    $baris = collect($this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())
+        ->json('data.ringkasan.baris'))->firstWhere('master_harga_id', $m->id);
+
+    expect($baris['vendor_kontak'])->toBe('082199900022')
+        // Harganya TETAP beku walau vendornya hidup.
+        ->and($baris['harga_satuan'])->toBe(50_000);
+});
+
+test('vendor tercetak di PDF internal, tidak pernah di penawaran', function () {
+    /*
+     | Lembar internal yang dibawa saat menyiapkan keberangkatan; pelanggan
+     | tidak perlu — dan tidak boleh — tahu dari siapa kita membeli.
+     */
+    $v = vendorUji();
+    $m = masterUji(['vendor_id' => $v->id]);
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id], kepalaRab())->assertOk();
+
+    $model = Rab::find($rab['id']);
+
+    expect(BerkasRab::buat($model->fresh(), 'internal'))->toBeString();
+
+    // Diperiksa di markahnya, bukan di PDF jadi: dompdf memampatkan isinya
+    // sehingga mencari teks di sana selalu "tidak ketemu".
+    [$viewInternal, $dataInternal] = BerkasRab::bahan($model->fresh(), 'internal');
+    [$viewPenawaran, $dataPenawaran] = BerkasRab::bahan($model->fresh(), 'penawaran');
+
+    $internal = view($viewInternal, $dataInternal)->render();
+    $penawaran = view($viewPenawaran, $dataPenawaran)->render();
+
+    expect($internal)->toContain('PO Sumber Jaya')
+        ->and($internal)->toContain('081234000111')
+        ->and($penawaran)->not->toContain('PO Sumber Jaya')
+        ->and($penawaran)->not->toContain('081234000111');
+});
+
+test('katalog RAB membawa daftar vendor beserta nomornya', function () {
+    // Supaya layar penyusun tidak perlu satu panggilan lagi hanya untuk
+    // mengetahui ke siapa harus menelepon.
+    vendorUji();
+    vendorUji(['nama' => 'Hotel Mawar', 'kontak' => '0274-555000', 'jenis' => 'Akomodasi']);
+    vendorUji(['nama' => 'Vendor Nonaktif', 'aktif' => false]);
+
+    $vendor = $this->getJson('/api/v1/rab/katalog', kepalaRab())->assertOk()->json('data.vendor');
+
+    expect(collect($vendor)->pluck('nama')->all())->toBe(['Hotel Mawar', 'PO Sumber Jaya'])
+        ->and(collect($vendor)->firstWhere('nama', 'Hotel Mawar')['kontak'])->toBe('0274-555000');
+});
+
+test('harga bisa dicari lewat nama vendornya', function () {
+    // "Siapa yang memasok Hiace" sama seringnya ditanya dengan "berapa
+    // harga Hiace".
+    $v = vendorUji();
+    masterUji(['vendor_id' => $v->id]);
+    masterUji(['nama' => 'Tiket Borobudur', 'destinasi' => 'Candi Borobudur']);
+
+    $this->getJson('/api/v1/master-harga?cari=sumber jaya', kepalaRab())
+        ->assertOk()->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.vendor', 'PO Sumber Jaya')
+        ->assertJsonPath('data.0.vendor_kontak', '081234000111 (Pak Budi)');
 });

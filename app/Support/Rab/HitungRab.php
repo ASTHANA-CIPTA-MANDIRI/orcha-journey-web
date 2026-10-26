@@ -197,7 +197,7 @@ class HitungRab
      */
     public static function ringkas(Rab $rab): array
     {
-        $rab->loadMissing('biaya.master');
+        $rab->loadMissing('biaya.master', 'biaya.vendor');
         $peserta = max(1, (int) $rab->jumlah_peserta);
 
         $baris = $rab->biaya->map(function (RabBiaya $b) use ($rab) {
@@ -206,6 +206,16 @@ class HitungRab
             return [
                 'id' => $b->id,
                 'master_harga_id' => $b->master_harga_id,
+                /*
+                 | Vendornya dibaca HIDUP, tidak ikut dibekukan seperti
+                 | harganya. Yang dibutuhkan saat menelepon selalu nomor yang
+                 | berlaku hari ini, bukan nomor yang berlaku saat penawaran
+                 | dibuat — dan nomor lama yang tersimpan rapi justru lebih
+                 | berbahaya daripada nomor yang kosong.
+                 */
+                'vendor_id' => $b->vendor_id,
+                'vendor' => $b->vendor?->nama,
+                'vendor_kontak' => $b->vendor?->kontak,
                 'kategori' => $b->kategori,
                 'kategori_label' => config("orcha.rab.kategori.{$b->kategori}") ?? ucfirst($b->kategori),
                 'nama' => $b->nama,

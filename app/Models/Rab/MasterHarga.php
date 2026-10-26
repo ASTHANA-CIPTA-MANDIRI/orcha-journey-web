@@ -18,16 +18,23 @@ class MasterHarga extends Model
     protected $table = 'tbl_master_harga';
 
     protected $fillable = [
-        'kategori', 'nama', 'provinsi', 'daerah', 'destinasi',
+        'kategori', 'vendor_id', 'nama', 'provinsi', 'daerah', 'destinasi',
         'satuan', 'harga', 'kapasitas', 'otomatis', 'aktif', 'catatan',
     ];
 
     protected $casts = [
+        'vendor_id' => 'integer',
         'harga' => 'integer',
         'kapasitas' => 'integer',
         'otomatis' => 'boolean',
         'aktif' => 'boolean',
     ];
+
+    /** Dari siapa harga ini dibeli; nomornya dibaca hidup dari sana. */
+    public function vendor()
+    {
+        return $this->belongsTo(Vendor::class, 'vendor_id');
+    }
 
     protected static function booted(): void
     {
