@@ -1011,3 +1011,99 @@ test('memasang vendor menolak daftar harga kosong atau id yang tidak ada', funct
     $this->postJson("/api/v1/vendor/{$v->id}/pasang", ['harga' => [99999]], kepalaRab())
         ->assertStatus(422)->assertJsonValidationErrors('harga.0');
 });
+
+test('nomor dicari walau formatnya berbeda', function () {
+    /*
+     | Satu nomor ditulis bermacam-macam: "+62 895-6302-79695",
+     | "0895630279695", "0895 6302 79695". Dicocokkan mentah-mentah, mencari
+     | nomor yang PERSIS ada di data pun tidak ketemu — dan yang terbaca
+     | admin adalah "vendornya belum didaftarkan", lalu ia mendaftarkannya
+     | lagi.
+     */
+    vendorUji(['nama' => 'PO Nol Depan', 'kontak' => '0895630279695']);
+    vendorUji(['nama' => 'PO Plus Enam Dua', 'kontak' => '+62 812-3456-7890']);
+
+    $cari = fn ($kata) => collect(
+        $this->getJson('/api/v1/vendor?cari='.urlencode($kata), kepalaRab())->assertOk()->json('data')
+    )->pluck('nama')->all();
+
+    // Dicari berformat internasional, tersimpan berawalan nol.
+    expect($cari('+62 895-6302-79695'))->toBe(['PO Nol Depan'])
+        ->and($cari('62895630279695'))->toBe(['PO Nol Depan'])
+        // Dan sebaliknya: dicari berawalan nol, tersimpan internasional.
+        ->and($cari('081234567890'))->toBe(['PO Plus Enam Dua'])
+        ->and($cari('0812 3456 7890'))->toBe(['PO Plus Enam Dua'])
+        // Potongan tengah nomor tetap ketemu.
+        ->and($cari('6302-79695'))->toBe(['PO Nol Depan'])
+        // Nama tetap jalan seperti biasa.
+        ->and($cari('plus enam'))->toBe(['PO Plus Enam Dua']);
+});
+
+test('angka pendek tidak diperlakukan sebagai nomor', function () {
+    /*
+     | "30" dari "DP 30%" akan mencocoki hampir semua nomor telepon, dan
+     | hasil carinya jadi seluruh tabel — yang terbaca seperti pencarian
+     | yang tidak bekerja.
+     */
+    vendorUji(['nama' => 'PO Berpagar', 'kontak' => '+62 812-3456-7890']);
+
+    /*
+     | "12345" ada di dalam nomor itu, tetapi hanya SESUDAH tanda hubungnya
+     | dibuang. Di bawah tujuh digit pembersihan itu sengaja tidak
+     | dijalankan — kalau dijalankan, "30" dari "DP 30%" akan mencocoki
+     | hampir semua nomor dan hasil carinya jadi seluruh tabel.
+     */
+    expect($this->getJson('/api/v1/vendor?cari=12345', kepalaRab())->assertOk()->json('data'))->toBe([]);
+
+    // Tujuh digit ke atas baru dicocokkan tanpa memedulikan formatnya.
+    expect(collect($this->getJson('/api/v1/vendor?cari=1234567890', kepalaRab())->json('data'))
+        ->pluck('nama')->all())->toBe(['PO Berpagar']);
+});
+
+test('PDF vendor terbentuk dan mengikuti saringannya', function () {
+    vendorUji(['nama' => 'PO Armada Jaya', 'jenis' => 'Armada']);
+    vendorUji(['nama' => 'Hotel Mawar', 'jenis' => 'Akomodasi']);
+
+    $balasan = $this->get('/api/v1/vendor/pdf?jenis=Armada', kepalaRab())->assertOk();
+
+    expect($balasan->getContent())->toStartWith('%PDF');
+
+    /*
+     | Isinya diperiksa di markahnya, bukan di PDF jadi: dompdf memampatkan
+     | teksnya sehingga mencari kata di sana selalu "tidak ketemu".
+     */
+    $markah = view('pdf.vendor', [
+        'baris' => [[
+            'id' => 1, 'nama' => 'PO Armada Jaya', 'kontak' => '081234000111', 'jenis' => 'Armada',
+            'provinsi' => null, 'catatan' => null, 'aktif' => true, 'jumlah_harga' => 2,
+        ]],
+        'saringan' => ['Jenis:' => 'Armada'],
+        'terbit' => '27 Oktober 2026, 09:00',
+        'kontak' => ['whatsapp' => '0812', 'instagram' => '@orcha_journey', 'alamat' => 'Jalan Durmo, Sleman'],
+        'logo' => null,
+    ])->render();
+
+    expect($markah)->toContain('PO Armada Jaya')
+        // Kop & kaki seperti berkas itinerary.
+        ->and($markah)->toContain('ORCHA <span>JOURNEY</span>')
+        ->and($markah)->toContain('Kantor Orcha Journey')
+        ->and($markah)->toContain('Jalan Durmo, Sleman')
+        ->and($markah)->toContain('orchajourney.com')
+        ->and($markah)->toContain('counter(page)')
+        // Saringannya ikut tercetak: berkas sebagian yang tidak menyebutkan
+        // sebagiannya apa terbaca sebagai daftar lengkap yang ternyata bukan.
+        ->and($markah)->toContain('Jenis:')
+        ->and($markah)->toContain('INTERNAL — BERISI NOMOR MITRA');
+});
+
+test('PDF vendor tanpa hasil tetap terbentuk dan mengatakannya', function () {
+    // Berkas kosong tanpa penjelasan terbaca seperti berkas yang gagal.
+    $markah = view('pdf.vendor', [
+        'baris' => [], 'saringan' => ['Kata kunci:' => 'tidak ada'],
+        'terbit' => '27 Oktober 2026, 09:00',
+        'kontak' => ['whatsapp' => null, 'instagram' => null, 'alamat' => 'Sleman'],
+        'logo' => null,
+    ])->render();
+
+    expect($markah)->toContain('Tidak ada vendor yang cocok dengan saringannya.');
+});

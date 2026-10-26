@@ -8,6 +8,7 @@ use App\Models\Rab\RabBiaya;
 use App\Models\Rab\Vendor;
 use App\Support\Rab\HitungRab;
 use App\Support\RincianBiaya;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -24,11 +25,7 @@ class VendorController extends ApiController
     public function index(Request $request): JsonResponse
     {
         $daftar = Vendor::query()
-            ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
-                fn ($s) => $s->where('nama', 'like', "%{$cari}%")
-                    ->orWhere('kontak', 'like', "%{$cari}%")
-                    ->orWhere('jenis', 'like', "%{$cari}%")
-            ))
+            ->cari($request->string('cari')->toString())
             ->when($request->boolean('hanya_aktif'), fn ($q) => $q->aktif())
             ->when($request->string('jenis')->toString(), fn ($q, $j) => $j === '-'
                 ? $q->whereNull('jenis')
@@ -198,6 +195,61 @@ class VendorController extends ApiController
         $vendor->delete();
 
         return response()->json(['pesan' => 'Vendor dihapus. Harga yang memakainya tetap ada, hanya kehilangan kontaknya.']);
+    }
+
+    /**
+     * Daftar vendor sebagai PDF, mengikuti saringan yang sedang dipakai.
+     *
+     * Tanpa halaman: berkas yang cuma memuat lima belas baris pertama bukan
+     * daftar, melainkan potongan — dan tidak ada yang memberitahu
+     * pembacanya bahwa itu potongan.
+     *
+     * Saringannya ikut tercetak di berkasnya, karena berkas yang isinya
+     * sebagian tanpa menyebutkan sebagiannya apa terbaca sebagai daftar
+     * lengkap yang ternyata bukan.
+     */
+    public function pdf(Request $request)
+    {
+        $daftar = Vendor::query()
+            ->cari($request->string('cari')->toString())
+            ->when($request->string('jenis')->toString(), fn ($q, $j) => $j === '-'
+                ? $q->whereNull('jenis')
+                : $q->where('jenis', $j))
+            ->when($request->string('status')->toString(), fn ($q, $st) => $q->where('aktif', $st === 'aktif'))
+            ->when($request->string('provinsi')->toString(), fn ($q, $p) => $p === '-'
+                ? $q->whereNull('provinsi')
+                : $q->untukProvinsi($p))
+            ->withCount('harga')
+            ->orderBy('nama')
+            ->get();
+
+        $saringan = array_filter([
+            'Kata kunci:' => $request->string('cari')->toString(),
+            'Jenis:' => $request->string('jenis')->toString() === '-'
+                ? 'belum berjenis'
+                : $request->string('jenis')->toString(),
+            'Wilayah:' => $request->string('provinsi')->toString() === '-'
+                ? 'tanpa wilayah'
+                : $request->string('provinsi')->toString(),
+            'Status:' => $request->string('status')->toString(),
+        ]);
+
+        $isi = Pdf::loadView('pdf.vendor', [
+            'baris' => $daftar->map(fn (Vendor $v) => $this->baris($v))->all(),
+            'saringan' => $saringan,
+            'terbit' => now()->locale('id')->translatedFormat('j F Y, H:i'),
+            'kontak' => [
+                'whatsapp' => config('orcha.whatsapp'),
+                'instagram' => config('orcha.instagram'),
+                'alamat' => config('orcha.alamat'),
+            ],
+            'logo' => file_exists(public_path('orcha-logo-surat.png')) ? public_path('orcha-logo-surat.png') : null,
+        ])->setPaper('a4')->output();
+
+        return response($isi, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="vendor-orcha-'.now()->format('Ymd-Hi').'.pdf"',
+        ]);
     }
 
     /**

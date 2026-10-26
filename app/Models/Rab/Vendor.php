@@ -56,6 +56,60 @@ class Vendor extends Model
         ));
     }
 
+    /**
+     * Mencari vendor, dengan nomor yang TAHAN BEDA FORMAT.
+     *
+     * Satu nomor ditulis bermacam-macam: "+62 895-6302-79695",
+     * "0895630279695", "0895 6302 79695". Dicocokkan mentah-mentah, mencari
+     * nomor yang persis ada di data pun tidak ketemu — dan yang terbaca
+     * admin adalah "vendornya belum didaftarkan", lalu ia mendaftarkannya
+     * lagi.
+     *
+     * Caranya: karakter format dibuang dari KEDUA sisi, lalu awalan negara
+     * atau nol di depannya dipotong dari kata carinya. "+62895…" dan
+     * "0895…" sama-sama menyisakan "895…", jadi satu aturan menangani dua
+     * arah sekaligus.
+     *
+     * REPLACE bersarang, bukan REGEXP_REPLACE: REGEXP_REPLACE ada di MySQL
+     * dan tidak ada di SQLite yang dipakai uji, sehingga aturannya akan
+     * terbukti hijau di tempat yang tidak pernah menjalankannya.
+     */
+    public function scopeCari($q, ?string $cari)
+    {
+        $cari = trim((string) $cari);
+
+        if ($cari === '') {
+            return $q;
+        }
+
+        $angka = preg_replace('/\D/', '', $cari);
+
+        return $q->where(function ($s) use ($cari, $angka) {
+            $s->where('nama', 'like', "%{$cari}%")
+                ->orWhere('kontak', 'like', "%{$cari}%")
+                ->orWhere('jenis', 'like', "%{$cari}%");
+
+            // Tujuh digit: cukup untuk nomor terpendek, dan menyingkirkan
+            // "30" dari "DP 30%" yang akan mencocoki hampir semua nomor.
+            if (strlen($angka) >= 7) {
+                $s->orWhereRaw(self::KOLOM_ANGKA.' LIKE ?', ['%'.self::ekorNomor($angka).'%']);
+            }
+        });
+    }
+
+    /** Kolom kontak tanpa karakter format, dirakit dari REPLACE bersarang. */
+    private const KOLOM_ANGKA = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(kontak,' ',''),'-',''),'(',''),')',''),'+',''),'.','')";
+
+    /** Nomor tanpa awalan negara atau nol di depannya. */
+    public static function ekorNomor(string $angka): string
+    {
+        if (str_starts_with($angka, '62')) {
+            return substr($angka, 2);
+        }
+
+        return ltrim($angka, '0');
+    }
+
     /** Baris biaya RAB yang menunjuk vendor ini. */
     public function biaya(): HasMany
     {
