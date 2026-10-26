@@ -548,3 +548,21 @@ test('simulasi ikut dikirim supaya angka impasnya bisa diperiksa', function () {
         expect($sebelum['laba'])->toBeLessThan(0);
     }
 });
+
+test('jenis kegiatan ikut dikirim, supaya lemon tidak menebak ulang', function () {
+    /*
+     | Penggolongnya sudah dipakai kedua PDF. Menyalin aturannya ke lemon
+     | berarti dua tebakan untuk perjalanan yang sama — dan suatu hari layar
+     | memberi warna hijau pada kegiatan yang di PDF-nya biru, tanpa ada yang
+     | bisa menyebut mana yang benar.
+     */
+    $rab = buatRabLewatApi($this);
+
+    $data = $this->putJson('/api/v1/rab/'.$rab['id'].'/itinerary', ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Perjalanan menuju BJ Pool'],
+        ['hari_ke' => 1, 'nama' => 'Savana Bekol', 'destinasi' => 'Savana Bekol'],
+        ['hari_ke' => 1, 'nama' => 'Check-in hotel'],
+    ]], kepalaRab())->assertOk()->json('data.itinerary');
+
+    expect(collect($data)->pluck('jenis')->all())->toBe(['perjalanan', 'destinasi', 'istirahat']);
+});

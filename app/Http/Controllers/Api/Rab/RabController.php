@@ -571,6 +571,16 @@ class RabController extends ApiController
                 'urutan' => $i->urutan,
                 'jam' => $i->jam,
                 'jam_selesai' => $i->jam_selesai,
+                /*
+                 | Jenis kegiatan ikut dikirim, tidak ditebak ulang di lemon.
+                 |
+                 | Penggolongnya sudah ada di BerkasRab dan sudah dipakai
+                 | kedua PDF. Menyalin aturannya ke lemon berarti dua tebakan
+                 | untuk perjalanan yang sama — dan suatu hari layar memberi
+                 | warna hijau pada kegiatan yang di PDF-nya biru, tanpa ada
+                 | yang bisa menyebut mana yang benar.
+                 */
+                'jenis' => BerkasRab::jenis($i->nama, $i->keterangan, $i->destinasi),
                 // Lamanya ikut dikirim supaya lemon dan PDF menulis angka
                 // yang sama; dihitung di satu tempat, bukan dua.
                 'durasi_menit' => $i->durasi_menit,
