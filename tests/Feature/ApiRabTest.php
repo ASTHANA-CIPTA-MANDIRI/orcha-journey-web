@@ -566,3 +566,45 @@ test('jenis kegiatan ikut dikirim, supaya lemon tidak menebak ulang', function (
 
     expect(collect($data)->pluck('jenis')->all())->toBe(['perjalanan', 'destinasi', 'istirahat']);
 });
+
+test('harga tiket tetap terjodoh walau huruf besar-kecil dan spasinya berbeda', function () {
+    /*
+     | Nama destinasi di master harga pernah diketik bebas, jadi "Candi
+     | Prambanan " dan "candi prambanan" memang ada di data. Dicocokkan
+     | mentah-mentah, tiketnya tidak pernah ikut tertarik dan RAB-nya
+     | kekurangan modal tanpa satu pun tanda.
+     */
+    masterUji(['nama' => 'Tiket Prambanan', 'destinasi' => '  candi prambanan ']);
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson('/api/v1/rab/'.$rab['id'].'/itinerary', ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Candi Prambanan', 'destinasi' => 'Candi Prambanan'],
+    ]], kepalaRab())->assertOk();
+
+    $balasan = $this->postJson('/api/v1/rab/'.$rab['id'].'/tarik-biaya', [], kepalaRab())->assertOk();
+
+    expect($balasan->json('data.ringkasan.baris'))->toHaveCount(1)
+        ->and($balasan->json('data.ringkasan.baris.0.nama'))->toBe('Tiket Prambanan')
+        // Dan destinasinya tidak lagi dilaporkan tanpa tiket.
+        ->and($balasan->json('tanpa_tiket'))->toBe([]);
+});
+
+test('nama yang memang berbeda tetap tidak dijodohkan', function () {
+    /*
+     | Menebak kemiripan akan memasukkan tiket tempat lain ke penawaran, dan
+     | salah tarik jauh lebih mahal daripada tidak tertarik: yang tidak
+     | tertarik kelihatan di peringatan, yang salah tarik tidak kelihatan
+     | sama sekali.
+     */
+    masterUji(['nama' => 'Tiket Prambanan', 'destinasi' => 'prambanan']);
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson('/api/v1/rab/'.$rab['id'].'/itinerary', ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Candi Prambanan', 'destinasi' => 'Candi Prambanan'],
+    ]], kepalaRab())->assertOk();
+
+    $balasan = $this->postJson('/api/v1/rab/'.$rab['id'].'/tarik-biaya', [], kepalaRab())->assertOk();
+
+    expect($balasan->json('data.ringkasan.baris'))->toBe([])
+        ->and($balasan->json('tanpa_tiket'))->toBe(['Candi Prambanan']);
+});

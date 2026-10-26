@@ -308,15 +308,33 @@ class RabController extends ApiController
     {
         $destinasi = $rab->itinerary()->whereNotNull('destinasi')->pluck('destinasi')->unique();
 
+        /*
+         | Dijodohkan tanpa memedulikan huruf besar-kecil dan spasi di ujung.
+         |
+         | Nama destinasi di master harga pernah diketik bebas, jadi "Candi
+         | Prambanan " dan "candi prambanan" memang ada di data. Dicocokkan
+         | mentah-mentah, tiketnya tidak pernah ikut tertarik dan RAB-nya
+         | kekurangan modal tanpa satu pun tanda — kesalahan yang baru
+         | ketahuan saat uangnya kurang.
+         |
+         | Hanya itu yang dilonggarkan. Nama yang memang BERBEDA ("prambanan"
+         | vs "Candi Prambanan") tetap tidak dijodohkan: menebak kemiripan
+         | akan memasukkan tiket tempat lain ke penawaran, dan salah tarik
+         | jauh lebih mahal daripada tidak tertarik.
+         */
+        $kunci = fn ($teks) => mb_strtolower(trim((string) $teks));
+        $dicari = $destinasi->map($kunci)->filter()->values();
+
         $calon = MasterHarga::query()->where('aktif', true)
-            ->where(fn ($q) => $q->whereIn('destinasi', $destinasi)
+            ->where(fn ($q) => $q->whereIn(DB::raw('LOWER(TRIM(destinasi))'), $dicari)
                 ->orWhere(fn ($o) => $o->where('otomatis', true)
                     ->where(fn ($p) => $p->whereNull('provinsi')->orWhere('provinsi', $rab->provinsi))))
             ->get();
 
         $ditambah = $this->tambahkanDariMaster($rab, $calon);
 
-        $tanpaTiket = $destinasi->reject(fn ($d) => $calon->contains('destinasi', $d))->values();
+        $punyaTiket = $calon->map(fn ($m) => $kunci($m->destinasi))->filter()->flip();
+        $tanpaTiket = $destinasi->reject(fn ($d) => $punyaTiket->has($kunci($d)))->values();
 
         return response()->json([
             'data' => $this->bentuk($rab->fresh()),
