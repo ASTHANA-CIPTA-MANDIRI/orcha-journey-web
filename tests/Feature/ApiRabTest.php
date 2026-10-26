@@ -4,6 +4,7 @@ use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
 use App\Models\Rab\MasterHarga;
 use App\Models\Rab\Rab;
+use App\Models\Rab\RabBiaya;
 use App\Models\Rab\Vendor;
 use App\Support\Rab\BerkasRab;
 use App\Support\Rab\HitungRab;
@@ -760,4 +761,97 @@ test('harga bisa dicari lewat nama vendornya', function () {
         ->assertOk()->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.vendor', 'PO Sumber Jaya')
         ->assertJsonPath('data.0.vendor_kontak', '081234000111 (Pak Budi)');
+});
+
+test('vendor bisa disaring menurut jenis dan statusnya', function () {
+    // Dengan 30 vendor, "mana saja yang armada" tidak boleh berarti membaca
+    // tiga puluh baris satu per satu.
+    vendorUji();
+    vendorUji(['nama' => 'Hotel Mawar', 'jenis' => 'Akomodasi']);
+    vendorUji(['nama' => 'Jip Lama', 'jenis' => 'Armada', 'aktif' => false]);
+
+    $this->getJson('/api/v1/vendor?jenis=Armada', kepalaRab())->assertOk()->assertJsonCount(2, 'data');
+    $this->getJson('/api/v1/vendor?status=nonaktif', kepalaRab())->assertOk()->assertJsonCount(1, 'data');
+    $this->getJson('/api/v1/vendor?jenis=Armada&status=aktif', kepalaRab())->assertOk()->assertJsonCount(1, 'data');
+});
+
+test('ringkasan vendor dihitung dari seluruh tabel, bukan halamannya', function () {
+    /*
+     | Vendor tanpa nomor adalah pekerjaan yang belum selesai; memindainya
+     | halaman demi halaman berarti tidak akan pernah dipindai.
+     */
+    vendorUji();
+    vendorUji(['nama' => 'Tanpa Nomor', 'kontak' => null]);
+    vendorUji(['nama' => 'Sudah Mati', 'aktif' => false]);
+
+    $meta = $this->getJson('/api/v1/vendor?per_halaman=1', kepalaRab())->assertOk()->json('meta');
+
+    expect($meta['ringkas']['tanpa_kontak'])->toBe(1)
+        ->and($meta['ringkas']['nonaktif'])->toBe(1)
+        ->and($meta['ringkas']['jenis'])->toContain('Armada');
+});
+
+test('dua vendor yang ternyata sama bisa digabungkan', function () {
+    /*
+     | Pemeriksaan kembar saat menambah hanya menangkap nama yang PERSIS
+     | sama; "PO Sumber Jaya" dan "Sumber Jaya" lolos jadi dua baris. Begitu
+     | terlanjur, keduanya membelah kontaknya.
+     */
+    $utama = vendorUji();
+    $kembar = vendorUji(['nama' => 'Sumber Jaya', 'kontak' => '08999']);
+    $m = masterUji(['vendor_id' => $kembar->id]);
+
+    $rab = buatRabLewatApi($this);
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/vendor/{$kembar->id}/gabung", ['ke' => $utama->id], kepalaRab())
+        ->assertOk()->assertJsonPath('pesan', '1 harga dipindahkan ke PO Sumber Jaya.');
+
+    expect(Vendor::find($kembar->id))->toBeNull()
+        ->and($m->fresh()->vendor_id)->toBe($utama->id)
+        // Baris biaya RAB ikut menunjuk vendor yang benar — kalau tidak,
+        // nomor di penawaran lama jadi nomor yang sudah tidak ada.
+        ->and(RabBiaya::where('rab_id', $rab['id'])->value('vendor_id'))->toBe($utama->id);
+});
+
+test('vendor tidak bisa digabungkan ke dirinya sendiri', function () {
+    $v = vendorUji();
+
+    $this->postJson("/api/v1/vendor/{$v->id}/gabung", ['ke' => $v->id], kepalaRab())
+        ->assertStatus(422);
+
+    expect(Vendor::find($v->id))->not->toBeNull();
+});
+
+test('kontak yang masih tercecer di catatan bisa ditemukan', function () {
+    /*
+     | Sebelum ada tabel vendor, nomor ditulis di catatan — dan catatan itu
+     | tidak ikut ke mana-mana. Daftar ini yang membuat sisa data lama
+     | terlihat, bukan menunggu diingat.
+     */
+    masterUji(['nama' => 'Sewa Hiace', 'catatan' => 'PO Sumber Jaya 081234000111']);
+    masterUji(['nama' => 'Tiket Borobudur', 'catatan' => 'Naik DP 30% mulai Juli']);
+    masterUji(['nama' => 'Hotel Mawar', 'catatan' => null]);
+
+    $v = vendorUji();
+    masterUji(['nama' => 'Sudah Bervendor', 'catatan' => 'telp 0274-555000', 'vendor_id' => $v->id]);
+
+    $data = $this->getJson('/api/v1/vendor/kontak-tercecer', kepalaRab())->assertOk()->json('data');
+
+    expect(collect($data)->pluck('nama')->all())->toBe(['Sewa Hiace'])
+        ->and($data[0]['catatan'])->toBe('PO Sumber Jaya 081234000111');
+});
+
+test('harga bisa disaring menurut vendornya, termasuk yang belum punya', function () {
+    // "Harga apa saja milik PO Sumber Jaya" dan "mana yang belum ada
+    // vendornya" — dua pertanyaan yang sama seringnya ditanya.
+    $v = vendorUji();
+    masterUji(['vendor_id' => $v->id]);
+    masterUji(['nama' => 'Tiket Borobudur']);
+
+    $this->getJson("/api/v1/master-harga?vendor={$v->id}", kepalaRab())
+        ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.vendor', 'PO Sumber Jaya');
+
+    $this->getJson('/api/v1/master-harga?vendor=-', kepalaRab())
+        ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.nama', 'Tiket Borobudur');
 });

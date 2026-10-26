@@ -31,6 +31,11 @@ class MasterHargaController extends ApiController
                     ->orWhereHas('vendor', fn ($v) => $v->where('nama', 'like', "%{$cari}%"))
             ))
             ->when($request->string('kategori')->toString(), fn ($q, $k) => $q->where('kategori', $k))
+            // "-" berarti yang BELUM punya vendor — daftar pekerjaan yang
+            // tersisa, dan itu yang paling sering dicari sesudah vendor ada.
+            ->when($request->string('vendor')->toString(), fn ($q, $v) => $v === '-'
+                ? $q->whereNull('vendor_id')
+                : $q->where('vendor_id', (int) $v))
             ->when($request->string('provinsi')->toString(), fn ($q, $p) => $p === '-'
                 ? $q->whereNull('provinsi')
                 : $q->where('provinsi', $p))

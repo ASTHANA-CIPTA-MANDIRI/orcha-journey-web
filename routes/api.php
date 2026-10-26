@@ -195,6 +195,10 @@ Route::prefix('v1')
         // baris biaya RAB, jadi ia bagian dari kosakata yang sama.
         Route::get('/vendor', [VendorController::class, 'index']);
         Route::post('/vendor', [VendorController::class, 'store']);
+        // Sebelum /vendor/{vendor}: rute berparameter yang terdaftar lebih
+        // dulu menelan rute bernama.
+        Route::get('/vendor/kontak-tercecer', [VendorController::class, 'kontakTercecer']);
+        Route::post('/vendor/{vendor}/gabung', [VendorController::class, 'gabung']);
         Route::patch('/vendor/{vendor}', [VendorController::class, 'update']);
         Route::delete('/vendor/{vendor}', [VendorController::class, 'destroy']);
 

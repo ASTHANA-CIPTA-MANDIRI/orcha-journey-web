@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Rab;
 
 use App\Http\Controllers\Api\ApiController;
+use App\Models\Rab\MasterHarga;
+use App\Models\Rab\RabBiaya;
 use App\Models\Rab\Vendor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +28,10 @@ class VendorController extends ApiController
                     ->orWhere('jenis', 'like', "%{$cari}%")
             ))
             ->when($request->boolean('hanya_aktif'), fn ($q) => $q->aktif())
+            ->when($request->string('jenis')->toString(), fn ($q, $j) => $j === '-'
+                ? $q->whereNull('jenis')
+                : $q->where('jenis', $j))
+            ->when($request->string('status')->toString(), fn ($q, $st) => $q->where('aktif', $st === 'aktif'))
             ->withCount('harga')
             ->orderBy('nama')
             ->paginate($this->perHalaman($request));
@@ -33,6 +39,19 @@ class VendorController extends ApiController
         return $this->halamanDipeta(
             $daftar,
             fn () => $daftar->getCollection()->map(fn (Vendor $v) => $this->baris($v))->all(),
+            /*
+             | Dua angka yang SELALU dihitung dari seluruh tabel, bukan dari
+             | halaman yang sedang dilihat: vendor tanpa nomor adalah
+             | pekerjaan yang belum selesai, dan memindainya halaman demi
+             | halaman berarti tidak akan pernah dipindai.
+             */
+            [
+                'ringkas' => [
+                    'tanpa_kontak' => Vendor::whereNull('kontak')->count(),
+                    'nonaktif' => Vendor::where('aktif', false)->count(),
+                    'jenis' => Vendor::whereNotNull('jenis')->distinct()->orderBy('jenis')->pluck('jenis'),
+                ],
+            ],
         );
     }
 
@@ -77,6 +96,69 @@ class VendorController extends ApiController
             'data' => $this->baris($vendor->fresh()->loadCount('harga')),
             'pesan' => 'Vendor diperbarui.',
         ]);
+    }
+
+    /**
+     * Menyatukan dua vendor yang ternyata orang yang sama.
+     *
+     * Pemeriksaan kembar saat menambah hanya menangkap nama yang PERSIS sama
+     * sesudah dirapikan; "PO Sumber Jaya" dan "Sumber Jaya" lolos jadi dua
+     * baris. Begitu terlanjur, keduanya membelah kontaknya — dan tanpa jalan
+     * ini satu-satunya cara menyatukannya adalah membuka tiap harga lalu
+     * memindahkannya satu per satu.
+     *
+     * Yang dipindahkan rujukannya saja. Harga tidak disentuh, dan baris biaya
+     * RAB pun tidak: yang berubah cuma ke siapa ia menunjuk.
+     */
+    public function gabung(Vendor $vendor, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ke' => ['required', 'integer', 'exists:tbl_vendor,id'],
+        ]);
+
+        $tujuan = Vendor::findOrFail((int) $data['ke']);
+
+        abort_if($tujuan->id === $vendor->id, 422, 'Vendor tidak bisa digabungkan ke dirinya sendiri.');
+
+        $harga = MasterHarga::where('vendor_id', $vendor->id)->update(['vendor_id' => $tujuan->id]);
+        $biaya = RabBiaya::where('vendor_id', $vendor->id)->update(['vendor_id' => $tujuan->id]);
+
+        $this->catat($request, 'gabung vendor', [
+            'dari' => $vendor->nama, 'ke' => $tujuan->nama, 'harga' => $harga,
+        ]);
+
+        $vendor->delete();
+
+        return response()->json([
+            'data' => $this->baris($tujuan->fresh()->loadCount('harga')),
+            'pesan' => "{$harga} harga dipindahkan ke {$tujuan->nama}.",
+        ]);
+    }
+
+    /**
+     * Master harga yang kontaknya masih tercecer di kolom catatan.
+     *
+     * Sebelum ada tabel vendor, nomor ditulis di catatan — dan catatan itu
+     * tidak ikut ke mana-mana. Daftar ini yang membuat sisa data lama
+     * terlihat, bukan menunggu diingat.
+     *
+     * Disaring di PHP, bukan lewat REGEXP di kueri: REGEXP ada di MySQL dan
+     * tidak ada di SQLite yang dipakai uji, sehingga aturannya akan terbukti
+     * hijau di tempat yang tidak pernah menjalankannya.
+     */
+    public function kontakTercecer(): JsonResponse
+    {
+        $calon = MasterHarga::whereNull('vendor_id')->whereNotNull('catatan')
+            ->orderBy('nama')->limit(200)->get(['id', 'nama', 'catatan']);
+
+        $data = $calon
+            // Tujuh angka berurutan: cukup untuk nomor telepon terpendek,
+            // dan menyingkirkan "DP 30%" atau "berlaku sampai 2026".
+            ->filter(fn (MasterHarga $m) => preg_match('/\d[\d\s().-]{6,}/', (string) $m->catatan))
+            ->map(fn (MasterHarga $m) => ['id' => $m->id, 'nama' => $m->nama, 'catatan' => $m->catatan])
+            ->values();
+
+        return response()->json(['data' => $data, 'meta' => ['total' => $data->count()]]);
     }
 
     public function destroy(Vendor $vendor, Request $request): JsonResponse
