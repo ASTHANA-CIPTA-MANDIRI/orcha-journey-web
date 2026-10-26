@@ -30,11 +30,11 @@
      | sendiri, bukan pertukaran yang sepadan.
      */
     $rupa = [
-        'destinasi' => ['Destinasi', $hijau],
-        'perjalanan' => ['Perjalanan', $ocean],
+        'destinasi' => ['Destinasi', '#1f7a44'],
+        'perjalanan' => ['Perjalanan', '#0369a1'],
         'makan' => ['Makan / singgah', '#e0912f'],
-        'snack' => ['Snack', $langit],
-        'istirahat' => ['Istirahat', $navy],
+        'snack' => ['Snack', '#0e7490'],
+        'istirahat' => ['Istirahat', '#6d28d9'],
         'lain' => ['Lainnya', '#94a3b8'],
     ];
     $jenisKeg = fn ($k) => \App\Support\Rab\BerkasRab::jenis($k->nama, $k->keterangan, $k->destinasi);
