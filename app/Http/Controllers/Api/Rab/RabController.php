@@ -115,10 +115,21 @@ class RabController extends ApiController
                 'vendor_kontak' => $m->vendor?->kontak,
             ]);
 
-        $vendor = Vendor::aktif()->orderBy('nama')
-            ->get(['id', 'nama', 'kontak', 'jenis'])
+        /*
+         | Vendor yang masuk akal untuk provinsi ini, yang paling sering
+         | dipakai lebih dulu.
+         |
+         | Urut abjad membuat vendor yang dipakai tiap minggu terdampar di
+         | huruf S, sementara yang sekali setahun duduk di atas. Abjad tetap
+         | jadi pemutus bila jumlah pemakaiannya sama.
+         */
+        $vendor = Vendor::aktif()->untukProvinsi($provinsi)
+            ->withCount('harga')
+            ->orderByDesc('harga_count')->orderBy('nama')
+            ->get(['id', 'nama', 'kontak', 'jenis', 'provinsi'])
             ->map(fn (Vendor $v) => [
-                'id' => $v->id, 'nama' => $v->nama, 'kontak' => $v->kontak, 'jenis' => $v->jenis,
+                'id' => $v->id, 'nama' => $v->nama, 'kontak' => $v->kontak,
+                'jenis' => $v->jenis, 'provinsi' => $v->provinsi,
             ]);
 
         $daftarProvinsi = collect($katalog)->pluck('provinsi')

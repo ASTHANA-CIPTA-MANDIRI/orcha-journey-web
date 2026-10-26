@@ -27,6 +27,11 @@ class RabBiaya extends Model
         'urutan' => 'integer',
     ];
 
+    public function rab()
+    {
+        return $this->belongsTo(Rab::class, 'rab_id');
+    }
+
     public function master()
     {
         return $this->belongsTo(MasterHarga::class, 'master_harga_id');

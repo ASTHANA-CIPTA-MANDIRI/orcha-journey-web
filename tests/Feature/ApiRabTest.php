@@ -671,7 +671,9 @@ test('menghapus vendor tidak menghapus harganya', function () {
     $v = vendorUji();
     $m = masterUji(['vendor_id' => $v->id]);
 
-    $this->deleteJson('/api/v1/vendor/'.$v->id, [], kepalaRab())->assertOk();
+    // Dipaksa, karena vendor yang masih dipakai kini ditahan lebih dulu —
+    // lihat "vendor yang masih dipakai tidak terhapus tanpa dipaksa".
+    $this->deleteJson('/api/v1/vendor/'.$v->id.'?paksa=1', [], kepalaRab())->assertOk();
 
     expect($m->fresh())->not->toBeNull()
         ->and($m->fresh()->vendor_id)->toBeNull();
@@ -854,4 +856,96 @@ test('harga bisa disaring menurut vendornya, termasuk yang belum punya', functio
 
     $this->getJson('/api/v1/master-harga?vendor=-', kepalaRab())
         ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.nama', 'Tiket Borobudur');
+});
+
+test('rincian vendor menyebut harga, RAB, dan nilai belanjanya', function () {
+    /*
+     | "RAB mana saja yang pakai vendor ini" dan "sudah belanja berapa" —
+     | dua pertanyaan yang datanya sudah ada sejak awal tetapi tidak pernah
+     | dijumlahkan. Angka belanjanya memakai rumus yang SAMA dengan rincian
+     | biaya RAB: satu bus 1,1 juta yang jadi 2 unit selama 3 hari bernilai
+     | 6,6 juta, dan angka itulah yang dipakai menawar.
+     */
+    $v = vendorUji();
+    $bus = masterUji([
+        'nama' => 'Sewa Hiace', 'kategori' => 'transportasi', 'destinasi' => null,
+        'satuan' => 'unit_hari', 'harga' => 1_100_000, 'kapasitas' => 14, 'vendor_id' => $v->id,
+    ]);
+
+    $rab = buatRabLewatApi($this);   // 17 peserta, 3 hari
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $bus->id], kepalaRab())->assertOk();
+
+    $data = $this->getJson("/api/v1/vendor/{$v->id}/rincian", kepalaRab())->assertOk()->json('data');
+
+    expect($data['vendor']['nama'])->toBe('PO Sumber Jaya')
+        ->and(collect($data['harga'])->pluck('nama')->all())->toBe(['Sewa Hiace'])
+        ->and($data['rab'])->toHaveCount(1)
+        ->and($data['rab'][0]['kode'])->toBe($rab['kode'])
+        // 1.100.000 × 2 unit × 3 hari
+        ->and($data['belanja'])->toBe(6_600_000);
+});
+
+test('vendor yang masih dipakai tidak terhapus tanpa dipaksa', function () {
+    /*
+     | Menghapusnya memang tidak merusak harganya, tetapi kontaknya hilang
+     | dari seluruh RAB yang memakainya dan itu tidak bisa dibatalkan. Yang
+     | hampir selalu dimaksud admin adalah "jangan tawarkan lagi".
+     */
+    $v = vendorUji();
+    $m = masterUji(['vendor_id' => $v->id]);
+
+    $this->deleteJson('/api/v1/vendor/'.$v->id, [], kepalaRab())
+        ->assertStatus(422)
+        ->assertJsonPath('dipakai', 1);
+
+    expect(Vendor::find($v->id))->not->toBeNull();
+
+    // Masih bisa dipaksa: baris salah ketik memang pantas dibuang.
+    $this->deleteJson('/api/v1/vendor/'.$v->id.'?paksa=1', [], kepalaRab())->assertOk();
+
+    expect(Vendor::find($v->id))->toBeNull()
+        ->and($m->fresh())->not->toBeNull();
+});
+
+test('vendor tanpa pemakaian tetap bisa langsung dihapus', function () {
+    $v = vendorUji();
+
+    $this->deleteJson('/api/v1/vendor/'.$v->id, [], kepalaRab())->assertOk();
+
+    expect(Vendor::find($v->id))->toBeNull();
+});
+
+test('vendor disaring wilayah, yang tanpa provinsi ikut terbawa', function () {
+    // Kosong berarti BERLAKU DI MANA SAJA — asuransi dan dokumentasi memang
+    // tidak terikat tempat.
+    vendorUji(['nama' => 'PO Jogja', 'provinsi' => 'DI Yogyakarta']);
+    vendorUji(['nama' => 'PO Bali', 'provinsi' => 'Bali']);
+    vendorUji(['nama' => 'Asuransi Nasional', 'provinsi' => null]);
+
+    $nama = collect($this->getJson('/api/v1/vendor?provinsi=Bali', kepalaRab())->assertOk()->json('data'))
+        ->pluck('nama')->all();
+
+    expect($nama)->toBe(['Asuransi Nasional', 'PO Bali']);
+
+    // "-" berarti hanya yang memang tidak terikat provinsi.
+    $nama = collect($this->getJson('/api/v1/vendor?provinsi=-', kepalaRab())->json('data'))->pluck('nama')->all();
+
+    expect($nama)->toBe(['Asuransi Nasional']);
+});
+
+test('katalog mengurutkan vendor menurut seberapa sering dipakai', function () {
+    /*
+     | Urut abjad membuat vendor yang dipakai tiap minggu terdampar di huruf
+     | S, sementara yang sekali setahun duduk di atas.
+     */
+    $sering = vendorUji(['nama' => 'Zebra Trans']);
+    $jarang = vendorUji(['nama' => 'Abadi Trans']);
+
+    masterUji(['nama' => 'Hiace A', 'vendor_id' => $sering->id]);
+    masterUji(['nama' => 'Bus B', 'vendor_id' => $sering->id]);
+    masterUji(['nama' => 'Elf C', 'vendor_id' => $jarang->id]);
+
+    $vendor = $this->getJson('/api/v1/rab/katalog', kepalaRab())->assertOk()->json('data.vendor');
+
+    expect(collect($vendor)->pluck('nama')->all())->toBe(['Zebra Trans', 'Abadi Trans']);
 });

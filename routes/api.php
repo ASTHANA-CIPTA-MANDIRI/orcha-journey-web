@@ -198,6 +198,7 @@ Route::prefix('v1')
         // Sebelum /vendor/{vendor}: rute berparameter yang terdaftar lebih
         // dulu menelan rute bernama.
         Route::get('/vendor/kontak-tercecer', [VendorController::class, 'kontakTercecer']);
+        Route::get('/vendor/{vendor}/rincian', [VendorController::class, 'rincian']);
         Route::post('/vendor/{vendor}/gabung', [VendorController::class, 'gabung']);
         Route::patch('/vendor/{vendor}', [VendorController::class, 'update']);
         Route::delete('/vendor/{vendor}', [VendorController::class, 'destroy']);

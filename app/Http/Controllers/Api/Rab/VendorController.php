@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\ApiController;
 use App\Models\Rab\MasterHarga;
 use App\Models\Rab\RabBiaya;
 use App\Models\Rab\Vendor;
+use App\Support\Rab\HitungRab;
+use App\Support\RincianBiaya;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -32,6 +34,9 @@ class VendorController extends ApiController
                 ? $q->whereNull('jenis')
                 : $q->where('jenis', $j))
             ->when($request->string('status')->toString(), fn ($q, $st) => $q->where('aktif', $st === 'aktif'))
+            ->when($request->string('provinsi')->toString(), fn ($q, $p) => $p === '-'
+                ? $q->whereNull('provinsi')
+                : $q->untukProvinsi($p))
             ->withCount('harga')
             ->orderBy('nama')
             ->paginate($this->perHalaman($request));
@@ -50,6 +55,7 @@ class VendorController extends ApiController
                     'tanpa_kontak' => Vendor::whereNull('kontak')->count(),
                     'nonaktif' => Vendor::where('aktif', false)->count(),
                     'jenis' => Vendor::whereNotNull('jenis')->distinct()->orderBy('jenis')->pluck('jenis'),
+                    'provinsi' => Vendor::whereNotNull('provinsi')->distinct()->orderBy('provinsi')->pluck('provinsi'),
                 ],
             ],
         );
@@ -163,7 +169,28 @@ class VendorController extends ApiController
 
     public function destroy(Vendor $vendor, Request $request): JsonResponse
     {
-        $this->catat($request, 'hapus vendor', ['nama' => $vendor->nama]);
+        /*
+         | Vendor yang masih dipakai tidak dihapus begitu saja.
+         |
+         | Menghapusnya memang tidak merusak harganya — vendor_id-nya saja
+         | yang jadi kosong — tetapi kontaknya hilang dari seluruh RAB yang
+         | memakainya, dan itu tidak bisa dibatalkan. Yang hampir selalu
+         | dimaksud admin adalah "jangan tawarkan lagi", dan itu namanya
+         | mematikan, bukan menghapus.
+         |
+         | Masih bisa dipaksa, karena baris salah ketik memang pantas
+         | dibuang — tetapi dipaksa dengan sadar, bukan tanpa sengaja.
+         */
+        $dipakai = $vendor->harga()->count() + $vendor->biaya()->count();
+
+        if ($dipakai > 0 && ! $request->boolean('paksa')) {
+            return response()->json([
+                'pesan' => "{$vendor->nama} masih dipakai {$dipakai} harga/biaya. Matikan saja supaya tidak ditawarkan lagi, atau hapus paksa bila memang salah ketik.",
+                'dipakai' => $dipakai,
+            ], 422);
+        }
+
+        $this->catat($request, 'hapus vendor', ['nama' => $vendor->nama, 'dipakai' => $dipakai]);
 
         // Harga yang memakainya tetap utuh — vendor_id-nya saja yang jadi
         // kosong (nullOnDelete). Menghapus vendor tidak boleh menghapus
@@ -171,6 +198,58 @@ class VendorController extends ApiController
         $vendor->delete();
 
         return response()->json(['pesan' => 'Vendor dihapus. Harga yang memakainya tetap ada, hanya kehilangan kontaknya.']);
+    }
+
+    /**
+     * Satu vendor beserta jejaknya: harga apa saja, RAB mana saja, dan sudah
+     * berapa yang dibelanjakan ke sana.
+     *
+     * Angka belanjanya dihitung dengan rumus yang SAMA dengan rincian biaya
+     * RAB (HitungRab::subtotal), bukan sekadar menjumlahkan harga satuan —
+     * satu baris bus berharga 1,1 juta yang jadi 2 unit selama 3 hari
+     * bernilai 6,6 juta, dan angka yang dipakai menawar harus angka itu.
+     */
+    public function rincian(Vendor $vendor): JsonResponse
+    {
+        $harga = $vendor->harga()->orderBy('kategori')->orderBy('nama')->get()
+            ->map(fn (MasterHarga $m) => [
+                'id' => $m->id,
+                'nama' => $m->nama,
+                'kategori_label' => $m->kategori_label,
+                'satuan_label' => $m->satuan_label,
+                'harga' => $m->harga,
+                'harga_teks' => RincianBiaya::rupiah($m->harga),
+                'aktif' => $m->aktif,
+            ]);
+
+        $baris = $vendor->biaya()->with('rab')->get()->filter(fn (RabBiaya $b) => $b->rab !== null);
+
+        $perRab = $baris->groupBy('rab_id')->map(function ($isi) {
+            $rab = $isi->first()->rab;
+            $nilai = $isi->sum(fn (RabBiaya $b) => HitungRab::subtotal($b, $rab));
+
+            return [
+                'id' => $rab->id,
+                'kode' => $rab->kode,
+                'judul' => $rab->judul,
+                'status' => $rab->status,
+                'status_label' => config("orcha.rab.status.{$rab->status}") ?? $rab->status,
+                'tanggal_mulai' => $rab->tanggal_mulai?->toDateString(),
+                'jumlah_baris' => $isi->count(),
+                'nilai' => $nilai,
+                'nilai_teks' => RincianBiaya::rupiah($nilai),
+            ];
+        })->sortByDesc('id')->values();
+
+        $belanja = (int) $perRab->sum('nilai');
+
+        return response()->json(['data' => [
+            'vendor' => $this->baris($vendor->loadCount('harga')),
+            'harga' => $harga,
+            'rab' => $perRab,
+            'belanja' => $belanja,
+            'belanja_teks' => RincianBiaya::rupiah($belanja),
+        ]]);
     }
 
     /** @return array<string, mixed> */
@@ -182,6 +261,8 @@ class VendorController extends ApiController
             // justru bentuk yang paling berguna saat menelepon.
             'kontak' => ['nullable', 'string', 'max:120'],
             'jenis' => ['nullable', 'string', 'max:30'],
+            // Kosong berarti BERLAKU DI MANA SAJA, bukan belum diisi.
+            'provinsi' => ['nullable', 'string', 'max:80'],
             'catatan' => ['nullable', 'string', 'max:300'],
             'aktif' => ['nullable', 'boolean'],
         ]);
@@ -205,6 +286,7 @@ class VendorController extends ApiController
             'nama' => $v->nama,
             'kontak' => $v->kontak,
             'jenis' => $v->jenis,
+            'provinsi' => $v->provinsi,
             'catatan' => $v->catatan,
             'aktif' => $v->aktif,
             // Berapa harga yang akan kehilangan kontaknya bila vendor ini
