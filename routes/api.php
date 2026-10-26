@@ -200,6 +200,7 @@ Route::prefix('v1')
         Route::get('/vendor/kontak-tercecer', [VendorController::class, 'kontakTercecer']);
         Route::get('/vendor/{vendor}/rincian', [VendorController::class, 'rincian']);
         Route::post('/vendor/{vendor}/gabung', [VendorController::class, 'gabung']);
+        Route::post('/vendor/{vendor}/pasang', [VendorController::class, 'pasang']);
         Route::patch('/vendor/{vendor}', [VendorController::class, 'update']);
         Route::delete('/vendor/{vendor}', [VendorController::class, 'destroy']);
 

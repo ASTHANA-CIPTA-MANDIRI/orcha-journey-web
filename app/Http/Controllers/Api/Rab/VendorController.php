@@ -209,7 +209,7 @@ class VendorController extends ApiController
      * satu baris bus berharga 1,1 juta yang jadi 2 unit selama 3 hari
      * bernilai 6,6 juta, dan angka yang dipakai menawar harus angka itu.
      */
-    public function rincian(Vendor $vendor): JsonResponse
+    public function rincian(Vendor $vendor, Request $request): JsonResponse
     {
         $harga = $vendor->harga()->orderBy('kategori')->orderBy('nama')->get()
             ->map(fn (MasterHarga $m) => [
@@ -241,15 +241,63 @@ class VendorController extends ApiController
             ];
         })->sortByDesc('id')->values();
 
+        /*
+         | Belanjanya dijumlahkan dari SELURUH RAB, daftarnya dipotong per
+         | halaman.
+         |
+         | Dua hal yang berbeda, dan menyamakannya adalah cacat yang paling
+         | mudah lolos: "sudah dibelanjakan Rp 6 juta" yang ternyata cuma
+         | halaman pertama adalah angka yang salah tanpa kelihatan salah.
+         */
         $belanja = (int) $perRab->sum('nilai');
+
+        $perHalaman = $this->perHalaman($request);
+        $halaman = max(1, (int) $request->integer('halaman', 1));
+        $potong = $perRab->forPage($halaman, $perHalaman)->values();
 
         return response()->json(['data' => [
             'vendor' => $this->baris($vendor->loadCount('harga')),
             'harga' => $harga,
-            'rab' => $perRab,
+            'rab' => $potong,
+            'rab_meta' => [
+                'halaman' => $halaman,
+                'halaman_terakhir' => max(1, (int) ceil($perRab->count() / $perHalaman)),
+                'total' => $perRab->count(),
+                'per_halaman' => $perHalaman,
+            ],
             'belanja' => $belanja,
             'belanja_teks' => RincianBiaya::rupiah($belanja),
         ]]);
+    }
+
+    /**
+     * Memasang vendor ini ke beberapa master harga sekaligus.
+     *
+     * Dipakai saat memindahkan nomor yang dulu ditulis di kolom catatan:
+     * satu vendor biasanya menempel pada beberapa baris harga sekaligus —
+     * Hiace, Elf, dan bus besar dari pemilik armada yang sama — dan
+     * memasangnya satu per satu lewat formulir harga berarti membuka,
+     * menyimpan, dan menutup tiga kali untuk satu keputusan yang sama.
+     *
+     * Hanya kolom vendor_id yang disentuh. Harga, satuan, dan kapasitasnya
+     * tidak ikut terkirim, jadi tidak ada nilai yang bisa berubah diam-diam
+     * karena payload-nya kurang lengkap.
+     */
+    public function pasang(Vendor $vendor, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'harga' => ['required', 'array', 'min:1', 'max:200'],
+            'harga.*' => ['integer', 'exists:tbl_master_harga,id'],
+        ]);
+
+        $jumlah = MasterHarga::whereIn('id', $data['harga'])->update(['vendor_id' => $vendor->id]);
+
+        $this->catat($request, 'pasang vendor ke harga', ['nama' => $vendor->nama, 'jumlah' => $jumlah]);
+
+        return response()->json([
+            'data' => $this->baris($vendor->fresh()->loadCount('harga')),
+            'pesan' => "{$jumlah} harga dipasangkan ke {$vendor->nama}.",
+        ]);
     }
 
     /** @return array<string, mixed> */

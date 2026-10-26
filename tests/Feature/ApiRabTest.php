@@ -949,3 +949,65 @@ test('katalog mengurutkan vendor menurut seberapa sering dipakai', function () {
 
     expect(collect($vendor)->pluck('nama')->all())->toBe(['Zebra Trans', 'Abadi Trans']);
 });
+
+test('daftar RAB di rincian vendor dipotong per halaman, belanjanya tidak', function () {
+    /*
+     | Dua hal yang berbeda, dan menyamakannya adalah cacat yang paling mudah
+     | lolos: "sudah dibelanjakan Rp 6 juta" yang ternyata cuma halaman
+     | pertama adalah angka yang salah tanpa kelihatan salah.
+     */
+    $v = vendorUji();
+    $m = masterUji(['vendor_id' => $v->id]);   // per orang, 50.000 × 17 = 850.000
+
+    foreach (range(1, 3) as $i) {
+        $rab = buatRabLewatApi($this, ['judul' => "Trip {$i}"]);
+        $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id], kepalaRab())->assertOk();
+    }
+
+    $data = $this->getJson("/api/v1/vendor/{$v->id}/rincian?per_halaman=2", kepalaRab())->assertOk()->json('data');
+
+    expect($data['rab'])->toHaveCount(2)
+        ->and($data['rab_meta']['total'])->toBe(3)
+        ->and($data['rab_meta']['halaman_terakhir'])->toBe(2)
+        // Belanjanya tetap dari ketiganya, bukan dari dua yang tampil.
+        ->and($data['belanja'])->toBe(3 * 850_000);
+
+    $halaman2 = $this->getJson("/api/v1/vendor/{$v->id}/rincian?per_halaman=2&halaman=2", kepalaRab())
+        ->assertOk()->json('data');
+
+    expect($halaman2['rab'])->toHaveCount(1)
+        ->and($halaman2['belanja'])->toBe(3 * 850_000);
+});
+
+test('vendor bisa dipasang ke beberapa harga sekaligus', function () {
+    /*
+     | Satu vendor biasanya menempel pada beberapa baris harga sekaligus.
+     | Memasangnya satu per satu lewat formulir harga berarti membuka,
+     | menyimpan, dan menutup tiga kali untuk satu keputusan yang sama.
+     */
+    $v = vendorUji();
+    $a = masterUji(['nama' => 'Sewa Hiace', 'harga' => 1_100_000]);
+    $b = masterUji(['nama' => 'Sewa Elf', 'harga' => 1_450_000]);
+    $lain = masterUji(['nama' => 'Tiket Borobudur']);
+
+    $this->postJson("/api/v1/vendor/{$v->id}/pasang", ['harga' => [$a->id, $b->id]], kepalaRab())
+        ->assertOk()->assertJsonPath('pesan', '2 harga dipasangkan ke PO Sumber Jaya.');
+
+    expect($a->fresh()->vendor_id)->toBe($v->id)
+        ->and($b->fresh()->vendor_id)->toBe($v->id)
+        ->and($lain->fresh()->vendor_id)->toBeNull()
+        // Hanya kolom vendor yang disentuh — harganya tidak ikut berubah
+        // karena payload-nya memang tidak membawa harga.
+        ->and($a->fresh()->harga)->toBe(1_100_000)
+        ->and($b->fresh()->harga)->toBe(1_450_000);
+});
+
+test('memasang vendor menolak daftar harga kosong atau id yang tidak ada', function () {
+    $v = vendorUji();
+
+    $this->postJson("/api/v1/vendor/{$v->id}/pasang", ['harga' => []], kepalaRab())
+        ->assertStatus(422)->assertJsonValidationErrors('harga');
+
+    $this->postJson("/api/v1/vendor/{$v->id}/pasang", ['harga' => [99999]], kepalaRab())
+        ->assertStatus(422)->assertJsonValidationErrors('harga.0');
+});
