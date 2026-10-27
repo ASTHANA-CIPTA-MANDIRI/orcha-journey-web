@@ -550,6 +550,101 @@ class RabController extends ApiController
         return response()->json(['data' => $this->bentuk($rab->fresh()), 'pesan' => 'Biaya diperbarui.']);
     }
 
+    /**
+     * Paket wisata yang itinerary-nya bisa dipakai sebagai titik mulai.
+     *
+     * Menyusun ulang dari nol padahal agenda yang mirip sudah tersimpan di
+     * katalog paket adalah pekerjaan yang diulang tiap kali penawaran
+     * dibuat — dan tiap pengulangan adalah kesempatan satu kegiatan
+     * terlewat.
+     *
+     * Bentuk agenda paket (hari + agenda[jam, kegiatan]) diterjemahkan ke
+     * bentuk itinerary RAB di sini, bukan di layar: dua tempat yang
+     * menerjemahkan hal yang sama akan berselisih begitu salah satunya
+     * diubah.
+     */
+    public function sumberItinerary(Request $request): JsonResponse
+    {
+        $daftar = TravelPackage::query()
+            ->whereNotNull('itinerary')
+            ->when($request->string('provinsi')->toString(), fn ($q, $p) => $q->where('provinsi', $p))
+            ->orderBy('name')
+            ->get()
+            ->filter(fn (TravelPackage $p) => is_array($p->itinerary) && $p->itinerary !== [])
+            ->map(fn (TravelPackage $p) => [
+                'id' => $p->id,
+                'nama' => $p->name,
+                'jumlah_hari' => count($p->itinerary),
+                'jumlah_kegiatan' => collect($p->itinerary)->sum(fn ($h) => count($h['agenda'] ?? [])),
+                'itinerary' => $this->terjemahkanAgenda($p->itinerary),
+            ])
+            ->values()
+            ->all();
+
+        return response()->json(['data' => $daftar]);
+    }
+
+    /**
+     * Agenda paket → baris itinerary RAB.
+     *
+     * Jam di katalog paket ditulis "18.30" (titik), sedangkan itinerary RAB
+     * memakai "18:30". Dibiarkan apa adanya, jamnya ditolak validasi dan
+     * seluruh salinan gagal tanpa menyebut sebabnya.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function terjemahkanAgenda(array $agendaPaket): array
+    {
+        $hasil = [];
+
+        foreach (array_values($agendaPaket) as $i => $hari) {
+            foreach ($hari['agenda'] ?? [] as $kegiatan) {
+                $jam = str_replace('.', ':', trim((string) ($kegiatan['jam'] ?? '')));
+
+                $hasil[] = [
+                    'hari_ke' => $i + 1,
+                    'jam' => preg_match('/^\d{2}:\d{2}$/', $jam) ? $jam : null,
+                    'jam_selesai' => null,
+                    'nama' => trim((string) ($kegiatan['kegiatan'] ?? '')),
+                    'keterangan' => null,
+                    // Destinasi tidak ditebak dari nama kegiatan: salah
+                    // tebak akan menarik tiket tempat lain ke penawaran.
+                    'destinasi' => null,
+                ];
+            }
+        }
+
+        return array_values(array_filter($hasil, fn ($k) => $k['nama'] !== ''));
+    }
+
+    /**
+     * Menyusun ulang urutan baris biaya.
+     *
+     * Kolom `urutan` sudah lama ada di basis data tetapi tidak pernah bisa
+     * diubah dari mana pun, jadi urutan di PDF penawaran selalu urutan
+     * dimasukkan — dan yang dimasukkan belakangan sering justru yang paling
+     * ingin dibaca lebih dulu.
+     */
+    public function urutkanBiaya(Rab $rab, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'id' => ['required', 'array', 'min:1'],
+            'id.*' => ['integer'],
+        ]);
+
+        // Hanya baris MILIK rab ini yang disentuh: id dari RAB lain yang
+        // ikut terkirim tidak boleh diam-diam berpindah urutan.
+        $milik = $rab->biaya()->pluck('id')->flip();
+
+        foreach ($data['id'] as $urutan => $id) {
+            if ($milik->has($id)) {
+                RabBiaya::where('id', $id)->update(['urutan' => $urutan + 1]);
+            }
+        }
+
+        return response()->json(['data' => $this->bentuk($rab->fresh()), 'pesan' => 'Urutan biaya disimpan.']);
+    }
+
     public function hapusBiaya(Rab $rab, RabBiaya $biaya, Request $request): JsonResponse
     {
         abort_unless((int) $biaya->rab_id === (int) $rab->id, 404);

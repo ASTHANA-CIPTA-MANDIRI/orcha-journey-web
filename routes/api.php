@@ -223,6 +223,7 @@ Route::prefix('v1')
 
         Route::get('/rab', [RabController::class, 'index']);
         Route::get('/rab/katalog', [RabController::class, 'katalog']);
+        Route::get('/rab/sumber-itinerary', [RabController::class, 'sumberItinerary']);
         Route::post('/rab', [RabController::class, 'store']);
         Route::get('/rab/{rab}', [RabController::class, 'show']);
         Route::patch('/rab/{rab}', [RabController::class, 'update']);
@@ -231,6 +232,7 @@ Route::prefix('v1')
         Route::post('/rab/{rab}/biaya', [RabController::class, 'tambahBiaya']);
         Route::patch('/rab/{rab}/biaya/{biaya}', [RabController::class, 'ubahBiaya']);
         Route::delete('/rab/{rab}/biaya/{biaya}', [RabController::class, 'hapusBiaya']);
+        Route::post('/rab/{rab}/biaya/urutkan', [RabController::class, 'urutkanBiaya']);
         Route::post('/rab/{rab}/tarik-biaya', [RabController::class, 'tarikBiaya']);
         Route::get('/rab/{rab}/pdf', [RabController::class, 'pdf']);
         Route::post('/rab/{rab}/jadikan-pendaftaran', [RabController::class, 'jadikanPendaftaran']);
