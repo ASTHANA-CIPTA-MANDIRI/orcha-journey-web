@@ -11,9 +11,11 @@ use App\Models\Rab\Rab;
 use App\Models\Rab\RabBiaya;
 use App\Models\Rab\RabItinerary;
 use App\Models\Rab\Vendor;
+use App\Models\Rab\VersiPenawaran;
 use App\Support\Rab\BerkasRab;
 use App\Support\Rab\HitungRab;
 use App\Support\RincianBiaya;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -39,13 +41,41 @@ class RabController extends ApiController
             // menampilkan totalnya, dan total diturunkan dari baris biaya.
             ->with('biaya.master')
             ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
-                fn ($s) => $s->where('kode', 'like', "%{$cari}%")
-                    ->orWhere('nama_pelanggan', 'like', "%{$cari}%")
-                    ->orWhere('judul', 'like', "%{$cari}%")
-                    ->orWhere('whatsapp', 'like', "%{$cari}%")
+                function ($s) use ($cari) {
+                    $s->where('kode', 'like', "%{$cari}%")
+                        ->orWhere('nama_pelanggan', 'like', "%{$cari}%")
+                        ->orWhere('judul', 'like', "%{$cari}%")
+                        ->orWhere('whatsapp', 'like', "%{$cari}%");
+
+                    /*
+                     | Nomor dibandingkan ANGKANYA saja.
+                     |
+                     | Yang diketik admin datang dari WhatsApp — "+62 812-3400-0111"
+                     | — sedangkan yang tersimpan "081234000111". Tanpa ini
+                     | pencarian nomor selalu gagal, dan yang terbaca "RAB-nya
+                     | tidak ada".
+                     */
+                    $angka = preg_replace('/\D/', '', $cari);
+
+                    if (strlen($angka) >= 7) {
+                        $s->orWhereRaw(
+                            "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(whatsapp,' ',''),'-',''),'(',''),')',''),'+',''),'.','') LIKE ?",
+                            ['%'.Vendor::ekorNomor($angka).'%']
+                        );
+                    }
+                }
             ))
             ->when($request->string('status')->toString(), fn ($q, $st) => $q->where('status', $st))
-            ->latest('id')
+            ->when($request->string('provinsi')->toString(), fn ($q, $p) => $q->where('provinsi', $p))
+            ->when($request->string('jenis')->toString(), fn ($q, $j) => $q->where('jenis', $j))
+            // Penawaran yang masa berlakunya lewat: angkanya sudah dihitung
+            // dan ditampilkan per baris, tetapi selama ini tidak bisa dipakai
+            // menyaring — jadi "mana yang sudah basi" tetap dipelototi.
+            ->when($request->boolean('kedaluwarsa'), fn ($q) => $q
+                ->whereNotNull('berlaku_sampai')
+                ->whereDate('berlaku_sampai', '<', now()->toDateString())
+                ->whereNotIn('status', ['batal', 'disetujui']))
+            ->tap(fn ($q) => $this->urutkanRab($q, $request->string('urut')->toString()))
             ->paginate($this->perHalaman($request));
 
         return $this->halamanDipeta(
@@ -61,7 +91,7 @@ class RabController extends ApiController
                     'jumlah_biaya' => count($r['baris']),
                 ];
             })->all(),
-            ['kosakata' => MasterHargaController::kosakataRab()],
+            ['kosakata' => MasterHargaController::kosakataRab(), 'ringkas' => $this->ringkasRab()],
         );
     }
 
@@ -180,13 +210,175 @@ class RabController extends ApiController
         return response()->json(['data' => $this->bentuk($rab)]);
     }
 
+    /**
+     * Urutan daftar RAB.
+     *
+     * Bawaannya yang terbaru dulu — itu yang dicari sembilan dari sepuluh
+     * kali. Yang lain menjawab pertanyaan tertentu, dan dinamai menurut
+     * pertanyaannya.
+     */
+    private function urutkanRab(Builder $q, string $urut): void
+    {
+        match ($urut) {
+            // Yang berangkatnya paling dekat: daftar yang menuntut
+            // keputusan lebih dulu.
+            'berangkat' => $q->orderByRaw('tanggal_mulai is null, tanggal_mulai asc'),
+            'lama' => $q->oldest('id'),
+            'pelanggan' => $q->orderBy('nama_pelanggan'),
+            default => $q->latest('id'),
+        };
+    }
+
+    /**
+     * Angka ringkas seluruh tabel, bukan halaman yang terlihat.
+     *
+     * "Berapa yang sudah dikirim tapi belum dijawab" adalah pertanyaan
+     * harian, dan selama ini dijawab dengan menghitung baris sendiri.
+     */
+    private function ringkasRab(): array
+    {
+        $perStatus = Rab::query()
+            ->selectRaw('status, count(*) as jumlah')
+            ->groupBy('status')
+            ->pluck('jumlah', 'status')
+            ->all();
+
+        return [
+            'jumlah' => array_sum($perStatus),
+            'draf' => (int) ($perStatus['draf'] ?? 0),
+            'dikirim' => (int) ($perStatus['dikirim'] ?? 0),
+            'disetujui' => (int) ($perStatus['disetujui'] ?? 0),
+            'batal' => (int) ($perStatus['batal'] ?? 0),
+            'kedaluwarsa' => Rab::whereNotNull('berlaku_sampai')
+                ->whereDate('berlaku_sampai', '<', now()->toDateString())
+                ->whereNotIn('status', ['batal', 'deal'])
+                ->count(),
+        ];
+    }
+
     public function update(Rab $rab, Request $request): JsonResponse
     {
+        $statusLama = $rab->status;
+
         $rab->update($this->periksaKepala($request, $rab));
+
+        // Direkam saat BERPINDAH ke "dikirim", bukan tiap kali disimpan:
+        // yang ditanyakan saat beda pendapat adalah angka yang dilihat
+        // pelanggan, dan itu angka pada saat penawaran keluar.
+        if ($rab->status === 'dikirim' && $statusLama !== 'dikirim') {
+            $this->rekamVersi($rab->fresh(), $request);
+        }
 
         $this->catat($request, 'ubah rab', ['kode' => $rab->kode]);
 
         return response()->json(['data' => $this->bentuk($rab->fresh()), 'pesan' => 'RAB diperbarui.']);
+    }
+
+    /** Menyimpan angka penawaran apa adanya pada saat ia dikirim. */
+    private function rekamVersi(Rab $rab, Request $request): void
+    {
+        $r = HitungRab::ringkas($rab->load('biaya.master'));
+
+        VersiPenawaran::create([
+            'rab_id' => $rab->id,
+            'urutan' => VersiPenawaran::where('rab_id', $rab->id)->max('urutan') + 1,
+            'harga_total' => (int) $r['harga_total'],
+            'harga_per_orang' => (int) $r['harga_per_orang'],
+            'untung' => (int) $r['untung'],
+            'persen_untung' => $r['persen_untung'] ?? null,
+            'jumlah_peserta' => (int) $rab->jumlah_peserta,
+            'jumlah_baris' => count($r['baris'] ?? []),
+            'oleh' => $request->attributes->get('admin_pemanggil'),
+        ]);
+    }
+
+    /** Daftar versi yang pernah dikirim ke pelanggan. */
+    public function versi(Rab $rab): JsonResponse
+    {
+        $daftar = VersiPenawaran::where('rab_id', $rab->id)->orderByDesc('urutan')->get();
+        $kini = HitungRab::ringkas($rab->load('biaya.master'));
+
+        return response()->json([
+            'data' => $daftar->map(fn (VersiPenawaran $v) => [
+                'id' => $v->id,
+                'urutan' => $v->urutan,
+                'harga_total_teks' => RincianBiaya::rupiah($v->harga_total),
+                'harga_per_orang_teks' => RincianBiaya::rupiah($v->harga_per_orang),
+                'untung_teks' => RincianBiaya::rupiah($v->untung),
+                'persen_untung' => $v->persen_untung,
+                'jumlah_peserta' => $v->jumlah_peserta,
+                'jumlah_baris' => $v->jumlah_baris,
+                'oleh' => $v->oleh,
+                'pada' => $v->created_at?->locale('id')->translatedFormat('j M Y, H:i'),
+                'pada_teks' => $v->created_at?->locale('id')->diffForHumans(),
+                // Selisih terhadap angka SEKARANG — itu yang dicari saat
+                // pelanggan menyebut angka yang tidak lagi ada di layar.
+                'beda_kini' => $v->harga_total === (int) $kini['harga_total']
+                    ? null
+                    : (($v->harga_total > (int) $kini['harga_total'] ? 'lebih mahal ' : 'lebih murah ')
+                        .RincianBiaya::rupiah(abs($v->harga_total - (int) $kini['harga_total'])).' dari sekarang'),
+            ])->all(),
+            'meta' => [
+                'kode' => $rab->kode,
+                'harga_kini_teks' => $kini['harga_total_teks'],
+            ],
+        ]);
+    }
+
+    /**
+     * Menyalin sebuah RAB beserta itinerary dan seluruh baris biayanya.
+     *
+     * Penawaran serupa untuk pelanggan lain adalah pekerjaan yang paling
+     * sering diulang di layar ini, dan menyusunnya ulang dari nol bukan
+     * cuma lama — tiap baris yang diketik ulang adalah satu kesempatan
+     * angka meleset tanpa ada yang menyadarinya.
+     *
+     * Salinannya selalu DRAFT, dengan kode baru, tanpa kode pendaftaran,
+     * dan tanpa riwayat versi: ia penawaran yang belum pernah dikirim.
+     */
+    public function salin(Rab $rab, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'nama_pelanggan' => ['nullable', 'string', 'max:120'],
+            'whatsapp' => ['nullable', 'string', 'max:32'],
+            'tanggal_mulai' => ['nullable', 'date'],
+        ]);
+
+        $salinan = $rab->replicate([
+            'kode', 'kode_pendaftaran', 'status', 'created_at', 'updated_at',
+        ]);
+
+        $salinan->kode = Rab::kodeBaru();
+        $salinan->status = 'draf';
+        $salinan->kode_pendaftaran = null;
+        $salinan->nama_pelanggan = $data['nama_pelanggan'] ?? $rab->nama_pelanggan;
+        $salinan->whatsapp = $data['whatsapp'] ?? $rab->whatsapp;
+        $salinan->tanggal_mulai = $data['tanggal_mulai'] ?? $rab->tanggal_mulai;
+        // Masa berlaku lama TIDAK ikut: ia dihitung dari tanggal penawaran
+        // itu dibuat, dan menyalinnya membuat yang baru lahir sudah
+        // kedaluwarsa. Dikosongkan di sini, lalu hook `creating` di model
+        // mengisinya dengan tenggat baru terhitung hari ini.
+        $salinan->berlaku_sampai = null;
+        $salinan->save();
+
+        foreach ($rab->itinerary as $hari) {
+            $baru = $hari->replicate(['created_at', 'updated_at']);
+            $baru->rab_id = $salinan->id;
+            $baru->save();
+        }
+
+        foreach ($rab->biaya as $biaya) {
+            $baru = $biaya->replicate(['created_at', 'updated_at']);
+            $baru->rab_id = $salinan->id;
+            $baru->save();
+        }
+
+        $this->catat($request, 'salin rab', ['kode' => $rab->kode, 'ke' => $salinan->kode]);
+
+        return response()->json([
+            'data' => $this->bentuk($salinan->fresh()),
+            'pesan' => "Disalin jadi {$salinan->kode}. Statusnya draf, dengan masa berlaku baru terhitung hari ini.",
+        ], 201);
     }
 
     public function destroy(Rab $rab, Request $request): JsonResponse

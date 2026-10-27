@@ -7,6 +7,7 @@ use App\Models\Rab\Rab;
 use App\Models\Rab\RabBiaya;
 use App\Models\Rab\RiwayatHarga;
 use App\Models\Rab\Vendor;
+use App\Models\Rab\VersiPenawaran;
 use App\Support\Rab\BerkasRab;
 use App\Support\Rab\HitungRab;
 
@@ -1623,4 +1624,166 @@ test('riwayat global bisa dipersempit ke beberapa hari terakhir', function () {
     expect($semua->json('meta.jumlah'))->toBe(2)
         ->and($pekan->json('meta.jumlah'))->toBe(1)
         ->and($pekan->json('data.0.oleh'))->toBe('Baru');
+});
+
+/*
+|--------------------------------------------------------------------------
+| RAB: salin, versi penawaran, saringan, dan pengurut
+|--------------------------------------------------------------------------
+*/
+
+test('menyalin RAB membawa itinerary dan seluruh baris biayanya', function () {
+    /*
+     | Penawaran serupa untuk pelanggan lain adalah pekerjaan yang paling
+     | sering diulang di layar ini. Tiap baris yang diketik ulang adalah
+     | satu kesempatan angka meleset tanpa ada yang menyadarinya.
+     */
+    $m = masterUji(['harga' => 50_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $m->id, 'jumlah' => 2,
+    ], kepalaRab())->assertOk();
+
+    Rab::find($rab['id'])->update([
+        'status' => 'disetujui', 'berlaku_sampai' => now()->addWeek()->toDateString(),
+        'kode_pendaftaran' => 'OT-1234',
+    ]);
+
+    $balasan = $this->postJson("/api/v1/rab/{$rab['id']}/salin", [
+        'nama_pelanggan' => 'Pelanggan Lain',
+    ], kepalaRab())->assertCreated();
+
+    $baru = Rab::where('kode', $balasan->json('data.kode'))->first();
+
+    expect($baru->id)->not->toBe($rab['id'])
+        ->and($baru->nama_pelanggan)->toBe('Pelanggan Lain')
+        // Salinannya penawaran yang BELUM pernah dikirim.
+        ->and($baru->status)->toBe('draf')
+        ->and($baru->kode_pendaftaran)->toBeNull()
+        // Masa berlaku lama tidak ikut: yang baru akan lahir sudah basi.
+        // Yang dipakai tenggat baru, terhitung hari ini.
+        ->and($baru->berlaku_sampai->toDateString())->not->toBe(now()->addWeek()->toDateString())
+        ->and($baru->berlaku_sampai->isFuture())->toBeTrue()
+        ->and($baru->biaya()->count())->toBe(1)
+        ->and($baru->biaya()->first()->harga_satuan)->toBe(50_000);
+
+    // Dan yang asli tidak tersentuh.
+    expect(Rab::find($rab['id'])->status)->toBe('disetujui');
+});
+
+test('versi penawaran direkam saat status berpindah ke dikirim, bukan tiap simpan', function () {
+    /*
+     | Yang ditanyakan saat beda pendapat adalah angka yang DILIHAT
+     | pelanggan — dan itu angka pada saat penawaran keluar. Menyimpan
+     | setiap penyimpanan membuat daftarnya penuh baris yang tidak pernah
+     | dibaca siapa pun.
+     */
+    $m = masterUji(['harga' => 100_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $m->id, 'jumlah' => 1,
+    ], kepalaRab())->assertOk();
+
+    $ubah = fn (array $data) => $this->patchJson("/api/v1/rab/{$rab['id']}", $data, kepalaRab());
+
+    $ubah(['judul' => 'Judul baru'])->assertOk();
+    expect(VersiPenawaran::where('rab_id', $rab['id'])->count())->toBe(0);
+
+    $ubah(['status' => 'dikirim'])->assertOk();
+    expect(VersiPenawaran::where('rab_id', $rab['id'])->count())->toBe(1);
+
+    // Menyimpan lagi tanpa berpindah status tidak menambah versi.
+    $ubah(['judul' => 'Judul lain lagi'])->assertOk();
+    expect(VersiPenawaran::where('rab_id', $rab['id'])->count())->toBe(1);
+
+    // Dikirim ulang sesudah direvisi = versi kedua.
+    $ubah(['status' => 'draf'])->assertOk();
+    $ubah(['status' => 'dikirim'])->assertOk();
+
+    $versi = $this->getJson("/api/v1/rab/{$rab['id']}/versi", kepalaRab())->assertOk();
+
+    expect($versi->json('data'))->toHaveCount(2)
+        ->and($versi->json('data.0.urutan'))->toBe(2);
+});
+
+test('versi lama menyebut selisihnya terhadap harga sekarang', function () {
+    /*
+     | Itu yang dicari saat pelanggan menyebut angka yang tidak lagi ada
+     | di layar.
+     */
+    $m = masterUji(['harga' => 100_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $m->id, 'jumlah' => 1,
+    ], kepalaRab())->assertOk();
+
+    $this->patchJson("/api/v1/rab/{$rab['id']}", ['status' => 'dikirim'], kepalaRab())->assertOk();
+
+    // Harganya dinaikkan sesudah penawaran dikirim.
+    $biaya = RabBiaya::where('rab_id', $rab['id'])->first();
+    $biaya->update(['harga_satuan' => 200_000]);
+
+    $versi = $this->getJson("/api/v1/rab/{$rab['id']}/versi", kepalaRab())->assertOk();
+
+    expect($versi->json('data.0.beda_kini'))->toContain('lebih murah');
+});
+
+test('penawaran yang lewat masa berlaku bisa disaring, deal dan batal tidak ikut', function () {
+    /*
+     | Yang sudah deal tidak perlu dikejar lagi, dan yang batal memang
+     | sudah selesai — menandainya "basi" cuma menambah daftar kerja palsu.
+     */
+    $buat = function (array $ubah) {
+        $rab = buatRabLewatApi($this);
+        Rab::find($rab['id'])->update($ubah);
+
+        return $rab['id'];
+    };
+
+    $basi = $buat(['berlaku_sampai' => now()->subWeek()->toDateString(), 'status' => 'dikirim']);
+    $buat(['berlaku_sampai' => now()->subWeek()->toDateString(), 'status' => 'disetujui']);
+    $buat(['berlaku_sampai' => now()->addWeek()->toDateString(), 'status' => 'dikirim']);
+
+    $hasil = $this->getJson('/api/v1/rab?kedaluwarsa=1', kepalaRab())->json('data');
+
+    expect(collect($hasil)->pluck('id')->all())->toBe([$basi]);
+});
+
+test('daftar RAB bisa diurutkan menurut tanggal berangkat terdekat', function () {
+    $jauh = buatRabLewatApi($this);
+    Rab::find($jauh['id'])->update(['tanggal_mulai' => now()->addMonths(6)->toDateString()]);
+
+    $dekat = buatRabLewatApi($this);
+    Rab::find($dekat['id'])->update(['tanggal_mulai' => now()->addDays(3)->toDateString()]);
+
+    $hasil = $this->getJson('/api/v1/rab?urut=berangkat', kepalaRab())->json('data');
+
+    expect(collect($hasil)->pluck('id')->first())->toBe($dekat['id']);
+});
+
+test('RAB bisa dicari lewat nomor WhatsApp berformat', function () {
+    $rab = buatRabLewatApi($this);
+    Rab::find($rab['id'])->update(['whatsapp' => '081234000111']);
+
+    $hasil = $this->getJson('/api/v1/rab?cari=%2B62%20812-3400-0111', kepalaRab())->json('data');
+
+    expect(collect($hasil)->pluck('id')->all())->toBe([$rab['id']]);
+});
+
+test('ringkasan daftar RAB dihitung dari seluruh tabel', function () {
+    $a = buatRabLewatApi($this);
+    Rab::find($a['id'])->update(['status' => 'dikirim']);
+
+    $b = buatRabLewatApi($this);
+    Rab::find($b['id'])->update([
+        'status' => 'dikirim', 'berlaku_sampai' => now()->subDay()->toDateString(),
+    ]);
+
+    $meta = $this->getJson('/api/v1/rab?per_halaman=1', kepalaRab())->json('meta.ringkas');
+
+    expect($meta['dikirim'])->toBe(2)
+        ->and($meta['kedaluwarsa'])->toBe(1);
 });
