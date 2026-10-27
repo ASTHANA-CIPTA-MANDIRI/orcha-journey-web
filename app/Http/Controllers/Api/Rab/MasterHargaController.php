@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api\Rab;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Models\Rab\MasterHarga;
+use App\Models\Rab\RiwayatHarga;
 use App\Support\RincianBiaya;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -45,14 +47,68 @@ class MasterHargaController extends ApiController
             ->when($request->string('dipakai')->toString(), fn ($q, $d) => $d === 'belum'
                 ? $q->whereDoesntHave('biaya')
                 : $q->whereHas('biaya'))
-            ->orderBy('provinsi')->orderBy('kategori')->orderBy('nama')
+            /*
+             | Harga yang dimatikan tidak punya kolom sendiri di layar, jadi
+             | tanpa saringan ini satu-satunya cara menemukannya adalah
+             | memelototi daftar sampai ketemu baris yang pudar.
+             |
+             | Bawaannya tetap MEMUAT SEMUANYA. Menyembunyikan yang mati
+             | secara diam-diam menukar satu keluhan dengan keluhan yang
+             | lebih buruk — "harga saya hilang" — dan barisnya memang sudah
+             | ditandai pudar berikut lencana MATI.
+             */
+            ->when($request->string('status')->toString(), fn ($q, $s) => match ($s) {
+                'aktif' => $q->where('aktif', true),
+                'mati' => $q->where('aktif', false),
+                'kedaluwarsa' => $q->kedaluwarsa(),
+                default => $q,
+            })
+            ->tap(fn ($q) => $this->urutkan($q, $request->string('urut')->toString()))
             ->paginate($this->perHalaman($request));
 
         return $this->halamanDipeta(
             $daftar,
             fn () => $daftar->getCollection()->map(fn (MasterHarga $m) => $this->baris($m))->all(),
-            ['kosakata' => $this->kosakata()],
+            ['kosakata' => $this->kosakata(), 'ringkas' => $this->ringkas()],
         );
+    }
+
+    /**
+     * Urutan daftar.
+     *
+     * Bawaannya mengelompokkan: provinsi, lalu kategori, lalu nama — supaya
+     * harga sejenis berdekatan. Yang lain menjawab satu pertanyaan masing
+     * masing, dan karena itu diberi nama menurut pertanyaannya.
+     */
+    private function urutkan(Builder $q, string $urut): void
+    {
+        match ($urut) {
+            'termahal' => $q->orderByDesc('harga'),
+            'termurah' => $q->orderBy('harga'),
+            'terbaru' => $q->orderByDesc('updated_at'),
+            // Yang paling lama tidak disentuh: calon harga basi.
+            'terlama' => $q->orderBy('updated_at'),
+            'tersering' => $q->orderByDesc('biaya_count'),
+            default => $q->orderBy('provinsi')->orderBy('kategori')->orderBy('nama'),
+        };
+    }
+
+    /**
+     * Angka yang sudah dihitung untuk PDF, kini ikut ke layar.
+     *
+     * Dihitung di atas SELURUH tabel, bukan di atas halaman yang sedang
+     * terlihat: "berapa yang belum punya vendor" yang hanya menghitung
+     * sepuluh baris pertama menjawab pertanyaan yang tidak ditanyakan.
+     */
+    private function ringkas(): array
+    {
+        return [
+            'jumlah' => MasterHarga::count(),
+            'dipakai' => MasterHarga::has('biaya')->count(),
+            'tanpa_vendor' => MasterHarga::whereNull('vendor_id')->count(),
+            'mati' => MasterHarga::where('aktif', false)->count(),
+            'kedaluwarsa' => MasterHarga::kedaluwarsa()->count(),
+        ];
     }
 
     public function store(Request $request): JsonResponse
@@ -80,6 +136,8 @@ class MasterHargaController extends ApiController
 
         $lama = $master->harga;
         $master->update($data);
+
+        $this->catatRiwayat($master, $lama, $request);
 
         $this->catat($request, 'ubah master harga', [
             'nama' => $master->nama, 'dari' => $lama, 'ke' => $master->harga,
@@ -125,6 +183,12 @@ class MasterHargaController extends ApiController
             ->when($request->string('dipakai')->toString(), fn ($q, $d) => $d === 'belum'
                 ? $q->whereDoesntHave('biaya')
                 : $q->whereHas('biaya'))
+            ->when($request->string('status')->toString(), fn ($q, $s) => match ($s) {
+                'aktif' => $q->where('aktif', true),
+                'mati' => $q->where('aktif', false),
+                'kedaluwarsa' => $q->kedaluwarsa(),
+                default => $q,
+            })
             ->orderBy('kategori')->orderBy('nama')
             ->get();
 
@@ -137,6 +201,12 @@ class MasterHargaController extends ApiController
             'Pemakaian:' => $request->string('dipakai')->toString() === 'belum'
                 ? 'belum pernah dipakai'
                 : ($request->string('dipakai')->toString() ? 'sudah dipakai' : ''),
+            'Status:' => match ($request->string('status')->toString()) {
+                'aktif' => 'hanya yang aktif',
+                'mati' => 'hanya yang dimatikan',
+                'kedaluwarsa' => 'hanya yang masa berlakunya lewat',
+                default => '',
+            },
         ]);
 
         $isi = Pdf::loadView('pdf.master-harga', [
@@ -207,6 +277,145 @@ class MasterHargaController extends ApiController
     }
 
     /** @return array<string, mixed> */
+    /**
+     * Menyimpan satu baris riwayat — hanya bila ANGKANYA berubah.
+     *
+     * Mengganti nama, vendor, atau catatan tidak meninggalkan jejak di
+     * sini. Riwayat yang penuh baris "harga tetap" tidak bisa dibaca, dan
+     * yang dicari orang saat membukanya selalu uangnya.
+     */
+    private function catatRiwayat(MasterHarga $master, int $hargaLama, Request $request, ?string $catatan = null): void
+    {
+        if ($master->harga === $hargaLama) {
+            return;
+        }
+
+        RiwayatHarga::create([
+            'master_harga_id' => $master->id,
+            'harga_lama' => $hargaLama,
+            'harga_baru' => $master->harga,
+            'oleh' => $request->attributes->get('admin_pemanggil'),
+            'catatan' => $catatan,
+        ]);
+    }
+
+    /**
+     * Riwayat satu harga: kapan berubah, dari berapa ke berapa, oleh siapa.
+     */
+    public function riwayat(MasterHarga $master): JsonResponse
+    {
+        return response()->json([
+            'data' => $master->riwayat->map(fn (RiwayatHarga $r) => [
+                'id' => $r->id,
+                'harga_lama' => RincianBiaya::rupiah($r->harga_lama),
+                'harga_baru' => RincianBiaya::rupiah($r->harga_baru),
+                'selisih' => ($r->selisih > 0 ? '+' : '-').RincianBiaya::rupiah(abs($r->selisih)),
+                'naik' => $r->selisih > 0,
+                'persen' => $r->persen,
+                'oleh' => $r->oleh,
+                'catatan' => $r->catatan,
+                'pada' => $r->created_at?->locale('id')->translatedFormat('j M Y, H:i'),
+                'pada_teks' => $r->created_at?->locale('id')->diffForHumans(),
+            ])->all(),
+            'meta' => ['nama' => $master->nama, 'harga_kini' => RincianBiaya::rupiah($master->harga)],
+        ]);
+    }
+
+    /**
+     * Satu perintah untuk banyak baris sekaligus.
+     *
+     * Kenaikan harga vendor datang serentak — seluruh armadanya naik di
+     * tanggal yang sama. Mengerjakannya satu per satu berarti membuka dan
+     * menyimpan belasan formulir, dan setiap formulir adalah satu
+     * kesempatan salah ketik.
+     *
+     * Yang dikembalikan BUKAN sekadar "berhasil": jumlah baris yang benar
+     * benar tersentuh ikut dipulangkan, supaya layar bisa mengatakan
+     * berapa yang berubah alih-alih menjanjikan sesuatu yang tidak terjadi.
+     */
+    public function massal(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'id' => ['required', 'array', 'min:1'],
+            'id.*' => ['integer'],
+            'aksi' => ['required', Rule::in(['matikan', 'hidupkan', 'hapus', 'naik', 'turun', 'vendor', 'berlaku'])],
+            // Hanya untuk aksi naik/turun. Dibatasi 90% supaya salah ketik
+            // satu angka nol tidak menghapus harga seisi kategori.
+            'persen' => ['nullable', 'numeric', 'min:0.1', 'max:90'],
+            'vendor_id' => ['nullable', 'integer', 'exists:tbl_vendor,id'],
+            'berlaku_sampai' => ['nullable', 'date'],
+        ]);
+
+        $daftar = MasterHarga::whereIn('id', $data['id'])->get();
+
+        if ($daftar->isEmpty()) {
+            return response()->json(['pesan' => 'Tidak ada harga yang cocok.'], 422);
+        }
+
+        if (in_array($data['aksi'], ['naik', 'turun'], true) && empty($data['persen'])) {
+            return response()->json(['pesan' => 'Berapa persen kenaikannya belum diisi.'], 422);
+        }
+
+        $tersentuh = 0;
+
+        foreach ($daftar as $m) {
+            $tersentuh += $this->terapkanMassal($m, $data, $request) ? 1 : 0;
+        }
+
+        $this->catat($request, 'ubah massal master harga', [
+            'aksi' => $data['aksi'], 'jumlah' => $tersentuh,
+        ]);
+
+        return response()->json([
+            'pesan' => $this->pesanMassal($data['aksi'], $tersentuh),
+            'jumlah' => $tersentuh,
+        ]);
+    }
+
+    /** Satu baris, satu aksi. Memulangkan true bila barisnya benar berubah. */
+    private function terapkanMassal(MasterHarga $m, array $data, Request $request): bool
+    {
+        if ($data['aksi'] === 'hapus') {
+            $m->delete();
+
+            return true;
+        }
+
+        if (in_array($data['aksi'], ['naik', 'turun'], true)) {
+            $lama = $m->harga;
+            $faktor = 1 + ($data['aksi'] === 'naik' ? 1 : -1) * ((float) $data['persen'] / 100);
+            // Dibulatkan ke ratusan rupiah: harga hasil perkalian persen
+            // seperti "Rp 60.500,25" tidak pernah ditawarkan vendor mana pun.
+            $m->harga = max(0, (int) (round($lama * $faktor / 100) * 100));
+            $m->save();
+            $this->catatRiwayat($m, $lama, $request, 'perubahan massal '.$data['persen'].'%');
+
+            return $m->harga !== $lama;
+        }
+
+        $m->update(match ($data['aksi']) {
+            'matikan' => ['aktif' => false],
+            'hidupkan' => ['aktif' => true],
+            'vendor' => ['vendor_id' => $data['vendor_id'] ?? null],
+            'berlaku' => ['berlaku_sampai' => $data['berlaku_sampai'] ?? null],
+        });
+
+        return true;
+    }
+
+    private function pesanMassal(string $aksi, int $jumlah): string
+    {
+        return match ($aksi) {
+            'matikan' => "{$jumlah} harga dimatikan. RAB yang sudah memakainya tidak berubah.",
+            'hidupkan' => "{$jumlah} harga dihidupkan lagi.",
+            'hapus' => "{$jumlah} harga dihapus. RAB yang sudah memakainya tidak berubah.",
+            'naik' => "{$jumlah} harga dinaikkan.",
+            'turun' => "{$jumlah} harga diturunkan.",
+            'vendor' => "{$jumlah} harga dipasangkan ke vendor.",
+            'berlaku' => "Masa berlaku {$jumlah} harga diperbarui.",
+        };
+    }
+
     private function periksa(Request $request): array
     {
         $data = $request->validate([
@@ -227,6 +436,8 @@ class MasterHargaController extends ApiController
              */
             'kapasitas' => ['nullable', 'integer', 'min:1', 'max:1000',
                 Rule::requiredIf(in_array($request->input('satuan'), ['unit_hari', 'kamar_malam'], true))],
+            // Kosong berarti "tidak ada batas", bukan "belum diisi".
+            'berlaku_sampai' => ['nullable', 'date'],
             'otomatis' => ['nullable', 'boolean'],
             'aktif' => ['nullable', 'boolean'],
             'catatan' => ['nullable', 'string', 'max:500'],
@@ -267,6 +478,9 @@ class MasterHargaController extends ApiController
             'otomatis' => $m->otomatis,
             'aktif' => $m->aktif,
             'catatan' => $m->catatan,
+            'berlaku_sampai' => $m->berlaku_sampai?->toDateString(),
+            'berlaku_sampai_teks' => $m->berlaku_sampai_teks,
+            'kedaluwarsa' => $m->kedaluwarsa,
             // Berapa baris biaya RAB yang berasal dari harga ini — menjawab
             // "menaikkan harga ini menyentuh berapa penawaran".
             'jumlah_rab' => (int) ($m->biaya_count ?? 0),

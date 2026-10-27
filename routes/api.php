@@ -209,7 +209,9 @@ Route::prefix('v1')
         // Sebelum /master-harga/{master}: rute berparameter yang terdaftar
         // lebih dulu menelan rute bernama.
         Route::get('/master-harga/pdf', [MasterHargaController::class, 'pdf']);
+        Route::post('/master-harga/massal', [MasterHargaController::class, 'massal']);
         Route::post('/master-harga', [MasterHargaController::class, 'store']);
+        Route::get('/master-harga/{master}/riwayat', [MasterHargaController::class, 'riwayat']);
         Route::patch('/master-harga/{master}', [MasterHargaController::class, 'update']);
         Route::delete('/master-harga/{master}', [MasterHargaController::class, 'destroy']);
 

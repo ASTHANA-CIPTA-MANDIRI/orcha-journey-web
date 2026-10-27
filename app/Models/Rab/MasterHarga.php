@@ -20,13 +20,14 @@ class MasterHarga extends Model
 
     protected $fillable = [
         'kategori', 'vendor_id', 'nama', 'provinsi', 'daerah', 'destinasi',
-        'satuan', 'harga', 'kapasitas', 'otomatis', 'aktif', 'catatan',
+        'satuan', 'harga', 'kapasitas', 'berlaku_sampai', 'otomatis', 'aktif', 'catatan',
     ];
 
     protected $casts = [
         'vendor_id' => 'integer',
         'harga' => 'integer',
         'kapasitas' => 'integer',
+        'berlaku_sampai' => 'date',
         'otomatis' => 'boolean',
         'aktif' => 'boolean',
     ];
@@ -41,6 +42,18 @@ class MasterHarga extends Model
     public function biaya(): HasMany
     {
         return $this->hasMany(RabBiaya::class, 'master_harga_id');
+    }
+
+    /**
+     * Tiap kali ANGKANYA berubah, terurut dari yang terbaru.
+     *
+     * Diurutkan menurut id, bukan created_at: beberapa perubahan dalam satu
+     * detik yang sama — misalnya kenaikan massal — punya created_at identik,
+     * dan urutannya jadi acak.
+     */
+    public function riwayat(): HasMany
+    {
+        return $this->hasMany(RiwayatHarga::class, 'master_harga_id')->orderByDesc('id');
     }
 
     /** Dari siapa harga ini dibeli; nomornya dibaca hidup dari sana. */
@@ -70,6 +83,28 @@ class MasterHarga extends Model
         return $q->where('aktif', true)->where(
             fn ($s) => $s->whereNull('provinsi')->orWhere('provinsi', $provinsi)
         );
+    }
+
+    /**
+     * Harga yang masa berlakunya sudah lewat.
+     *
+     * Yang tidak diisi tanggalnya TIDAK ikut: kosong berarti "tidak ada
+     * batas", bukan "sudah lewat". Memperlakukannya sebagai kedaluwarsa
+     * akan menandai hampir seluruh daftar dan membuat tandanya tak berarti.
+     */
+    public function scopeKedaluwarsa(Builder $q): Builder
+    {
+        return $q->whereNotNull('berlaku_sampai')->whereDate('berlaku_sampai', '<', now()->toDateString());
+    }
+
+    public function getKedaluwarsaAttribute(): bool
+    {
+        return $this->berlaku_sampai !== null && $this->berlaku_sampai->isBefore(now()->startOfDay());
+    }
+
+    public function getBerlakuSampaiTeksAttribute(): ?string
+    {
+        return $this->berlaku_sampai?->locale('id')->translatedFormat('j F Y');
     }
 
     public function getKategoriLabelAttribute(): string

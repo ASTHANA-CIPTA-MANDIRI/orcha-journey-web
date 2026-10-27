@@ -18,6 +18,7 @@
     $dipakai = $semua->filter(fn ($m) => ($m['jumlah_rab'] ?? 0) > 0)->count();
     $tanpaVendor = $semua->filter(fn ($m) => empty($m['vendor']))->count();
     $mati = $semua->where('aktif', false)->count();
+    $lewat = $semua->filter(fn ($m) => ! empty($m['kedaluwarsa']))->count();
 
     /*
      | Warna per kategori, sepasang dengan layar Master Harga di lemon.
@@ -57,7 +58,21 @@
             <div class="ubin-nilai">{{ $mati }}</div>
             <div class="ubin-ket">tidak muncul lagi saat membuat RAB</div>
         </div></td>
+        <td><div class="ubin-isi" style="border-top-color:{{ $lewat ? '#b42318' : '#15803d' }}">
+            <div class="ubin-label">Masa berlakunya lewat</div>
+            <div class="ubin-nilai" style="color:{{ $lewat ? '#b42318' : '#15803d' }}">{{ $lewat }}</div>
+            <div class="ubin-ket">{{ $lewat ? 'perlu ditanyakan ulang ke vendor' : 'tidak ada yang lewat' }}</div>
+        </div></td>
     </tr></table>
+@endsection
+
+@section('gaya')
+    /* Merah, bukan abu-abu seperti MATI: yang satu keputusan yang memang
+       diambil, yang satu tanggal yang terlewat tanpa ada yang tahu. */
+    .pil-lewat {
+        display: inline-block; background-color: #fee2e2; color: #b42318;
+        font-size: 7px; font-weight: bold; letter-spacing: .6px; padding: 1px 6px; margin-left: 5px;
+    }
 @endsection
 
 @section('isi')
@@ -91,11 +106,15 @@
                                 <div class="nama">
                                     {{ $aman($m['nama']) }}
                                     @unless ($m['aktif'])<span class="pil-mati">MATI</span>@endunless
+                                    @if (! empty($m['kedaluwarsa']))<span class="pil-lewat">LEWAT</span>@endif
                                 </div>
                                 @if (! empty($m['destinasi']))
                                     <div class="meta">Tiket untuk {{ $aman($m['destinasi']) }}</div>
                                 @elseif (! empty($m['catatan']))
                                     <div class="meta">{{ $aman($m['catatan']) }}</div>
+                                @endif
+                                @if (! empty($m['berlaku_sampai_teks']))
+                                    <div class="meta">Berlaku sampai {{ $m['berlaku_sampai_teks'] }}</div>
                                 @endif
                             </td>
                             {{-- Kosong berarti berlaku di provinsi mana saja, bukan
@@ -136,6 +155,10 @@
                 <tr>
                     <td class="kata">Kolom "Dibeli dari"</td>
                     <td>Nama vendor tempat kita membelinya. "belum ada" berarti harganya sudah dicatat, tetapi tidak ada nomor yang bisa dihubungi saat menyiapkan keberangkatan.</td>
+                </tr>
+                <tr>
+                    <td class="kata">Tanda LEWAT</td>
+                    <td>Tanggal berlakunya sudah terlampaui. Harganya masih dipakai apa adanya saat membuat RAB — tanda ini cuma mengingatkan untuk menanyakan ulang ke vendornya.</td>
                 </tr>
                 <tr>
                     <td class="kata">Tanda MATI</td>

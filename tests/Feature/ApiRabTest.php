@@ -1291,3 +1291,157 @@ test('PDF master harga terbentuk dan dikelompokkan per kategori', function () {
         ->and(substr_count($markah, 'class="pita"'))->toBe(2)
         ->and(substr_count($markah, 'class="pil-mati"'))->toBe(1);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Master harga: menemukan, mengurutkan, dan mengubah banyak sekaligus
+|--------------------------------------------------------------------------
+*/
+
+test('harga yang dimatikan bisa dicari, tanpa disembunyikan diam-diam', function () {
+    /*
+     | Layar tidak punya kolom status, jadi tanpa saringan ini harga mati
+     | hanya bisa ditemukan dengan memelototi daftar.
+     |
+     | Tetapi bawaannya tetap memuat semuanya: menyembunyikan yang mati
+     | secara diam-diam menukar satu keluhan dengan keluhan yang lebih
+     | buruk — "harga saya hilang".
+     */
+    masterUji(['nama' => 'Tiket hidup']);
+    masterUji(['nama' => 'Tiket mati', 'aktif' => false]);
+
+    $semua = $this->getJson('/api/v1/master-harga', kepalaRab())->json('data');
+    expect(collect($semua)->pluck('nama')->sort()->values()->all())->toBe(['Tiket hidup', 'Tiket mati']);
+
+    $mati = $this->getJson('/api/v1/master-harga?status=mati', kepalaRab())->json('data');
+    expect(collect($mati)->pluck('nama')->all())->toBe(['Tiket mati']);
+
+    $aktif = $this->getJson('/api/v1/master-harga?status=aktif', kepalaRab())->json('data');
+    expect(collect($aktif)->pluck('nama')->all())->toBe(['Tiket hidup']);
+});
+
+test('harga yang masa berlakunya lewat bisa disaring', function () {
+    /*
+     | Kosong berarti "tidak ada batas", bukan "sudah lewat" — kalau tidak,
+     | hampir seluruh daftar tertandai dan tandanya berhenti berarti.
+     */
+    masterUji(['nama' => 'Tanpa batas']);
+    masterUji(['nama' => 'Masih berlaku', 'berlaku_sampai' => now()->addMonth()->toDateString()]);
+    masterUji(['nama' => 'Sudah lewat', 'berlaku_sampai' => now()->subDay()->toDateString()]);
+
+    $lewat = $this->getJson('/api/v1/master-harga?status=kedaluwarsa', kepalaRab())->json('data');
+
+    expect(collect($lewat)->pluck('nama')->all())->toBe(['Sudah lewat'])
+        ->and($lewat[0]['kedaluwarsa'])->toBeTrue();
+});
+
+test('daftar bisa diurutkan menurut pertanyaan yang sedang ditanya', function () {
+    masterUji(['nama' => 'Murah', 'harga' => 10_000]);
+    masterUji(['nama' => 'Mahal', 'harga' => 900_000]);
+    masterUji(['nama' => 'Sedang', 'harga' => 100_000]);
+
+    $termahal = $this->getJson('/api/v1/master-harga?urut=termahal', kepalaRab())->json('data');
+    $termurah = $this->getJson('/api/v1/master-harga?urut=termurah', kepalaRab())->json('data');
+
+    expect(collect($termahal)->pluck('nama')->first())->toBe('Mahal')
+        ->and(collect($termurah)->pluck('nama')->first())->toBe('Murah');
+});
+
+test('ringkasan dihitung dari seluruh tabel, bukan halaman yang terlihat', function () {
+    /*
+     | "Berapa yang belum punya vendor" yang hanya menghitung sepuluh baris
+     | pertama menjawab pertanyaan yang tidak pernah ditanyakan.
+     */
+    foreach (range(1, 12) as $i) {
+        masterUji(['nama' => "Harga {$i}"]);
+    }
+    masterUji(['nama' => 'Mati', 'aktif' => false]);
+    masterUji(['nama' => 'Lewat', 'berlaku_sampai' => now()->subWeek()->toDateString()]);
+
+    $balasan = $this->getJson('/api/v1/master-harga?per_halaman=10', kepalaRab());
+
+    expect(count($balasan->json('data')))->toBe(10)
+        ->and($balasan->json('meta.ringkas.jumlah'))->toBe(14)
+        ->and($balasan->json('meta.ringkas.tanpa_vendor'))->toBe(14)
+        ->and($balasan->json('meta.ringkas.mati'))->toBe(1)
+        ->and($balasan->json('meta.ringkas.kedaluwarsa'))->toBe(1);
+});
+
+test('kenaikan massal membulatkan ke ratusan dan tercatat di riwayat', function () {
+    /*
+     | Kenaikan vendor datang serentak. Yang diperiksa di sini bukan
+     | perkaliannya saja, tetapi bahwa hasilnya angka yang benar-benar
+     | ditawarkan orang — bukan "Rp 60.500,25".
+     */
+    $a = masterUji(['nama' => 'Hiace', 'harga' => 1_100_000]);
+    $b = masterUji(['nama' => 'Elf', 'harga' => 777_777]);
+
+    $balasan = $this->postJson('/api/v1/master-harga/massal', [
+        'id' => [$a->id, $b->id], 'aksi' => 'naik', 'persen' => 10,
+    ], kepalaRab())->assertOk();
+
+    expect($balasan->json('jumlah'))->toBe(2)
+        ->and($a->fresh()->harga)->toBe(1_210_000)
+        // 777.777 × 1,1 = 855.554,7 → dibulatkan ke ratusan terdekat.
+        ->and($b->fresh()->harga)->toBe(855_600)
+        ->and($a->riwayat()->count())->toBe(1)
+        ->and($a->riwayat()->first()->harga_lama)->toBe(1_100_000);
+});
+
+test('persen yang kelewatan ditolak sebelum menyentuh satu baris pun', function () {
+    /*
+     | Satu angka nol kelebihan saat mengetik tidak boleh menghapus harga
+     | seisi kategori.
+     */
+    $m = masterUji(['harga' => 100_000]);
+
+    $this->postJson('/api/v1/master-harga/massal', [
+        'id' => [$m->id], 'aksi' => 'turun', 'persen' => 100,
+    ], kepalaRab())->assertStatus(422);
+
+    expect($m->fresh()->harga)->toBe(100_000);
+});
+
+test('mematikan massal tidak menyentuh RAB yang sudah memakainya', function () {
+    $m = masterUji();
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $m->id, 'jumlah' => 2,
+    ], kepalaRab());
+
+    $sebelum = RabBiaya::where('rab_id', $rab['id'])->get()->toArray();
+
+    $this->postJson('/api/v1/master-harga/massal', [
+        'id' => [$m->id], 'aksi' => 'matikan',
+    ], kepalaRab())->assertOk();
+
+    expect($m->fresh()->aktif)->toBeFalse()
+        ->and(RabBiaya::where('rab_id', $rab['id'])->get()->toArray())->toBe($sebelum);
+});
+
+test('riwayat hanya mencatat saat angkanya yang berubah', function () {
+    /*
+     | Riwayat yang penuh baris "harga tetap" tidak bisa dibaca, dan yang
+     | dicari orang saat membukanya selalu uangnya.
+     */
+    $m = masterUji(['harga' => 50_000]);
+
+    $kirim = fn (array $ubah) => $this->patchJson('/api/v1/master-harga/'.$m->id, array_merge([
+        'kategori' => 'tiket', 'nama' => 'Tiket Candi Prambanan',
+        'provinsi' => 'DI Yogyakarta', 'destinasi' => 'Candi Prambanan',
+        'satuan' => 'orang', 'harga' => 50_000,
+    ], $ubah), kepalaRab());
+
+    $kirim(['catatan' => 'ganti catatan saja'])->assertOk();
+    expect($m->riwayat()->count())->toBe(0);
+
+    $kirim(['harga' => 65_000])->assertOk();
+
+    $riwayat = $this->getJson("/api/v1/master-harga/{$m->id}/riwayat", kepalaRab())->assertOk();
+
+    expect($riwayat->json('data.0.harga_lama'))->toBe('Rp 50.000')
+        ->and($riwayat->json('data.0.harga_baru'))->toBe('Rp 65.000')
+        ->and($riwayat->json('data.0.naik'))->toBeTrue()
+        ->and($riwayat->json('data.0.persen'))->toEqual(30.0);
+});
