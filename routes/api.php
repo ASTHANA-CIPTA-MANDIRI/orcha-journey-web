@@ -206,6 +206,9 @@ Route::prefix('v1')
         Route::delete('/vendor/{vendor}', [VendorController::class, 'destroy']);
 
         Route::get('/master-harga', [MasterHargaController::class, 'index']);
+        // Sebelum /master-harga/{master}: rute berparameter yang terdaftar
+        // lebih dulu menelan rute bernama.
+        Route::get('/master-harga/pdf', [MasterHargaController::class, 'pdf']);
         Route::post('/master-harga', [MasterHargaController::class, 'store']);
         Route::patch('/master-harga/{master}', [MasterHargaController::class, 'update']);
         Route::delete('/master-harga/{master}', [MasterHargaController::class, 'destroy']);

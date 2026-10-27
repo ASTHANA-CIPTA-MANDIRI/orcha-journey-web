@@ -4,6 +4,7 @@ namespace App\Models\Rab;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Satu hal yang bisa dibayar dalam sebuah perjalanan, berikut cara
@@ -29,6 +30,18 @@ class MasterHarga extends Model
         'otomatis' => 'boolean',
         'aktif' => 'boolean',
     ];
+
+    /**
+     * Baris biaya RAB yang berasal dari harga ini.
+     *
+     * Dipakai menjawab "menaikkan harga ini menyentuh berapa penawaran" —
+     * pertanyaan yang selalu ada di kepala sebelum mengubah angka, dan
+     * selama ini dijawab dengan menebak.
+     */
+    public function biaya(): HasMany
+    {
+        return $this->hasMany(RabBiaya::class, 'master_harga_id');
+    }
 
     /** Dari siapa harga ini dibeli; nomornya dibaca hidup dari sana. */
     public function vendor()

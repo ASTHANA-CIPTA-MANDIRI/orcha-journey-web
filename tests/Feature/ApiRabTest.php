@@ -1156,3 +1156,138 @@ test('PDF vendor dikelompokkan per jenis dalam SATU tabel', function () {
         // Keterangan cara membacanya, satu baris per hal.
         ->and($markah)->toContain('Cara membaca daftar ini');
 });
+
+test('master harga menyebut berapa RAB memakainya', function () {
+    /*
+     | Pertanyaan yang selalu ada di kepala sebelum mengubah angka —
+     | "menaikkan harga ini menyentuh berapa penawaran" — dan selama ini
+     | dijawab dengan menebak.
+     */
+    $m = masterUji();
+    $lain = masterUji(['nama' => 'Tiket Borobudur', 'destinasi' => 'Candi Borobudur']);
+
+    $rab = buatRabLewatApi($this);
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id], kepalaRab())->assertOk();
+
+    $data = collect($this->getJson('/api/v1/master-harga', kepalaRab())->assertOk()->json('data'));
+
+    expect($data->firstWhere('id', $m->id)['jumlah_rab'])->toBe(1)
+        ->and($data->firstWhere('id', $lain->id)['jumlah_rab'])->toBe(0)
+        // Kapan terakhir diubah, dalam kalimat yang bisa dibaca langsung.
+        ->and($data->firstWhere('id', $m->id)['diubah_teks'])->toBeString();
+});
+
+test('harga yang belum pernah dipakai bisa disaring', function () {
+    // Daftar baris yang boleh dirapikan tanpa menyentuh penawaran mana pun.
+    $m = masterUji();
+    masterUji(['nama' => 'Tiket Borobudur', 'destinasi' => 'Candi Borobudur']);
+
+    $rab = buatRabLewatApi($this);
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id], kepalaRab())->assertOk();
+
+    $belum = $this->getJson('/api/v1/master-harga?dipakai=belum', kepalaRab())->assertOk()->json('data');
+    $sudah = $this->getJson('/api/v1/master-harga?dipakai=ya', kepalaRab())->assertOk()->json('data');
+
+    expect(collect($belum)->pluck('nama')->all())->toBe(['Tiket Borobudur'])
+        ->and(collect($sudah)->pluck('nama')->all())->toBe(['Tiket Candi Prambanan']);
+});
+
+test('harga kembar ditahan sebelum modalnya terhitung dua kali', function () {
+    /*
+     | Dua baris dengan destinasi yang sama di provinsi yang sama sama-sama
+     | ikut tertarik saat destinasinya dipilih di itinerary — dan modalnya
+     | terhitung dua kali tanpa satu pun tanda.
+     */
+    masterUji();   // Tiket Candi Prambanan, destinasi Candi Prambanan, DI Yogyakarta
+
+    $kembar = [
+        'kategori' => 'tiket', 'nama' => 'Tiket Prambanan (turis asing)',
+        'provinsi' => 'DI Yogyakarta', 'destinasi' => 'Candi Prambanan',
+        'satuan' => 'orang', 'harga' => 375_000,
+    ];
+
+    $this->postJson('/api/v1/master-harga', $kembar, kepalaRab())
+        ->assertStatus(422)
+        ->assertJsonPath('kembaran.nama', 'Tiket Candi Prambanan');
+
+    expect(MasterHarga::count())->toBe(1);
+
+    // Dua tiket Prambanan untuk domestik dan turis asing memang sah —
+    // tetapi dipaksa dengan sadar.
+    $this->postJson('/api/v1/master-harga?paksa=1', $kembar, kepalaRab())->assertCreated();
+
+    expect(MasterHarga::count())->toBe(2);
+});
+
+test('nama harga kembar di wilayah yang sama juga ditahan', function () {
+    // Dua baris bernama persis sama tidak bisa dibedakan admin mana pun
+    // saat memilihnya di RAB.
+    masterUji(['destinasi' => null]);
+
+    $this->postJson('/api/v1/master-harga', [
+        'kategori' => 'tiket', 'nama' => 'TIKET CANDI PRAMBANAN  ',
+        'provinsi' => 'DI Yogyakarta', 'satuan' => 'orang', 'harga' => 60_000,
+    ], kepalaRab())->assertStatus(422);
+
+    // Provinsi berbeda bukan kembaran: harga tiket memang berbeda per daerah.
+    $this->postJson('/api/v1/master-harga', [
+        'kategori' => 'tiket', 'nama' => 'Tiket Candi Prambanan',
+        'provinsi' => 'Jawa Tengah', 'satuan' => 'orang', 'harga' => 60_000,
+    ], kepalaRab())->assertCreated();
+});
+
+test('menyunting harga tidak dianggap kembaran dirinya sendiri', function () {
+    $m = masterUji();
+
+    $this->patchJson('/api/v1/master-harga/'.$m->id, [
+        'kategori' => 'tiket', 'nama' => 'Tiket Candi Prambanan',
+        'provinsi' => 'DI Yogyakarta', 'destinasi' => 'Candi Prambanan',
+        'satuan' => 'orang', 'harga' => 65_000,
+    ], kepalaRab())->assertOk();
+
+    expect($m->fresh()->harga)->toBe(65_000);
+});
+
+test('PDF master harga terbentuk dan dikelompokkan per kategori', function () {
+    masterUji();
+    masterUji(['nama' => 'Sewa Hiace', 'kategori' => 'transportasi', 'destinasi' => null,
+        'satuan' => 'unit_hari', 'harga' => 1_100_000, 'kapasitas' => 14]);
+
+    $balasan = $this->get('/api/v1/master-harga/pdf', kepalaRab())->assertOk();
+
+    expect($balasan->getContent())->toStartWith('%PDF');
+
+    /*
+     | Isinya diperiksa di markahnya, bukan di PDF jadi: dompdf memampatkan
+     | teksnya sehingga mencari kata di sana selalu "tidak ketemu".
+     */
+    $markah = view('pdf.master-harga', [
+        'baris' => [
+            ['id' => 1, 'nama' => 'Tiket Candi Prambanan', 'kategori_label' => 'Tiket & Retribusi',
+                'destinasi' => 'Candi Prambanan', 'provinsi' => 'DI Yogyakarta', 'catatan' => null,
+                'satuan_label' => 'per orang', 'kapasitas' => null, 'harga' => 50000,
+                'harga_teks' => 'Rp 50.000', 'vendor' => null, 'aktif' => true, 'jumlah_rab' => 2],
+            ['id' => 2, 'nama' => 'Sewa Hiace', 'kategori_label' => 'Transportasi',
+                'destinasi' => null, 'provinsi' => null, 'catatan' => null,
+                'satuan_label' => 'per unit per hari', 'kapasitas' => 14, 'harga' => 1100000,
+                'harga_teks' => 'Rp 1.100.000', 'vendor' => 'PO Sumber Jaya', 'aktif' => false, 'jumlah_rab' => 0],
+        ],
+        'saringan' => [],
+        'terbit' => '27 Oktober 2026, 09:00',
+        'kontak' => ['whatsapp' => null, 'instagram' => null, 'alamat' => 'Sleman'],
+        'logo' => null,
+    ])->render();
+
+    // Kerangkanya sama dengan PDF vendor — satu tata letak, bukan dua
+    // berkas yang kopnya sedikit berbeda.
+    expect($markah)->toContain('ORCHA <span>JOURNEY</span>')
+        ->and($markah)->toContain('Kantor Orcha Journey')
+        ->and($markah)->toContain('counter(page)')
+        // Isinya khas master harga.
+        ->and($markah)->toContain('JANGAN DIBAGIKAN — BERISI HARGA MODAL')
+        ->and($markah)->toContain('Tiket untuk Candi Prambanan')
+        ->and($markah)->toContain('Semua provinsi')
+        ->and($markah)->toContain('Belum ada vendornya')
+        ->and(substr_count($markah, 'class="pita"'))->toBe(2)
+        ->and(substr_count($markah, 'class="pil-mati"'))->toBe(1);
+});

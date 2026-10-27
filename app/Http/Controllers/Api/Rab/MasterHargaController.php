@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Rab;
 use App\Http\Controllers\Api\ApiController;
 use App\Models\Rab\MasterHarga;
 use App\Support\RincianBiaya;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -21,7 +22,7 @@ class MasterHargaController extends ApiController
     public function index(Request $request): JsonResponse
     {
         $daftar = MasterHarga::query()
-            ->with('vendor')
+            ->with('vendor')->withCount('biaya')
             ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
                 fn ($s) => $s->where('nama', 'like', "%{$cari}%")
                     ->orWhere('destinasi', 'like', "%{$cari}%")
@@ -39,6 +40,11 @@ class MasterHargaController extends ApiController
             ->when($request->string('provinsi')->toString(), fn ($q, $p) => $p === '-'
                 ? $q->whereNull('provinsi')
                 : $q->where('provinsi', $p))
+            // "belum" = belum pernah masuk ke satu pun RAB: daftar baris yang
+            // boleh dirapikan tanpa menyentuh penawaran mana pun.
+            ->when($request->string('dipakai')->toString(), fn ($q, $d) => $d === 'belum'
+                ? $q->whereDoesntHave('biaya')
+                : $q->whereHas('biaya'))
             ->orderBy('provinsi')->orderBy('kategori')->orderBy('nama')
             ->paginate($this->perHalaman($request));
 
@@ -51,7 +57,13 @@ class MasterHargaController extends ApiController
 
     public function store(Request $request): JsonResponse
     {
-        $m = MasterHarga::create($this->periksa($request))->load('vendor');
+        $data = $this->periksa($request);
+
+        if ($bentrok = $this->kembaran($data, null, $request)) {
+            return $bentrok;
+        }
+
+        $m = MasterHarga::create($data)->load('vendor')->loadCount('biaya');
 
         $this->catat($request, 'tambah master harga', ['nama' => $m->nama, 'harga' => $m->harga]);
 
@@ -60,14 +72,20 @@ class MasterHargaController extends ApiController
 
     public function update(MasterHarga $master, Request $request): JsonResponse
     {
+        $data = $this->periksa($request);
+
+        if ($bentrok = $this->kembaran($data, $master->id, $request)) {
+            return $bentrok;
+        }
+
         $lama = $master->harga;
-        $master->update($this->periksa($request));
+        $master->update($data);
 
         $this->catat($request, 'ubah master harga', [
             'nama' => $master->nama, 'dari' => $lama, 'ke' => $master->harga,
         ]);
 
-        return response()->json(['data' => $this->baris($master->fresh()->load('vendor')), 'pesan' => 'Harga diperbarui.']);
+        return response()->json(['data' => $this->baris($master->fresh()->load('vendor')->loadCount('biaya')), 'pesan' => 'Harga diperbarui.']);
     }
 
     public function destroy(MasterHarga $master, Request $request): JsonResponse
@@ -79,6 +97,113 @@ class MasterHargaController extends ApiController
         $master->delete();
 
         return response()->json(['pesan' => 'Harga dihapus. RAB yang sudah memakainya tidak berubah.']);
+    }
+
+    /**
+     * Daftar harga sebagai PDF, mengikuti saringan yang sedang dipakai.
+     *
+     * Tanpa halaman, dan saringannya ikut tercetak — sama alasannya dengan
+     * PDF vendor: berkas yang isinya sebagian tanpa menyebutkan sebagiannya
+     * apa terbaca sebagai daftar lengkap yang ternyata bukan.
+     */
+    public function pdf(Request $request)
+    {
+        $daftar = MasterHarga::query()->with('vendor')->withCount('biaya')
+            ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
+                fn ($s) => $s->where('nama', 'like', "%{$cari}%")
+                    ->orWhere('destinasi', 'like', "%{$cari}%")
+                    ->orWhere('daerah', 'like', "%{$cari}%")
+                    ->orWhereHas('vendor', fn ($v) => $v->where('nama', 'like', "%{$cari}%"))
+            ))
+            ->when($request->string('kategori')->toString(), fn ($q, $k) => $q->where('kategori', $k))
+            ->when($request->string('provinsi')->toString(), fn ($q, $p) => $p === '-'
+                ? $q->whereNull('provinsi')
+                : $q->where('provinsi', $p))
+            ->when($request->string('vendor')->toString(), fn ($q, $v) => $v === '-'
+                ? $q->whereNull('vendor_id')
+                : $q->where('vendor_id', (int) $v))
+            ->when($request->string('dipakai')->toString(), fn ($q, $d) => $d === 'belum'
+                ? $q->whereDoesntHave('biaya')
+                : $q->whereHas('biaya'))
+            ->orderBy('kategori')->orderBy('nama')
+            ->get();
+
+        $saringan = array_filter([
+            'Kata kunci:' => $request->string('cari')->toString(),
+            'Kategori:' => config('orcha.rab.kategori.'.$request->string('kategori')->toString()) ?? '',
+            'Wilayah:' => $request->string('provinsi')->toString() === '-'
+                ? 'berlaku umum'
+                : $request->string('provinsi')->toString(),
+            'Pemakaian:' => $request->string('dipakai')->toString() === 'belum'
+                ? 'belum pernah dipakai'
+                : ($request->string('dipakai')->toString() ? 'sudah dipakai' : ''),
+        ]);
+
+        $isi = Pdf::loadView('pdf.master-harga', [
+            'baris' => $daftar->map(fn (MasterHarga $m) => $this->baris($m))->all(),
+            'saringan' => $saringan,
+            'terbit' => now()->locale('id')->translatedFormat('j F Y, H:i'),
+            'kontak' => [
+                'whatsapp' => config('orcha.whatsapp'),
+                'instagram' => config('orcha.instagram'),
+                'alamat' => config('orcha.alamat'),
+            ],
+            'logo' => file_exists(public_path('orcha-logo-surat.png')) ? public_path('orcha-logo-surat.png') : null,
+        ])->setPaper('a4')->output();
+
+        return response($isi, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="master-harga-orcha-'.now()->format('Ymd-Hi').'.pdf"',
+        ]);
+    }
+
+    /**
+     * Harga kembar yang akan terhitung DUA KALI.
+     *
+     * Dua baris dengan destinasi yang sama di provinsi yang sama sama-sama
+     * ikut tertarik saat destinasinya dipilih di itinerary — dan modalnya
+     * terhitung dua kali tanpa satu pun tanda. Kesalahan yang baru ketahuan
+     * saat penawarannya kemahalan dan tidak ada yang tahu sebabnya.
+     *
+     * Ditahan, bukan ditolak selamanya: dua tiket Prambanan untuk domestik
+     * dan turis asing memang sah, dan yang membedakannya cuma namanya. Jadi
+     * dipaksa dengan sadar lewat ?paksa=1.
+     *
+     * Nama kembar di provinsi yang sama juga ditahan — dua baris bernama
+     * persis sama tidak bisa dibedakan admin mana pun saat memilihnya di
+     * RAB.
+     */
+    private function kembaran(array $data, ?int $kecuali, Request $request): ?JsonResponse
+    {
+        if ($request->boolean('paksa')) {
+            return null;
+        }
+
+        $rapi = fn ($t) => mb_strtolower(trim((string) $t));
+
+        $sama = MasterHarga::query()
+            ->when($kecuali, fn ($q, $id) => $q->where('id', '!=', $id))
+            ->where(fn ($q) => $data['provinsi'] === null
+                ? $q->whereNull('provinsi')
+                : $q->where('provinsi', $data['provinsi']))
+            ->where(fn ($q) => $q
+                ->whereRaw('LOWER(TRIM(nama)) = ?', [$rapi($data['nama'])])
+                ->when($data['destinasi'] ?? null, fn ($w, $d) => $w
+                    ->orWhereRaw('LOWER(TRIM(destinasi)) = ?', [$rapi($d)])))
+            ->first();
+
+        if (! $sama) {
+            return null;
+        }
+
+        $sebab = $rapi($sama->nama) === $rapi($data['nama'])
+            ? "Sudah ada harga bernama \"{$sama->nama}\" di wilayah yang sama."
+            : "Sudah ada harga untuk destinasi \"{$sama->destinasi}\" di wilayah yang sama: \"{$sama->nama}\". Keduanya akan sama-sama ikut tertarik ke RAB, dan modalnya terhitung dua kali.";
+
+        return response()->json([
+            'pesan' => $sebab.' Beri nama yang membedakan keduanya, atau simpan paksa bila memang dua harga yang berbeda.',
+            'kembaran' => ['id' => $sama->id, 'nama' => $sama->nama, 'harga_teks' => RincianBiaya::rupiah($sama->harga)],
+        ], 422);
     }
 
     /** @return array<string, mixed> */
@@ -142,7 +267,11 @@ class MasterHargaController extends ApiController
             'otomatis' => $m->otomatis,
             'aktif' => $m->aktif,
             'catatan' => $m->catatan,
+            // Berapa baris biaya RAB yang berasal dari harga ini — menjawab
+            // "menaikkan harga ini menyentuh berapa penawaran".
+            'jumlah_rab' => (int) ($m->biaya_count ?? 0),
             'diubah_pada' => $m->updated_at?->toIso8601String(),
+            'diubah_teks' => $m->updated_at?->locale('id')->diffForHumans(),
         ];
     }
 
