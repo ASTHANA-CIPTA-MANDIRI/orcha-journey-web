@@ -10,6 +10,7 @@ use App\Models\Rab\MasterHarga;
 use App\Models\Rab\Rab;
 use App\Models\Rab\RabBiaya;
 use App\Models\Rab\RabItinerary;
+use App\Models\Rab\RiwayatHarga;
 use App\Models\Rab\Vendor;
 use App\Models\Rab\VersiPenawaran;
 use App\Support\Rab\BerkasRab;
@@ -543,11 +544,82 @@ class RabController extends ApiController
                 'harga_satuan' => ['sometimes', 'integer', 'min:0', 'max:1000000000'],
                 'jumlah' => ['sometimes', 'integer', 'min:1', 'max:100'],
                 'kapasitas' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:1000'],
+                'catatan' => ['sometimes', 'nullable', 'string', 'max:200'],
             ]);
             $biaya->update($data);
         }
 
         return response()->json(['data' => $this->bentuk($rab->fresh()), 'pesan' => 'Biaya diperbarui.']);
+    }
+
+    /**
+     * Membawa harga temuan tim PULANG ke master harga.
+     *
+     * Kebalikan dari "pakai harga master". Harga di RAB dibekukan dan boleh
+     * disunting, jadi tim yang menemukan hotel lebih murah tinggal
+     * menimpanya — tetapi selama ini temuan itu mati di satu penawaran, dan
+     * RAB berikutnya menarik harga lama. Negosiasi yang sama diulang bulan
+     * depan oleh orang yang tidak tahu bahwa jawabannya sudah pernah
+     * ditemukan.
+     *
+     * SENGAJA tindakan tersendiri, tidak otomatis: harga yang disunting
+     * untuk satu rombongan belum tentu harga yang berlaku umum. Rombongan 40
+     * orang mendapat tarif yang tidak akan diberikan kepada rombongan 8
+     * orang, dan menyalinnya diam-diam ke master membuat seluruh penawaran
+     * berikutnya rugi tanpa ada yang menyadari.
+     *
+     * Riwayatnya ikut tercatat lewat jalur yang sama dengan layar Master
+     * Harga, berikut asal-usulnya: kode RAB ini.
+     */
+    public function keMaster(Rab $rab, RabBiaya $biaya, Request $request): JsonResponse
+    {
+        abort_unless((int) $biaya->rab_id === (int) $rab->id, 404);
+
+        if (! $biaya->master) {
+            return response()->json([
+                'pesan' => 'Baris ini tidak berasal dari master harga, jadi tidak ada yang bisa diperbarui. Tambahkan dulu sebagai harga baru di Master Harga.',
+            ], 422);
+        }
+
+        $hargaLama = (int) $biaya->master->harga;
+        $hargaBaru = (int) $biaya->harga_satuan;
+
+        if ($hargaLama === $hargaBaru) {
+            return response()->json([
+                'pesan' => 'Harga master sudah sama dengan harga di baris ini — tidak ada yang perlu disimpan.',
+            ], 422);
+        }
+
+        $data = $request->validate([
+            'catatan' => ['sometimes', 'nullable', 'string', 'max:200'],
+        ]);
+
+        $biaya->master->update(['harga' => $hargaBaru]);
+
+        RiwayatHarga::rekam(
+            $biaya->master->fresh(),
+            $hargaLama,
+            $request->attributes->get('admin_pemanggil'),
+            // Asal-usulnya disebut walau admin tidak menulis apa-apa: riwayat
+            // yang tidak bisa ditelusuri kembali ke penawarannya adalah angka
+            // yang berubah tanpa sebab.
+            trim(($data['catatan'] ?? $biaya->catatan ?? '').' (dari RAB '.$rab->kode.')'),
+        );
+
+        $this->catat($request, 'harga master dari rab', [
+            'kode' => $rab->kode,
+            'master_harga_id' => $biaya->master_harga_id,
+            'harga_lama' => $hargaLama,
+            'harga_baru' => $hargaBaru,
+        ]);
+
+        $arah = $hargaBaru < $hargaLama ? 'turun' : 'naik';
+
+        return response()->json([
+            'data' => $this->bentuk($rab->fresh()),
+            'pesan' => 'Master harga "'.$biaya->master->nama.'" '.$arah.' jadi '
+                .RincianBiaya::rupiah($hargaBaru).'. RAB berikutnya memakai angka ini.',
+        ]);
     }
 
     /**
@@ -908,6 +980,10 @@ class RabController extends ApiController
             'margin_jenis' => ['sometimes', Rule::in(array_keys(config('orcha.rab.margin_jenis')))],
             'margin_nilai' => ['sometimes', 'integer', 'min:0', 'max:1000000000'],
             'pembulatan' => ['sometimes', 'integer', Rule::in([1, 100, 500, 1000, 5000, 10000])],
+            // Nol dan null sama-sama berarti "tidak ada kesepakatan" —
+            // harganya kembali dihitung dari modal + margin.
+            'harga_nego' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000000000'],
+            'alasan_nego' => ['sometimes', 'nullable', 'string', 'max:200'],
             'catatan' => ['nullable', 'string', 'max:3000'],
             'catatan_penawaran' => ['nullable', 'string', 'max:3000'],
             'status' => ['sometimes', Rule::in(array_keys(config('orcha.rab.status')))],
@@ -957,6 +1033,8 @@ class RabController extends ApiController
             'margin_jenis' => $rab->margin_jenis,
             'margin_nilai' => $rab->margin_nilai,
             'pembulatan' => $rab->pembulatan,
+            'harga_nego' => $rab->harga_nego,
+            'alasan_nego' => $rab->alasan_nego,
             'status' => $rab->status,
             'status_label' => $rab->status_label,
             'jenis' => $rab->jenis,

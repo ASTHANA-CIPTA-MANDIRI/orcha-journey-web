@@ -17,7 +17,7 @@ class RabBiaya extends Model
 
     protected $fillable = [
         'rab_id', 'master_harga_id', 'vendor_id', 'kategori', 'nama', 'satuan',
-        'harga_satuan', 'kapasitas', 'jumlah', 'urutan',
+        'harga_satuan', 'kapasitas', 'jumlah', 'urutan', 'catatan',
     ];
 
     protected $casts = [

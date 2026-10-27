@@ -3,6 +3,7 @@
 namespace App\Models\Rab;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 /**
@@ -21,7 +22,7 @@ class Rab extends Model
         'kode', 'judul', 'nama_pelanggan', 'whatsapp', 'email',
         'provinsi', 'jenis', 'daerah', 'tanggal_mulai', 'jumlah_hari', 'jumlah_malam',
         'jumlah_peserta', 'peserta_minimum', 'harga_dasar',
-        'margin_jenis', 'margin_nilai', 'pembulatan',
+        'margin_jenis', 'margin_nilai', 'pembulatan', 'harga_nego', 'alasan_nego',
         'catatan', 'catatan_penawaran', 'status', 'berlaku_sampai',
         'kode_pendaftaran', 'dibuat_oleh',
     ];
@@ -61,6 +62,7 @@ class Rab extends Model
         'peserta_minimum' => 'integer',
         'margin_nilai' => 'integer',
         'pembulatan' => 'integer',
+        'harga_nego' => 'integer',
     ];
 
     protected static function booted(): void
@@ -110,7 +112,7 @@ class Rab extends Model
      * Trip 3 hari yang berangkat tanggal 10 pulang tanggal 12, bukan 13:
      * hari keberangkatan ikut terhitung.
      */
-    public function getTanggalPulangAttribute(): ?\Illuminate\Support\Carbon
+    public function getTanggalPulangAttribute(): ?Carbon
     {
         return $this->tanggal_mulai?->copy()->addDays(max(1, (int) $this->jumlah_hari) - 1);
     }

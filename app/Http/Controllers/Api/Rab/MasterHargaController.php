@@ -285,18 +285,13 @@ class MasterHargaController extends ApiController
      */
     private function catatRiwayat(MasterHarga $master, int $hargaLama, Request $request, ?string $catatan = null, ?BatchMassal $batch = null): void
     {
-        if ($master->harga === $hargaLama) {
-            return;
-        }
-
-        RiwayatHarga::create([
-            'master_harga_id' => $master->id,
-            'batch_id' => $batch?->id,
-            'harga_lama' => $hargaLama,
-            'harga_baru' => $master->harga,
-            'oleh' => $request->attributes->get('admin_pemanggil'),
-            'catatan' => $catatan,
-        ]);
+        RiwayatHarga::rekam(
+            $master,
+            $hargaLama,
+            $request->attributes->get('admin_pemanggil'),
+            $catatan,
+            $batch?->id,
+        );
     }
 
     /**

@@ -30,6 +30,37 @@ class RiwayatHarga extends Model
         return $this->belongsTo(MasterHarga::class, 'master_harga_id');
     }
 
+    /**
+     * Satu-satunya tempat riwayat harga ditulis.
+     *
+     * Dua jalur menaikkan harga master — layar Master Harga dan temuan tim
+     * yang dibawa pulang dari sebuah RAB. Dua tempat yang menulis riwayat
+     * hal yang sama akan berselisih begitu salah satunya diubah, dan
+     * riwayat yang berselisih lebih buruk daripada tidak ada riwayat.
+     *
+     * Tidak mencatat apa pun bila angkanya tidak berubah.
+     */
+    public static function rekam(
+        MasterHarga $master,
+        int $hargaLama,
+        ?string $oleh = null,
+        ?string $catatan = null,
+        ?int $batchId = null,
+    ): void {
+        if ((int) $master->harga === $hargaLama) {
+            return;
+        }
+
+        self::create([
+            'master_harga_id' => $master->id,
+            'batch_id' => $batchId,
+            'harga_lama' => $hargaLama,
+            'harga_baru' => (int) $master->harga,
+            'oleh' => $oleh,
+            'catatan' => $catatan,
+        ]);
+    }
+
     /** Selisihnya, bertanda: positif berarti naik. */
     public function getSelisihAttribute(): int
     {

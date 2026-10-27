@@ -232,6 +232,7 @@ Route::prefix('v1')
         Route::post('/rab/{rab}/biaya', [RabController::class, 'tambahBiaya']);
         Route::patch('/rab/{rab}/biaya/{biaya}', [RabController::class, 'ubahBiaya']);
         Route::delete('/rab/{rab}/biaya/{biaya}', [RabController::class, 'hapusBiaya']);
+        Route::post('/rab/{rab}/biaya/{biaya}/ke-master', [RabController::class, 'keMaster']);
         Route::post('/rab/{rab}/biaya/urutkan', [RabController::class, 'urutkanBiaya']);
         Route::post('/rab/{rab}/tarik-biaya', [RabController::class, 'tarikBiaya']);
         Route::get('/rab/{rab}/pdf', [RabController::class, 'pdf']);

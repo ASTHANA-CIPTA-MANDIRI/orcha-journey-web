@@ -1901,3 +1901,123 @@ test('kunjungan ikut dibuang hanya bila memang diminta', function () {
     // Kunjungan berdestinasi itu hilang; kegiatan tanpa destinasi tetap.
     expect($sisa)->toBe(['Acara bebas']);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Negosiasi & temuan harga
+|--------------------------------------------------------------------------
+*/
+
+test('harga yang disepakati disimpan lewat kepala RAB', function () {
+    $rab = buatRabLewatApi($this);
+
+    $data = $this->patchJson("/api/v1/rab/{$rab['id']}", [
+        'harga_nego' => 1_150_000,
+        'alasan_nego' => 'Pelanggan lama, rombongan ketiga tahun ini',
+    ], kepalaRab())->assertOk()->json('data');
+
+    expect($data['harga_nego'])->toBe(1150000)
+        ->and($data['alasan_nego'])->toBe('Pelanggan lama, rombongan ketiga tahun ini')
+        ->and($data['ringkasan']['harga_per_orang'])->toBe(1150000)
+        ->and($data['ringkasan']['nego_aktif'])->toBeTrue();
+});
+
+test('mengosongkan harga nego mengembalikan harga hitungan', function () {
+    $rab = buatRabLewatApi($this, ['jumlah_peserta' => 10, 'margin_nilai' => 20]);
+    $master = masterUji(['harga' => 100_000, 'satuan' => 'orang']);
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $master->id,
+    ], kepalaRab())->assertOk();
+
+    $this->patchJson("/api/v1/rab/{$rab['id']}", ['harga_nego' => 90_000], kepalaRab())->assertOk();
+
+    $data = $this->patchJson("/api/v1/rab/{$rab['id']}", ['harga_nego' => null], kepalaRab())
+        ->assertOk()->json('data');
+
+    expect($data['ringkasan']['nego_aktif'])->toBeFalse()
+        ->and($data['ringkasan']['harga_per_orang'])->toBe(120_000);
+});
+
+test('harga temuan tim bisa dibawa pulang ke master harga', function () {
+    $master = masterUji(['nama' => 'Hotel Malioboro', 'kategori' => 'akomodasi', 'satuan' => 'kamar_malam', 'harga' => 520_000]);
+    $rab = buatRabLewatApi($this);
+    $biaya = $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $master->id, 'kapasitas' => 4,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    // Tim menemukan tarif yang lebih murah dan menyuntingnya di RAB.
+    $this->patchJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya['id']}", [
+        'harga_satuan' => 450_000,
+        'catatan' => 'Hasil nego langsung, berlaku low season',
+    ], kepalaRab())->assertOk();
+
+    // Master harga BELUM berubah: menyuntingnya di satu RAB bukan keputusan
+    // untuk seluruh kantor.
+    expect($master->fresh()->harga)->toBe(520_000);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya['id']}/ke-master", [], kepalaRab())
+        ->assertOk()
+        ->assertJsonPath('data.ringkasan.baris.0.harga_master_kini', null);
+
+    expect($master->fresh()->harga)->toBe(450_000);
+
+    // Riwayatnya menyebut asal-usulnya, supaya angka ini bisa ditelusuri.
+    $riwayat = RiwayatHarga::where('master_harga_id', $master->id)->latest('id')->first();
+    expect($riwayat->harga_lama)->toBe(520_000)
+        ->and($riwayat->harga_baru)->toBe(450_000)
+        ->and($riwayat->catatan)->toContain($rab['kode']);
+});
+
+test('baris menyebut selisihnya terhadap master, berikut arahnya', function () {
+    $master = masterUji(['harga' => 100_000]);
+    $rab = buatRabLewatApi($this);
+    $biaya = $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $master->id,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    $baris = $this->patchJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya['id']}", [
+        'harga_satuan' => 80_000,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    // Negatif = baris ini lebih murah daripada master.
+    expect($baris['selisih_master'])->toBe(-20_000)
+        ->and($baris['harga_master_kini'])->toBe(100_000);
+});
+
+test('baris tanpa master tidak bisa disimpan ke master', function () {
+    $rab = buatRabLewatApi($this);
+    $biaya = $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'kategori' => 'lainnya', 'nama' => 'Parkir bus', 'satuan' => 'rombongan', 'harga_satuan' => 50_000,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya['id']}/ke-master", [], kepalaRab())
+        ->assertStatus(422)
+        ->assertJsonPath('pesan', fn ($p) => str_contains($p, 'tidak berasal dari master harga'));
+});
+
+test('harga master yang sudah sama tidak ditulis ulang ke riwayat', function () {
+    $master = masterUji(['harga' => 100_000]);
+    $rab = buatRabLewatApi($this);
+    $biaya = $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $master->id,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    // Riwayat yang penuh baris "harga tetap" tidak bisa dibaca.
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya['id']}/ke-master", [], kepalaRab())
+        ->assertStatus(422);
+
+    expect(RiwayatHarga::where('master_harga_id', $master->id)->count())->toBe(0);
+});
+
+test('baris milik RAB lain tidak bisa disimpan ke master lewat RAB ini', function () {
+    $master = masterUji(['harga' => 100_000]);
+    $punyaOrangLain = buatRabLewatApi($this, ['judul' => 'Private Trip Bromo']);
+    $biaya = $this->postJson("/api/v1/rab/{$punyaOrangLain['id']}/biaya", [
+        'master_harga_id' => $master->id,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya['id']}/ke-master", [], kepalaRab())
+        ->assertNotFound();
+});

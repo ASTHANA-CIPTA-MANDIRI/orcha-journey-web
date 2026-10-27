@@ -239,6 +239,15 @@ class HitungRab
                 'harga_master_kini' => $b->master && (int) $b->master->harga !== (int) $b->harga_satuan
                     ? (int) $b->master->harga
                     : null,
+                /*
+                 | Selisihnya BERTANDA: negatif berarti baris ini lebih murah
+                 | daripada master. Arahnya yang menentukan tawaran mana yang
+                 | masuk akal — lebih mahal berarti harga master sudah usang
+                 | di RAB ini, lebih murah berarti tim menemukan sesuatu yang
+                 | layak dibawa pulang ke master.
+                 */
+                'selisih_master' => $b->master ? (int) $b->harga_satuan - (int) $b->master->harga : null,
+                'catatan' => $b->catatan,
             ];
         })
             /*
@@ -283,9 +292,37 @@ class HitungRab
         // Dibulatkan KE ATAS: margin boleh sedikit bertambah karena
         // pembulatan, tetapi tidak boleh berkurang diam-diam di bawah yang
         // diminta admin.
-        $hargaPerOrang = (int) (ceil(($modalDasar + $marginDiminta) / $pesertaDasar / $bulat) * $bulat);
+        $hargaAsli = (int) (ceil(($modalDasar + $marginDiminta) / $pesertaDasar / $bulat) * $bulat);
+
+        /*
+         | Harga yang DISEPAKATI menang atas harga yang dihitung.
+         |
+         | Saat pelanggan menawar, yang diketahui admin adalah angkanya —
+         | bukan margin berapa persen yang kebetulan menghasilkan angka itu.
+         | Jadi arahnya dibalik: harga nego dipakai apa adanya, TANPA
+         | dibulatkan (angka hasil kesepakatan tidak boleh digeser sistem),
+         | dan untungnya menjadi hasil hitungan, bukan sebabnya.
+         |
+         | Nego yang membuat rugi TIDAK ditolak di sini. Kadang memang itu
+         | keputusannya — menutup kerugian lewat trip lain, atau menjaga
+         | pelanggan lama. Yang wajib adalah angkanya terlihat, dan itu
+         | tugas 'nego_rugi' serta 'harga_batas' di bawah.
+         */
+        $negoAktif = $rab->harga_nego !== null && (int) $rab->harga_nego > 0;
+        $hargaPerOrang = $negoAktif ? (int) $rab->harga_nego : $hargaAsli;
         $hargaTotal = $hargaPerOrang * $peserta;
         $untung = $hargaTotal - $modal;
+
+        /*
+         | Harga per orang terendah yang masih belum rugi.
+         |
+         | Dihitung atas jumlah DASAR, sama seperti harga jualnya: pada open
+         | trip yang perlu dijaga adalah keadaan saat hanya peserta minimum
+         | yang datang, bukan saat targetnya tercapai. Dibulatkan ke atas,
+         | karena membulatkan ke bawah menghasilkan batas yang justru sudah
+         | rugi beberapa ratus rupiah.
+         */
+        $hargaBatas = (int) (ceil($modalDasar / $pesertaDasar / $bulat) * $bulat);
 
         /*
          | Pemecahan untuk pendaftaran, dirakit supaya modal totalnya SAMA
@@ -336,6 +373,12 @@ class HitungRab
             'margin_diminta' => $marginDiminta,
             'harga_per_orang' => $hargaPerOrang,
             'harga_total' => $hargaTotal,
+            // Harga yang SEHARUSNYA, sebelum kesepakatan. Tetap dikirim walau
+            // tidak ada nego: layar memakainya untuk memperlihatkan berapa
+            // yang dilepas, dan tanpanya potongan itu tidak punya pembanding.
+            'harga_asli' => $hargaAsli,
+            'harga_batas' => $hargaBatas,
+            'nego_selisih' => $hargaPerOrang - $hargaAsli,
             'untung' => $untung,
             'untung_per_orang' => (int) floor($untung / $peserta),
             'sumbangan_per_orang' => $sumbanganPerOrang,
@@ -357,6 +400,10 @@ class HitungRab
                 'biaya_tetap' => $biayaTetap,
             ],
             'ada_harga_basi' => $baris->contains(fn ($b) => $b['harga_master_kini'] !== null),
+            'nego_aktif' => $negoAktif,
+            'alasan_nego' => $rab->alasan_nego,
+            // Kesepakatan yang sudah di bawah modal. Bukan larangan — tanda.
+            'nego_rugi' => $untung < 0,
         ] + collect($angka)->mapWithKeys(fn ($v, $k) => [$k.'_teks' => RincianBiaya::rupiah($v)])->all();
     }
 }

@@ -319,7 +319,16 @@
                     <tr><td>Modal tetap rombongan</td><td class="kanan">{{ $r['modal_tetap_teks'] }}</td></tr>
                     <tr class="garis"><td><b>Modal total</b></td><td class="kanan"><b>{{ $r['modal_total_teks'] }}</b></td></tr>
                     <tr><td>Margin diminta ({{ $marginTeks }})</td><td class="kanan">{{ $r['margin_diminta_teks'] }}</td></tr>
-                    @if ($selisihBulat > 0)
+                    {{-- Saat harganya disepakati, margin berhenti jadi SEBAB
+                         harga dan jadi sekadar titik tolak. Tanpa dua baris
+                         ini tabelnya melompat dari margin ke harga total yang
+                         tidak cocok dengannya, dan pembacanya mengira salah
+                         hitung. --}}
+                    @if ($r['nego_aktif'])
+                        <tr><td>Harga hitungan / orang</td><td class="kanan">{{ $r['harga_asli_teks'] }}</td></tr>
+                        <tr><td>Disepakati / orang</td><td class="kanan">{{ $r['harga_per_orang_teks'] }}</td></tr>
+                        <tr><td>Selisih kesepakatan / orang</td><td class="kanan">{{ $rp($r['nego_selisih']) }}</td></tr>
+                    @elseif ($selisihBulat > 0)
                         <tr><td>Tambahan dari pembulatan</td><td class="kanan">{{ $rp($selisihBulat) }}</td></tr>
                     @endif
                     <tr class="besar"><td>Harga total</td><td class="kanan">{{ $r['harga_total_teks'] }}</td></tr>
@@ -345,6 +354,19 @@
             @endif
         </td>
     </tr></table>
+
+    @if ($r['nego_aktif'])
+        <div class="{{ $r['nego_rugi'] ? 'peringatan' : 'catatan' }}">
+            <b>Harga disepakati:</b> {{ $r['harga_per_orang_teks'] }} per orang
+            (hitungan {{ $r['harga_asli_teks'] }}, selisih {{ $rp($r['nego_selisih']) }}).
+            @if ($rab->alasan_nego) Alasan: {{ $aman($rab->alasan_nego) }}. @endif
+            @if ($r['nego_rugi'])
+                Harga ini DI BAWAH modal — trip ini rugi {{ $rp(abs($r['untung'])) }}.
+            @else
+                Batas aman {{ $r['harga_batas_teks'] }} per orang.
+            @endif
+        </div>
+    @endif
 
     @if ($rab->catatan)
         <div class="catatan"><b>Catatan internal:</b> {!! nl2br(e($aman($rab->catatan))) !!}</div>
