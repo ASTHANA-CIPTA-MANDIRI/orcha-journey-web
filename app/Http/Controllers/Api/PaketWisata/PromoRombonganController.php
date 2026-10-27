@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\PaketWisata;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Models\PaketWisata\PromoRombonganTingkat;
+use App\Support\SaranPromoRombongan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -30,6 +31,21 @@ class PromoRombonganController extends ApiController
                 'aktif' => $t->aktif,
             ])->all(),
         ]);
+    }
+
+    /**
+     * Batas aman potongan untuk sebuah tingkat.
+     *
+     * Angka promo selama ini ditebak — "lima persen terdengar wajar". Yang
+     * dipulangkan di sini batasnya, bukan keputusannya: admin tetap boleh
+     * memilih angka lain, yang tidak boleh adalah memilih tanpa tahu
+     * akibatnya.
+     */
+    public function saran(Request $request): JsonResponse
+    {
+        $request->validate(['min_peserta' => ['required', 'integer', 'min:2', 'max:100']]);
+
+        return response()->json(['data' => SaranPromoRombongan::untuk($request->integer('min_peserta'))]);
     }
 
     public function store(Request $request): JsonResponse
@@ -110,7 +126,64 @@ class PromoRombonganController extends ApiController
             abort(422, 'Tingkat ini tidak memberi potongan maupun orang gratis, jadi tidak mengubah harga apa pun.');
         }
 
+        $this->tolakBilaLebihMahal($data, $kecuali);
+
         return $data;
+    }
+
+    /**
+     * Menolak tingkat yang justru menaikkan tagihan.
+     *
+     * Tingkat TIDAK bertumpuk — yang berlaku satu saja, yang paling tinggi
+     * syaratnya. Akibatnya tingkat baru bisa diam-diam lebih mahal daripada
+     * tingkat di bawahnya: "ajak 10 rekan, gratis 1 orang" yang potongan
+     * persennya nol mencabut potongan 5% milik tingkat 6, dan rombongan
+     * yang menambah satu orang justru membayar lebih banyak.
+     *
+     * Cacatnya tidak terlihat dari layar mana pun: tiap tingkat benar
+     * sendiri-sendiri, dan yang salah cuma urutannya. Yang menemukannya
+     * pelanggan, saat menghitung sendiri.
+     */
+    private function tolakBilaLebihMahal(array $data, ?int $kecuali): void
+    {
+        $n = (int) $data['min_peserta'];
+
+        // Harga satu kursi tidak penting di sini — yang dibandingkan
+        // bentuknya, jadi dipakai angka bulat mana pun.
+        $satuan = 1_000_000;
+
+        $hitung = fn (int $orang, int $gratis, int $persen) => $satuan * max(1, $orang - $gratis)
+            - (int) round($satuan * $persen / 100);
+
+        $diBawah = PromoRombonganTingkat::query()
+            ->where('aktif', true)
+            ->when($kecuali, fn ($q) => $q->where('id', '!=', $kecuali))
+            ->where('min_peserta', '<', $n)
+            ->orderByDesc('min_peserta')
+            ->first();
+
+        if (! $diBawah) {
+            return;
+        }
+
+        /*
+         | Yang dibandingkan DUA UKURAN ROMBONGAN yang bersebelahan, bukan
+         | dua tingkat pada ukuran yang sama.
+         |
+         | Jurangnya muncul tepat di batas: rombongan n-1 orang masih memakai
+         | tingkat di bawah, rombongan n orang sudah memakai tingkat ini.
+         | Kalau yang n orang membayar lebih banyak, menambah satu orang
+         | justru menaikkan tagihan — dan orang itu "gratis".
+         */
+        $sebelum = $hitung($n - 1, $diBawah->gratis_orang, $diBawah->potongan_persen);
+        $sesudah = $hitung($n, (int) $data['gratis_orang'], (int) $data['potongan_persen']);
+
+        if ($sesudah > $sebelum) {
+            abort(422, 'Tingkat ini justru lebih mahal: rombongan '.($n - 1).' orang membayar lebih sedikit '
+                .'daripada rombongan '.$n.' orang, jadi menambah satu orang malah menaikkan tagihan. '
+                .'Tingkat tidak bertumpuk, jadi potongan tingkat di bawahnya ikut hilang: '
+                .'tambahkan potongan persennya juga, atau turunkan syaratnya.');
+        }
     }
 
     /**

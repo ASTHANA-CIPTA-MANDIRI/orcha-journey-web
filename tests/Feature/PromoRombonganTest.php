@@ -4,6 +4,7 @@ use App\Models\PaketWisata\PromoRombonganTingkat;
 use App\Models\PaketWisata\TravelPackage;
 use App\Support\PromoRombongan;
 use App\Support\RincianBiaya;
+use App\Support\SaranPromoRombongan;
 use Livewire\Volt\Volt;
 
 /**
@@ -385,4 +386,119 @@ test('tingkat dua orang tidak pernah menyuruh mengajak nol rekan', function () {
     $t = PromoRombonganTingkat::create(['min_peserta' => 2, 'potongan_persen' => 3]);
 
     expect($t->label)->toBe('Ajak 1 rekan — potongan 3% untuk pemesan');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Saran batas aman: berapa potongan yang masih menyisakan untung
+|--------------------------------------------------------------------------
+*/
+
+test('saran dihitung dari paket bermargin PALING TIPIS yang ikut promo', function () {
+    /*
+     | Tingkatnya berlaku untuk semua paket, jadi yang aman bagi paket
+     | tertipis aman bagi seluruhnya. Memakai rata-rata akan membuat paket
+     | rapuh membiayai kemurahan hati paket yang tebal.
+     */
+    TravelPackage::create([
+        'name' => 'Paket tebal', 'category' => 'open_trip', 'status' => 'terbit',
+        'price' => 1_000_000, 'harga_modal' => 400_000, 'promo_rombongan' => true,
+    ]);
+
+    $tipis = TravelPackage::create([
+        'name' => 'Paket tipis', 'category' => 'open_trip', 'status' => 'terbit',
+        'price' => 1_000_000, 'harga_modal' => 900_000, 'promo_rombongan' => true,
+    ]);
+
+    // Tidak ikut promo — tidak boleh jadi penentu meski marginnya paling tipis.
+    TravelPackage::create([
+        'name' => 'Di luar promo', 'category' => 'open_trip', 'status' => 'terbit',
+        'price' => 1_000_000, 'harga_modal' => 990_000, 'promo_rombongan' => false,
+    ]);
+
+    $saran = SaranPromoRombongan::untuk(6);
+
+    expect($saran['paket'])->toBe($tipis->name)
+        ->and($saran['margin_per_orang'])->toBe(100_000)
+        // Lima rekan × Rp 100.000 = Rp 500.000 untung tambahan.
+        ->and($saran['untung_tambahan'])->toBe(500_000)
+        // Batas: di atas 50% dari satu kursi, rombongannya tidak menambah apa pun.
+        ->and($saran['persen_maksimal'])->toBe(50)
+        // Saran: separuh dari untung tambahan, dibulatkan ke kelipatan lima.
+        ->and($saran['persen_saran'])->toBe(25);
+});
+
+test('gratis satu orang hanya disarankan bila untung tambahannya memang cukup', function () {
+    /*
+     | Menggratiskan satu orang berarti kehilangan satu harga jual PENUH,
+     | sementara orangnya tetap makan dan menempati kursi.
+     */
+    TravelPackage::create([
+        'name' => 'Margin tipis', 'category' => 'open_trip', 'status' => 'terbit',
+        'price' => 1_000_000, 'harga_modal' => 900_000, 'promo_rombongan' => true,
+    ]);
+
+    // Sepuluh rekan × Rp 100.000 = Rp 1.000.000; separuhnya Rp 500.000,
+    // sedangkan satu kursi Rp 1.000.000 — belum cukup.
+    expect(SaranPromoRombongan::untuk(11)['gratis_aman'])->toBeFalse();
+
+    // Lima puluh rekan × Rp 100.000 = Rp 5.000.000; separuhnya Rp 2.500.000.
+    $besar = SaranPromoRombongan::untuk(51);
+
+    expect($besar['gratis_aman'])->toBeTrue()
+        ->and($besar['untung_sesudah_gratis'])->toBe(4_000_000);
+});
+
+test('tanpa paket ikut promo yang modalnya terisi, sarannya mengaku tidak bisa menghitung', function () {
+    /*
+     | Menebak angka lalu menampilkannya sebagai "saran sistem" jauh lebih
+     | buruk daripada mengatakan tidak tahu.
+     */
+    TravelPackage::create([
+        'name' => 'Tanpa modal', 'category' => 'open_trip', 'status' => 'terbit',
+        'price' => 1_000_000, 'harga_modal' => null, 'promo_rombongan' => true,
+    ]);
+
+    $saran = SaranPromoRombongan::untuk(6);
+
+    expect($saran['bisa_dihitung'])->toBeFalse()
+        ->and($saran['sebab'])->toContain('modalnya terisi');
+});
+
+test('tingkat yang justru lebih mahal daripada tingkat di bawahnya ditolak', function () {
+    /*
+     | Tingkat TIDAK bertumpuk. "Ajak 10 rekan, gratis 1 orang" yang persennya
+     | nol mencabut potongan 5% milik tingkat 6 — dan rombongan yang menambah
+     | satu orang justru membayar lebih banyak. Tiap tingkat benar
+     | sendiri-sendiri; yang salah cuma urutannya.
+     */
+    PromoRombonganTingkat::updateOrCreate(
+        ['min_peserta' => 6],
+        ['potongan_persen' => 5, 'gratis_orang' => 0, 'aktif' => true]
+    );
+    PromoRombonganTingkat::where('min_peserta', '>', 6)->delete();
+
+    $this->postJson('/api/v1/promo-rombongan', [
+        'min_peserta' => 11, 'potongan_persen' => 0, 'gratis_orang' => 1,
+    ], kepalaPromo())->assertStatus(422)
+        ->assertJsonPath('message', fn ($p) => str_contains($p, '10 orang membayar lebih sedikit')
+            && str_contains($p, 'tidak bertumpuk'));
+
+    // Dengan potongannya ikut dibawa, tingkatnya diterima.
+    $this->postJson('/api/v1/promo-rombongan', [
+        'min_peserta' => 11, 'potongan_persen' => 5, 'gratis_orang' => 1,
+    ], kepalaPromo())->assertCreated();
+});
+
+test('endpoint saran memulangkan angka yang sama dengan penghitungnya', function () {
+    TravelPackage::create([
+        'name' => 'Paket uji', 'category' => 'open_trip', 'status' => 'terbit',
+        'price' => 1_000_000, 'harga_modal' => 900_000, 'promo_rombongan' => true,
+    ]);
+
+    $balasan = $this->getJson('/api/v1/promo-rombongan/saran?min_peserta=6', kepalaPromo())->assertOk();
+
+    expect($balasan->json('data.persen_saran'))->toBe(25)
+        ->and($balasan->json('data.jumlah_rekan'))->toBe(5)
+        ->and($balasan->json('data.alasan'))->toContain('Paket uji');
 });

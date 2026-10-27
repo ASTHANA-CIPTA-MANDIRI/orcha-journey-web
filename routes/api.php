@@ -336,6 +336,9 @@ Route::prefix('v1')
         Route::delete('/daftar-tunggu/{tunggu:id}', [DaftarTungguController::class, 'destroy']);
 
         Route::get('/promo-rombongan', [PromoRombonganController::class, 'index']);
+        // Sebelum /{tingkat:id}: rute bernama yang terdaftar belakangan akan
+        // ditelan pola berparameter di atasnya.
+        Route::get('/promo-rombongan/saran', [PromoRombonganController::class, 'saran']);
         Route::post('/promo-rombongan', [PromoRombonganController::class, 'store']);
         Route::match(['put', 'post'], '/promo-rombongan/{tingkat:id}', [PromoRombonganController::class, 'update']);
         Route::delete('/promo-rombongan/{tingkat:id}', [PromoRombonganController::class, 'destroy']);
