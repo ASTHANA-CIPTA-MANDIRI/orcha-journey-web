@@ -443,7 +443,52 @@ class RabController extends ApiController
             }
         });
 
-        return response()->json(['data' => $this->bentuk($rab->fresh()), 'pesan' => 'Itinerary disimpan.']);
+        $dibuang = $this->buangTiketYatim($rab->fresh());
+
+        return response()->json([
+            'data' => $this->bentuk($rab->fresh()),
+            'pesan' => $dibuang === []
+                ? 'Itinerary disimpan.'
+                : 'Itinerary disimpan. Tiket '.implode(', ', $dibuang).' ikut dibuang karena tempatnya tidak lagi dikunjungi.',
+            'tiket_dibuang' => $dibuang,
+        ]);
+    }
+
+    /**
+     * Membuang baris tiket yang destinasinya tidak ada lagi di itinerary.
+     *
+     * Menghapus kunjungan tanpa membuang tiketnya membuat RAB tetap
+     * membayar tempat yang tidak didatangi — dan angkanya tetap terlihat
+     * masuk akal, jadi tidak ada yang memeriksanya. Tiketnya tertarik
+     * sendiri dari itinerary; sudah selayaknya ia juga pergi sendiri.
+     *
+     * Yang dibuang HANYA baris yang berasal dari master harga dengan
+     * destinasi — biaya manual, armada, hotel, dan biaya wajib provinsi
+     * tidak pernah disentuh. Itu keputusan admin, bukan turunan itinerary.
+     *
+     * @return array<int, string> nama baris yang dibuang
+     */
+    private function buangTiketYatim(Rab $rab): array
+    {
+        $kunci = fn ($teks) => mb_strtolower(trim((string) $teks));
+
+        $masihDikunjungi = $rab->itinerary()->whereNotNull('destinasi')
+            ->pluck('destinasi')->map($kunci)->filter()->flip();
+
+        $dibuang = [];
+
+        foreach ($rab->biaya()->with('master')->get() as $biaya) {
+            $destinasi = $biaya->master?->destinasi;
+
+            if (! $destinasi || $masihDikunjungi->has($kunci($destinasi))) {
+                continue;
+            }
+
+            $dibuang[] = $biaya->nama;
+            $biaya->delete();
+        }
+
+        return $dibuang;
     }
 
     /**
@@ -505,12 +550,44 @@ class RabController extends ApiController
         return response()->json(['data' => $this->bentuk($rab->fresh()), 'pesan' => 'Biaya diperbarui.']);
     }
 
-    public function hapusBiaya(Rab $rab, RabBiaya $biaya): JsonResponse
+    public function hapusBiaya(Rab $rab, RabBiaya $biaya, Request $request): JsonResponse
     {
         abort_unless((int) $biaya->rab_id === (int) $rab->id, 404);
+
+        /*
+         | Arah sebaliknya: tiket yang dihapus sementara tempatnya MASIH ada
+         | di itinerary akan tertarik lagi pada "Tarik ulang" berikutnya —
+         | penghapusan yang hidup lagi tanpa ada yang menyadarinya.
+         |
+         | Itinerary TIDAK diubah diam-diam: ia rencana yang dibaca
+         | pelanggan, dan membuang kunjungan karena tiketnya dihapus adalah
+         | akibat yang jauh lebih besar daripada sebabnya. Jadi yang
+         | dipulangkan keterangannya, dan layar yang menawarkan pilihan.
+         */
+        $destinasi = $biaya->master?->destinasi;
+        $masihDiItinerary = $destinasi && $rab->itinerary()
+            ->whereRaw('LOWER(TRIM(destinasi)) = ?', [mb_strtolower(trim($destinasi))])
+            ->exists();
+
         $biaya->delete();
 
-        return response()->json(['data' => $this->bentuk($rab->fresh()), 'pesan' => 'Biaya dihapus.']);
+        // Diminta sekalian: kunjungannya ikut dibuang dari itinerary.
+        if ($masihDiItinerary && $request->boolean('sekalian_itinerary')) {
+            $rab->itinerary()
+                ->whereRaw('LOWER(TRIM(destinasi)) = ?', [mb_strtolower(trim($destinasi))])
+                ->delete();
+
+            return response()->json([
+                'data' => $this->bentuk($rab->fresh()),
+                'pesan' => "Biaya dihapus, dan kunjungan ke {$destinasi} ikut dibuang dari itinerary.",
+            ]);
+        }
+
+        return response()->json([
+            'data' => $this->bentuk($rab->fresh()),
+            'pesan' => 'Biaya dihapus.',
+            'destinasi_tertinggal' => $masihDiItinerary ? $destinasi : null,
+        ]);
     }
 
     /**
@@ -549,15 +626,20 @@ class RabController extends ApiController
             ->get();
 
         $ditambah = $this->tambahkanDariMaster($rab, $calon);
+        $dibuang = $this->buangTiketYatim($rab->fresh());
 
         $punyaTiket = $calon->map(fn ($m) => $kunci($m->destinasi))->filter()->flip();
         $tanpaTiket = $destinasi->reject(fn ($d) => $punyaTiket->has($kunci($d)))->values();
 
         return response()->json([
             'data' => $this->bentuk($rab->fresh()),
-            'pesan' => $ditambah > 0
-                ? "{$ditambah} biaya ditarik dari itinerary."
-                : 'Tidak ada biaya baru — semuanya sudah ada di RAB.',
+            'pesan' => match (true) {
+                $ditambah > 0 && $dibuang !== [] => "{$ditambah} biaya ditarik, ".count($dibuang).' tiket yatim dibuang.',
+                $ditambah > 0 => "{$ditambah} biaya ditarik dari itinerary.",
+                $dibuang !== [] => count($dibuang).' tiket dibuang karena tempatnya tidak lagi dikunjungi.',
+                default => 'Tidak ada biaya baru — semuanya sudah ada di RAB.',
+            },
+            'tiket_dibuang' => $dibuang,
             // Disebut satu per satu: destinasi tanpa harga tiket di master
             // bukan kesalahan sistem, melainkan data yang belum diisi — dan
             // admin perlu tahu yang mana.

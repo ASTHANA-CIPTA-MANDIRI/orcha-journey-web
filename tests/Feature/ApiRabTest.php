@@ -5,6 +5,7 @@ use App\Models\PaketWisata\TravelPackage;
 use App\Models\Rab\MasterHarga;
 use App\Models\Rab\Rab;
 use App\Models\Rab\RabBiaya;
+use App\Models\Rab\RabItinerary;
 use App\Models\Rab\RiwayatHarga;
 use App\Models\Rab\Vendor;
 use App\Models\Rab\VersiPenawaran;
@@ -1786,4 +1787,117 @@ test('ringkasan daftar RAB dihitung dari seluruh tabel', function () {
 
     expect($meta['dikirim'])->toBe(2)
         ->and($meta['kedaluwarsa'])->toBe(1);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Itinerary ↔ rincian biaya: tertarik sendiri, pergi sendiri
+|--------------------------------------------------------------------------
+*/
+
+test('tiket ikut terbuang saat destinasinya dihapus dari itinerary', function () {
+    /*
+     | Tiketnya tertarik sendiri dari itinerary; sudah selayaknya ia juga
+     | pergi sendiri. Menghapus kunjungan tanpa membuang tiketnya membuat
+     | RAB tetap membayar tempat yang tidak didatangi — dan angkanya tetap
+     | terlihat masuk akal, jadi tidak ada yang memeriksanya.
+     */
+    masterUji(['nama' => 'Tiket Prambanan', 'destinasi' => 'Candi Prambanan', 'harga' => 50_000]);
+    masterUji(['nama' => 'Tiket Borobudur', 'destinasi' => 'Candi Borobudur', 'harga' => 60_000]);
+
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Candi Prambanan', 'destinasi' => 'Candi Prambanan'],
+        ['hari_ke' => 1, 'nama' => 'Candi Borobudur', 'destinasi' => 'Candi Borobudur'],
+    ]], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/tarik-biaya", [], kepalaRab())->assertOk();
+
+    expect(RabBiaya::where('rab_id', $rab['id'])->count())->toBe(2);
+
+    // Borobudur dicoret dari itinerary.
+    $balasan = $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Candi Prambanan', 'destinasi' => 'Candi Prambanan'],
+    ]], kepalaRab())->assertOk();
+
+    $sisa = RabBiaya::where('rab_id', $rab['id'])->pluck('nama')->all();
+
+    expect($sisa)->toBe(['Tiket Prambanan'])
+        ->and($balasan->json('tiket_dibuang'))->toBe(['Tiket Borobudur'])
+        ->and($balasan->json('pesan'))->toContain('tidak lagi dikunjungi');
+});
+
+test('biaya manual dan biaya wajib tidak pernah ikut terbuang', function () {
+    /*
+     | Itu keputusan admin, bukan turunan itinerary. Membuangnya karena
+     | itinerary berubah adalah kehilangan yang tidak pernah diminta.
+     */
+    masterUji(['nama' => 'Parkir wajib', 'destinasi' => null, 'otomatis' => true, 'harga' => 20_000]);
+
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Jalan-jalan', 'destinasi' => null],
+    ]], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/tarik-biaya", [], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'kategori' => 'lainnya', 'nama' => 'Sewa perahu', 'satuan' => 'rombongan',
+        'harga_satuan' => 300_000,
+    ], kepalaRab())->assertOk();
+
+    // Itinerary dikosongkan sama sekali.
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => []], kepalaRab())->assertOk();
+
+    $sisa = RabBiaya::where('rab_id', $rab['id'])->pluck('nama')->sort()->values()->all();
+
+    expect($sisa)->toBe(['Parkir wajib', 'Sewa perahu']);
+});
+
+test('menghapus tiket yang tempatnya masih dikunjungi memberi tahu, bukan mengubah itinerary', function () {
+    /*
+     | Itinerary adalah rencana yang dibaca pelanggan. Membuang kunjungan
+     | karena tiketnya dihapus adalah akibat yang jauh lebih besar
+     | daripada sebabnya — jadi yang dipulangkan keterangannya.
+     */
+    masterUji(['nama' => 'Tiket Prambanan', 'destinasi' => 'Candi Prambanan', 'harga' => 50_000]);
+
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Candi Prambanan', 'destinasi' => 'Candi Prambanan'],
+    ]], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/tarik-biaya", [], kepalaRab())->assertOk();
+
+    $biaya = RabBiaya::where('rab_id', $rab['id'])->first();
+
+    $balasan = $this->deleteJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya->id}", [], kepalaRab())->assertOk();
+
+    expect($balasan->json('destinasi_tertinggal'))->toBe('Candi Prambanan')
+        ->and(RabItinerary::where('rab_id', $rab['id'])->count())->toBe(1);
+});
+
+test('kunjungan ikut dibuang hanya bila memang diminta', function () {
+    masterUji(['nama' => 'Tiket Prambanan', 'destinasi' => 'Candi Prambanan', 'harga' => 50_000]);
+
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Candi Prambanan', 'destinasi' => 'Candi Prambanan'],
+        ['hari_ke' => 2, 'nama' => 'Acara bebas', 'destinasi' => null],
+    ]], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/tarik-biaya", [], kepalaRab())->assertOk();
+
+    $biaya = RabBiaya::where('rab_id', $rab['id'])->first();
+
+    $this->deleteJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya->id}?sekalian_itinerary=1", [], kepalaRab())->assertOk();
+
+    $sisa = RabItinerary::where('rab_id', $rab['id'])->pluck('nama')->all();
+
+    // Kunjungan berdestinasi itu hilang; kegiatan tanpa destinasi tetap.
+    expect($sisa)->toBe(['Acara bebas']);
 });
