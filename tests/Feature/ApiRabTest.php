@@ -1107,3 +1107,48 @@ test('PDF vendor tanpa hasil tetap terbentuk dan mengatakannya', function () {
 
     expect($markah)->toContain('Tidak ada vendor yang cocok dengan saringannya.');
 });
+
+test('PDF vendor dikelompokkan per jenis dalam SATU tabel', function () {
+    /*
+     | Enam tabel bertumpuk berarti kepala kolom terulang enam kali — "VENDOR
+     | WILAYAH KONTAK HARGA" yang sama dibaca berulang-ulang, dan yang
+     | membedakan kelompoknya justru tenggelam di antaranya.
+     */
+    $markah = view('pdf.vendor', [
+        'baris' => [
+            ['id' => 1, 'nama' => 'PO Sumber Jaya', 'kontak' => '0812', 'jenis' => 'Armada',
+                'provinsi' => null, 'catatan' => null, 'aktif' => true, 'jumlah_harga' => 3],
+            ['id' => 2, 'nama' => 'Hotel Mawar', 'kontak' => '0274', 'jenis' => 'Akomodasi',
+                'provinsi' => null, 'catatan' => null, 'aktif' => true, 'jumlah_harga' => 1],
+            ['id' => 3, 'nama' => 'Jip Lama', 'kontak' => null, 'jenis' => null,
+                'provinsi' => null, 'catatan' => null, 'aktif' => false, 'jumlah_harga' => 0],
+        ],
+        'saringan' => [],
+        'terbit' => '27 Oktober 2026, 09:00',
+        'kontak' => ['whatsapp' => null, 'instagram' => null, 'alamat' => 'Sleman'],
+        'logo' => null,
+    ])->render();
+
+    // Satu kepala kolom saja, berapa pun kelompoknya.
+    expect(substr_count($markah, '<thead>'))->toBe(1)
+        ->and(substr_count($markah, 'class="pita"'))->toBe(3)
+        // Yang belum berjenis di AKHIR: ia bukan kategori, melainkan yang
+        // belum sempat dikategorikan.
+        ->and(strpos($markah, 'Belum berjenis'))->toBeGreaterThan(strpos($markah, 'Armada'));
+
+    /*
+     | Hanya yang MENYIMPANG yang ditandai. Kolom status berisi "AKTIF" di
+     | hampir setiap baris adalah satu kolom penuh yang tidak memberi tahu
+     | apa pun, dan yang satu-dua tidak aktif tenggelam di antaranya.
+     */
+    // Diperiksa lewat jumlah kolomnya, bukan lewat ada-tidaknya sebuah kata:
+    // komentar CSS ikut terkirim ke markahnya, dan kata yang dipakai
+    // menjelaskan aturan akan mencocoki pemeriksaan tentang aturan itu.
+    expect(substr_count($markah, '</th>'))->toBe(4)
+        ->and(substr_count($markah, 'class="pil-mati"'))->toBe(1);
+
+    // Empat ubin ringkasan, sebentuk dengan berkas itinerary.
+    expect(substr_count($markah, 'class="ubin-isi"'))->toBe(4)
+        ->and($markah)->toContain('Tanpa nomor')
+        ->and($markah)->toContain('perlu dilengkapi');
+});
