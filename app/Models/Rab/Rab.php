@@ -99,6 +99,22 @@ class Rab extends Model
         return $this->hasMany(RabBiaya::class)->orderBy('urutan')->orderBy('id');
     }
 
+    /**
+     * Tanggal pulang, DITURUNKAN dari tanggal berangkat dan jumlah hari.
+     *
+     * Tidak disimpan sebagai kolom sendiri. Dua kolom yang menjawab hal
+     * yang sama akan berselisih begitu salah satunya diubah lewat jalur
+     * lain — dan yang terbaca pelanggan di penawaran adalah yang salah,
+     * tanpa ada yang tahu mana yang benar.
+     *
+     * Trip 3 hari yang berangkat tanggal 10 pulang tanggal 12, bukan 13:
+     * hari keberangkatan ikut terhitung.
+     */
+    public function getTanggalPulangAttribute(): ?\Illuminate\Support\Carbon
+    {
+        return $this->tanggal_mulai?->copy()->addDays(max(1, (int) $this->jumlah_hari) - 1);
+    }
+
     public function getStatusLabelAttribute(): string
     {
         return config("orcha.rab.status.{$this->status}") ?? ucfirst($this->status);

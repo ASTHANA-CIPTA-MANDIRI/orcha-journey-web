@@ -948,6 +948,9 @@ class RabController extends ApiController
             'provinsi' => $rab->provinsi,
             'daerah' => $rab->daerah,
             'tanggal_mulai' => $rab->tanggal_mulai?->toDateString(),
+            // Diturunkan, bukan disimpan — lihat Rab::getTanggalPulangAttribute().
+            'tanggal_pulang' => $rab->tanggal_pulang?->toDateString(),
+            'tanggal_pulang_teks' => $rab->tanggal_pulang?->locale('id')->translatedFormat('j F Y'),
             'jumlah_hari' => $rab->jumlah_hari,
             'jumlah_malam' => $rab->jumlah_malam,
             'jumlah_peserta' => $rab->jumlah_peserta,
