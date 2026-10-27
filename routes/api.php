@@ -212,6 +212,8 @@ Route::prefix('v1')
         Route::post('/master-harga/massal', [MasterHargaController::class, 'massal']);
         Route::post('/master-harga/massal/{batch}/batal', [MasterHargaController::class, 'batalkanMassal']);
         Route::post('/master-harga/banyak', [MasterHargaController::class, 'banyak']);
+        Route::post('/master-harga/salin-provinsi', [MasterHargaController::class, 'salinProvinsi']);
+        Route::get('/master-harga/id-cocok', [MasterHargaController::class, 'idCocok']);
         Route::get('/master-harga/riwayat', [MasterHargaController::class, 'riwayatSemua']);
         Route::post('/master-harga', [MasterHargaController::class, 'store']);
         Route::get('/master-harga/{master}/riwayat', [MasterHargaController::class, 'riwayat']);

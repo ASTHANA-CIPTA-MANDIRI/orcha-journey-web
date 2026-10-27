@@ -23,17 +23,28 @@ use Illuminate\Validation\Rule;
  */
 class MasterHargaController extends ApiController
 {
-    public function index(Request $request): JsonResponse
+    /**
+     * Saringan daftar harga, dipakai bersama oleh daftar, PDF, dan
+     * "pilih semua yang cocok".
+     *
+     * Satu tempat, bukan tiga salinan: saringan yang menyimpang satu baris
+     * saja membuat "pilih semua yang cocok" mencentang baris yang tidak
+     * terlihat di layar — dan perintah massal berikutnya menyentuhnya.
+     */
+    private function saring(Request $request): Builder
     {
-        $daftar = MasterHarga::query()
-            ->with('vendor')->withCount('biaya')
+        return MasterHarga::query()
             ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
                 fn ($s) => $s->where('nama', 'like', "%{$cari}%")
                     ->orWhere('destinasi', 'like', "%{$cari}%")
                     ->orWhere('daerah', 'like', "%{$cari}%")
                     // Vendornya ikut dicari: "siapa yang memasok Hiace" sama
                     // seringnya ditanya dengan "berapa harga Hiace".
-                    ->orWhereHas('vendor', fn ($v) => $v->where('nama', 'like', "%{$cari}%"))
+                    //
+                    // Berikut NOMORNYA, lewat pencarian yang sama dengan layar
+                    // Vendor: yang dipegang admin saat bertanya sering cuma
+                    // nomor di WhatsApp, bukan nama yang tercatat di sini.
+                    ->orWhereHas('vendor', fn ($v) => $v->cari($cari))
             ))
             ->when($request->string('kategori')->toString(), fn ($q, $k) => $q->where('kategori', $k))
             // "-" berarti yang BELUM punya vendor — daftar pekerjaan yang
@@ -64,7 +75,13 @@ class MasterHargaController extends ApiController
                 'mati' => $q->where('aktif', false),
                 'kedaluwarsa' => $q->kedaluwarsa(),
                 default => $q,
-            })
+            });
+    }
+
+    public function index(Request $request): JsonResponse
+    {
+        $daftar = $this->saring($request)
+            ->with('vendor')->withCount('biaya')
             ->tap(fn ($q) => $this->urutkan($q, $request->string('urut')->toString()))
             ->paginate($this->perHalaman($request));
 
@@ -168,29 +185,9 @@ class MasterHargaController extends ApiController
      */
     public function pdf(Request $request)
     {
-        $daftar = MasterHarga::query()->with('vendor')->withCount('biaya')
-            ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
-                fn ($s) => $s->where('nama', 'like', "%{$cari}%")
-                    ->orWhere('destinasi', 'like', "%{$cari}%")
-                    ->orWhere('daerah', 'like', "%{$cari}%")
-                    ->orWhereHas('vendor', fn ($v) => $v->where('nama', 'like', "%{$cari}%"))
-            ))
-            ->when($request->string('kategori')->toString(), fn ($q, $k) => $q->where('kategori', $k))
-            ->when($request->string('provinsi')->toString(), fn ($q, $p) => $p === '-'
-                ? $q->whereNull('provinsi')
-                : $q->where('provinsi', $p))
-            ->when($request->string('vendor')->toString(), fn ($q, $v) => $v === '-'
-                ? $q->whereNull('vendor_id')
-                : $q->where('vendor_id', (int) $v))
-            ->when($request->string('dipakai')->toString(), fn ($q, $d) => $d === 'belum'
-                ? $q->whereDoesntHave('biaya')
-                : $q->whereHas('biaya'))
-            ->when($request->string('status')->toString(), fn ($q, $s) => match ($s) {
-                'aktif' => $q->where('aktif', true),
-                'mati' => $q->where('aktif', false),
-                'kedaluwarsa' => $q->kedaluwarsa(),
-                default => $q,
-            })
+        // Saringan yang sama persis dengan daftarnya — berkas yang isinya
+        // berbeda dari layar saat itu adalah berkas yang menyesatkan.
+        $daftar = $this->saring($request)->with('vendor')->withCount('biaya')
             ->orderBy('kategori')->orderBy('nama')
             ->get();
 
@@ -303,6 +300,78 @@ class MasterHargaController extends ApiController
     }
 
     /**
+     * Id SELURUH baris yang cocok saringan — bukan halaman yang terlihat.
+     *
+     * Mencentang halaman demi halaman untuk menaikkan harga satu kategori
+     * adalah dua puluh kali menekan "centang semua" dan satu kali lupa.
+     * Yang dipulangkan hanya id-nya, jadi ringan walau barisnya ribuan.
+     */
+    public function idCocok(Request $request): JsonResponse
+    {
+        $id = $this->saring($request)->pluck('id')->all();
+
+        return response()->json(['data' => $id, 'meta' => ['jumlah' => count($id)]]);
+    }
+
+    /**
+     * Menyalin seluruh harga sebuah provinsi ke provinsi lain.
+     *
+     * Membuka kota baru berarti daftar yang sama dengan angka yang mirip.
+     * Mengetiknya ulang satu per satu bukan hanya lama — ia juga tempat
+     * selisih kecil masuk tanpa ada yang menyadarinya.
+     *
+     * Yang sudah ada di provinsi tujuan DILEWATI, bukan ditimpa: menimpa
+     * harga yang sudah disesuaikan tangan adalah kerugian yang tak terlihat.
+     */
+    public function salinProvinsi(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'dari' => ['required', 'string', 'max:80'],
+            'ke' => ['required', 'string', 'max:80', 'different:dari'],
+        ]);
+
+        $sumber = MasterHarga::where('provinsi', $data['dari'])->get();
+
+        if ($sumber->isEmpty()) {
+            return response()->json(['pesan' => "Tidak ada harga di {$data['dari']} untuk disalin."], 422);
+        }
+
+        $adaDiTujuan = MasterHarga::where('provinsi', $data['ke'])
+            ->get()->map(fn (MasterHarga $m) => mb_strtolower(trim($m->nama)))->all();
+
+        $masuk = 0;
+        $lewat = 0;
+
+        foreach ($sumber as $m) {
+            if (in_array(mb_strtolower(trim($m->nama)), $adaDiTujuan, true)) {
+                $lewat++;
+
+                continue;
+            }
+
+            $salinan = $m->replicate(['created_at', 'updated_at']);
+            $salinan->provinsi = $data['ke'];
+            // Daerah ikut provinsi lamanya, jadi dikosongkan — "Sleman" di
+            // Bali adalah data yang salah yang terlihat benar.
+            $salinan->daerah = null;
+            $salinan->save();
+
+            $masuk++;
+        }
+
+        $this->catat($request, 'salin harga antar provinsi', [
+            'dari' => $data['dari'], 'ke' => $data['ke'], 'masuk' => $masuk,
+        ]);
+
+        return response()->json([
+            'pesan' => "{$masuk} harga disalin ke {$data['ke']}."
+                .($lewat ? " {$lewat} dilewati karena namanya sudah ada di sana." : ''),
+            'masuk' => $masuk,
+            'lewat' => $lewat,
+        ], $masuk > 0 ? 201 : 422);
+    }
+
+    /**
      * Menambah banyak harga sekaligus dari tempelan spreadsheet.
      *
      * Memasukkan lima puluh tiket destinasi berarti lima puluh kali
@@ -385,16 +454,26 @@ class MasterHargaController extends ApiController
      */
     public function riwayatSemua(Request $request): JsonResponse
     {
-        $daftar = RiwayatHarga::with('harga:id,nama,kategori')
-            ->orderByDesc('id')
-            ->limit((int) $request->integer('batas', 50) ?: 50)
-            ->get();
+        $hari = (int) $request->integer('hari');
+
+        $kueri = RiwayatHarga::with('harga:id,nama,kategori')
+            // Periode dihitung dari HARI INI ke belakang. Tanpa penyaring,
+            // "apa yang berubah minggu ini" harus dicari di antara
+            // perubahan setahun lalu.
+            ->when($hari > 0, fn ($q) => $q->where('created_at', '>=', now()->subDays($hari)))
+            ->orderByDesc('id');
+
+        $jumlah = (clone $kueri)->count();
+        $batas = min(max((int) $request->integer('batas', 50) ?: 50, 1), 500);
 
         return response()->json([
-            'data' => $daftar->map(fn (RiwayatHarga $r) => $this->barisRiwayat($r) + [
+            'data' => $kueri->limit($batas)->get()->map(fn (RiwayatHarga $r) => $this->barisRiwayat($r) + [
                 'harga_nama' => $r->harga?->nama,
                 'harga_id' => $r->master_harga_id,
             ])->all(),
+            // Supaya layar bisa mengatakan "100 dari 340", bukan diam-diam
+            // memotong daftarnya.
+            'meta' => ['jumlah' => $jumlah, 'batas' => $batas],
         ]);
     }
 
@@ -406,6 +485,8 @@ class MasterHargaController extends ApiController
      */
     public function dipakaiDi(MasterHarga $master): JsonResponse
     {
+        $total = RabBiaya::where('master_harga_id', $master->id)->count();
+
         $biaya = RabBiaya::with('rab:id,kode,judul,nama_pelanggan,tanggal_mulai,status')
             ->where('master_harga_id', $master->id)
             ->orderByDesc('id')
@@ -425,7 +506,13 @@ class MasterHargaController extends ApiController
                     ? null
                     : ($b->harga_satuan < $master->harga ? 'lebih murah dari sekarang' : 'lebih mahal dari sekarang'),
             ])->values()->all(),
-            'meta' => ['nama' => $master->nama, 'harga_kini' => RincianBiaya::rupiah($master->harga)],
+            'meta' => [
+                'nama' => $master->nama,
+                'harga_kini' => RincianBiaya::rupiah($master->harga),
+                // Dikatakan apa adanya kalau daftarnya dipotong.
+                'jumlah' => $total,
+                'dipotong' => $total > 100,
+            ],
         ]);
     }
 

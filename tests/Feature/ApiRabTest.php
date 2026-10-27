@@ -5,6 +5,7 @@ use App\Models\PaketWisata\TravelPackage;
 use App\Models\Rab\MasterHarga;
 use App\Models\Rab\Rab;
 use App\Models\Rab\RabBiaya;
+use App\Models\Rab\RiwayatHarga;
 use App\Models\Rab\Vendor;
 use App\Support\Rab\BerkasRab;
 use App\Support\Rab\HitungRab;
@@ -1545,4 +1546,81 @@ test('RAB yang memakai sebuah harga bisa ditelusuri berikut angka bekunya', func
         ->and($dipakai->json('data.0.harga_beku'))->toBe('Rp 50.000')
         ->and($dipakai->json('data.0.beda'))->toBe('lebih murah dari sekarang')
         ->and($dipakai->json('meta.harga_kini'))->toBe('Rp 75.000');
+});
+
+test('harga bisa dicari lewat NOMOR vendornya, bukan hanya namanya', function () {
+    /*
+     | Yang dipegang admin saat bertanya sering cuma nomor di WhatsApp —
+     | "+62 812-3400-0111" — bukan nama yang tercatat di sini. Formatnya
+     | pun berbeda-beda, jadi yang dibandingkan angkanya saja.
+     */
+    $v = Vendor::create(['nama' => 'PO Sumber Jaya', 'kontak' => '0812-3400-0111', 'aktif' => true]);
+    masterUji(['nama' => 'Sewa Hiace', 'vendor_id' => $v->id, 'destinasi' => null]);
+    masterUji(['nama' => 'Tiket lain', 'destinasi' => null]);
+
+    $hasil = $this->getJson('/api/v1/master-harga?cari=%2B62%20812-3400-0111', kepalaRab())->json('data');
+
+    expect(collect($hasil)->pluck('nama')->all())->toBe(['Sewa Hiace']);
+});
+
+test('pilih semua yang cocok memulangkan id SELURUH saringan, bukan halaman', function () {
+    /*
+     | Mencentang halaman demi halaman untuk menaikkan harga satu kategori
+     | adalah dua puluh kali menekan "centang semua" dan satu kali lupa.
+     */
+    foreach (range(1, 14) as $i) {
+        masterUji(['nama' => "Tiket {$i}", 'destinasi' => null]);
+    }
+    masterUji(['nama' => 'Sewa Hiace', 'kategori' => 'transportasi', 'destinasi' => null,
+        'satuan' => 'unit_hari', 'kapasitas' => 14]);
+
+    $halaman = $this->getJson('/api/v1/master-harga?kategori=tiket&per_halaman=10', kepalaRab());
+
+    expect(count($halaman->json('data')))->toBe(10);
+
+    $cocok = $this->getJson('/api/v1/master-harga/id-cocok?kategori=tiket', kepalaRab());
+
+    expect($cocok->json('meta.jumlah'))->toBe(14)
+        // Dan transportasinya memang tidak ikut.
+        ->and(count($cocok->json('data')))->toBe(14);
+});
+
+test('menyalin provinsi melewati yang namanya sudah ada di sana', function () {
+    /*
+     | Menimpa harga yang sudah disesuaikan tangan adalah kerugian yang
+     | tak terlihat — orangnya baru sadar saat RAB berikutnya salah.
+     */
+    masterUji(['nama' => 'Tiket A', 'provinsi' => 'DI Yogyakarta', 'destinasi' => null, 'daerah' => 'Sleman']);
+    masterUji(['nama' => 'Tiket B', 'provinsi' => 'DI Yogyakarta', 'destinasi' => null]);
+    masterUji(['nama' => 'Tiket A', 'provinsi' => 'Bali', 'destinasi' => null, 'harga' => 999_000]);
+
+    $balasan = $this->postJson('/api/v1/master-harga/salin-provinsi', [
+        'dari' => 'DI Yogyakarta', 'ke' => 'Bali',
+    ], kepalaRab())->assertCreated();
+
+    expect($balasan->json('masuk'))->toBe(1)
+        ->and($balasan->json('lewat'))->toBe(1)
+        // Yang sudah ada tidak tersentuh.
+        ->and(MasterHarga::where('provinsi', 'Bali')->where('nama', 'Tiket A')->first()->harga)->toBe(999_000)
+        // Daerah tidak ikut: "Sleman" di Bali adalah data salah yang terlihat benar.
+        ->and(MasterHarga::where('provinsi', 'Bali')->where('nama', 'Tiket B')->first()->daerah)->toBeNull();
+});
+
+test('riwayat global bisa dipersempit ke beberapa hari terakhir', function () {
+    $m = masterUji(['harga' => 10_000]);
+
+    RiwayatHarga::create([
+        'master_harga_id' => $m->id, 'harga_lama' => 9_000, 'harga_baru' => 10_000, 'oleh' => 'Lama',
+    ])->forceFill(['created_at' => now()->subMonths(3)])->save();
+
+    RiwayatHarga::create([
+        'master_harga_id' => $m->id, 'harga_lama' => 10_000, 'harga_baru' => 12_000, 'oleh' => 'Baru',
+    ]);
+
+    $semua = $this->getJson('/api/v1/master-harga/riwayat', kepalaRab());
+    $pekan = $this->getJson('/api/v1/master-harga/riwayat?hari=7', kepalaRab());
+
+    expect($semua->json('meta.jumlah'))->toBe(2)
+        ->and($pekan->json('meta.jumlah'))->toBe(1)
+        ->and($pekan->json('data.0.oleh'))->toBe('Baru');
 });
