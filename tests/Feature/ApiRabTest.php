@@ -1093,7 +1093,7 @@ test('PDF vendor terbentuk dan mengikuti saringannya', function () {
         // Saringannya ikut tercetak: berkas sebagian yang tidak menyebutkan
         // sebagiannya apa terbaca sebagai daftar lengkap yang ternyata bukan.
         ->and($markah)->toContain('Jenis:')
-        ->and($markah)->toContain('INTERNAL — BERISI NOMOR MITRA');
+        ->and($markah)->toContain('JANGAN DIBAGIKAN — BERISI NOMOR MITRA');
 });
 
 test('PDF vendor tanpa hasil tetap terbentuk dan mengatakannya', function () {
@@ -1149,6 +1149,10 @@ test('PDF vendor dikelompokkan per jenis dalam SATU tabel', function () {
 
     // Empat ubin ringkasan, sebentuk dengan berkas itinerary.
     expect(substr_count($markah, 'class="ubin-isi"'))->toBe(4)
-        ->and($markah)->toContain('Tanpa nomor')
-        ->and($markah)->toContain('perlu dilengkapi');
+        // Labelnya memakai bahasa sehari-hari, bukan istilah basis data.
+        ->and($markah)->toContain('Belum ada nomornya')
+        ->and($markah)->toContain('Nama vendor')
+        ->and($markah)->toContain('Nomor yang dihubungi')
+        // Keterangan cara membacanya, satu baris per hal.
+        ->and($markah)->toContain('Cara membaca daftar ini');
 });

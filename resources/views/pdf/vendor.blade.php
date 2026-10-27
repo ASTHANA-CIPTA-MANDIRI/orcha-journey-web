@@ -64,21 +64,27 @@
     .terbit { font-size: 8px; color: {{ $langit }}; text-align: right; padding-top: 2px; }
     .garis-emas { height: 3px; background-color: {{ $emas }}; font-size: 0; line-height: 0; }
 
-    .judul { font-size: 19px; font-weight: bold; color: {{ $navy }}; padding-top: 18px; }
-    .sub { font-size: 9.5px; color: #64748b; padding-top: 4px; }
+    /* Judul & ubin dipusatkan.
+
+       Rata kiri semuanya membuat halaman terbaca seperti laporan mesin;
+       yang dipusatkan hanya bagian kepala, sementara tabelnya tetap rata
+       kiri karena mata membaca daftar dari tepi yang sama. */
+    .judul { font-size: 22px; font-weight: bold; color: {{ $navy }}; padding-top: 20px; text-align: center; }
+    .sub { font-size: 10px; color: #64748b; padding-top: 5px; text-align: center; }
+    .garis-pendek { width: 54px; height: 3px; background-color: {{ $emas }}; margin: 10px auto 0; font-size: 0; line-height: 0; }
 
     /* Ubin ringkasan, sebentuk dengan berkas itinerary: empat angka yang
        menjawab "sudah sejauh apa daftar ini" sebelum satu baris pun dibaca. */
-    .ubin { margin-top: 14px; }
-    .ubin td { width: 25%; padding: 0 4px; vertical-align: top; }
+    .ubin { margin-top: 18px; }
+    .ubin td { width: 25%; padding: 0 5px; vertical-align: top; }
     .ubin td:first-child { padding-left: 0; }
     .ubin td:last-child { padding-right: 0; }
-    .ubin-isi { background-color: {{ $kabut }}; border-top: 3px solid {{ $navy }}; padding: 9px 11px 10px; }
-    .ubin-label { font-size: 7.5px; color: #64748b; letter-spacing: 1.1px; text-transform: uppercase; font-weight: bold; }
-    .ubin-nilai { font-size: 16px; font-weight: bold; color: {{ $navy }}; padding-top: 3px; }
-    .ubin-ket { font-size: 8px; color: #94a3b8; padding-top: 2px; }
+    .ubin-isi { background-color: {{ $kabut }}; border-top: 3px solid {{ $navy }}; padding: 11px 9px 12px; text-align: center; }
+    .ubin-label { font-size: 8px; color: #64748b; font-weight: bold; }
+    .ubin-nilai { font-size: 24px; font-weight: bold; color: {{ $navy }}; padding: 4px 0 1px; }
+    .ubin-ket { font-size: 8px; color: #94a3b8; }
 
-    .saring { background-color: #fdf6e7; border-left: 3px solid {{ $emas }}; padding: 8px 11px; margin-top: 12px; font-size: 8.5px; color: #6b5c3a; }
+    .saring { background-color: #fdf6e7; border-top: 1px solid {{ $emas }}; border-bottom: 1px solid {{ $emas }}; padding: 9px 11px; margin-top: 16px; font-size: 9px; color: #6b5c3a; text-align: center; }
     .saring b { color: {{ $navy }}; }
 
     /* SATU tabel dengan pita kelompok — pola yang sudah dipakai PDF RAB
@@ -106,6 +112,9 @@
     .nomor { font-family: Courier, monospace; font-size: 9.5px; color: {{ $navy }}; font-weight: bold; }
     .kosong-nomor { color: {{ $merah }}; font-size: 8.5px; font-weight: bold; }
     .kanan { text-align: right; white-space: nowrap; }
+    .tengah { text-align: center; white-space: nowrap; }
+    .hitung-pakai { font-weight: bold; color: {{ $navy }}; }
+    .belum-pakai { font-size: 8px; color: #94a3b8; }
     .mati td { background-color: #f8fafc; color: #94a3b8; }
     .mati .nama, .mati .nomor { color: #94a3b8; }
 
@@ -119,9 +128,12 @@
         font-size: 7px; font-weight: bold; letter-spacing: .6px; padding: 1px 6px; margin-left: 5px;
     }
 
-    /* Keterangan lambang, sebentuk dengan baris legenda di itinerary. */
-    .legenda { margin-top: 16px; padding-top: 9px; border-top: 1px solid #e2e8f0; font-size: 8px; color: #94a3b8; }
-    .legenda b { color: {{ $navy }}; }
+    /* Keterangan dalam kotak, satu baris per hal — bukan satu paragraf
+       panjang yang harus dieja dari ujung ke ujung. */
+    .legenda { margin-top: 20px; background-color: {{ $kabut }}; padding: 11px 14px 12px; }
+    .legenda-judul { font-size: 8px; font-weight: bold; color: {{ $navy }}; letter-spacing: 1.1px; text-transform: uppercase; padding-bottom: 5px; }
+    .legenda td { font-size: 8.5px; color: #64748b; padding: 2px 0; vertical-align: top; }
+    .legenda .kata { width: 108px; color: {{ $navy }}; font-weight: bold; }
 
     .nihil { padding: 26px; text-align: center; color: #94a3b8; font-size: 10px; background-color: {{ $kabut }}; margin-top: 14px; }
 
@@ -168,7 +180,7 @@
         </td>
         <td style="vertical-align:middle; padding-left:8px">
             <div class="merek">ORCHA <span>JOURNEY</span></div>
-            <div class="lencana">INTERNAL — BERISI NOMOR MITRA</div>
+            <div class="lencana">JANGAN DIBAGIKAN — BERISI NOMOR MITRA</div>
         </td>
         <td style="vertical-align:middle">
             <div class="jenis-dok">Daftar Vendor</div>
@@ -181,30 +193,31 @@
 
 <div class="isi">
     <div class="judul">Daftar Vendor</div>
-    <div class="sub">Dari siapa harga dibeli, dan ke nomor mana meneleponnya.</div>
+    <div class="sub">Siapa saja mitra kita, dan ke nomor mana meneleponnya.</div>
+    <div class="garis-pendek"></div>
 
     {{-- Empat angka yang menjawab "sudah sejauh apa daftar ini" sebelum satu
          baris pun dibaca — sebentuk dengan ubin ringkasan di itinerary. --}}
     <table class="ubin"><tr>
         <td><div class="ubin-isi">
-            <div class="ubin-label">Vendor</div>
+            <div class="ubin-label">Jumlah vendor</div>
             <div class="ubin-nilai">{{ $semua->count() }}</div>
-            <div class="ubin-ket">{{ $kelompok->count() }} jenis</div>
+            <div class="ubin-ket">dari {{ $kelompok->count() }} jenis</div>
         </div></td>
         <td><div class="ubin-isi" style="border-top-color:#15803d">
-            <div class="ubin-label">Aktif</div>
+            <div class="ubin-label">Masih dipakai</div>
             <div class="ubin-nilai" style="color:#15803d">{{ $aktif }}</div>
-            <div class="ubin-ket">{{ $semua->count() - $aktif }} dimatikan</div>
+            <div class="ubin-ket">{{ $semua->count() - $aktif }} sudah tidak dipakai</div>
         </div></td>
         <td><div class="ubin-isi" style="border-top-color:{{ $tanpaNomor ? $merah : '#15803d' }}">
-            <div class="ubin-label">Tanpa nomor</div>
+            <div class="ubin-label">Belum ada nomornya</div>
             <div class="ubin-nilai" style="color:{{ $tanpaNomor ? $merah : '#15803d' }}">{{ $tanpaNomor }}</div>
-            <div class="ubin-ket">{{ $tanpaNomor ? 'perlu dilengkapi' : 'semua punya kontak' }}</div>
+            <div class="ubin-ket">{{ $tanpaNomor ? 'perlu dilengkapi' : 'semua sudah ada' }}</div>
         </div></td>
         <td><div class="ubin-isi" style="border-top-color:{{ $emas }}">
-            <div class="ubin-label">Wilayah</div>
+            <div class="ubin-label">Daerah layanan</div>
             <div class="ubin-nilai">{{ $wilayah }}</div>
-            <div class="ubin-ket">di luar yang berlaku umum</div>
+            <div class="ubin-ket">selain yang bisa di mana saja</div>
         </div></td>
     </tr></table>
 
@@ -213,9 +226,9 @@
          daftar lengkap yang ternyata bukan. --}}
     <div class="saring">
         @if ($saringan === [])
-            Memuat <b>seluruh vendor</b> yang terdaftar.
+            Daftar ini memuat <b>semua vendor</b> yang terdaftar.
         @else
-            Disaring: @foreach ($saringan as $label => $nilai)<b>{{ $label }}</b> {{ $aman($nilai) }}@if (! $loop->last) &nbsp;·&nbsp; @endif @endforeach
+            Daftar ini <b>hanya sebagian</b> — @foreach ($saringan as $label => $nilai)<b>{{ $label }}</b> {{ $aman($nilai) }}@if (! $loop->last) &nbsp;·&nbsp; @endif @endforeach
         @endif
     </div>
 
@@ -225,10 +238,10 @@
         <table class="daftar">
             <thead>
                 <tr>
-                    <th>Vendor</th>
-                    <th style="width:112px">Wilayah</th>
-                    <th style="width:138px">Kontak</th>
-                    <th style="width:52px" class="kanan">Harga</th>
+                    <th>Nama vendor</th>
+                    <th style="width:116px">Melayani daerah</th>
+                    <th style="width:142px">Nomor yang dihubungi</th>
+                    <th style="width:62px" class="tengah">Dipakai</th>
                 </tr>
             </thead>
             <tbody>
@@ -241,7 +254,13 @@
                             <span class="pita-nama" style="color:{{ $warnaJenis($namaJenis) }}">{{ $aman($namaJenis) }}</span>
                             <span class="pita-hitung">&nbsp; {{ $isi->count() }} vendor</span>
                         </td>
-                        <td class="kanan pita-hitung">{{ $isi->sum('jumlah_harga') }} harga</td>
+                        <td class="tengah pita-hitung">
+                            @if ($isi->sum('jumlah_harga'))
+                                {{ $isi->sum('jumlah_harga') }}&times;
+                            @else
+                                belum dipakai
+                            @endif
+                        </td>
                     </tr>
 
                     @foreach ($isi as $v)
@@ -263,10 +282,16 @@
                                 @if (! empty($v['kontak']))
                                     <span class="nomor">{{ $aman($v['kontak']) }}</span>
                                 @else
-                                    <span class="kosong-nomor">belum ada nomor</span>
+                                    <span class="kosong-nomor">belum ada nomornya</span>
                                 @endif
                             </td>
-                            <td class="kanan">{{ $v['jumlah_harga'] }}</td>
+                            <td class="tengah">
+                                @if ($v['jumlah_harga'])
+                                    <span class="hitung-pakai">{{ $v['jumlah_harga'] }}&times;</span>
+                                @else
+                                    <span class="belum-pakai">belum</span>
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 @endforeach
@@ -274,9 +299,21 @@
         </table>
 
         <div class="legenda">
-            <b>Harga</b> = berapa baris master harga memakainya &nbsp;·&nbsp;
-            <b>Semua wilayah</b> = tidak terikat provinsi, bukan belum diisi &nbsp;·&nbsp;
-            <b>MATI</b> = tidak ditawarkan lagi, kontaknya tetap terbaca di RAB lama
+            <div class="legenda-judul">Cara membaca daftar ini</div>
+            <table>
+                <tr>
+                    <td class="kata">Kolom "Dipakai"</td>
+                    <td>Berapa harga di Master Harga yang dibeli dari vendor ini. "belum" berarti vendornya sudah terdaftar tapi belum dipasang ke harga mana pun.</td>
+                </tr>
+                <tr>
+                    <td class="kata">Semua wilayah</td>
+                    <td>Vendornya bisa dipakai untuk trip di provinsi mana saja — bukan berarti kolomnya lupa diisi.</td>
+                </tr>
+                <tr>
+                    <td class="kata">Tanda MATI</td>
+                    <td>Vendornya sudah tidak dipakai lagi untuk harga baru. Nomornya tetap bisa dilihat di RAB lama yang terlanjur memakainya.</td>
+                </tr>
+            </table>
         </div>
     @endif
 </div>
