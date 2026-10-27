@@ -1,12 +1,12 @@
 @extends('pdf.daftar-orcha', [
-    'lencana' => 'JANGAN DIBAGIKAN — BERISI HARGA MODAL',
+    'lencana' => 'JANGAN DIBERIKAN KE PELANGGAN — INI HARGA BELI',
     'jenisDok' => 'Master Harga',
     'hitungDok' => count($baris).' harga',
 ])
 
 @section('judul-berkas', 'Master Harga Orcha Journey')
 @section('judul', 'Master Harga')
-@section('sub', 'Harga yang dipakai menyusun setiap RAB — modal, bukan harga jual.')
+@section('sub', 'Harga yang kita bayar ke vendor, dipakai saat menghitung biaya trip. Bukan harga yang dibayar pelanggan.')
 
 @php
     // $aman diulang di sini: @section adalah closure atas ruang lingkup
@@ -48,21 +48,21 @@
             <div class="ubin-ket">{{ $semua->count() - $dipakai }} belum pernah</div>
         </div></td>
         <td><div class="ubin-isi" style="border-top-color:{{ $tanpaVendor ? '#b42318' : '#15803d' }}">
-            <div class="ubin-label">Belum ada vendornya</div>
+            <div class="ubin-label">Belum punya vendor</div>
             <div class="ubin-nilai" style="color:{{ $tanpaVendor ? '#b42318' : '#15803d' }}">{{ $tanpaVendor }}</div>
-            <div class="ubin-ket">{{ $tanpaVendor ? 'kontaknya belum tercatat' : 'semua sudah ada' }}</div>
+            <div class="ubin-ket">{{ $tanpaVendor ? 'tidak ada nomor yang bisa dihubungi' : 'semuanya ada nomornya' }}</div>
         </div></td>
         <td><div class="ubin-isi" style="border-top-color:#ffc74e">
             <div class="ubin-label">Sudah dimatikan</div>
             <div class="ubin-nilai">{{ $mati }}</div>
-            <div class="ubin-ket">tidak ditawarkan di RAB baru</div>
+            <div class="ubin-ket">tidak muncul lagi saat membuat RAB</div>
         </div></td>
     </tr></table>
 @endsection
 
 @section('isi')
     @if ($baris === [])
-        <div class="nihil">Tidak ada harga yang cocok dengan saringannya.</div>
+        <div class="nihil">Tidak ada harga yang cocok dengan pilihan saringan di atas.</div>
     @else
         <table class="daftar">
             <thead>
@@ -131,15 +131,15 @@
             <table>
                 <tr>
                     <td class="kata">Kolom "Dipakai"</td>
-                    <td>Berapa penawaran (RAB) yang sudah memakai harga ini. Angka besar berarti mengubahnya menyentuh banyak penawaran — tetapi RAB yang sudah dibuat TIDAK ikut berubah, karena harganya dibekukan saat dimasukkan.</td>
+                    <td>Berapa RAB (rincian biaya trip) yang sudah memakai harga ini. Kalau harganya diubah di sini, RAB yang sudah terlanjur dibuat TIDAK ikut berubah — angkanya sudah tersimpan di RAB itu. Yang ikut harga baru hanya RAB yang dibuat sesudahnya.</td>
                 </tr>
                 <tr>
-                    <td class="kata">Dibeli dari</td>
-                    <td>Vendornya. "belum ada" berarti harganya tercatat tapi tidak ada nomor yang bisa dihubungi saat menyiapkan keberangkatan.</td>
+                    <td class="kata">Kolom "Dibeli dari"</td>
+                    <td>Nama vendor tempat kita membelinya. "belum ada" berarti harganya sudah dicatat, tetapi tidak ada nomor yang bisa dihubungi saat menyiapkan keberangkatan.</td>
                 </tr>
                 <tr>
                     <td class="kata">Tanda MATI</td>
-                    <td>Harganya tidak ditawarkan lagi saat menyusun RAB baru. RAB lama yang terlanjur memakainya tetap utuh.</td>
+                    <td>Harga ini sengaja disimpan tetapi tidak ditawarkan lagi saat membuat RAB baru. RAB lama yang sudah memakainya tetap utuh.</td>
                 </tr>
             </table>
         </div>

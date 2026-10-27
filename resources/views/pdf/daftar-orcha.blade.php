@@ -173,7 +173,7 @@
          daftar lengkap yang ternyata bukan. --}}
     <div class="saring">
         @if ($saringan === [])
-            Daftar ini memuat <b>semuanya</b> yang terdaftar.
+            Daftar ini memuat <b>semua</b> data, tanpa saringan.
         @else
             Daftar ini <b>hanya sebagian</b> — @foreach ($saringan as $label => $nilai)<b>{{ $label }}</b> {{ $aman($nilai) }}@if (! $loop->last) &nbsp;·&nbsp; @endif @endforeach
         @endif

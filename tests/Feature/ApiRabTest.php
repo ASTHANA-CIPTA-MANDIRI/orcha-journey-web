@@ -1284,10 +1284,10 @@ test('PDF master harga terbentuk dan dikelompokkan per kategori', function () {
         ->and($markah)->toContain('Kantor Orcha Journey')
         ->and($markah)->toContain('counter(page)')
         // Isinya khas master harga.
-        ->and($markah)->toContain('JANGAN DIBAGIKAN — BERISI HARGA MODAL')
+        ->and($markah)->toContain('JANGAN DIBERIKAN KE PELANGGAN — INI HARGA BELI')
         ->and($markah)->toContain('Tiket untuk Candi Prambanan')
         ->and($markah)->toContain('Semua provinsi')
-        ->and($markah)->toContain('Belum ada vendornya')
+        ->and($markah)->toContain('Belum punya vendor')
         ->and(substr_count($markah, 'class="pita"'))->toBe(2)
         ->and(substr_count($markah, 'class="pil-mati"'))->toBe(1);
 });
