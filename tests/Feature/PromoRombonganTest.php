@@ -481,12 +481,21 @@ test('tingkat yang justru lebih mahal daripada tingkat di bawahnya ditolak', fun
     $this->postJson('/api/v1/promo-rombongan', [
         'min_peserta' => 11, 'potongan_persen' => 0, 'gratis_orang' => 1,
     ], kepalaPromo())->assertStatus(422)
-        ->assertJsonPath('message', fn ($p) => str_contains($p, '10 orang membayar lebih sedikit')
+        ->assertJsonPath('message', fn ($p) => str_contains($p, 'lebih kecil daripada tingkat 6 orang')
             && str_contains($p, 'tidak bertumpuk'));
 
     // Dengan potongannya ikut dibawa, tingkatnya diterima.
     $this->postJson('/api/v1/promo-rombongan', [
         'min_peserta' => 11, 'potongan_persen' => 5, 'gratis_orang' => 1,
+    ], kepalaPromo())->assertCreated();
+
+    /*
+     | Dan tingkat berpotongan LEBIH BESAR tanpa orang gratis tetap
+     | diterima: rombongan yang lebih besar memang wajar membayar lebih
+     | banyak secara total. Yang dilarang cuma potongannya yang menyusut.
+     */
+    $this->postJson('/api/v1/promo-rombongan', [
+        'min_peserta' => 21, 'potongan_persen' => 10, 'gratis_orang' => 0,
     ], kepalaPromo())->assertCreated();
 });
 

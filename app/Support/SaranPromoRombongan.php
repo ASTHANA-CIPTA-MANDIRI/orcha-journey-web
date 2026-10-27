@@ -88,6 +88,10 @@ class SaranPromoRombongan
             'persen_saran' => max(0, min($persenSaran, $persenMaks)),
             'potongan_saran_teks' => RincianBiaya::rupiah((int) round($jual * max(0, min($persenSaran, $persenMaks)) / 100)),
             'gratis_aman' => $gratisAman,
+            // Dibedakan dari "aman": di antara keduanya ada wilayah yang
+            // masih untung tetapi tipis, dan kalimat "belum aman (Rp
+            // 70.000)" dengan angka POSITIF terbaca seperti salah hitung.
+            'gratis_masih_untung' => $untungSesudahGratis > 0,
             'untung_sesudah_gratis' => $untungSesudahGratis,
             'untung_sesudah_gratis_teks' => RincianBiaya::rupiah($untungSesudahGratis),
             'alasan' => self::alasan($paket->name, $rekan, $margin, $untungTambahan, $gratisAman, $jual),
@@ -124,9 +128,19 @@ class SaranPromoRombongan
             .RincianBiaya::rupiah($margin).' per orang. '
             ."Mengajak {$rekan} rekan menambah untung ".RincianBiaya::rupiah($untungTambahan).'.';
 
-        return $gratisAman
-            ? $dasar.' Menggratiskan satu orang ('.RincianBiaya::rupiah($jual).') masih menyisakan untung tambahan.'
-            : $dasar.' Menggratiskan satu orang ('.RincianBiaya::rupiah($jual)
-                .') memakan lebih dari separuhnya — potongan persen lebih aman di tingkat ini.';
+        $sisa = $untungTambahan - $jual;
+
+        if ($gratisAman) {
+            return $dasar.' Menggratiskan satu orang ('.RincianBiaya::rupiah($jual)
+                .') masih menyisakan untung tambahan '.RincianBiaya::rupiah($sisa).'.';
+        }
+
+        // Tiga keadaan, bukan dua: masih untung tetapi tipis adalah hal
+        // yang berbeda dari merugi, dan admin berhak memutuskan sendiri.
+        return $sisa > 0
+            ? $dasar.' Menggratiskan satu orang ('.RincianBiaya::rupiah($jual).') menyisakan '
+                .RincianBiaya::rupiah($sisa).' saja — masih untung, tetapi tipis.'
+            : $dasar.' Menggratiskan satu orang ('.RincianBiaya::rupiah($jual).') membuat rombongan ini RUGI '
+                .RincianBiaya::rupiah(abs($sisa)).' — potongan persen lebih aman di tingkat ini.';
     }
 }

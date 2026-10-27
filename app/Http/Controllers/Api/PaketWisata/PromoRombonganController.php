@@ -132,28 +132,26 @@ class PromoRombonganController extends ApiController
     }
 
     /**
-     * Menolak tingkat yang justru menaikkan tagihan.
+     * Menolak tingkat yang potongannya justru lebih kecil daripada tingkat
+     * di bawahnya.
      *
      * Tingkat TIDAK bertumpuk — yang berlaku satu saja, yang paling tinggi
-     * syaratnya. Akibatnya tingkat baru bisa diam-diam lebih mahal daripada
-     * tingkat di bawahnya: "ajak 10 rekan, gratis 1 orang" yang potongan
-     * persennya nol mencabut potongan 5% milik tingkat 6, dan rombongan
-     * yang menambah satu orang justru membayar lebih banyak.
+     * syaratnya. Jadi tingkat atas MENGGANTIKAN tingkat bawah, dan bila
+     * persennya lebih kecil, potongan yang sudah didapat ikut hilang.
      *
-     * Cacatnya tidak terlihat dari layar mana pun: tiap tingkat benar
-     * sendiri-sendiri, dan yang salah cuma urutannya. Yang menemukannya
-     * pelanggan, saat menghitung sendiri.
+     * Akibatnya terlihat persis di batas: rombongan sepuluh orang membayar
+     * sepuluh kursi minus 5%, rombongan sebelas orang dengan "gratis 1"
+     * membayar sepuluh kursi penuh — orang kesebelas gratis, tetapi
+     * tagihannya naik. Tiap tingkat benar sendiri-sendiri; yang salah cuma
+     * urutannya, dan yang menemukannya pelanggan.
+     *
+     * Yang dibandingkan PERSENNYA saja. Rombongan yang lebih besar memang
+     * wajar membayar lebih banyak secara total — membandingkan total
+     * tagihan dua ukuran rombongan akan menolak tingkat yang justru benar.
      */
     private function tolakBilaLebihMahal(array $data, ?int $kecuali): void
     {
         $n = (int) $data['min_peserta'];
-
-        // Harga satu kursi tidak penting di sini — yang dibandingkan
-        // bentuknya, jadi dipakai angka bulat mana pun.
-        $satuan = 1_000_000;
-
-        $hitung = fn (int $orang, int $gratis, int $persen) => $satuan * max(1, $orang - $gratis)
-            - (int) round($satuan * $persen / 100);
 
         $diBawah = PromoRombonganTingkat::query()
             ->where('aktif', true)
@@ -166,23 +164,12 @@ class PromoRombonganController extends ApiController
             return;
         }
 
-        /*
-         | Yang dibandingkan DUA UKURAN ROMBONGAN yang bersebelahan, bukan
-         | dua tingkat pada ukuran yang sama.
-         |
-         | Jurangnya muncul tepat di batas: rombongan n-1 orang masih memakai
-         | tingkat di bawah, rombongan n orang sudah memakai tingkat ini.
-         | Kalau yang n orang membayar lebih banyak, menambah satu orang
-         | justru menaikkan tagihan — dan orang itu "gratis".
-         */
-        $sebelum = $hitung($n - 1, $diBawah->gratis_orang, $diBawah->potongan_persen);
-        $sesudah = $hitung($n, (int) $data['gratis_orang'], (int) $data['potongan_persen']);
-
-        if ($sesudah > $sebelum) {
-            abort(422, 'Tingkat ini justru lebih mahal: rombongan '.($n - 1).' orang membayar lebih sedikit '
-                .'daripada rombongan '.$n.' orang, jadi menambah satu orang malah menaikkan tagihan. '
-                .'Tingkat tidak bertumpuk, jadi potongan tingkat di bawahnya ikut hilang: '
-                .'tambahkan potongan persennya juga, atau turunkan syaratnya.');
+        if ((int) $data['potongan_persen'] < (int) $diBawah->potongan_persen) {
+            abort(422, 'Potongan tingkat ini ('.$data['potongan_persen'].'%) lebih kecil daripada tingkat '
+                .$diBawah->min_peserta.' orang ('.$diBawah->potongan_persen.'%). '
+                .'Tingkat tidak bertumpuk, jadi tingkat ini MENGGANTIKAN yang di bawahnya — '
+                .'rombongan yang menambah orang justru kehilangan potongan yang sudah didapat. '
+                .'Samakan persennya atau naikkan.');
         }
     }
 
