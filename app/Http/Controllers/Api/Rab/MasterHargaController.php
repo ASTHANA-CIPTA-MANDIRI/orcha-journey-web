@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\Rab;
 
 use App\Http\Controllers\Api\ApiController;
+use App\Models\Rab\BatchMassal;
 use App\Models\Rab\MasterHarga;
+use App\Models\Rab\RabBiaya;
 use App\Models\Rab\RiwayatHarga;
 use App\Support\RincianBiaya;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -284,7 +286,7 @@ class MasterHargaController extends ApiController
      * sini. Riwayat yang penuh baris "harga tetap" tidak bisa dibaca, dan
      * yang dicari orang saat membukanya selalu uangnya.
      */
-    private function catatRiwayat(MasterHarga $master, int $hargaLama, Request $request, ?string $catatan = null): void
+    private function catatRiwayat(MasterHarga $master, int $hargaLama, Request $request, ?string $catatan = null, ?BatchMassal $batch = null): void
     {
         if ($master->harga === $hargaLama) {
             return;
@@ -292,10 +294,138 @@ class MasterHargaController extends ApiController
 
         RiwayatHarga::create([
             'master_harga_id' => $master->id,
+            'batch_id' => $batch?->id,
             'harga_lama' => $hargaLama,
             'harga_baru' => $master->harga,
             'oleh' => $request->attributes->get('admin_pemanggil'),
             'catatan' => $catatan,
+        ]);
+    }
+
+    /**
+     * Menambah banyak harga sekaligus dari tempelan spreadsheet.
+     *
+     * Memasukkan lima puluh tiket destinasi berarti lima puluh kali
+     * buka-isi-simpan, dan di tengah pengulangan sebanyak itu salah ketik
+     * berhenti terasa seperti kemungkinan. Yang dikirim ke sini sudah
+     * dipecah per baris oleh layar; di sini ia diperiksa satu per satu.
+     *
+     * Baris yang ditolak TIDAK membatalkan yang lain — lima puluh baris
+     * yang gugur gara-gara satu baris salah adalah hukuman yang tidak
+     * sebanding. Yang gagal dipulangkan berikut alasannya, per baris.
+     */
+    public function banyak(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'baris' => ['required', 'array', 'min:1', 'max:200'],
+            'baris.*.nama' => ['required', 'string', 'max:150'],
+            'baris.*.harga' => ['required', 'integer', 'min:0', 'max:1000000000'],
+            'baris.*.destinasi' => ['nullable', 'string', 'max:150'],
+            'kategori' => ['required', Rule::in(array_keys(config('orcha.rab.kategori')))],
+            'satuan' => ['required', Rule::in(array_keys(config('orcha.rab.satuan')))],
+            'provinsi' => ['nullable', 'string', 'max:80'],
+            'daerah' => ['nullable', 'string', 'max:80'],
+            'vendor_id' => ['nullable', 'integer', 'exists:tbl_vendor,id'],
+            'kapasitas' => ['nullable', 'integer', 'min:1', 'max:1000'],
+        ]);
+
+        $masuk = 0;
+        $gagal = [];
+
+        foreach ($data['baris'] as $i => $b) {
+            $nama = trim($b['nama']);
+
+            $bentrok = MasterHarga::query()
+                ->where(fn ($q) => ($data['provinsi'] ?? null) === null
+                    ? $q->whereNull('provinsi')
+                    : $q->where('provinsi', $data['provinsi']))
+                ->whereRaw('LOWER(TRIM(nama)) = ?', [mb_strtolower($nama)])
+                ->exists();
+
+            if ($bentrok) {
+                $gagal[] = ['baris' => $i + 1, 'nama' => $nama, 'sebab' => 'sudah ada di wilayah yang sama'];
+
+                continue;
+            }
+
+            MasterHarga::create([
+                'kategori' => $data['kategori'],
+                'satuan' => $data['satuan'],
+                'provinsi' => $data['provinsi'] ?? null,
+                'daerah' => $data['daerah'] ?? null,
+                'vendor_id' => $data['vendor_id'] ?? null,
+                'kapasitas' => $data['kapasitas'] ?? null,
+                'nama' => $nama,
+                'destinasi' => trim((string) ($b['destinasi'] ?? '')) ?: null,
+                'harga' => (int) $b['harga'],
+                'otomatis' => false,
+                'aktif' => true,
+            ]);
+
+            $masuk++;
+        }
+
+        $this->catat($request, 'tambah banyak master harga', ['masuk' => $masuk, 'gagal' => count($gagal)]);
+
+        return response()->json([
+            'pesan' => $masuk > 0
+                ? "{$masuk} harga ditambahkan.".(count($gagal) ? ' '.count($gagal).' baris dilewati.' : '')
+                : 'Tidak ada baris yang bisa ditambahkan.',
+            'masuk' => $masuk,
+            'gagal' => $gagal,
+        ], $masuk > 0 ? 201 : 422);
+    }
+
+    /**
+     * Perubahan harga TERAKHIR di seluruh daftar, bukan per baris.
+     *
+     * "Apa saja yang berubah minggu ini" selama ini hanya bisa dijawab
+     * dengan membuka harga satu per satu — padahal datanya sudah ada sejak
+     * baris pertama dicatat.
+     */
+    public function riwayatSemua(Request $request): JsonResponse
+    {
+        $daftar = RiwayatHarga::with('harga:id,nama,kategori')
+            ->orderByDesc('id')
+            ->limit((int) $request->integer('batas', 50) ?: 50)
+            ->get();
+
+        return response()->json([
+            'data' => $daftar->map(fn (RiwayatHarga $r) => $this->barisRiwayat($r) + [
+                'harga_nama' => $r->harga?->nama,
+                'harga_id' => $r->master_harga_id,
+            ])->all(),
+        ]);
+    }
+
+    /**
+     * RAB mana saja yang memakai sebuah harga.
+     *
+     * Kolom "Dipakai" memberi angkanya; angka yang tidak bisa dibuka
+     * menyuruh orang mencari sendiri ke daftar RAB dan mencocokkan nama.
+     */
+    public function dipakaiDi(MasterHarga $master): JsonResponse
+    {
+        $biaya = RabBiaya::with('rab:id,kode,judul,nama_pelanggan,tanggal_mulai,status')
+            ->where('master_harga_id', $master->id)
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get();
+
+        return response()->json([
+            'data' => $biaya->filter(fn (RabBiaya $b) => $b->rab !== null)->map(fn (RabBiaya $b) => [
+                'rab_id' => $b->rab->id,
+                'kode' => $b->rab->kode,
+                'judul' => $b->rab->judul ?: $b->rab->nama_pelanggan,
+                'status' => $b->rab->status,
+                'tanggal' => $b->rab->tanggal_mulai?->locale('id')->translatedFormat('j M Y'),
+                // Harga yang DIBEKUKAN di RAB itu — bukan harga hari ini.
+                'harga_beku' => RincianBiaya::rupiah($b->harga_satuan),
+                'beda' => $b->harga_satuan === $master->harga
+                    ? null
+                    : ($b->harga_satuan < $master->harga ? 'lebih murah dari sekarang' : 'lebih mahal dari sekarang'),
+            ])->values()->all(),
+            'meta' => ['nama' => $master->nama, 'harga_kini' => RincianBiaya::rupiah($master->harga)],
         ]);
     }
 
@@ -305,20 +435,26 @@ class MasterHargaController extends ApiController
     public function riwayat(MasterHarga $master): JsonResponse
     {
         return response()->json([
-            'data' => $master->riwayat->map(fn (RiwayatHarga $r) => [
-                'id' => $r->id,
-                'harga_lama' => RincianBiaya::rupiah($r->harga_lama),
-                'harga_baru' => RincianBiaya::rupiah($r->harga_baru),
-                'selisih' => ($r->selisih > 0 ? '+' : '-').RincianBiaya::rupiah(abs($r->selisih)),
-                'naik' => $r->selisih > 0,
-                'persen' => $r->persen,
-                'oleh' => $r->oleh,
-                'catatan' => $r->catatan,
-                'pada' => $r->created_at?->locale('id')->translatedFormat('j M Y, H:i'),
-                'pada_teks' => $r->created_at?->locale('id')->diffForHumans(),
-            ])->all(),
+            'data' => $master->riwayat->map(fn (RiwayatHarga $r) => $this->barisRiwayat($r))->all(),
             'meta' => ['nama' => $master->nama, 'harga_kini' => RincianBiaya::rupiah($master->harga)],
         ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function barisRiwayat(RiwayatHarga $r): array
+    {
+        return [
+            'id' => $r->id,
+            'harga_lama' => RincianBiaya::rupiah($r->harga_lama),
+            'harga_baru' => RincianBiaya::rupiah($r->harga_baru),
+            'selisih' => ($r->selisih > 0 ? '+' : '-').RincianBiaya::rupiah(abs($r->selisih)),
+            'naik' => $r->selisih > 0,
+            'persen' => $r->persen,
+            'oleh' => $r->oleh,
+            'catatan' => $r->catatan,
+            'pada' => $r->created_at?->locale('id')->translatedFormat('j M Y, H:i'),
+            'pada_teks' => $r->created_at?->locale('id')->diffForHumans(),
+        ];
     }
 
     /**
@@ -356,11 +492,33 @@ class MasterHargaController extends ApiController
             return response()->json(['pesan' => 'Berapa persen kenaikannya belum diisi.'], 422);
         }
 
+        /*
+         | Keadaan SEBELUM disimpan lebih dulu, bukan perintahnya.
+         |
+         | Menaikkan 10% lalu menurunkan 9,09% tidak mengembalikan angkanya:
+         | pembulatan ke ratusan membuat sebagian baris meleset. Yang bisa
+         | dipercaya hanya nilai lamanya sendiri.
+         */
+        $batch = BatchMassal::create([
+            'aksi' => $data['aksi'],
+            'jumlah' => $daftar->count(),
+            'sebelum' => $daftar->map(fn (MasterHarga $m) => [
+                'id' => $m->id,
+                'harga' => $m->harga,
+                'aktif' => $m->aktif,
+                'vendor_id' => $m->vendor_id,
+                'berlaku_sampai' => $m->berlaku_sampai?->toDateString(),
+            ])->all(),
+            'oleh' => $request->attributes->get('admin_pemanggil'),
+        ]);
+
         $tersentuh = 0;
 
         foreach ($daftar as $m) {
-            $tersentuh += $this->terapkanMassal($m, $data, $request) ? 1 : 0;
+            $tersentuh += $this->terapkanMassal($m, $data, $request, $batch) ? 1 : 0;
         }
+
+        $batch->update(['jumlah' => $tersentuh]);
 
         $this->catat($request, 'ubah massal master harga', [
             'aksi' => $data['aksi'], 'jumlah' => $tersentuh,
@@ -369,11 +527,59 @@ class MasterHargaController extends ApiController
         return response()->json([
             'pesan' => $this->pesanMassal($data['aksi'], $tersentuh),
             'jumlah' => $tersentuh,
+            // Dipulangkan supaya layar bisa menawarkan "batalkan" tepat
+            // sesudahnya — tawaran yang datang belakangan tidak pernah dipakai.
+            'batch' => $batch->bisaDibatalkan() ? $batch->id : null,
         ]);
     }
 
+    /**
+     * Mengembalikan seluruh baris sebuah perintah massal ke nilai lamanya.
+     *
+     * Bukan dengan menjalankan kebalikannya — "turunkan 9,09%" tidak
+     * mengembalikan angka yang sudah dibulatkan — melainkan dengan menulis
+     * ulang nilai yang tersimpan sebelum perintahnya jalan.
+     */
+    public function batalkanMassal(BatchMassal $batch, Request $request): JsonResponse
+    {
+        if (! $batch->bisaDibatalkan()) {
+            return response()->json([
+                'pesan' => $batch->aksi === 'hapus'
+                    ? 'Penghapusan tidak bisa dibatalkan — barisnya sudah tidak ada.'
+                    : 'Perintah ini sudah dibatalkan sebelumnya.',
+            ], 422);
+        }
+
+        $kembali = 0;
+
+        foreach ($batch->sebelum as $lama) {
+            $m = MasterHarga::find($lama['id']);
+
+            if (! $m) {
+                continue;
+            }
+
+            $hargaKini = $m->harga;
+            $m->update([
+                'harga' => $lama['harga'],
+                'aktif' => $lama['aktif'],
+                'vendor_id' => $lama['vendor_id'],
+                'berlaku_sampai' => $lama['berlaku_sampai'],
+            ]);
+
+            $this->catatRiwayat($m, $hargaKini, $request, 'pembatalan perubahan massal');
+            $kembali++;
+        }
+
+        $batch->update(['dibatalkan_pada' => now()]);
+
+        $this->catat($request, 'batalkan ubah massal master harga', ['jumlah' => $kembali]);
+
+        return response()->json(['pesan' => "{$kembali} harga dikembalikan seperti semula.", 'jumlah' => $kembali]);
+    }
+
     /** Satu baris, satu aksi. Memulangkan true bila barisnya benar berubah. */
-    private function terapkanMassal(MasterHarga $m, array $data, Request $request): bool
+    private function terapkanMassal(MasterHarga $m, array $data, Request $request, ?BatchMassal $batch = null): bool
     {
         if ($data['aksi'] === 'hapus') {
             $m->delete();
@@ -388,7 +594,7 @@ class MasterHargaController extends ApiController
             // seperti "Rp 60.500,25" tidak pernah ditawarkan vendor mana pun.
             $m->harga = max(0, (int) (round($lama * $faktor / 100) * 100));
             $m->save();
-            $this->catatRiwayat($m, $lama, $request, 'perubahan massal '.$data['persen'].'%');
+            $this->catatRiwayat($m, $lama, $request, 'perubahan massal '.$data['persen'].'%', $batch);
 
             return $m->harga !== $lama;
         }

@@ -1445,3 +1445,104 @@ test('riwayat hanya mencatat saat angkanya yang berubah', function () {
         ->and($riwayat->json('data.0.naik'))->toBeTrue()
         ->and($riwayat->json('data.0.persen'))->toEqual(30.0);
 });
+
+test('pembatalan massal mengembalikan angka lama, bukan menjalankan kebalikannya', function () {
+    /*
+     | Naik 10% lalu turun 9,09% TIDAK mengembalikan angkanya: pembulatan ke
+     | ratusan membuat sebagian baris meleset beberapa ratus rupiah. Yang
+     | dipakai di sini nilai lamanya sendiri, yang disimpan sebelum
+     | perintahnya jalan.
+     */
+    $a = masterUji(['nama' => 'Hiace', 'harga' => 777_777]);
+    $b = masterUji(['nama' => 'Elf', 'harga' => 333_333]);
+
+    $naik = $this->postJson('/api/v1/master-harga/massal', [
+        'id' => [$a->id, $b->id], 'aksi' => 'naik', 'persen' => 10,
+    ], kepalaRab())->assertOk();
+
+    expect($a->fresh()->harga)->not->toBe(777_777);
+
+    $batch = $naik->json('batch');
+    expect($batch)->not->toBeNull();
+
+    $this->postJson("/api/v1/master-harga/massal/{$batch}/batal", [], kepalaRab())->assertOk();
+
+    expect($a->fresh()->harga)->toBe(777_777)
+        ->and($b->fresh()->harga)->toBe(333_333);
+
+    // Dan tidak bisa dibatalkan dua kali.
+    $this->postJson("/api/v1/master-harga/massal/{$batch}/batal", [], kepalaRab())->assertStatus(422);
+});
+
+test('penghapusan massal tidak menawarkan pembatalan', function () {
+    /*
+     | Barisnya sudah tidak ada, dan membuatnya ulang akan memberi id baru
+     | yang tidak dikenali RAB mana pun. Dikatakan apa adanya, bukan
+     | dijanjikan lalu gagal.
+     */
+    $m = masterUji();
+
+    $balasan = $this->postJson('/api/v1/master-harga/massal', [
+        'id' => [$m->id], 'aksi' => 'hapus',
+    ], kepalaRab())->assertOk();
+
+    expect($balasan->json('batch'))->toBeNull();
+});
+
+test('tambah banyak melewati baris yang bentrok tanpa membatalkan sisanya', function () {
+    /*
+     | Lima puluh baris yang gugur gara-gara satu baris salah adalah hukuman
+     | yang tidak sebanding.
+     */
+    masterUji(['nama' => 'Tiket Borobudur', 'provinsi' => 'Jawa Tengah', 'destinasi' => null]);
+
+    $balasan = $this->postJson('/api/v1/master-harga/banyak', [
+        'kategori' => 'tiket', 'satuan' => 'orang', 'provinsi' => 'Jawa Tengah',
+        'baris' => [
+            ['nama' => 'Tiket Borobudur', 'harga' => 50_000],   // bentrok
+            ['nama' => 'Tiket Dieng', 'harga' => 30_000],
+            ['nama' => 'Tiket Ketep', 'harga' => 15_000],
+        ],
+    ], kepalaRab())->assertCreated();
+
+    expect($balasan->json('masuk'))->toBe(2)
+        ->and($balasan->json('gagal.0.nama'))->toBe('Tiket Borobudur')
+        ->and(MasterHarga::where('provinsi', 'Jawa Tengah')->count())->toBe(3);
+});
+
+test('riwayat semua harga terbaca dalam satu panggilan', function () {
+    $a = masterUji(['nama' => 'Satu', 'harga' => 10_000]);
+    $b = masterUji(['nama' => 'Dua', 'harga' => 20_000]);
+
+    $this->postJson('/api/v1/master-harga/massal', [
+        'id' => [$a->id, $b->id], 'aksi' => 'naik', 'persen' => 10,
+    ], kepalaRab())->assertOk();
+
+    $semua = $this->getJson('/api/v1/master-harga/riwayat', kepalaRab())->assertOk();
+
+    expect($semua->json('data'))->toHaveCount(2)
+        // Nama harganya ikut — tanpa itu daftarnya cuma deretan angka.
+        ->and(collect($semua->json('data'))->pluck('harga_nama')->sort()->values()->all())->toBe(['Dua', 'Satu']);
+});
+
+test('RAB yang memakai sebuah harga bisa ditelusuri berikut angka bekunya', function () {
+    /*
+     | Yang ditampilkan harga yang DIBEKUKAN di RAB itu, bukan harga hari
+     | ini — justru selisihnya yang jadi alasan orang membuka daftar ini.
+     */
+    $m = masterUji(['harga' => 50_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $m->id, 'jumlah' => 2,
+    ], kepalaRab())->assertOk();
+
+    $m->update(['harga' => 75_000]);
+
+    $dipakai = $this->getJson("/api/v1/master-harga/{$m->id}/dipakai", kepalaRab())->assertOk();
+
+    expect($dipakai->json('data'))->toHaveCount(1)
+        ->and($dipakai->json('data.0.harga_beku'))->toBe('Rp 50.000')
+        ->and($dipakai->json('data.0.beda'))->toBe('lebih murah dari sekarang')
+        ->and($dipakai->json('meta.harga_kini'))->toBe('Rp 75.000');
+});

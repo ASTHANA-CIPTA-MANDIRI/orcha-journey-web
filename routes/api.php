@@ -210,8 +210,12 @@ Route::prefix('v1')
         // lebih dulu menelan rute bernama.
         Route::get('/master-harga/pdf', [MasterHargaController::class, 'pdf']);
         Route::post('/master-harga/massal', [MasterHargaController::class, 'massal']);
+        Route::post('/master-harga/massal/{batch}/batal', [MasterHargaController::class, 'batalkanMassal']);
+        Route::post('/master-harga/banyak', [MasterHargaController::class, 'banyak']);
+        Route::get('/master-harga/riwayat', [MasterHargaController::class, 'riwayatSemua']);
         Route::post('/master-harga', [MasterHargaController::class, 'store']);
         Route::get('/master-harga/{master}/riwayat', [MasterHargaController::class, 'riwayat']);
+        Route::get('/master-harga/{master}/dipakai', [MasterHargaController::class, 'dipakaiDi']);
         Route::patch('/master-harga/{master}', [MasterHargaController::class, 'update']);
         Route::delete('/master-harga/{master}', [MasterHargaController::class, 'destroy']);
 

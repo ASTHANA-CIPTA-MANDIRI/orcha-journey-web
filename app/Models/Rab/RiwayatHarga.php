@@ -16,10 +16,11 @@ class RiwayatHarga extends Model
 {
     protected $table = 'tbl_master_harga_riwayat';
 
-    protected $fillable = ['master_harga_id', 'harga_lama', 'harga_baru', 'oleh', 'catatan'];
+    protected $fillable = ['master_harga_id', 'batch_id', 'harga_lama', 'harga_baru', 'oleh', 'catatan'];
 
     protected $casts = [
         'master_harga_id' => 'integer',
+        'batch_id' => 'integer',
         'harga_lama' => 'integer',
         'harga_baru' => 'integer',
     ];
