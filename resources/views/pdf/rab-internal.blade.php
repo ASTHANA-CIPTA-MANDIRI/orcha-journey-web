@@ -40,7 +40,9 @@
         default => '-',
     };
     $kelompok = collect($r['baris'])->groupBy('kategori_label');
-    $selisihBulat = $r['untung'] - $r['margin_diminta'];
+    // Dari Orcha, tidak diturunkan di sini: untung - margin diminta hanya
+    // kebetulan sama saat tidak ada nego dan peserta = peserta dasar.
+    $selisihBulat = $r['tambahan_pembulatan'];
     $n = $r['nego'] ?? null;
 @endphp
 <!DOCTYPE html>

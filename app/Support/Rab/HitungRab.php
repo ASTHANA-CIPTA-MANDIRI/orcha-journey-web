@@ -363,7 +363,20 @@ class HitungRab
         // Dibulatkan KE ATAS: margin boleh sedikit bertambah karena
         // pembulatan, tetapi tidak boleh berkurang diam-diam di bawah yang
         // diminta admin.
-        $hargaAsli = (int) (ceil(($modalDasar + $marginDiminta) / $pesertaDasar / $bulat) * $bulat);
+        $hargaMentah = ($modalDasar + $marginDiminta) / $pesertaDasar;
+        $hargaAsli = (int) (ceil($hargaMentah / $bulat) * $bulat);
+
+        /*
+         | Berapa rupiah yang MASUK ke untung semata-mata karena pembulatan.
+         |
+         | Tanpa angka ini, layar menulis "margin diminta Rp 20.000" tepat di
+         | atas "untung Rp 50.000" dan tidak ada apa pun yang menjelaskan
+         | selisih Rp 30.000 di antara keduanya. Pada harga kecil selisihnya
+         | justru paling besar: harga mentah Rp 12.000 yang dibulatkan ke
+         | kelipatan Rp 5.000 melompat ke Rp 15.000, dan margin yang diminta
+         | 20% berubah jadi 50% tanpa ada yang memintanya.
+         */
+        $tambahanBulat = (int) round(($hargaAsli - $hargaMentah) * $peserta);
 
         /*
          | Harga yang DISEPAKATI menang atas harga yang dihitung.
@@ -474,6 +487,7 @@ class HitungRab
             'modal_per_kepala' => (int) round($modal / $peserta),
             'modal_variabel_per_orang' => $variabelPerOrang,
             'margin_diminta' => $marginDiminta,
+            'tambahan_pembulatan' => $tambahanBulat,
             'harga_per_orang' => $hargaPerOrang,
             'harga_total' => $hargaTotal,
             'untung' => $untung,

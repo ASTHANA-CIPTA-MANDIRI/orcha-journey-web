@@ -499,3 +499,30 @@ test('tanpa nego, kedua sisi perbandingannya sama persis', function () {
         ->and($n['selisih']['untung'])->toBe(0)
         ->and($n['selisih']['bagian_untung_dilepas'])->toBe(0.0);
 });
+
+test('tambahan dari pembulatan disebut angkanya, bukan dibiarkan jadi selisih misterius', function () {
+    $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen', 'margin_nilai' => 20, 'pembulatan' => 5000]);
+    biayaUji($rab, 'orang', 10_000);
+
+    $r = HitungRab::ringkas($rab->fresh());
+
+    /*
+     | Modal 100.000, margin diminta 20.000 → harga mentah 12.000/orang.
+     | Dibulatkan ke kelipatan 5.000 jadi 15.000 — dan untungnya melompat
+     | ke 50.000, dua setengah kali yang diminta. Selisih 30.000 itu bukan
+     | salah hitung, tetapi tanpa namanya ia terbaca seperti salah hitung.
+     */
+    expect($r['harga_per_orang'])->toBe(15_000)
+        ->and($r['margin_diminta'])->toBe(20_000)
+        ->and($r['untung'])->toBe(50_000)
+        ->and($r['tambahan_pembulatan'])->toBe(30_000)
+        // Ketiganya harus berjumlah utuh: margin diminta + tambahan = untung.
+        ->and($r['margin_diminta'] + $r['tambahan_pembulatan'])->toBe($r['untung']);
+});
+
+test('pembulatan ke rupiah terkecil tidak menambah apa-apa', function () {
+    $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen', 'margin_nilai' => 20, 'pembulatan' => 1]);
+    biayaUji($rab, 'orang', 10_000);
+
+    expect(HitungRab::ringkas($rab->fresh())['tambahan_pembulatan'])->toBe(0);
+});
