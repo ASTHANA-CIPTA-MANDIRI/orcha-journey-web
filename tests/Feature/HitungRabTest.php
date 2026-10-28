@@ -526,3 +526,51 @@ test('pembulatan ke rupiah terkecil tidak menambah apa-apa', function () {
 
     expect(HitungRab::ringkas($rab->fresh())['tambahan_pembulatan'])->toBe(0);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Margin dari harga jual
+|--------------------------------------------------------------------------
+|
+| "Margin 5%" punya dua arti yang dipakai orang dengan kata yang sama, dan
+| keduanya memberi harga berbeda untuk modal yang sama.
+*/
+
+test('margin dari harga jual menyisakan persennya di dalam harga', function () {
+    $rab = rabUji(['jumlah_peserta' => 4, 'margin_jenis' => 'persen_harga', 'margin_nilai' => 5, 'pembulatan' => 1]);
+    // Modal 1.343.551 per orang — angka dari lembar kerja tim.
+    biayaUji($rab, 'orang', 1_343_551);
+
+    $r = HitungRab::ringkas($rab->fresh());
+
+    // 1.343.551 / 0,95 = 1.414.264,2 → dibulatkan ke atas 1.414.265.
+    expect($r['harga_per_orang'])->toBe(1_414_265)
+        ->and($r['untung_per_orang'])->toBe(70_714)
+        ->and($r['untung'])->toBe(282_856);
+});
+
+test('persen dari modal dan persen dari harga jual memberi harga berbeda', function () {
+    $buat = fn (string $jenis) => tap(rabUji([
+        'jumlah_peserta' => 4, 'margin_jenis' => $jenis, 'margin_nilai' => 5, 'pembulatan' => 1,
+    ]), fn ($rab) => biayaUji($rab, 'orang', 1_343_551));
+
+    $dariModal = HitungRab::ringkas($buat('persen')->fresh());
+    $dariHarga = HitungRab::ringkas($buat('persen_harga')->fresh());
+
+    // Bedanya nyata, dan keduanya disebut "margin 5%" oleh orang berbeda.
+    expect($dariModal['harga_per_orang'])->toBe(1_410_729)
+        ->and($dariHarga['harga_per_orang'])->toBe(1_414_265);
+});
+
+test('untung dari margin harga jual benar-benar sebesar persen harganya', function () {
+    $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen_harga', 'margin_nilai' => 20, 'pembulatan' => 1]);
+    biayaUji($rab, 'orang', 80_000);
+
+    $r = HitungRab::ringkas($rab->fresh());
+
+    // 80.000 / 0,8 = 100.000 → untung 20.000, tepat 20% DARI HARGA JUAL.
+    expect($r['harga_per_orang'])->toBe(100_000)
+        ->and(round($r['untung'] / $r['harga_total'] * 100, 1))->toBe(20.0)
+        // Diukur terhadap modal, persennya 25% — angka yang sama, dua nama.
+        ->and($r['persen_untung'])->toBe(25.0);
+});

@@ -1621,8 +1621,21 @@ return [
             'kamar_malam' => ['label' => 'per kamar per malam', 'variabel' => false],
         ],
 
+        /*
+         | Dua "persen" yang BERBEDA, dan bedanya bukan main-main.
+         |
+         | "dari modal" menambahkan di atas modal (markup): modal 1.343.551
+         | + 5% = 1.410.729. "dari harga jual" menyisakan persen itu di dalam
+         | harga (margin): 1.343.551 / 0,95 = 1.414.265.
+         |
+         | Keduanya disediakan karena keduanya dipakai orang dengan kata yang
+         | sama. Tim yang mengetik "20" sambil memikirkan margin dagang akan
+         | mendapat harga lebih rendah daripada yang dimaksudnya, dan tidak
+         | ada satu pun tanda bahwa yang dihitung bukan yang dimaksud.
+         */
         'margin_jenis' => [
             'persen' => 'Persen dari modal',
+            'persen_harga' => 'Persen dari harga jual',
             'per_orang' => 'Nominal per orang',
             'total' => 'Nominal per rombongan',
         ],
@@ -1637,6 +1650,31 @@ return [
         // Harga per orang dibulatkan ke atas ke kelipatan ini. Penawaran
         // Rp 1.237.418 per orang terbaca seperti hasil kalkulator, bukan harga.
         'pembulatan' => 1000,
+
+        /*
+         | Kelipatan pembulatan yang boleh dipilih — SATU daftar, dipakai
+         | validasi DAN dikirim ke layar lewat kosakata.
+         |
+         | Sebelumnya daftarnya ditulis dua kali: enam nilai di validasi
+         | Orcha, empat di kotak pilih lemon. Akibatnya Rp 100 dan Rp 500
+         | diterima API tetapi tidak pernah bisa dipilih siapa pun — dua
+         | pilihan yang ada di kode, tidak ada di layar, dan tidak ada yang
+         | tahu keduanya hilang.
+         |
+         | Dilebarkan sampai Rp 100.000 karena perjalanan jutaan rupiah per
+         | orang membulat ke ribuan tidak terasa membulat sama sekali.
+         */
+        'pembulatan_pilihan' => [
+            1 => 'Rp 1 · tanpa pembulatan',
+            100 => 'Rp 100',
+            500 => 'Rp 500',
+            1000 => 'Rp 1.000',
+            5000 => 'Rp 5.000',
+            10000 => 'Rp 10.000',
+            25000 => 'Rp 25.000',
+            50000 => 'Rp 50.000',
+            100000 => 'Rp 100.000',
+        ],
 
         // Penawaran berlaku berapa hari sejak dibuat. Harga tiket dan sewa bus
         // bergerak; penawaran tanpa batas adalah janji harga lama selamanya.

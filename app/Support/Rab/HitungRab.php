@@ -252,6 +252,17 @@ class HitungRab
 
         return match ($rab->margin_jenis) {
             'persen' => (int) round($modal * $nilai / 100),
+            /*
+             | Margin yang diminta disisakan DI DALAM harga jual, bukan
+             | ditambahkan di atas modal: harga = modal / (1 - p), jadi
+             | marginnya = modal × p / (100 - p).
+             |
+             | Pembaginya dijaga minimal 1 supaya 100% tidak meledak di
+             | tempat yang jauh dari sebabnya; nilai segitu sudah ditolak
+             | validasi, dan harga jual yang marginnya 100% berarti modalnya
+             | nol.
+             */
+            'persen_harga' => (int) round($modal * $nilai / max(1, 100 - $nilai)),
             // Per kepala dihitung atas jumlah yang sama dengan pembagi
             // harganya; kalau tidak, "tambah Rp 150.000 per kepala" pada open
             // trip menghasilkan tambahan yang bukan Rp 150.000 per kepala.

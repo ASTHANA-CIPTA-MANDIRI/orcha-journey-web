@@ -979,7 +979,9 @@ class RabController extends ApiController
             'jumlah_peserta' => [$wajib, 'integer', 'min:1', 'max:500'],
             'margin_jenis' => ['sometimes', Rule::in(array_keys(config('orcha.rab.margin_jenis')))],
             'margin_nilai' => ['sometimes', 'integer', 'min:0', 'max:1000000000'],
-            'pembulatan' => ['sometimes', 'integer', Rule::in([1, 100, 500, 1000, 5000, 10000])],
+            // Daftarnya dari config, bukan ditulis ulang di sini: kotak pilih
+            // di layar dirakit dari daftar yang sama.
+            'pembulatan' => ['sometimes', 'integer', Rule::in(array_keys(config('orcha.rab.pembulatan_pilihan')))],
             // Nol dan null sama-sama berarti "tidak ada kesepakatan" —
             // harganya kembali dihitung dari modal + margin.
             'harga_nego' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000000000'],
@@ -1001,10 +1003,23 @@ class RabController extends ApiController
             ]);
         }
 
-        if (($data['margin_jenis'] ?? $rab?->margin_jenis) === 'persen'
-            && (int) ($data['margin_nilai'] ?? $rab?->margin_nilai ?? 0) > 500) {
+        $jenisMargin = $data['margin_jenis'] ?? $rab?->margin_jenis;
+        $nilaiMargin = (int) ($data['margin_nilai'] ?? $rab?->margin_nilai ?? 0);
+
+        if ($jenisMargin === 'persen' && $nilaiMargin > 500) {
             throw ValidationException::withMessages([
                 'margin_nilai' => 'Margin persen di atas 500% hampir pasti salah ketik — mungkin maksudnya nominal?',
+            ]);
+        }
+
+        /*
+         | Margin dari HARGA JUAL tidak bisa 100% atau lebih: rumusnya
+         | modal / (1 - p), dan pada 100% pembaginya nol. Artinya pun tidak
+         | ada — harga jual yang seluruhnya untung berarti modalnya nol.
+         */
+        if ($jenisMargin === 'persen_harga' && $nilaiMargin >= 100) {
+            throw ValidationException::withMessages([
+                'margin_nilai' => 'Margin dari harga jual harus di bawah 100%. Pada 100% seluruh harga jual adalah untung, yang hanya mungkin bila modalnya nol — mungkin yang dimaksud "persen dari modal"?',
             ]);
         }
 

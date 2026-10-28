@@ -785,6 +785,7 @@ class MasterHargaController extends ApiController
             'satuan' => collect(config('orcha.rab.satuan'))->map(fn ($s) => $s['label'])->all(),
             'satuan_berkapasitas' => ['unit_hari', 'kamar_malam'],
             'margin_jenis' => config('orcha.rab.margin_jenis'),
+            'pembulatan' => config('orcha.rab.pembulatan_pilihan'),
             'status' => config('orcha.rab.status'),
         ];
     }

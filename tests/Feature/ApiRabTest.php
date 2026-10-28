@@ -2021,3 +2021,66 @@ test('baris milik RAB lain tidak bisa disimpan ke master lewat RAB ini', functio
     $this->postJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya['id']}/ke-master", [], kepalaRab())
         ->assertNotFound();
 });
+
+test('margin dari harga jual 100% ditolak dengan sebabnya', function () {
+    $rab = buatRabLewatApi($this);
+
+    // Rumusnya modal / (1 - p): pada 100% pembaginya nol, dan artinya pun
+    // tidak ada — harga jual yang seluruhnya untung berarti modal nol.
+    $this->patchJson("/api/v1/rab/{$rab['id']}", [
+        'margin_jenis' => 'persen_harga',
+        'margin_nilai' => 100,
+    ], kepalaRab())
+        ->assertStatus(422)
+        ->assertJsonPath('errors.margin_nilai.0', fn ($p) => str_contains($p, 'di bawah 100%'));
+});
+
+test('margin dari harga jual di bawah 100% diterima', function () {
+    $rab = buatRabLewatApi($this);
+
+    $data = $this->patchJson("/api/v1/rab/{$rab['id']}", [
+        'margin_jenis' => 'persen_harga',
+        'margin_nilai' => 30,
+    ], kepalaRab())->assertOk()->json('data');
+
+    expect($data['margin_jenis'])->toBe('persen_harga')
+        ->and($data['margin_nilai'])->toBe(30);
+});
+
+test('kedua jenis persen ada di kosakata yang dikirim ke layar', function () {
+    $data = $this->getJson('/api/v1/rab', kepalaRab())->assertOk()->json('meta.kosakata.margin_jenis');
+
+    // Layar merakit pilihannya dari sini; jenis yang tidak terdaftar tidak
+    // akan pernah bisa dipilih walau hitungannya sudah ada.
+    expect($data)->toHaveKey('persen')
+        ->and($data)->toHaveKey('persen_harga');
+});
+
+test('kelipatan pembulatan dipakai validasi dan dikirim ke layar dari daftar yang sama', function () {
+    $daftar = config('orcha.rab.pembulatan_pilihan');
+
+    $kosakata = $this->getJson('/api/v1/rab', kepalaRab())->assertOk()->json('meta.kosakata.pembulatan');
+
+    // Dua daftar yang ditulis terpisah akan berselisih: sebelum ini Rp 100
+    // dan Rp 500 diterima API tetapi tidak pernah ditawarkan layar.
+    // Kunci angka dari JSON kembali jadi int saat didekode ke array.
+    expect(array_keys($kosakata))->toBe(array_keys($daftar));
+
+    $rab = buatRabLewatApi($this);
+
+    foreach (array_keys($daftar) as $nilai) {
+        $this->patchJson("/api/v1/rab/{$rab['id']}", ['pembulatan' => $nilai], kepalaRab())
+            ->assertOk()
+            ->assertJsonPath('data.pembulatan', $nilai);
+    }
+});
+
+test('kelipatan di luar daftar ditolak, bukan dibulatkan diam-diam', function () {
+    $rab = buatRabLewatApi($this);
+
+    // 7.777 akan menghasilkan harga yang tidak terbaca sebagai harga, dan
+    // menerimanya diam-diam berarti penawaran keluar dengan angka ganjil.
+    $this->patchJson("/api/v1/rab/{$rab['id']}", ['pembulatan' => 7_777], kepalaRab())
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('pembulatan');
+});
