@@ -979,9 +979,18 @@ class RabController extends ApiController
             'jumlah_peserta' => [$wajib, 'integer', 'min:1', 'max:500'],
             'margin_jenis' => ['sometimes', Rule::in(array_keys(config('orcha.rab.margin_jenis')))],
             'margin_nilai' => ['sometimes', 'integer', 'min:0', 'max:1000000000'],
-            // Daftarnya dari config, bukan ditulis ulang di sini: kotak pilih
-            // di layar dirakit dari daftar yang sama.
-            'pembulatan' => ['sometimes', 'integer', Rule::in(array_keys(config('orcha.rab.pembulatan_pilihan')))],
+            /*
+             | Nilai BEBAS, bukan hanya dari daftar.
+             |
+             | pembulatan_pilihan tetap ada sebagai saran yang dikirim ke
+             | layar, tetapi tim yang butuh kelipatan lain — Rp 2.500,
+             | Rp 250.000 — tidak perlu menunggu config diubah dan dideploy
+             | lebih dulu. Yang dijaga tinggal batas kewarasannya.
+             |
+             | Batas atas Rp 1.000.000: kelipatan di atas itu bukan
+             | pembulatan lagi, melainkan menetapkan harga.
+             */
+            'pembulatan' => ['sometimes', 'integer', 'min:1', 'max:1000000'],
             // Nol dan null sama-sama berarti "tidak ada kesepakatan" —
             // harganya kembali dihitung dari modal + margin.
             'harga_nego' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000000000'],

@@ -2075,12 +2075,24 @@ test('kelipatan pembulatan dipakai validasi dan dikirim ke layar dari daftar yan
     }
 });
 
-test('kelipatan di luar daftar ditolak, bukan dibulatkan diam-diam', function () {
+test('kelipatan di luar daftar saran tetap diterima', function () {
     $rab = buatRabLewatApi($this);
 
-    // 7.777 akan menghasilkan harga yang tidak terbaca sebagai harga, dan
-    // menerimanya diam-diam berarti penawaran keluar dengan angka ganjil.
-    $this->patchJson("/api/v1/rab/{$rab['id']}", ['pembulatan' => 7_777], kepalaRab())
-        ->assertStatus(422)
-        ->assertJsonValidationErrors('pembulatan');
+    // Daftarnya saran, bukan pagar: tim yang butuh Rp 2.500 tidak perlu
+    // menunggu config diubah dan dideploy lebih dulu.
+    $this->patchJson("/api/v1/rab/{$rab['id']}", ['pembulatan' => 2_500], kepalaRab())
+        ->assertOk()
+        ->assertJsonPath('data.pembulatan', 2_500);
+});
+
+test('kelipatan nol, minus, dan di atas sejuta ditolak', function () {
+    $rab = buatRabLewatApi($this);
+
+    // Nol membuat pembaginya nol; di atas sejuta itu bukan pembulatan lagi,
+    // melainkan menetapkan harga.
+    foreach ([0, -5, 1_000_001] as $nilai) {
+        $this->patchJson("/api/v1/rab/{$rab['id']}", ['pembulatan' => $nilai], kepalaRab())
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('pembulatan');
+    }
 });
