@@ -632,3 +632,15 @@ test('rincian per orang memakai dasar yang sama dengan harga jualnya', function 
         ->and($r['per_orang']['modal'] + $r['per_orang']['margin'] + $r['per_orang']['pembulatan'])
         ->toBe($r['harga_per_orang']);
 });
+
+test('untung per orang di rinciannya persis margin ditambah pembulatan', function () {
+    $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen_harga', 'margin_nilai' => 3, 'pembulatan' => 1000]);
+    biayaUji($rab, 'orang', 15_500);
+
+    $p = HitungRab::ringkas($rab->fresh())['per_orang'];
+
+    // Yang ditulis di layar sebagai "479 + 21 = 500" harus benar-benar
+    // berjumlah, bukan kebetulan mendekati.
+    expect($p['margin'] + $p['pembulatan'])->toBe($p['untung'])
+        ->and($p['modal'] + $p['untung'])->toBe($p['harga']);
+});

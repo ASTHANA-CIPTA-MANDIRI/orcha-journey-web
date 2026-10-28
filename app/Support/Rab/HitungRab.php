@@ -535,6 +535,15 @@ class HitungRab
             'modal' => $modalPerOrangDasar,
             'margin' => $marginPerOrang,
             'pembulatan' => $hargaAsli - $modalPerOrangDasar - $marginPerOrang,
+            /*
+             | Untung per orang yang SEJALAN dengan rinciannya: margin +
+             | tambahan pembulatan, persis. 'untung_per_orang' di luar blok
+             | ini dibulatkan ke bawah dari untung rombongan dan bisa
+             | berselisih satu rupiah — selisih yang tidak berbahaya sebagai
+             | ringkasan, tetapi merusak penjumlahan yang ditulis di layar
+             | sebagai "479 + 21 = 500".
+             */
+            'untung' => $hargaAsli - $modalPerOrangDasar,
             'harga' => $hargaAsli,
         ];
 
