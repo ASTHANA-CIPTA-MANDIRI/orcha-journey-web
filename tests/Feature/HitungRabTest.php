@@ -574,3 +574,32 @@ test('untung dari margin harga jual benar-benar sebesar persen harganya', functi
         // Diukur terhadap modal, persennya 25% — angka yang sama, dua nama.
         ->and($r['persen_untung'])->toBe(25.0);
 });
+
+test('harga sebelum dibulatkan ikut dikirim, supaya margin tidak terlihat mati', function () {
+    $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen', 'margin_nilai' => 20, 'pembulatan' => 5000]);
+    biayaUji($rab, 'orang', 5_500);
+
+    $r = HitungRab::ringkas($rab->fresh());
+
+    // Modal 55.000 + margin 11.000 = 66.000 → 6.600/orang, dibulatkan 10.000.
+    expect($r['harga_sebelum_bulat'])->toBe(6_600)
+        ->and($r['harga_per_orang'])->toBe(10_000);
+});
+
+test('kelipatan terlalu kasar membuat rentang margin lebar memberi harga yang sama', function () {
+    $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen', 'pembulatan' => 5000]);
+    biayaUji($rab, 'orang', 5_500);
+
+    $harga = [];
+    foreach ([0, 20, 50, 80] as $persen) {
+        $rab->update(['margin_nilai' => $persen]);
+        $harga[$persen] = HitungRab::ringkas($rab->fresh())['harga_per_orang'];
+    }
+
+    // Bukan bug — tetapi tanpa harga_sebelum_bulat, kotak marginnya
+    // terlihat rusak bagi yang mengubahnya.
+    expect(array_values($harga))->toBe([10_000, 10_000, 10_000, 10_000]);
+
+    $rab->update(['margin_nilai' => 82]);
+    expect(HitungRab::ringkas($rab->fresh())['harga_per_orang'])->toBe(15_000);
+});

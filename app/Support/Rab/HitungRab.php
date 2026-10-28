@@ -499,6 +499,16 @@ class HitungRab
             'modal_variabel_per_orang' => $variabelPerOrang,
             'margin_diminta' => $marginDiminta,
             'tambahan_pembulatan' => $tambahanBulat,
+            /*
+             | Harga per orang SEBELUM dibulatkan.
+             |
+             | Tanpa angka ini, kelipatan yang terlalu kasar membuat kotak
+             | margin terlihat mati: pada modal Rp 5.500 dengan kelipatan
+             | Rp 5.000, margin 0% sampai 80% semuanya memulangkan harga
+             | Rp 10.000 yang sama persis. Yang mengubahnya tidak melihat
+             | apa pun bergerak, dan menyimpulkan isiannya rusak.
+             */
+            'harga_sebelum_bulat' => (int) round($hargaMentah),
             'harga_per_orang' => $hargaPerOrang,
             'harga_total' => $hargaTotal,
             'untung' => $untung,
