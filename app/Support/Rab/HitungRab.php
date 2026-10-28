@@ -516,7 +516,31 @@ class HitungRab
             'sumbangan_per_orang' => $sumbanganPerOrang,
         ];
 
+        /*
+         | Rincian harga PER ORANG yang dijamin berjumlah pas.
+         |
+         | Layar menampilkannya sebagai penjumlahan, jadi kolomnya harus
+         | benar-benar menjumlah: membagi tiap angka totalnya sendiri lalu
+         | membulatkan masing-masing menghasilkan selisih satu-dua rupiah
+         | yang terlihat seperti salah hitung justru di layar yang dibuat
+         | untuk meyakinkan.
+         |
+         | Karena itu baris terakhirnya DITURUNKAN dari sisanya, bukan
+         | dibagi sendiri. Semuanya atas dasar peserta DASAR — dasar yang
+         | sama dengan harga jualnya.
+         */
+        $modalPerOrangDasar = (int) round($modalDasar / $pesertaDasar);
+        $marginPerOrang = (int) round($marginDiminta / $pesertaDasar);
+        $rincianPerOrang = [
+            'modal' => $modalPerOrangDasar,
+            'margin' => $marginPerOrang,
+            'pembulatan' => $hargaAsli - $modalPerOrangDasar - $marginPerOrang,
+            'harga' => $hargaAsli,
+        ];
+
         return $angka + [
+            'per_orang' => $rincianPerOrang + collect($rincianPerOrang)
+                ->mapWithKeys(fn ($v, $k) => [$k.'_teks' => RincianBiaya::rupiah($v)])->all(),
             'baris' => $baris->all(),
             'per_kategori' => $perKategori->all(),
             'persen_untung' => $modal > 0 ? round($untung / $modal * 100, 1) : null,

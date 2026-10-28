@@ -603,3 +603,32 @@ test('kelipatan terlalu kasar membuat rentang margin lebar memberi harga yang sa
     $rab->update(['margin_nilai' => 82]);
     expect(HitungRab::ringkas($rab->fresh())['harga_per_orang'])->toBe(15_000);
 });
+
+test('rincian per orang selalu berjumlah pas dengan harga jualnya', function () {
+    // Angka yang sengaja tidak habis dibagi: 7 peserta, margin 17%.
+    $rab = rabUji(['jumlah_peserta' => 7, 'margin_jenis' => 'persen', 'margin_nilai' => 17, 'pembulatan' => 5000]);
+    biayaUji($rab, 'orang', 137_000);
+    biayaUji($rab, 'rombongan', 349_000);
+
+    $p = HitungRab::ringkas($rab->fresh())['per_orang'];
+
+    // Membagi tiap angka totalnya sendiri lalu membulatkan masing-masing
+    // menghasilkan selisih yang terlihat seperti salah hitung.
+    expect($p['modal'] + $p['margin'] + $p['pembulatan'])->toBe($p['harga']);
+});
+
+test('rincian per orang memakai dasar yang sama dengan harga jualnya', function () {
+    $rab = rabUji([
+        'jenis' => 'open', 'harga_dasar' => 'minimum', 'peserta_minimum' => 8,
+        'jumlah_peserta' => 20, 'margin_jenis' => 'persen', 'margin_nilai' => 20, 'pembulatan' => 1,
+    ]);
+    biayaUji($rab, 'orang', 100_000);
+
+    $r = HitungRab::ringkas($rab->fresh());
+
+    // Harga open trip dihitung atas peserta MINIMUM; rinciannya harus ikut,
+    // kalau tidak kolomnya menjumlah ke angka yang bukan harga jualnya.
+    expect($r['per_orang']['harga'])->toBe($r['harga_per_orang'])
+        ->and($r['per_orang']['modal'] + $r['per_orang']['margin'] + $r['per_orang']['pembulatan'])
+        ->toBe($r['harga_per_orang']);
+});
