@@ -41,6 +41,7 @@
     };
     $kelompok = collect($r['baris'])->groupBy('kategori_label');
     $selisihBulat = $r['untung'] - $r['margin_diminta'];
+    $n = $r['nego'] ?? null;
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -325,9 +326,9 @@
                          tidak cocok dengannya, dan pembacanya mengira salah
                          hitung. --}}
                     @if ($r['nego_aktif'])
-                        <tr><td>Harga hitungan / orang</td><td class="kanan">{{ $r['harga_asli_teks'] }}</td></tr>
+                        <tr><td>Harga hitungan / orang</td><td class="kanan">{{ $n['sebelum']['harga_per_orang_teks'] }}</td></tr>
                         <tr><td>Disepakati / orang</td><td class="kanan">{{ $r['harga_per_orang_teks'] }}</td></tr>
-                        <tr><td>Selisih kesepakatan / orang</td><td class="kanan">{{ $rp($r['nego_selisih']) }}</td></tr>
+                        <tr><td>Selisih kesepakatan / orang</td><td class="kanan">{{ $rp($n['selisih']['harga_per_orang']) }}</td></tr>
                     @elseif ($selisihBulat > 0)
                         <tr><td>Tambahan dari pembulatan</td><td class="kanan">{{ $rp($selisihBulat) }}</td></tr>
                     @endif
@@ -355,15 +356,68 @@
         </td>
     </tr></table>
 
+    {{-- Kesepakatan harga dibandingkan berdampingan, bukan diringkas jadi
+         satu kalimat. Yang ditanyakan saat tawarannya disetujui bukan "turun
+         berapa", melainkan "sesudah turun, kita masih untung berapa". --}}
     @if ($r['nego_aktif'])
-        <div class="{{ $r['nego_rugi'] ? 'peringatan' : 'catatan' }}">
-            <b>Harga disepakati:</b> {{ $r['harga_per_orang_teks'] }} per orang
-            (hitungan {{ $r['harga_asli_teks'] }}, selisih {{ $rp($r['nego_selisih']) }}).
-            @if ($rab->alasan_nego) Alasan: {{ $aman($rab->alasan_nego) }}. @endif
+        <div class="kotak" style="margin-top:12px; border-color:{{ $r['nego_rugi'] ? '#f3c3bd' : '#c7d2fe' }}; background-color:{{ $r['nego_rugi'] ? '#fef3f2' : '#f8f9ff' }}">
+            <div class="kotak-judul">Harga disepakati vs harga hitungan</div>
+            <table class="hitung" style="width:100%">
+                <tr>
+                    <td style="width:46%"></td>
+                    <td class="kanan" style="width:27%"><b>Hitungan</b></td>
+                    <td class="kanan" style="width:27%"><b>Disepakati</b></td>
+                </tr>
+                <tr class="garis">
+                    <td>Harga per orang</td>
+                    <td class="kanan">{{ $n['sebelum']['harga_per_orang_teks'] }}</td>
+                    <td class="kanan"><b>{{ $n['sesudah']['harga_per_orang_teks'] }}</b></td>
+                </tr>
+                <tr>
+                    <td>Harga total {{ $rab->jumlah_peserta }} peserta</td>
+                    <td class="kanan">{{ $n['sebelum']['harga_total_teks'] }}</td>
+                    <td class="kanan">{{ $n['sesudah']['harga_total_teks'] }}</td>
+                </tr>
+                <tr>
+                    <td>Untung bersih</td>
+                    <td class="kanan">{{ $n['sebelum']['untung_teks'] }}</td>
+                    <td class="kanan"><b>{{ $n['sesudah']['untung_teks'] }}</b></td>
+                </tr>
+                <tr>
+                    <td>Untung per orang</td>
+                    <td class="kanan">{{ $n['sebelum']['untung_per_orang_teks'] }}</td>
+                    <td class="kanan">{{ $n['sesudah']['untung_per_orang_teks'] }}</td>
+                </tr>
+                <tr>
+                    <td>Margin</td>
+                    <td class="kanan">{{ $n['sebelum']['persen_untung'] !== null ? str_replace('.', ',', $n['sebelum']['persen_untung']).'%' : '-' }}</td>
+                    <td class="kanan">{{ $n['sesudah']['persen_untung'] !== null ? str_replace('.', ',', $n['sesudah']['persen_untung']).'%' : '-' }}</td>
+                </tr>
+                <tr>
+                    <td>Balik modal mulai</td>
+                    <td class="kanan">{{ $n['sebelum']['bep_peserta'] ? $n['sebelum']['bep_peserta'].' peserta' : 'tidak tercapai' }}</td>
+                    <td class="kanan">{{ $n['sesudah']['bep_peserta'] ? $n['sesudah']['bep_peserta'].' peserta' : 'tidak tercapai' }}</td>
+                </tr>
+            </table>
+            <div style="font-size:8.5px; color:#475569; padding:7px 10px 0; line-height:1.55">
+                Potongan {{ $rp(abs($n['selisih']['harga_per_orang'])) }} per orang
+                ({{ $rp(abs($n['selisih']['harga_total'])) }} untuk rombongan ini).
+                @if ($n['selisih']['bagian_untung_dilepas'])
+                    Itu <b>{{ str_replace('.', ',', $n['selisih']['bagian_untung_dilepas']) }}% dari untung</b>
+                    yang dilepas — yang dipotong adalah selisihnya, bukan harganya.
+                @endif
+                @if ($rab->alasan_nego) Alasan: {{ $aman($rab->alasan_nego) }}. @endif
+            </div>
             @if ($r['nego_rugi'])
-                Harga ini DI BAWAH modal — trip ini rugi {{ $rp(abs($r['untung'])) }}.
+                <div style="font-size:8.5px; color:{{ $merah }}; font-weight:bold; padding:5px 10px 0">
+                    DI BAWAH MODAL — trip ini rugi {{ $rp(abs($r['untung'])) }}.
+                    Batas aman {{ $n['batas']['harga_teks'] }} per orang.
+                </div>
             @else
-                Batas aman {{ $r['harga_batas_teks'] }} per orang.
+                <div style="font-size:8.5px; color:#475569; padding:5px 10px 0">
+                    Masih {{ $n['batas']['jarak_teks'] }} per orang di atas batas aman
+                    {{ $n['batas']['harga_teks'] }}.
+                </div>
             @endif
         </div>
     @endif

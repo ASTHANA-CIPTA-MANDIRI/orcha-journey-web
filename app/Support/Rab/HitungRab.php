@@ -156,6 +156,77 @@ class HitungRab
         return null;
     }
 
+    /**
+     * Sebelum & sesudah kesepakatan, berdampingan.
+     *
+     * Yang ditanyakan saat menyetujui tawaran bukan "turun berapa", melainkan
+     * "sesudah turun, kita masih untung berapa, dan apakah masih sehat".
+     * Selisih harganya sendiri adalah angka yang paling tidak berguna di
+     * antara semuanya: Rp 500 per orang terdengar kecil, dan bisa berarti
+     * separuh untung yang dilepas.
+     *
+     * @param  array<string, mixed>  $sebelum
+     * @param  array<string, mixed>  $sesudah
+     * @return array<string, mixed>
+     */
+    private static function bandingkanNego(Rab $rab, array $sebelum, array $sesudah, int $hargaBatas, bool $aktif): array
+    {
+        $rp = fn ($n) => RincianBiaya::rupiah((int) $n);
+        $beriTeks = function (array $sisi) use ($rp): array {
+            foreach (['harga_per_orang', 'harga_total', 'untung', 'untung_per_orang', 'sumbangan_per_orang'] as $k) {
+                $sisi[$k.'_teks'] = $rp($sisi[$k]);
+            }
+
+            return $sisi;
+        };
+
+        $untungSebelum = (int) $sebelum['untung'];
+        $untungSesudah = (int) $sesudah['untung'];
+        $lepas = $untungSebelum - $untungSesudah;
+
+        return [
+            'aktif' => $aktif,
+            'alasan' => $rab->alasan_nego,
+            'sebelum' => $beriTeks($sebelum),
+            'sesudah' => $beriTeks($sesudah),
+            'selisih' => [
+                'harga_per_orang' => (int) $sesudah['harga_per_orang'] - (int) $sebelum['harga_per_orang'],
+                'harga_total' => (int) $sesudah['harga_total'] - (int) $sebelum['harga_total'],
+                'untung' => -$lepas,
+                'untung_per_orang' => (int) $sesudah['untung_per_orang'] - (int) $sebelum['untung_per_orang'],
+                // Berapa POIN persen margin yang bergeser, bukan persen dari persen.
+                'poin_persen' => $sebelum['persen_untung'] !== null && $sesudah['persen_untung'] !== null
+                    ? round($sesudah['persen_untung'] - $sebelum['persen_untung'], 1)
+                    : null,
+                /*
+                 | Bagian untung yang dilepas — angka yang paling sering
+                 | mengejutkan. Potongan 8% dari harga bisa berarti 45% untung
+                 | yang hilang, karena yang dipotong adalah selisihnya, bukan
+                 | harganya. Tidak punya arti bila untung semula nol atau
+                 | minus, jadi tidak dipaksakan jadi angka.
+                 */
+                'bagian_untung_dilepas' => $untungSebelum > 0 ? round($lepas / $untungSebelum * 100, 1) : null,
+                /*
+                 | null bila salah satu sisinya tidak punya titik impas di
+                 | dalam rentang simulasi. (int) null adalah nol, dan nol di
+                 | sini terbaca "tidak bergeser" — persis kebalikan dari
+                 | kenyataannya, karena yang terjadi justru impasnya terlempar
+                 | ke luar jangkauan.
+                 */
+                'bep_bergeser' => $sebelum['bep_peserta'] !== null && $sesudah['bep_peserta'] !== null
+                    ? (int) $sesudah['bep_peserta'] - (int) $sebelum['bep_peserta']
+                    : null,
+            ],
+            'batas' => [
+                'harga' => $hargaBatas,
+                // Sisa jarak ke harga yang sudah rugi. Negatif berarti terlewat.
+                'jarak' => (int) $sesudah['harga_per_orang'] - $hargaBatas,
+                'jarak_teks' => $rp((int) $sesudah['harga_per_orang'] - $hargaBatas),
+                'harga_teks' => $rp($hargaBatas),
+            ],
+        ];
+    }
+
     public static function subtotal(RabBiaya $b, Rab $rab): int
     {
         return (int) $b->harga_satuan * max(1, (int) $b->jumlah)
@@ -357,12 +428,44 @@ class HitungRab
          | Simulasinya ikut dikirim: angka impas tanpa tabelnya menuntut
          | pembacanya percaya begitu saja.
          */
+        $variabelPerOrang = (int) ceil($modalVariabel / $peserta);
+        $sumbanganPerOrang = $hargaPerOrang - $variabelPerOrang;
+
         $batasSimulasi = max($peserta, $rab->pesertaDasar()) + 2;
         $simulasi = self::simulasi($rab, $hargaPerOrang, $batasSimulasi);
         $bep = self::impas($simulasi);
 
-        $variabelPerOrang = (int) ceil($modalVariabel / $peserta);
-        $sumbanganPerOrang = $hargaPerOrang - $variabelPerOrang;
+        /*
+         | Perbandingan sebelum & sesudah kesepakatan, DIHITUNG — bukan
+         | diselisihkan dari harganya saja.
+         |
+         | "Turun Rp 500 per orang" tidak menjawab pertanyaan yang sebenarnya
+         | ditanyakan saat menyetujui tawaran: untungnya tinggal berapa, dan
+         | masih sehat atau tidak. Titik impasnya pun ikut bergeser — harga
+         | yang lebih rendah menuntut lebih banyak kepala untuk menutup biaya
+         | tetap yang sama, dan itu justru keputusan yang paling mahal bila
+         | salah.
+         |
+         | Selalu dirakit, juga saat tidak ada nego: layar memakai sisi
+         | "sebelum"-nya sebagai pembanding, dan angka yang hanya ada kadang-
+         | kadang adalah angka yang lupa diuji.
+         */
+        $hitungSisi = function (int $harga) use ($rab, $modal, $peserta, $modalVariabel, $batasSimulasi): array {
+            $untungSisi = $harga * $peserta - $modal;
+
+            return [
+                'harga_per_orang' => $harga,
+                'harga_total' => $harga * $peserta,
+                'untung' => $untungSisi,
+                'untung_per_orang' => (int) floor($untungSisi / $peserta),
+                'persen_untung' => $modal > 0 ? round($untungSisi / $modal * 100, 1) : null,
+                'sumbangan_per_orang' => $harga - (int) ceil($modalVariabel / $peserta),
+                'bep_peserta' => self::impas(self::simulasi($rab, $harga, $batasSimulasi)),
+            ];
+        };
+
+        $sebelum = $hitungSisi($hargaAsli);
+        $sesudah = $hitungSisi($hargaPerOrang);
 
         $angka = [
             'modal_variabel' => $modalVariabel,
@@ -373,12 +476,6 @@ class HitungRab
             'margin_diminta' => $marginDiminta,
             'harga_per_orang' => $hargaPerOrang,
             'harga_total' => $hargaTotal,
-            // Harga yang SEHARUSNYA, sebelum kesepakatan. Tetap dikirim walau
-            // tidak ada nego: layar memakainya untuk memperlihatkan berapa
-            // yang dilepas, dan tanpanya potongan itu tidak punya pembanding.
-            'harga_asli' => $hargaAsli,
-            'harga_batas' => $hargaBatas,
-            'nego_selisih' => $hargaPerOrang - $hargaAsli,
             'untung' => $untung,
             'untung_per_orang' => (int) floor($untung / $peserta),
             'sumbangan_per_orang' => $sumbanganPerOrang,
@@ -404,6 +501,14 @@ class HitungRab
             'alasan_nego' => $rab->alasan_nego,
             // Kesepakatan yang sudah di bawah modal. Bukan larangan — tanda.
             'nego_rugi' => $untung < 0,
+            /*
+             | SATU-SATUNYA sumber angka perbandingan: harga hitungan, batas
+             | aman, dan selisihnya semuanya hidup di sini. Sempat ada
+             | kembarannya sebagai kunci datar di ringkasan, dan kembaran itu
+             | langsung terbukti bisa berselisih — layar menuliskan "turun
+             | Rp 0" di atas tabel yang menunjukkan turun Rp 26.000.
+             */
+            'nego' => self::bandingkanNego($rab, $sebelum, $sesudah, $hargaBatas, $negoAktif),
         ] + collect($angka)->mapWithKeys(fn ($v, $k) => [$k.'_teks' => RincianBiaya::rupiah($v)])->all();
     }
 }

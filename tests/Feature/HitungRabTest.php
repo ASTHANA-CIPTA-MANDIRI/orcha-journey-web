@@ -345,8 +345,8 @@ test('tanpa nego, hitungannya sama persis seperti sebelumnya', function () {
     // modal 1.000.000, margin 200.000 → 120.000/orang.
     expect($r['nego_aktif'])->toBeFalse()
         ->and($r['harga_per_orang'])->toBe(120_000)
-        ->and($r['harga_asli'])->toBe(120_000)
-        ->and($r['nego_selisih'])->toBe(0);
+        ->and($r['nego']['sebelum']['harga_per_orang'])->toBe(120_000)
+        ->and($r['nego']['selisih']['harga_per_orang'])->toBe(0);
 });
 
 test('harga asli tetap dikirim sebagai pembanding saat nego hidup', function () {
@@ -357,8 +357,8 @@ test('harga asli tetap dikirim sebagai pembanding saat nego hidup', function () 
     $r = HitungRab::ringkas($rab->fresh());
 
     // Potongan tanpa pembanding bukan potongan — ia cuma angka lain.
-    expect($r['harga_asli'])->toBe(120_000)
-        ->and($r['nego_selisih'])->toBe(-10_000)
+    expect($r['nego']['sebelum']['harga_per_orang'])->toBe(120_000)
+        ->and($r['nego']['selisih']['harga_per_orang'])->toBe(-10_000)
         ->and($r['untung'])->toBe(100_000);
 });
 
@@ -383,9 +383,9 @@ test('batas aman adalah harga terendah yang belum rugi, dibulatkan ke atas', fun
     $r = HitungRab::ringkas($rab->fresh());
 
     // Dibulatkan KE ATAS: 33.000 masih rugi 1.000 untuk rombongan ini.
-    expect($r['harga_batas'])->toBe(34_000);
+    expect($r['nego']['batas']['harga'])->toBe(34_000);
 
-    $rab->update(['harga_nego' => $r['harga_batas']]);
+    $rab->update(['harga_nego' => $r['nego']['batas']['harga']]);
     expect(HitungRab::ringkas($rab->fresh())['nego_rugi'])->toBeFalse();
 });
 
@@ -410,4 +410,92 @@ test('pendaftaran memakai harga yang disepakati, bukan harga hitungan', function
     // Kalau tidak, pelanggan membayar harga nego tetapi laporan keuntungan
     // menghitung harga lama — dan selisihnya tidak pernah ketahuan.
     expect($r['untuk_pendaftaran']['harga_jual'])->toBe(110_000);
+});
+
+test('perbandingan nego menyebut untung sebelum, sesudah, dan yang dilepas', function () {
+    $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen', 'margin_nilai' => 20]);
+    biayaUji($rab, 'orang', 100_000);
+    // modal 1.000.000 → harga hitungan 120.000, untung 200.000.
+    $rab->update(['harga_nego' => 110_000]);
+
+    $n = HitungRab::ringkas($rab->fresh())['nego'];
+
+    expect($n['aktif'])->toBeTrue()
+        ->and($n['sebelum']['harga_per_orang'])->toBe(120_000)
+        ->and($n['sebelum']['untung'])->toBe(200_000)
+        ->and($n['sebelum']['persen_untung'])->toBe(20.0)
+        ->and($n['sesudah']['harga_per_orang'])->toBe(110_000)
+        ->and($n['sesudah']['untung'])->toBe(100_000)
+        ->and($n['sesudah']['persen_untung'])->toBe(10.0)
+        ->and($n['selisih']['harga_per_orang'])->toBe(-10_000)
+        ->and($n['selisih']['untung'])->toBe(-100_000)
+        // Poin persen, bukan persen dari persen: 20% turun ke 10%.
+        ->and($n['selisih']['poin_persen'])->toBe(-10.0);
+});
+
+test('bagian untung yang dilepas jauh lebih besar daripada potongan harganya', function () {
+    $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen', 'margin_nilai' => 20]);
+    biayaUji($rab, 'orang', 100_000);
+    $rab->update(['harga_nego' => 110_000]);
+
+    $n = HitungRab::ringkas($rab->fresh())['nego'];
+
+    // Harga turun 8,3% — tetapi SEPARUH untung yang dilepas, karena yang
+    // dipotong adalah selisihnya, bukan harganya. Inilah angka yang paling
+    // sering mengejutkan saat tawaran disetujui.
+    expect($n['selisih']['bagian_untung_dilepas'])->toBe(50.0);
+});
+
+test('titik impas ikut bergeser saat harganya diturunkan', function () {
+    $rab = rabUji(['jumlah_peserta' => 20, 'margin_jenis' => 'persen', 'margin_nilai' => 50]);
+    // Biaya TETAP: menurunkan harga menuntut lebih banyak kepala menutupinya.
+    biayaUji($rab, 'rombongan', 600_000);
+    biayaUji($rab, 'orang', 40_000);
+
+    $sebelum = HitungRab::ringkas($rab->fresh())['nego']['sebelum']['bep_peserta'];
+    $rab->update(['harga_nego' => 70_000]);
+    $n = HitungRab::ringkas($rab->fresh())['nego'];
+
+    expect($n['sesudah']['bep_peserta'])->toBeGreaterThan($sebelum)
+        ->and($n['selisih']['bep_bergeser'])->toBe($n['sesudah']['bep_peserta'] - $sebelum);
+});
+
+test('impas yang terlempar ke luar jangkauan tidak dilaporkan sebagai tidak bergeser', function () {
+    $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen', 'margin_nilai' => 50]);
+    biayaUji($rab, 'rombongan', 600_000);
+    biayaUji($rab, 'orang', 40_000);
+    // Pada 70.000 impasnya butuh 20 kepala — di luar rentang simulasi.
+    $rab->update(['harga_nego' => 70_000]);
+
+    $n = HitungRab::ringkas($rab->fresh())['nego'];
+
+    // (int) null adalah nol, dan nol di sini berbunyi "aman" padahal
+    // impasnya justru tidak tercapai sama sekali.
+    expect($n['sesudah']['bep_peserta'])->toBeNull()
+        ->and($n['selisih']['bep_bergeser'])->toBeNull();
+});
+
+test('jarak ke batas aman negatif saat kesepakatannya sudah merugi', function () {
+    $rab = rabUji(['jumlah_peserta' => 10]);
+    biayaUji($rab, 'orang', 100_000);
+    $rab->update(['harga_nego' => 90_000]);
+
+    $n = HitungRab::ringkas($rab->fresh())['nego'];
+
+    expect($n['batas']['harga'])->toBe(100_000)
+        ->and($n['batas']['jarak'])->toBe(-10_000);
+});
+
+test('tanpa nego, kedua sisi perbandingannya sama persis', function () {
+    $rab = rabUji(['jumlah_peserta' => 10, 'margin_jenis' => 'persen', 'margin_nilai' => 20]);
+    biayaUji($rab, 'orang', 100_000);
+
+    $n = HitungRab::ringkas($rab->fresh())['nego'];
+
+    // Selalu dirakit: angka yang hanya ada kadang-kadang adalah angka yang
+    // lupa diuji.
+    expect($n['aktif'])->toBeFalse()
+        ->and($n['sebelum'])->toBe($n['sesudah'])
+        ->and($n['selisih']['untung'])->toBe(0)
+        ->and($n['selisih']['bagian_untung_dilepas'])->toBe(0.0);
 });
