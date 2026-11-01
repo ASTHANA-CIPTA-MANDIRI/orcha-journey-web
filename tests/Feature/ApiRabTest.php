@@ -1423,10 +1423,16 @@ test('mematikan massal tidak menyentuh RAB yang sudah memakainya', function () {
         ->and(RabBiaya::where('rab_id', $rab['id'])->get()->toArray())->toBe($sebelum);
 });
 
-test('riwayat hanya mencatat saat angkanya yang berubah', function () {
+test('riwayat mencatat tiap perubahan nyata, dan hanya yang nyata', function () {
     /*
-     | Riwayat yang penuh baris "harga tetap" tidak bisa dibaca, dan yang
-     | dicari orang saat membukanya selalu uangnya.
+     | Dulu hanya angkanya yang dicatat, dengan alasan "riwayat yang penuh
+     | baris harga-tetap tidak bisa dibaca". Alasan itu benar untuk riwayat
+     | HARGA; sejak panelnya jadi riwayat PERUBAHAN, yang tidak tercatat
+     | justru yang paling sering salah — destinasi yang meleset satu huruf
+     | membuat tiketnya berhenti ikut tertarik ke RAB, tanpa jejak siapa pun.
+     |
+     | Yang tetap dijaga: menyimpan tanpa mengubah apa pun tidak boleh
+     | meninggalkan baris.
      */
     $m = masterUji(['harga' => 50_000]);
 
@@ -1436,13 +1442,21 @@ test('riwayat hanya mencatat saat angkanya yang berubah', function () {
         'satuan' => 'orang', 'harga' => 50_000,
     ], $ubah), kepalaRab());
 
-    $kirim(['catatan' => 'ganti catatan saja'])->assertOk();
+    // Menyimpan ulang apa adanya: tidak ada yang berubah, tidak ada baris.
+    $kirim([])->assertOk();
     expect($m->riwayat()->count())->toBe(0);
 
-    $kirim(['harga' => 65_000])->assertOk();
+    // Catatan saja pun sekarang tercatat — ia perubahan, dan ada orang yang
+    // melakukannya.
+    $kirim(['catatan' => 'ganti catatan saja'])->assertOk();
+    expect($m->riwayat()->count())->toBe(1)
+        ->and(collect($m->riwayat()->first()->perubahan)->pluck('medan')->all())->toBe(['Catatan']);
+
+    $kirim(['catatan' => 'ganti catatan saja', 'harga' => 65_000])->assertOk();
 
     $riwayat = $this->getJson("/api/v1/master-harga/{$m->id}/riwayat", kepalaRab())->assertOk();
 
+    // data.0 = yang terbaru, yaitu perubahan harganya.
     expect($riwayat->json('data.0.harga_lama'))->toBe('Rp 50.000')
         ->and($riwayat->json('data.0.harga_baru'))->toBe('Rp 65.000')
         ->and($riwayat->json('data.0.naik'))->toBeTrue()

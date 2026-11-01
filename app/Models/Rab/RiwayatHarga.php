@@ -18,7 +18,7 @@ class RiwayatHarga extends Model
 
     protected $fillable = [
         'master_harga_id', 'batch_id', 'harga_lama', 'harga_baru',
-        'akhir_pekan_lama', 'akhir_pekan_baru', 'oleh', 'catatan',
+        'akhir_pekan_lama', 'akhir_pekan_baru', 'perubahan', 'oleh', 'catatan',
     ];
 
     protected $casts = [
@@ -28,6 +28,7 @@ class RiwayatHarga extends Model
         'harga_baru' => 'integer',
         'akhir_pekan_lama' => 'integer',
         'akhir_pekan_baru' => 'integer',
+        'perubahan' => 'array',
     ];
 
     public function harga(): BelongsTo
@@ -52,15 +53,19 @@ class RiwayatHarga extends Model
         ?string $catatan = null,
         ?int $batchId = null,
         ?int $akhirPekanLama = null,
+        array $perubahan = [],
     ): void {
         $akhirPekanBaru = $master->harga_akhir_pekan === null ? null : (int) $master->harga_akhir_pekan;
 
         /*
-         | Salah satu dari dua angka cukup. Harga akhir pekan yang naik
-         | sendirian — hari kerjanya tetap — tetap sebuah kenaikan harga,
-         | dan tanpa baris ini ia tidak terbaca di mana pun.
+         | Salah satu dari TIGA cukup. Harga akhir pekan yang naik sendirian
+         | — hari kerjanya tetap — tetap sebuah kenaikan harga. Begitu pula
+         | destinasi yang diganti tanpa menyentuh angkanya: salah satu huruf,
+         | dan tiketnya berhenti ikut tertarik ke RAB.
          */
-        if ((int) $master->harga === $hargaLama && $akhirPekanBaru === $akhirPekanLama) {
+        if ((int) $master->harga === $hargaLama
+            && $akhirPekanBaru === $akhirPekanLama
+            && $perubahan === []) {
             return;
         }
 
@@ -71,6 +76,7 @@ class RiwayatHarga extends Model
             'harga_baru' => (int) $master->harga,
             'akhir_pekan_lama' => $akhirPekanLama,
             'akhir_pekan_baru' => $akhirPekanBaru,
+            'perubahan' => $perubahan ?: null,
             'oleh' => $oleh,
             'catatan' => $catatan,
         ]);
@@ -87,6 +93,29 @@ class RiwayatHarga extends Model
     {
         return $this->akhir_pekan_lama !== $this->akhir_pekan_baru;
     }
+
+    /**
+     | Medan master harga yang perubahannya DICATAT, berikut sebutannya di
+     | layar.
+     |
+     | Daftarnya ditulis apa adanya, bukan diambil dari $fillable: medan yang
+     | baru ditambahkan belum tentu layak dicatat, dan sebutannya tetap harus
+     | diputuskan orang. Yang tidak ada di sini sengaja tidak dicatat.
+     */
+    public const MEDAN_DICATAT = [
+        'nama' => 'Nama',
+        'kategori' => 'Kategori',
+        'satuan' => 'Dihitung per',
+        'kapasitas' => 'Kapasitas',
+        'provinsi' => 'Provinsi',
+        'daerah' => 'Daerah',
+        'destinasi' => 'Destinasi',
+        'vendor_id' => 'Vendor',
+        'berlaku_sampai' => 'Masa berlaku',
+        'otomatis' => 'Masuk sendiri ke RAB',
+        'aktif' => 'Aktif',
+        'catatan' => 'Catatan',
+    ];
 
     /** Selisihnya, bertanda: positif berarti naik. */
     public function getSelisihAttribute(): int

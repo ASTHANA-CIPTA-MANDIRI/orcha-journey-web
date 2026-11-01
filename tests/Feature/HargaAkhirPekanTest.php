@@ -7,7 +7,9 @@ use App\Models\Rab\Rab;
 use App\Models\Rab\RabBiaya;
 use App\Models\Rab\RabItinerary;
 use App\Models\Rab\RiwayatHarga;
+use App\Models\Rab\Vendor;
 use App\Support\Rab\HitungRab;
+use Illuminate\Testing\TestResponse;
 
 /**
  * Harga hari kerja vs akhir pekan / hari libur.
@@ -628,4 +630,96 @@ test('nama yang ada di kedua daftar dipulangkan sekali', function () {
         ->assertJsonPath('data.0.punya_tiket', true);
 
     expect($m->destinasi)->toBe('Taman Nasional Baluran');
+});
+
+/* -------------------- RIWAYAT SEMUA PERUBAHAN -------------------- */
+
+/** Satu permintaan ubah yang lengkap, dengan medan yang bisa ditimpa. */
+function ubahBaluran(MasterHarga $m, array $ubah, $uji): TestResponse
+{
+    return $uji->patchJson('/api/v1/master-harga/'.$m->id, array_merge([
+        'kategori' => 'tiket', 'nama' => 'Tiket Baluran', 'provinsi' => 'Jawa Timur',
+        'destinasi' => 'Taman Nasional Baluran', 'satuan' => 'orang',
+        'harga' => 21_000, 'harga_akhir_pekan' => 31_000,
+    ], $ubah), kepalaLibur());
+}
+
+test('perubahan selain harga ikut tercatat, berikut siapa yang mengubahnya', function () {
+    $m = baluran();
+
+    /*
+     | Yang paling sering salah justru destinasinya: salah satu huruf, dan
+     | tiketnya berhenti ikut tertarik ke RAB. Dulu perubahan itu tidak
+     | meninggalkan jejak di mana pun — riwayat hanya mencatat angka.
+     */
+    ubahBaluran($m, ['destinasi' => 'TN Baluran', 'nama' => 'Tiket Masuk Baluran'], $this)->assertOk();
+
+    $r = RiwayatHarga::where('master_harga_id', $m->id)->firstOrFail();
+
+    expect($r->harga_lama)->toBe(21_000)
+        ->and($r->harga_baru)->toBe(21_000)
+        ->and($r->oleh)->not->toBeNull();
+
+    $medan = collect($r->perubahan)->pluck('medan')->all();
+
+    expect($medan)->toContain('Destinasi')->and($medan)->toContain('Nama');
+
+    $destinasi = collect($r->perubahan)->firstWhere('medan', 'Destinasi');
+
+    expect($destinasi['dari'])->toBe('Taman Nasional Baluran')
+        ->and($destinasi['ke'])->toBe('TN Baluran');
+});
+
+test('menyimpan tanpa mengubah apa pun tidak meninggalkan baris riwayat', function () {
+    $m = baluran();
+
+    // Riwayat yang penuh baris "tidak ada yang berubah" tidak bisa dibaca,
+    // dan yang dicari orang saat membukanya selalu perubahan yang nyata.
+    ubahBaluran($m, [], $this)->assertOk();
+
+    expect(RiwayatHarga::where('master_harga_id', $m->id)->count())->toBe(0);
+});
+
+test('nilai disimpan sebagai NAMA, bukan id yang bisa jadi yatim', function () {
+    $m = baluran();
+    $v = Vendor::create(['nama' => 'Armada Jaya', 'aktif' => true]);
+
+    ubahBaluran($m, ['vendor_id' => $v->id], $this)->assertOk();
+
+    $r = RiwayatHarga::where('master_harga_id', $m->id)->firstOrFail();
+    $vendor = collect($r->perubahan)->firstWhere('medan', 'Vendor');
+
+    expect($vendor['ke'])->toBe('Armada Jaya');
+
+    /*
+     | Vendornya dihapus; riwayatnya tetap terbaca. Disimpan sebagai id,
+     | "vendor_id: 5" berhenti bisa diterjemahkan oleh siapa pun begitu
+     | barisnya hilang.
+     */
+    $v->delete();
+
+    expect(collect(RiwayatHarga::where('master_harga_id', $m->id)->first()->perubahan)
+        ->firstWhere('medan', 'Vendor')['ke'])->toBe('Armada Jaya');
+});
+
+test('ya/tidak ditulis sebagai kata, bukan 1 dan 0', function () {
+    $m = baluran();
+
+    ubahBaluran($m, ['aktif' => false, 'otomatis' => true], $this)->assertOk();
+
+    $perubahan = collect(RiwayatHarga::where('master_harga_id', $m->id)->first()->perubahan);
+
+    expect($perubahan->firstWhere('medan', 'Aktif'))->toMatchArray(['dari' => 'Ya', 'ke' => 'Tidak'])
+        ->and($perubahan->firstWhere('medan', 'Masuk sendiri ke RAB'))
+        ->toMatchArray(['dari' => 'Tidak', 'ke' => 'Ya']);
+});
+
+test('riwayat lewat API membawa daftar perubahannya', function () {
+    $m = baluran();
+    ubahBaluran($m, ['daerah' => 'Banyuwangi'], $this)->assertOk();
+
+    $this->getJson('/api/v1/master-harga/'.$m->id.'/riwayat', kepalaLibur())
+        ->assertOk()
+        ->assertJsonPath('data.0.perubahan.0.medan', 'Daerah')
+        ->assertJsonPath('data.0.perubahan.0.ke', 'Banyuwangi');
 });

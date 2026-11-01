@@ -7,6 +7,7 @@ use App\Models\Rab\BatchMassal;
 use App\Models\Rab\MasterHarga;
 use App\Models\Rab\RabBiaya;
 use App\Models\Rab\RiwayatHarga;
+use App\Models\Rab\Vendor;
 use App\Support\RincianBiaya;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
@@ -155,9 +156,12 @@ class MasterHargaController extends ApiController
 
         $lama = $master->harga;
         $lamaAkhirPekan = $master->harga_akhir_pekan === null ? null : (int) $master->harga_akhir_pekan;
+        $sebelum = $master->replicate();
         $master->update($data);
 
-        $this->catatRiwayat($master, $lama, $request, akhirPekanLama: $lamaAkhirPekan);
+        $this->catatRiwayat($master, $lama, $request,
+            akhirPekanLama: $lamaAkhirPekan,
+            perubahan: $this->bedakan($sebelum, $master));
 
         $this->catat($request, 'ubah master harga', [
             'nama' => $master->nama, 'dari' => $lama, 'ke' => $master->harga,
@@ -284,7 +288,7 @@ class MasterHargaController extends ApiController
      * sini. Riwayat yang penuh baris "harga tetap" tidak bisa dibaca, dan
      * yang dicari orang saat membukanya selalu uangnya.
      */
-    private function catatRiwayat(MasterHarga $master, int $hargaLama, Request $request, ?string $catatan = null, ?BatchMassal $batch = null, ?int $akhirPekanLama = null): void
+    private function catatRiwayat(MasterHarga $master, int $hargaLama, Request $request, ?string $catatan = null, ?BatchMassal $batch = null, ?int $akhirPekanLama = null, array $perubahan = []): void
     {
         RiwayatHarga::rekam(
             $master,
@@ -293,7 +297,63 @@ class MasterHargaController extends ApiController
             $catatan,
             $batch?->id,
             $akhirPekanLama,
+            $perubahan,
         );
+    }
+
+    /**
+     * Medan apa saja yang berubah, dengan nilai yang BISA DIBACA ORANG.
+     *
+     * Menyimpan "vendor_id: 5 → 7" berarti riwayatnya hanya bisa dibaca oleh
+     * yang hafal id vendor; dan begitu vendor 5 dihapus, angkanya tidak bisa
+     * diterjemahkan lagi oleh siapa pun. Jadi yang disimpan namanya, apa
+     * adanya saat perubahan itu terjadi — riwayat harus tetap terbaca walau
+     * vendornya sudah dihapus.
+     *
+     * @return array<int, array{medan: string, dari: ?string, ke: ?string}>
+     */
+    private function bedakan(MasterHarga $sebelum, MasterHarga $sesudah): array
+    {
+        $baca = function (string $medan, $nilai) {
+            if ($nilai === null || $nilai === '') {
+                return null;
+            }
+
+            return match ($medan) {
+                'vendor_id' => Vendor::find($nilai)?->nama ?? 'vendor #'.$nilai,
+                'kategori' => config("orcha.rab.kategori.{$nilai}") ?? $nilai,
+                'satuan' => config("orcha.rab.satuan.{$nilai}.label") ?? $nilai,
+                'otomatis', 'aktif' => $nilai ? 'Ya' : 'Tidak',
+                'berlaku_sampai' => $nilai instanceof \DateTimeInterface
+                    ? $nilai->locale('id')->translatedFormat('j F Y')
+                    : (string) $nilai,
+                default => (string) $nilai,
+            };
+        };
+
+        $hasil = [];
+
+        foreach (RiwayatHarga::MEDAN_DICATAT as $medan => $sebutan) {
+            $dari = $sebelum->getAttribute($medan);
+            $ke = $sesudah->getAttribute($medan);
+
+            /*
+             | Dibandingkan sebagai TEKS yang sudah dibaca, bukan nilai
+             | mentahnya: null, '' dan 0 pada kolom nullable datang
+             | bergantian dari borang yang sama, dan membandingkan mentah
+             | mencatat "berubah" untuk hal yang tidak berubah sama sekali.
+             */
+            $dariTeks = $baca($medan, $dari);
+            $keTeks = $baca($medan, $ke);
+
+            if ($dariTeks === $keTeks) {
+                continue;
+            }
+
+            $hasil[] = ['medan' => $sebutan, 'dari' => $dariTeks, 'ke' => $keTeks];
+        }
+
+        return $hasil;
     }
 
     /**
@@ -562,6 +622,13 @@ class MasterHargaController extends ApiController
              | justru itu yang dicari orang saat membuka riwayat.
              */
             'harga_berubah' => $r->selisih !== 0,
+            /*
+             | Perubahan SELAIN harga. Nama yang diperbaiki, vendor yang
+             | dipindah, destinasi yang diganti — dulu tidak meninggalkan
+             | jejak di tempat orang mencarinya, padahal yang paling sering
+             | salah justru destinasinya.
+             */
+            'perubahan' => $r->perubahan ?: [],
             'persen' => $r->persen,
             // Hanya dikirim bila memang berubah, supaya layar tidak perlu
             // menebak bedanya "tidak berubah" dari "tidak diketahui" —
