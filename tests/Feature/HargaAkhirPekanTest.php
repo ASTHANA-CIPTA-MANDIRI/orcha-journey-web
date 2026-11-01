@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Etalase\KatalogDestinasi;
 use App\Models\Rab\HariLibur;
 use App\Models\Rab\MasterHarga;
 use App\Models\Rab\Rab;
@@ -522,4 +523,109 @@ test('menghapus hari libur tidak mengubah RAB yang sudah dibuat', function () {
     // Harga dibekukan per baris, jadi penawaran yang sudah dikirim tidak
     // bergeser gara-gara daftar liburnya disunting.
     expect(RabBiaya::where('rab_id', $rab->id)->value('harga_satuan'))->toBe(31_000);
+});
+
+/* -------------------- CARI TEMPAT -------------------- */
+
+test('tempat yang hanya ada di master harga tetap ketemu', function () {
+    baluran();
+
+    /*
+     | Kasus yang dilaporkan: "Baluran" punya tiket di master harga tetapi
+     | belum pernah masuk katalog destinasi, jadi mengetik "baluran" di
+     | penyusun RAB memulangkan "tidak ada destinasi bernama baluran".
+     | Admin lalu mengetiknya sebagai kegiatan bebas — dan tiketnya tidak
+     | pernah ikut tertarik.
+     */
+    $this->getJson('/api/v1/rab/cari-tempat?q=baluran', kepalaLibur())
+        ->assertOk()
+        ->assertJsonPath('data.0.nama', 'Taman Nasional Baluran')
+        ->assertJsonPath('data.0.asal', 'master')
+        ->assertJsonPath('data.0.punya_tiket', true)
+        ->assertJsonPath('data.0.provinsi', 'Jawa Timur');
+});
+
+test('satu pencarian memulangkan tempat dari provinsi mana pun', function () {
+    MasterHarga::create([
+        'kategori' => 'tiket', 'nama' => 'Tiket Pantai Melasti', 'provinsi' => 'Bali',
+        'destinasi' => 'Pantai Melasti', 'satuan' => 'orang', 'harga' => 15_000,
+        'otomatis' => false, 'aktif' => true,
+    ]);
+    MasterHarga::create([
+        'kategori' => 'tiket', 'nama' => 'Tiket Pantai Pulau Merah', 'provinsi' => 'Jawa Timur',
+        'destinasi' => 'Pantai Pulau Merah', 'satuan' => 'orang', 'harga' => 10_000,
+        'otomatis' => false, 'aktif' => true,
+    ]);
+
+    /*
+     | RAB hanya punya SATU kolom provinsi, sementara Jogja-Bromo melewati
+     | dua. Pencarian yang ikut dikunci ke provinsi RAB membuat perjalanan
+     | lintas provinsi tidak bisa disusun sama sekali.
+     */
+    $nama = collect($this->getJson('/api/v1/rab/cari-tempat?q=pantai', kepalaLibur())
+        ->assertOk()->json('data'))->pluck('nama');
+
+    expect($nama)->toContain('Pantai Melasti')
+        ->and($nama)->toContain('Pantai Pulau Merah');
+});
+
+test('tempat dari master menyatu dengan katalog bawaan dalam satu daftar', function () {
+    MasterHarga::create([
+        'kategori' => 'tiket', 'nama' => 'Tiket Bromo via Penanjakan', 'provinsi' => 'Jawa Timur',
+        'destinasi' => 'Gunung Bromo', 'satuan' => 'orang', 'harga' => 320_000,
+        'otomatis' => false, 'aktif' => true,
+    ]);
+
+    $hasil = collect($this->getJson('/api/v1/rab/cari-tempat?q=bromo', kepalaLibur())
+        ->assertOk()->json('data'));
+
+    // "Bromo Tengger Semeru" dari katalog bawaan, "Gunung Bromo" dari master
+    // harga — satu kotak cari, bukan dua daftar yang harus dibuka bergantian.
+    expect($hasil->pluck('nama'))->toContain('Bromo Tengger Semeru')
+        ->and($hasil->pluck('nama'))->toContain('Gunung Bromo')
+        ->and($hasil->firstWhere('nama', 'Gunung Bromo')['asal'])->toBe('master')
+        ->and($hasil->firstWhere('nama', 'Bromo Tengger Semeru')['asal'])->toBe('katalog');
+});
+
+test('biaya yang bukan tempat disebut terpisah, tidak jadi kegiatan', function () {
+    MasterHarga::create([
+        'kategori' => 'transportasi', 'nama' => 'Sewa Hiace Jogja-Banyuwangi 4D3N',
+        'provinsi' => 'DI Yogyakarta', 'satuan' => 'unit', 'harga' => 8_500_000,
+        'kapasitas' => 14, 'otomatis' => false, 'aktif' => true,
+    ]);
+
+    /*
+     | Mengetik "hiace" wajar dilakukan. Menjadikannya kegiatan di itinerary
+     | adalah kesalahan yang terlihat benar — jadi ia dipulangkan di kotak
+     | yang berbeda, bukan dicampur ke hasil tempat.
+     */
+    $this->getJson('/api/v1/rab/cari-tempat?q=hiace', kepalaLibur())
+        ->assertOk()
+        ->assertJsonCount(0, 'data')
+        ->assertJsonPath('bukan_tempat.0.nama', 'Sewa Hiace Jogja-Banyuwangi 4D3N');
+});
+
+test('satu huruf tidak memulangkan katalog yang diacak', function () {
+    baluran();
+
+    $this->getJson('/api/v1/rab/cari-tempat?q=b', kepalaLibur())
+        ->assertOk()->assertJsonCount(0, 'data');
+});
+
+test('nama yang ada di kedua daftar dipulangkan sekali', function () {
+    // Destinasi yang ada di katalog DAN punya harga di master.
+    $m = baluran();
+    KatalogDestinasi::create([
+        'nama' => 'Taman Nasional Baluran', 'provinsi' => 'Jawa Timur', 'daerah' => 'Banyuwangi',
+    ]);
+
+    $this->getJson('/api/v1/rab/cari-tempat?q=baluran', kepalaLibur())
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        // Keterangannya dari katalog — di sanalah daerahnya tercatat.
+        ->assertJsonPath('data.0.asal', 'katalog')
+        ->assertJsonPath('data.0.daerah', 'Banyuwangi')
+        ->assertJsonPath('data.0.punya_tiket', true);
+
+    expect($m->destinasi)->toBe('Taman Nasional Baluran');
 });

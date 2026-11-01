@@ -105,6 +105,107 @@ class RabController extends ApiController
      * "Jadikan Pendaftaran". Empat panggilan terpisah berarti empat kali
      * menunggu setiap layar dibuka.
      */
+    /**
+     * Mencari TEMPAT di seluruh provinsi, dari dua daftar sekaligus.
+     *
+     * Kotak cari di penyusun RAB dulu hanya melihat katalog destinasi milik
+     * provinsi RAB-nya. Dua pembatasan sekaligus, dan keduanya menyakitkan:
+     *
+     * - Tempat yang harganya SUDAH ada di master tetapi belum pernah masuk
+     *   katalog destinasi tidak ketemu sama sekali. "Baluran" ada tiketnya,
+     *   tetapi mengetik "baluran" memulangkan "tidak ada destinasi bernama
+     *   baluran" — admin lalu mengetiknya sebagai kegiatan bebas, dan
+     *   tiketnya tidak pernah ikut tertarik.
+     * - Perjalanan lintas provinsi tidak bisa disusun. RAB hanya punya SATU
+     *   kolom provinsi, sementara Jogja–Bromo melewati dua.
+     *
+     * Nama yang ada di kedua daftar dipulangkan SEKALI, dengan keterangan
+     * dari katalog — di sanalah provinsi & daerahnya tercatat.
+     */
+    public function cariTempat(Request $request): JsonResponse
+    {
+        $kata = mb_strtolower(trim($request->string('q')->toString()));
+
+        if (mb_strlen($kata) < 2) {
+            // Satu huruf mencocokkan hampir segalanya; daftar sepanjang itu
+            // bukan hasil pencarian, melainkan katalog yang diacak.
+            return response()->json(['data' => []]);
+        }
+
+        $cocok = fn (?string ...$teks) => str_contains(
+            mb_strtolower(implode(' ', array_filter($teks))), $kata
+        );
+
+        $bertiket = MasterHarga::where('aktif', true)->whereNotNull('destinasi')
+            ->pluck('destinasi')->map(fn ($d) => mb_strtolower(trim((string) $d)))->flip();
+
+        $hasil = [];
+
+        foreach (KatalogDestinasi::gabungan() as $nama => $v) {
+            if (! $cocok($nama, $v['daerah'] ?? null, $v['provinsi'] ?? null)) {
+                continue;
+            }
+
+            $hasil[mb_strtolower(trim($nama))] = [
+                'nama' => $nama,
+                'provinsi' => $v['provinsi'] ?? null,
+                'daerah' => $v['daerah'] ?? null,
+                'punya_tiket' => $bertiket->has(mb_strtolower(trim($nama))),
+                'asal' => 'katalog',
+            ];
+        }
+
+        /*
+         | Destinasi yang hanya hidup di master harga.
+         |
+         | Tempat yang sudah punya tiket tetapi belum pernah masuk katalog —
+         | justru yang paling layak ditawarkan, karena biayanya akan tertarik
+         | sendiri begitu dipilih.
+         */
+        $dariMaster = MasterHarga::query()->where('aktif', true)->whereNotNull('destinasi')
+            ->get(['destinasi', 'provinsi', 'daerah']);
+
+        foreach ($dariMaster as $m) {
+            $nama = trim((string) $m->destinasi);
+            $kunci = mb_strtolower($nama);
+
+            if ($nama === '' || isset($hasil[$kunci]) || ! $cocok($nama, $m->daerah, $m->provinsi)) {
+                continue;
+            }
+
+            $hasil[$kunci] = [
+                'nama' => $nama,
+                'provinsi' => $m->provinsi,
+                'daerah' => $m->daerah,
+                // Selalu true: ia ADA di master harga, itu sebabnya ia di sini.
+                'punya_tiket' => true,
+                'asal' => 'master',
+            ];
+        }
+
+        /*
+         | Biaya yang BUKAN tempat disebut terpisah, tidak dicampur.
+         |
+         | Mengetik "hiace" wajar dilakukan, dan menjadikannya kegiatan di
+         | itinerary adalah kesalahan yang terlihat benar. Yang dipulangkan
+         | cuma namanya, supaya layar bisa menunjuk ke rincian biaya alih-alih
+         | mengaku tidak menemukan apa-apa.
+         */
+        $bukanTempat = MasterHarga::query()->where('aktif', true)->whereNull('destinasi')
+            ->get(['id', 'nama', 'kategori'])
+            ->filter(fn (MasterHarga $m) => $cocok($m->nama))
+            ->map(fn (MasterHarga $m) => [
+                'id' => $m->id,
+                'nama' => $m->nama,
+                'kategori_label' => $m->kategori_label,
+            ])->take(8)->values();
+
+        return response()->json([
+            'data' => collect($hasil)->sortBy('nama')->take(30)->values(),
+            'bukan_tempat' => $bukanTempat,
+        ]);
+    }
+
     public function katalog(Request $request): JsonResponse
     {
         $provinsi = $request->string('provinsi')->toString() ?: null;

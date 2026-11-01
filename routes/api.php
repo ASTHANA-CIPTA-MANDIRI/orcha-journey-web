@@ -235,6 +235,9 @@ Route::prefix('v1')
 
         Route::get('/rab', [RabController::class, 'index']);
         Route::get('/rab/katalog', [RabController::class, 'katalog']);
+        // Pencarian tempat lintas provinsi, dari katalog destinasi DAN
+        // master harga sekaligus — lihat RabController::cariTempat().
+        Route::get('/rab/cari-tempat', [RabController::class, 'cariTempat']);
         Route::get('/rab/sumber-itinerary', [RabController::class, 'sumberItinerary']);
         Route::post('/rab', [RabController::class, 'store']);
         Route::get('/rab/{rab}', [RabController::class, 'show']);
