@@ -87,6 +87,9 @@
     .biaya .kat td { background-color: {{ $kabut }}; color: {{ $ocean }}; font-weight: bold; font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase; }
     .biaya .nama { color: {{ $navy }}; font-weight: bold; }
     .biaya .basi { color: {{ $merah }}; font-size: 7.5px; padding-top: 2px; }
+    /* Sebab harga: penjelas, bukan peringatan — warnanya sengaja bukan
+       merah, supaya tidak terbaca sebagai sesuatu yang harus dibereskan. */
+    .biaya .sebab { color: #92400e; font-size: 7.5px; padding-top: 2px; }
     .biaya .vendor { color: {{ $ocean }}; font-size: 7.5px; padding-top: 2px; }
     .biaya .jelas { color: #64748b; font-size: 8.5px; }
     .kanan { text-align: right; white-space: nowrap; }
@@ -290,6 +293,17 @@
                                 @endif
                                 @if ($b['harga_master_kini'] !== null)
                                     <div class="basi">Harga master kini {{ $rp($b['harga_master_kini']) }}</div>
+                                @endif
+                                {{-- MENGAPA harganya sekian. Berkas ini dibawa ke
+                                     lapangan dan dibaca orang yang tidak menyusunnya;
+                                     tiket Rp 31.000 tanpa sebab akan disangka salah
+                                     ketik, lalu dibayarkan Rp 21.000 di gerbang dan
+                                     rombongannya tertahan di sana. --}}
+                                @if (! empty($b['harga_sebab']))
+                                    <div class="sebab">{{ $aman($b['harga_sebab']) }}</div>
+                                @endif
+                                @if (! empty($b['harga_sebab_seharusnya']))
+                                    <div class="basi">Tanggalnya bergeser — sekarang {{ $aman($b['harga_sebab_seharusnya']) }}</div>
                                 @endif
                             </td>
                             <td>

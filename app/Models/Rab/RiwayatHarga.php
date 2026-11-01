@@ -16,13 +16,18 @@ class RiwayatHarga extends Model
 {
     protected $table = 'tbl_master_harga_riwayat';
 
-    protected $fillable = ['master_harga_id', 'batch_id', 'harga_lama', 'harga_baru', 'oleh', 'catatan'];
+    protected $fillable = [
+        'master_harga_id', 'batch_id', 'harga_lama', 'harga_baru',
+        'akhir_pekan_lama', 'akhir_pekan_baru', 'oleh', 'catatan',
+    ];
 
     protected $casts = [
         'master_harga_id' => 'integer',
         'batch_id' => 'integer',
         'harga_lama' => 'integer',
         'harga_baru' => 'integer',
+        'akhir_pekan_lama' => 'integer',
+        'akhir_pekan_baru' => 'integer',
     ];
 
     public function harga(): BelongsTo
@@ -46,8 +51,16 @@ class RiwayatHarga extends Model
         ?string $oleh = null,
         ?string $catatan = null,
         ?int $batchId = null,
+        ?int $akhirPekanLama = null,
     ): void {
-        if ((int) $master->harga === $hargaLama) {
+        $akhirPekanBaru = $master->harga_akhir_pekan === null ? null : (int) $master->harga_akhir_pekan;
+
+        /*
+         | Salah satu dari dua angka cukup. Harga akhir pekan yang naik
+         | sendirian — hari kerjanya tetap — tetap sebuah kenaikan harga,
+         | dan tanpa baris ini ia tidak terbaca di mana pun.
+         */
+        if ((int) $master->harga === $hargaLama && $akhirPekanBaru === $akhirPekanLama) {
             return;
         }
 
@@ -56,9 +69,23 @@ class RiwayatHarga extends Model
             'batch_id' => $batchId,
             'harga_lama' => $hargaLama,
             'harga_baru' => (int) $master->harga,
+            'akhir_pekan_lama' => $akhirPekanLama,
+            'akhir_pekan_baru' => $akhirPekanBaru,
             'oleh' => $oleh,
             'catatan' => $catatan,
         ]);
+    }
+
+    /**
+     * Apakah baris ini mencatat perubahan harga akhir pekan.
+     *
+     * Dibedakan dari "tidak diketahui": baris riwayat yang dibuat sebelum
+     * kolomnya ada memulangkan kedua nilainya null, dan itu bukan berarti
+     * harga akhir pekannya tidak berubah.
+     */
+    public function getAkhirPekanBerubahAttribute(): bool
+    {
+        return $this->akhir_pekan_lama !== $this->akhir_pekan_baru;
     }
 
     /** Selisihnya, bertanda: positif berarti naik. */

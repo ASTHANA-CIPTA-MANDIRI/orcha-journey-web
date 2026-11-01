@@ -36,6 +36,9 @@ class HitungRab
             'orang_hari' => $peserta * $hari,
             'rombongan' => 1,
             'hari' => $hari,
+            // Sekali per unit: tiket masuk kendaraan dibayar di gerbang,
+            // bukan tiap hari.
+            'unit' => $unit,
             'unit_hari' => $unit * $hari,
             'kamar_malam' => $unit * $malam,
             default => 0,
@@ -68,6 +71,7 @@ class HitungRab
             'orang_hari' => [$peserta.' orang', $hari.' hari'],
             'rombongan' => [],
             'hari' => [$hari.' hari'],
+            'unit' => [$unit.' unit'],
             'unit_hari' => [$unit.' unit', $hari.' hari'],
             'kamar_malam' => [$unit.' kamar', $malam.' malam'],
             default => [],
@@ -281,9 +285,26 @@ class HitungRab
     {
         $rab->loadMissing('biaya.master', 'biaya.vendor');
         $peserta = max(1, (int) $rab->jumlah_peserta);
+        // Dibuat sekali, lalu ditanya per baris — lihat HargaHari.
+        $hariHarga = new HargaHari($rab);
 
-        $baris = $rab->biaya->map(function (RabBiaya $b) use ($rab) {
+        $baris = $rab->biaya->map(function (RabBiaya $b) use ($rab, $hariHarga) {
             $subtotal = self::subtotal($b, $rab);
+
+            /*
+             | Dibandingkan dengan SISI master yang dipakai baris ini.
+             |
+             | Baris berharga akhir pekan yang dibandingkan dengan harga hari
+             | kerja akan selamanya berteriak "harga master sudah berubah,
+             | lebih mahal Rp 10.000" — dan admin akan menurutinya, lalu
+             | penawarannya kekurangan modal justru di tanggal yang paling
+             | mahal.
+             */
+            $hargaMaster = $b->master
+                ? (int) ($b->pakai_akhir_pekan && $b->master->harga_akhir_pekan !== null
+                    ? $b->master->harga_akhir_pekan
+                    : $b->master->harga)
+                : null;
 
             return [
                 'id' => $b->id,
@@ -304,6 +325,25 @@ class HitungRab
                 'satuan' => $b->satuan,
                 'satuan_label' => config("orcha.rab.satuan.{$b->satuan}.label") ?? $b->satuan,
                 'harga_satuan' => $b->harga_satuan,
+                /*
+                 | Mengapa harganya sekian — dibekukan bersama angkanya.
+                 |
+                 | Tanpa kalimat ini, tiket Rp 31.000 di sebelah master yang
+                 | tertulis Rp 21.000 terbaca sebagai salah ketik.
+                 */
+                'harga_sebab' => $b->harga_sebab,
+                'pakai_akhir_pekan' => (bool) $b->pakai_akhir_pekan,
+                /*
+                 | Harga beku yang sudah tidak cocok dengan itinerary-nya.
+                 |
+                 | Memindahkan Baluran dari Sabtu ke Senin tidak menurunkan
+                 | harga yang sudah dibekukan — itu memang aturannya — tetapi
+                 | tanpa baris ini tidak ada apa pun yang mengatakan bahwa
+                 | penawarannya kini kemahalan Rp 10.000 per orang. Menarik
+                 | biaya lagi pun tidak menolong: baris yang sudah ada tidak
+                 | ditambahkan dua kali.
+                 */
+                'harga_sebab_seharusnya' => $hariHarga->tidakCocok($b),
                 'kapasitas' => $b->kapasitas,
                 'jumlah' => $b->jumlah,
                 'faktor' => self::faktor($b->satuan, $b->kapasitas, $rab),
@@ -318,8 +358,8 @@ class HitungRab
                  | admin berhak tahu sebelum mengirim penawaran berikutnya
                  | dengan harga tiket bulan lalu.
                  */
-                'harga_master_kini' => $b->master && (int) $b->master->harga !== (int) $b->harga_satuan
-                    ? (int) $b->master->harga
+                'harga_master_kini' => $hargaMaster !== null && $hargaMaster !== (int) $b->harga_satuan
+                    ? $hargaMaster
                     : null,
                 /*
                  | Selisihnya BERTANDA: negatif berarti baris ini lebih murah
@@ -328,7 +368,7 @@ class HitungRab
                  | di RAB ini, lebih murah berarti tim menemukan sesuatu yang
                  | layak dibawa pulang ke master.
                  */
-                'selisih_master' => $b->master ? (int) $b->harga_satuan - (int) $b->master->harga : null,
+                'selisih_master' => $hargaMaster !== null ? (int) $b->harga_satuan - $hargaMaster : null,
                 'catatan' => $b->catatan,
             ];
         })
@@ -565,6 +605,13 @@ class HitungRab
                 'biaya_tetap' => $biayaTetap,
             ],
             'ada_harga_basi' => $baris->contains(fn ($b) => $b['harga_master_kini'] !== null),
+            /*
+             | Ada baris yang harga bekunya tidak cocok lagi dengan tanggal
+             | kunjungannya — lihat HargaHari::tidakCocok(). Dipulangkan
+             | sebagai satu penanda supaya layar bisa memasang spanduk tanpa
+             | menelusuri seluruh baris sendiri.
+             */
+            'ada_harga_salah_hari' => $baris->contains(fn ($b) => $b['harga_sebab_seharusnya'] !== null),
             'nego_aktif' => $negoAktif,
             'alasan_nego' => $rab->alasan_nego,
             // Kesepakatan yang sudah di bawah modal. Bukan larangan — tanda.

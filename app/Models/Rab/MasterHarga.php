@@ -5,6 +5,7 @@ namespace App\Models\Rab;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Satu hal yang bisa dibayar dalam sebuah perjalanan, berikut cara
@@ -20,12 +21,14 @@ class MasterHarga extends Model
 
     protected $fillable = [
         'kategori', 'vendor_id', 'nama', 'provinsi', 'daerah', 'destinasi',
-        'satuan', 'harga', 'kapasitas', 'berlaku_sampai', 'otomatis', 'aktif', 'catatan',
+        'satuan', 'harga', 'harga_akhir_pekan', 'kapasitas', 'berlaku_sampai',
+        'otomatis', 'aktif', 'catatan',
     ];
 
     protected $casts = [
         'vendor_id' => 'integer',
         'harga' => 'integer',
+        'harga_akhir_pekan' => 'integer',
         'kapasitas' => 'integer',
         'berlaku_sampai' => 'date',
         'otomatis' => 'boolean',
@@ -105,6 +108,49 @@ class MasterHarga extends Model
     public function getBerlakuSampaiTeksAttribute(): ?string
     {
         return $this->berlaku_sampai?->locale('id')->translatedFormat('j F Y');
+    }
+
+    /**
+     * Harga yang berlaku pada sebuah tanggal, berikut sebabnya.
+     *
+     * Satu-satunya tempat yang memutuskannya. Pemilihan harga yang tersebar
+     * di beberapa tempat akan berbeda tafsir tentang apa itu "akhir pekan",
+     * dan selisihnya baru ketahuan saat tagihan vendor datang.
+     *
+     * Tanggal kosong atau harga akhir pekan yang tidak diisi memulangkan
+     * harga biasa tanpa sebab — itu yang membuat seluruh baris master lama
+     * berperilaku persis seperti sebelumnya.
+     *
+     * @param  array<string, string>|null  $libur  peta dari HariLibur::peta()
+     * @return array{harga: int, sebab: string|null, akhir_pekan: bool}
+     */
+    public function hargaUntuk(?Carbon $tanggal, ?array $libur = null): array
+    {
+        $biasa = ['harga' => (int) $this->harga, 'sebab' => null, 'akhir_pekan' => false];
+
+        if ($this->harga_akhir_pekan === null) {
+            return $biasa;
+        }
+
+        $hari = HariLibur::periksa($tanggal, $libur);
+
+        if (! $hari['akhir_pekan']) {
+            return $biasa;
+        }
+
+        return [
+            'harga' => (int) $this->harga_akhir_pekan,
+            'sebab' => 'harga akhir pekan ('.$hari['sebab'].', '
+                .$tanggal->locale('id')->translatedFormat('j M').')',
+            'akhir_pekan' => true,
+        ];
+    }
+
+    /** Apakah harga ini berbeda antara hari kerja dan akhir pekan. */
+    public function getDuaHargaAttribute(): bool
+    {
+        return $this->harga_akhir_pekan !== null
+            && (int) $this->harga_akhir_pekan !== (int) $this->harga;
     }
 
     public function getKategoriLabelAttribute(): string

@@ -1,0 +1,357 @@
+<?php
+
+use App\Models\Rab\HariLibur;
+use App\Models\Rab\MasterHarga;
+use App\Models\Rab\Rab;
+use App\Models\Rab\RabBiaya;
+use App\Models\Rab\RabItinerary;
+use App\Models\Rab\RiwayatHarga;
+use App\Support\Rab\HitungRab;
+
+/**
+ * Harga hari kerja vs akhir pekan / hari libur.
+ *
+ * Yang dijaga di sini: harga dipilih dari tanggal DIKUNJUNGI (bukan tanggal
+ * berangkat), tarif akhir pekan tidak pernah bocor ke kolom hari kerja, dan
+ * perjalanan yang lintas jenis hari disebut alih-alih dipilih diam-diam.
+ *
+ * Contoh angkanya dari Baluran: hari kerja Rp 21.000, akhir pekan Rp 31.000.
+ */
+function kepalaLibur(): array
+{
+    config()->set('orcha.api.kunci', 'kunci-uji-libur');
+
+    return ['X-Orcha-Key' => 'kunci-uji-libur', 'Accept' => 'application/json'];
+}
+
+function baluran(array $ubah = []): MasterHarga
+{
+    return MasterHarga::create(array_merge([
+        'kategori' => 'tiket',
+        'nama' => 'Tiket Baluran',
+        'provinsi' => 'Jawa Timur',
+        'destinasi' => 'Taman Nasional Baluran',
+        'satuan' => 'orang',
+        'harga' => 21_000,
+        'harga_akhir_pekan' => 31_000,
+        'otomatis' => false,
+        'aktif' => true,
+    ], $ubah));
+}
+
+/** RAB berangkat pada $mulai, dengan satu kunjungan Baluran di hari ke-$hariKe. */
+function rabBaluran(string $mulai, int $hariKe = 1, int $hari = 1): Rab
+{
+    $rab = Rab::create([
+        'judul' => 'Private Trip Banyuwangi',
+        'nama_pelanggan' => 'Pak Budi',
+        'provinsi' => 'Jawa Timur',
+        'tanggal_mulai' => $mulai,
+        'jumlah_hari' => $hari,
+        'jumlah_malam' => max(0, $hari - 1),
+        'jumlah_peserta' => 10,
+        'margin_jenis' => 'persen',
+        'margin_nilai' => 20,
+    ]);
+
+    RabItinerary::create([
+        'rab_id' => $rab->id,
+        'hari_ke' => $hariKe,
+        'urutan' => 1,
+        'nama' => 'Safari Baluran',
+        'destinasi' => 'Taman Nasional Baluran',
+    ]);
+
+    return $rab->fresh();
+}
+
+test('harga akhir pekan boleh kosong, dan kosong bukan nol', function () {
+    $this->postJson('/api/v1/master-harga', [
+        'kategori' => 'tiket', 'nama' => 'Tiket Ijen', 'provinsi' => 'Jawa Timur',
+        'satuan' => 'orang', 'harga' => 100_000,
+    ], kepalaLibur())->assertCreated()->assertJsonPath('data.harga_akhir_pekan', null);
+
+    // Nol adalah harga yang SAH — ada tempat yang gratis di hari kerja — jadi
+    // ia tidak boleh ditumpuk jadi satu arti dengan "tidak diisi".
+    $this->postJson('/api/v1/master-harga', [
+        'kategori' => 'tiket', 'nama' => 'Pantai Boom', 'provinsi' => 'Jawa Timur',
+        'satuan' => 'orang', 'harga' => 0, 'harga_akhir_pekan' => 5_000,
+    ], kepalaLibur())->assertCreated()
+        ->assertJsonPath('data.harga_akhir_pekan', 5000)
+        ->assertJsonPath('data.dua_harga', true);
+});
+
+test('tiket memakai tarif akhir pekan karena DIKUNJUNGI hari Sabtu, walau berangkat Jumat', function () {
+    baluran();
+    // Berangkat Jumat 8 Jan 2027, Baluran di hari ke-2 = Sabtu 9 Jan.
+    $rab = rabBaluran('2027-01-08', hariKe: 2, hari: 3);
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk();
+
+    $biaya = RabBiaya::where('rab_id', $rab->id)->firstOrFail();
+
+    expect($biaya->harga_satuan)->toBe(31_000)
+        ->and($biaya->pakai_akhir_pekan)->toBeTrue()
+        ->and($biaya->harga_sebab)->toContain('Sabtu');
+});
+
+test('tiket memakai tarif hari kerja dan tidak menyebut sebab apa pun', function () {
+    baluran();
+    $rab = rabBaluran('2027-01-04'); // Senin
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk();
+
+    $biaya = RabBiaya::where('rab_id', $rab->id)->firstOrFail();
+
+    expect($biaya->harga_satuan)->toBe(21_000)
+        ->and($biaya->pakai_akhir_pekan)->toBeFalse()
+        ->and($biaya->harga_sebab)->toBeNull();
+});
+
+test('hari libur nasional di hari Selasa ikut memakai tarif akhir pekan', function () {
+    baluran();
+    HariLibur::create(['tanggal' => '2027-01-05', 'nama' => 'Cuti bersama']);
+
+    $rab = rabBaluran('2027-01-05'); // Selasa
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk();
+
+    $biaya = RabBiaya::where('rab_id', $rab->id)->firstOrFail();
+
+    expect($biaya->harga_satuan)->toBe(31_000)
+        // Namanya yang disebut, bukan "akhir pekan": admin yang membaca
+        // "Selasa" di sebelah tarif akhir pekan akan mengira sistem salah.
+        ->and($biaya->harga_sebab)->toContain('Cuti bersama');
+});
+
+test('daftar hari libur yang kosong berarti hanya Sabtu & Minggu', function () {
+    baluran();
+    expect(HariLibur::count())->toBe(0);
+
+    $rab = rabBaluran('2027-01-05'); // Selasa, tanpa daftar libur
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk();
+
+    expect(RabBiaya::where('rab_id', $rab->id)->value('harga_satuan'))->toBe(21_000);
+});
+
+test('tanpa tanggal berangkat, harga hari kerja yang dipakai', function () {
+    baluran();
+    $rab = Rab::create([
+        'judul' => 'Belum ada tanggal', 'nama_pelanggan' => 'Pak Budi',
+        'provinsi' => 'Jawa Timur', 'tanggal_mulai' => null,
+        'jumlah_hari' => 2, 'jumlah_malam' => 1, 'jumlah_peserta' => 10,
+        'margin_jenis' => 'persen', 'margin_nilai' => 20,
+    ]);
+    RabItinerary::create([
+        'rab_id' => $rab->id, 'hari_ke' => 1, 'urutan' => 1,
+        'nama' => 'Safari Baluran', 'destinasi' => 'Taman Nasional Baluran',
+    ]);
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk();
+
+    expect(RabBiaya::where('rab_id', $rab->id)->value('harga_satuan'))->toBe(21_000);
+});
+
+test('baris akhir pekan tidak dikira "harga master berubah"', function () {
+    baluran();
+    $rab = rabBaluran('2027-01-09'); // Sabtu
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk();
+
+    $baris = collect(HitungRab::ringkas($rab->fresh())['baris'])->firstWhere('nama', 'Tiket Baluran');
+
+    /*
+     | Dibandingkan dengan sisi akhir pekan master, bukan hari kerjanya.
+     | Tanpa ini baris ini selamanya berteriak "lebih mahal Rp 10.000", dan
+     | admin akan menurunkannya — tepat di tanggal yang paling mahal.
+     */
+    expect($baris['harga_master_kini'])->toBeNull()
+        ->and($baris['selisih_master'])->toBe(0)
+        ->and($baris['pakai_akhir_pekan'])->toBeTrue();
+});
+
+test('simpan ke master dari baris akhir pekan menulis ke kolom akhir pekan', function () {
+    $m = baluran();
+    $rab = rabBaluran('2027-01-09'); // Sabtu
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk();
+
+    $biaya = RabBiaya::where('rab_id', $rab->id)->firstOrFail();
+    // Tim menemukan tarif akhir pekan yang lebih murah.
+    $biaya->update(['harga_satuan' => 28_000]);
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/biaya/'.$biaya->id.'/ke-master', [], kepalaLibur())
+        ->assertOk()->assertJsonPath('pesan', fn ($p) => str_contains($p, 'akhir pekan'));
+
+    $m->refresh();
+
+    expect($m->harga_akhir_pekan)->toBe(28_000)
+        // Harga hari kerjanya TIDAK tersentuh. Kalau ikut berubah, seluruh
+        // RAB berikutnya memakai Rp 28.000 di hari Selasa.
+        ->and($m->harga)->toBe(21_000);
+
+    $r = RiwayatHarga::where('master_harga_id', $m->id)->firstOrFail();
+    expect($r->akhir_pekan_lama)->toBe(31_000)
+        ->and($r->akhir_pekan_baru)->toBe(28_000)
+        ->and($r->akhir_pekan_berubah)->toBeTrue();
+});
+
+test('pakai harga master pada baris akhir pekan mengambil sisi akhir pekan', function () {
+    $m = baluran();
+    $rab = rabBaluran('2027-01-09'); // Sabtu
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk();
+    $biaya = RabBiaya::where('rab_id', $rab->id)->firstOrFail();
+
+    $m->update(['harga' => 23_000, 'harga_akhir_pekan' => 35_000]);
+
+    $this->patchJson('/api/v1/rab/'.$rab->id.'/biaya/'.$biaya->id, [
+        'pakai_harga_master' => true,
+    ], kepalaLibur())->assertOk();
+
+    expect($biaya->fresh()->harga_satuan)->toBe(35_000);
+});
+
+test('satuan per unit tidak dikali hari', function () {
+    $rab = rabBaluran('2027-01-04', hari: 3);
+
+    // Tiket masuk kendaraan roda 4: dibayar SEKALI di gerbang, bukan tiap hari.
+    $gerbang = RabBiaya::create([
+        'rab_id' => $rab->id, 'kategori' => 'tiket', 'nama' => 'Tiket masuk kendaraan',
+        'satuan' => 'unit', 'harga_satuan' => 10_000, 'kapasitas' => 4,
+        'jumlah' => 1, 'urutan' => 9,
+    ]);
+
+    // 10 peserta / 4 per kendaraan = 3 kendaraan, satu kali.
+    expect(HitungRab::subtotal($gerbang, $rab))->toBe(30_000)
+        ->and(HitungRab::faktor('unit', 4, $rab))->toBe(3)
+        ->and(HitungRab::faktor('unit_hari', 4, $rab))->toBe(9)
+        ->and(HitungRab::penjelasan($gerbang, $rab))->toContain('3 unit');
+});
+
+test('perjalanan lintas hari kerja & akhir pekan disebut, bukan dipilih diam-diam', function () {
+    // Sewa bus per hari, dua harga — Jumat tarif biasa, Sabtu-Minggu tidak.
+    MasterHarga::create([
+        'kategori' => 'transportasi', 'nama' => 'Bus 45 seat', 'provinsi' => 'Jawa Timur',
+        'satuan' => 'unit_hari', 'harga' => 3_000_000, 'harga_akhir_pekan' => 3_500_000,
+        'kapasitas' => 45, 'otomatis' => true, 'aktif' => true,
+    ]);
+    baluran();
+
+    $rab = rabBaluran('2027-01-08', hariKe: 2, hari: 3); // Jumat–Minggu
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())
+        ->assertOk()
+        ->assertJsonPath('harga_campuran', ['Bus 45 seat']);
+});
+
+test('perjalanan yang seluruh harinya sejenis tidak memberi peringatan campuran', function () {
+    MasterHarga::create([
+        'kategori' => 'transportasi', 'nama' => 'Bus 45 seat', 'provinsi' => 'Jawa Timur',
+        'satuan' => 'unit_hari', 'harga' => 3_000_000, 'harga_akhir_pekan' => 3_500_000,
+        'kapasitas' => 45, 'otomatis' => true, 'aktif' => true,
+    ]);
+    baluran();
+
+    $rab = rabBaluran('2027-01-04', hari: 3); // Senin–Rabu
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())
+        ->assertOk()->assertJsonPath('harga_campuran', []);
+});
+
+test('memindahkan kunjungan ke hari kerja menandai harga beku yang tak cocok lagi', function () {
+    baluran();
+    $rab = rabBaluran('2027-01-09'); // Sabtu
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk();
+    expect(RabBiaya::where('rab_id', $rab->id)->value('harga_satuan'))->toBe(31_000);
+
+    // Perjalanannya digeser ke Senin. Harga TETAP beku — itu aturannya —
+    // tetapi penawarannya kini kemahalan Rp 10.000 per orang.
+    $rab->update(['tanggal_mulai' => '2027-01-04']);
+
+    $ringkas = HitungRab::ringkas($rab->fresh());
+    $baris = collect($ringkas['baris'])->firstWhere('nama', 'Tiket Baluran');
+
+    expect($ringkas['ada_harga_salah_hari'])->toBeTrue()
+        ->and($baris['harga_satuan'])->toBe(31_000)
+        ->and($baris['harga_sebab_seharusnya'])->toContain('hari kerja');
+});
+
+test('kenaikan massal menaikkan kedua harga sekaligus', function () {
+    $m = baluran();
+
+    $this->postJson('/api/v1/master-harga/massal', [
+        'id' => [$m->id], 'aksi' => 'naik', 'persen' => 10,
+    ], kepalaLibur())->assertOk();
+
+    $m->refresh();
+
+    /*
+     | Keduanya naik. Menaikkan hari kerjanya saja membuat selisih akhir
+     | pekan menyusut tiap kenaikan — sampai suatu hari tarif akhir pekan
+     | jadi lebih murah daripada hari kerja, tanpa satu pun tanda.
+     */
+    expect($m->harga)->toBe(23_100)
+        ->and($m->harga_akhir_pekan)->toBe(34_100);
+});
+
+test('riwayat mencatat harga akhir pekan yang berubah sendirian', function () {
+    $m = baluran();
+
+    $this->patchJson('/api/v1/master-harga/'.$m->id, [
+        'kategori' => 'tiket', 'nama' => 'Tiket Baluran', 'provinsi' => 'Jawa Timur',
+        'destinasi' => 'Taman Nasional Baluran', 'satuan' => 'orang',
+        'harga' => 21_000, 'harga_akhir_pekan' => 36_000,
+    ], kepalaLibur())->assertOk();
+
+    $r = RiwayatHarga::where('master_harga_id', $m->id)->firstOrFail();
+
+    // Hari kerjanya TETAP, jadi tanpa kolom akhir pekan baris ini tidak ada.
+    expect($r->harga_lama)->toBe(21_000)
+        ->and($r->harga_baru)->toBe(21_000)
+        ->and($r->akhir_pekan_lama)->toBe(31_000)
+        ->and($r->akhir_pekan_baru)->toBe(36_000);
+});
+
+test('hari libur yang jatuh di Sabtu dikatakan memang sudah akhir pekan', function () {
+    $this->postJson('/api/v1/hari-libur', [
+        'tanggal' => '2027-01-09', 'nama' => 'Libur contoh',
+    ], kepalaLibur())->assertCreated()
+        ->assertJsonPath('data.sudah_akhir_pekan', true)
+        ->assertJsonPath('pesan', fn ($p) => str_contains($p, 'sudah'));
+
+    // Tanggal yang sama tidak bisa didaftarkan dua kali.
+    $this->postJson('/api/v1/hari-libur', [
+        'tanggal' => '2027-01-09', 'nama' => 'Libur contoh lagi',
+    ], kepalaLibur())->assertUnprocessable()->assertJsonValidationErrors('tanggal');
+});
+
+test('hari libur bisa ditempel banyak sekaligus, yang sudah ada dilewati', function () {
+    HariLibur::create(['tanggal' => '2027-01-01', 'nama' => 'Tahun Baru']);
+
+    $this->postJson('/api/v1/hari-libur/banyak', ['baris' => [
+        ['tanggal' => '2027-01-01', 'nama' => 'Tahun Baru'],
+        ['tanggal' => '2027-08-17', 'nama' => 'HUT RI'],
+        ['tanggal' => '2027-03-19', 'nama' => 'Nyepi'],
+    ]], kepalaLibur())->assertCreated()
+        ->assertJsonPath('masuk', 2)
+        ->assertJsonPath('lewat', ['2027-01-01']);
+
+    expect(HariLibur::count())->toBe(3);
+});
+
+test('menghapus hari libur tidak mengubah RAB yang sudah dibuat', function () {
+    baluran();
+    $libur = HariLibur::create(['tanggal' => '2027-01-05', 'nama' => 'Cuti bersama']);
+    $rab = rabBaluran('2027-01-05'); // Selasa
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk();
+
+    $this->deleteJson('/api/v1/hari-libur/'.$libur->id, [], kepalaLibur())->assertOk();
+
+    // Harga dibekukan per baris, jadi penawaran yang sudah dikirim tidak
+    // bergeser gara-gara daftar liburnya disunting.
+    expect(RabBiaya::where('rab_id', $rab->id)->value('harga_satuan'))->toBe(31_000);
+});

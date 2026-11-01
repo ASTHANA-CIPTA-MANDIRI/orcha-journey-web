@@ -17,7 +17,8 @@ class RabBiaya extends Model
 
     protected $fillable = [
         'rab_id', 'master_harga_id', 'vendor_id', 'kategori', 'nama', 'satuan',
-        'harga_satuan', 'kapasitas', 'jumlah', 'urutan', 'catatan',
+        'harga_satuan', 'harga_sebab', 'pakai_akhir_pekan', 'kapasitas',
+        'jumlah', 'urutan', 'catatan',
     ];
 
     protected $casts = [
@@ -25,6 +26,7 @@ class RabBiaya extends Model
         'kapasitas' => 'integer',
         'jumlah' => 'integer',
         'urutan' => 'integer',
+        'pakai_akhir_pekan' => 'boolean',
     ];
 
     public function rab()

@@ -1617,9 +1617,28 @@ return [
             'orang_hari' => ['label' => 'per orang per hari', 'variabel' => true],
             'rombongan' => ['label' => 'per rombongan', 'variabel' => false],
             'hari' => ['label' => 'per hari', 'variabel' => false],
+            /*
+             | SEKALI per unit, tidak dikali hari. Tiket masuk kendaraan
+             | dibayar di gerbang satu kali; memakai 'unit_hari' untuk
+             | perjalanan tiga hari melipatgandakannya jadi tiga.
+             */
+            'unit' => ['label' => 'per unit (sekali)', 'variabel' => false],
             'unit_hari' => ['label' => 'per unit per hari', 'variabel' => false],
             'kamar_malam' => ['label' => 'per kamar per malam', 'variabel' => false],
         ],
+
+        /*
+         | Satuan yang kapasitasnya MENENTUKAN, jadi wajib diisi.
+         |
+         | Tanpa kapasitas, 40 peserta dihitung naik SATU bus — dan
+         | penawarannya kekurangan dua bus penuh, tanpa berbunyi apa pun
+         | sampai rombongannya berdiri di pinggir jalan.
+         |
+         | Satu daftar untuk dua pembaca: validasi di peladen dan kotak
+         | kapasitas di lemon. Dua daftar akan berselisih begitu satuan baru
+         | ditambahkan, dan yang kalah selalu validasinya.
+         */
+        'satuan_berkapasitas' => ['unit', 'unit_hari', 'kamar_malam'],
 
         /*
          | Dua "persen" yang BERBEDA, dan bedanya bukan main-main.

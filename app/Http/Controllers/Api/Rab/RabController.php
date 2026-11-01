@@ -14,6 +14,7 @@ use App\Models\Rab\RiwayatHarga;
 use App\Models\Rab\Vendor;
 use App\Models\Rab\VersiPenawaran;
 use App\Support\Rab\BerkasRab;
+use App\Support\Rab\HargaHari;
 use App\Support\Rab\HitungRab;
 use App\Support\RincianBiaya;
 use Illuminate\Database\Eloquent\Builder;
@@ -507,7 +508,8 @@ class RabController extends ApiController
                 'satuan' => ['required', Rule::in(array_keys(config('orcha.rab.satuan')))],
                 'harga_satuan' => ['required', 'integer', 'min:0', 'max:1000000000'],
                 'kapasitas' => ['nullable', 'integer', 'min:1', 'max:1000',
-                    Rule::requiredIf(in_array($request->input('satuan'), ['unit_hari', 'kamar_malam'], true))],
+                    Rule::requiredIf(in_array($request->input('satuan'),
+                        config('orcha.rab.satuan_berkapasitas', []), true))],
                 'jumlah' => ['nullable', 'integer', 'min:1', 'max:100'],
                 // Biaya manual pun punya vendornya sendiri — justru di sinilah
                 // vendor dadakan muncul: sewa perahu, sewa jip, pemandu lokal.
@@ -537,7 +539,17 @@ class RabController extends ApiController
          | penawaran berikutnya.
          */
         if ($request->boolean('pakai_harga_master') && $biaya->master) {
-            $biaya->update(['harga_satuan' => $biaya->master->harga]);
+            /*
+             | Sisi yang SAMA dengan yang dibekukan baris ini.
+             |
+             | Baris bertarif akhir pekan yang ditimpa harga hari kerja
+             | kehilangan selisihnya tanpa satu pun tanda — dan "Pakai harga
+             | master" terbaca sebagai memperbarui, bukan menurunkan.
+             */
+            $biaya->update(['harga_satuan' => $biaya->pakai_akhir_pekan
+                && $biaya->master->harga_akhir_pekan !== null
+                    ? (int) $biaya->master->harga_akhir_pekan
+                    : (int) $biaya->master->harga]);
         } else {
             $data = $request->validate([
                 'nama' => ['sometimes', 'string', 'max:150'],
@@ -581,7 +593,16 @@ class RabController extends ApiController
             ], 422);
         }
 
-        $hargaLama = (int) $biaya->master->harga;
+        /*
+         | Temuan tim dibawa pulang ke SISI yang dipakai baris ini.
+         |
+         | Harga Baluran akhir pekan yang ditulis ke kolom hari kerja membuat
+         | SELURUH RAB berikutnya memakai Rp 31.000 di hari Selasa — kerugian
+         | yang menyebar dari satu kali menekan tombol, dan tidak akan pernah
+         | dicurigai karena angkanya memang pernah benar.
+         */
+        $sisiAkhirPekan = (bool) $biaya->pakai_akhir_pekan && $biaya->master->harga_akhir_pekan !== null;
+        $hargaLama = (int) ($sisiAkhirPekan ? $biaya->master->harga_akhir_pekan : $biaya->master->harga);
         $hargaBaru = (int) $biaya->harga_satuan;
 
         if ($hargaLama === $hargaBaru) {
@@ -594,16 +615,25 @@ class RabController extends ApiController
             'catatan' => ['sometimes', 'nullable', 'string', 'max:200'],
         ]);
 
-        $biaya->master->update(['harga' => $hargaBaru]);
+        $akhirPekanLama = $biaya->master->harga_akhir_pekan === null
+            ? null : (int) $biaya->master->harga_akhir_pekan;
+        $hargaHariKerja = (int) $biaya->master->harga;
+
+        $biaya->master->update($sisiAkhirPekan
+            ? ['harga_akhir_pekan' => $hargaBaru]
+            : ['harga' => $hargaBaru]);
 
         RiwayatHarga::rekam(
             $biaya->master->fresh(),
-            $hargaLama,
+            // Yang dicatat sebagai "harga lama" selalu harga hari kerjanya;
+            // sisi akhir pekan punya kolomnya sendiri di riwayat.
+            $hargaHariKerja,
             $request->attributes->get('admin_pemanggil'),
             // Asal-usulnya disebut walau admin tidak menulis apa-apa: riwayat
             // yang tidak bisa ditelusuri kembali ke penawarannya adalah angka
             // yang berubah tanpa sebab.
             trim(($data['catatan'] ?? $biaya->catatan ?? '').' (dari RAB '.$rab->kode.')'),
+            akhirPekanLama: $akhirPekanLama,
         );
 
         $this->catat($request, 'harga master dari rab', [
@@ -617,7 +647,8 @@ class RabController extends ApiController
 
         return response()->json([
             'data' => $this->bentuk($rab->fresh()),
-            'pesan' => 'Master harga "'.$biaya->master->nama.'" '.$arah.' jadi '
+            'pesan' => 'Master harga "'.$biaya->master->nama.'"'
+                .($sisiAkhirPekan ? ' (akhir pekan)' : '').' '.$arah.' jadi '
                 .RincianBiaya::rupiah($hargaBaru).'. RAB berikutnya memakai angka ini.',
         ]);
     }
@@ -794,6 +825,7 @@ class RabController extends ApiController
 
         $ditambah = $this->tambahkanDariMaster($rab, $calon);
         $dibuang = $this->buangTiketYatim($rab->fresh());
+        $campuran = (new HargaHari($rab))->campuran($calon);
 
         $punyaTiket = $calon->map(fn ($m) => $kunci($m->destinasi))->filter()->flip();
         $tanpaTiket = $destinasi->reject(fn ($d) => $punyaTiket->has($kunci($d)))->values();
@@ -807,6 +839,14 @@ class RabController extends ApiController
                 default => 'Tidak ada biaya baru — semuanya sudah ada di RAB.',
             },
             'tiket_dibuang' => $dibuang,
+            /*
+             | Baris yang harinya campuran hari kerja & akhir pekan.
+             |
+             | Bukan kesalahan, dan bukan sesuatu yang bisa diputuskan
+             | sistem: satu baris hanya memegang satu harga. Disebut namanya
+             | supaya admin menggandakan barisnya sendiri.
+             */
+            'harga_campuran' => $campuran,
             // Disebut satu per satu: destinasi tanpa harga tiket di master
             // bukan kesalahan sistem, melainkan data yang belum diisi — dan
             // admin perlu tahu yang mana.
@@ -930,12 +970,17 @@ class RabController extends ApiController
     {
         $sudah = $rab->biaya()->whereNotNull('master_harga_id')->pluck('master_harga_id')->all();
         $urutan = (int) $rab->biaya()->max('urutan');
+        // Dibuat SEKALI, bukan sekali per baris: daftar hari libur dan peta
+        // kunjungan di dalamnya tidak berubah di tengah perulangan.
+        $hari = new HargaHari($rab);
         $n = 0;
 
         foreach ($master as $m) {
             if (! $bolehGanda && in_array($m->id, $sudah, true)) {
                 continue;
             }
+
+            $pilih = $hari->untuk($m);
 
             RabBiaya::create([
                 'rab_id' => $rab->id,
@@ -946,7 +991,9 @@ class RabController extends ApiController
                 'kategori' => $m->kategori,
                 'nama' => $m->nama,
                 'satuan' => $m->satuan,
-                'harga_satuan' => $m->harga,
+                'harga_satuan' => $pilih['harga'],
+                'harga_sebab' => $pilih['sebab'],
+                'pakai_akhir_pekan' => $pilih['akhir_pekan'],
                 'kapasitas' => $m->kapasitas,
                 'jumlah' => 1,
                 'urutan' => ++$urutan,

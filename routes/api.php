@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\PaketWisata\KeuntunganController;
 use App\Http\Controllers\Api\PaketWisata\PaketWisataController;
 use App\Http\Controllers\Api\PaketWisata\PromoRombonganController;
 use App\Http\Controllers\Api\Pelanggan\PelangganController;
+use App\Http\Controllers\Api\Rab\HariLiburController;
 use App\Http\Controllers\Api\Rab\MasterHargaController;
 use App\Http\Controllers\Api\Rab\RabController;
 use App\Http\Controllers\Api\Rab\VendorController;
@@ -204,6 +205,17 @@ Route::prefix('v1')
         Route::post('/vendor/{vendor}/pasang', [VendorController::class, 'pasang']);
         Route::patch('/vendor/{vendor}', [VendorController::class, 'update']);
         Route::delete('/vendor/{vendor}', [VendorController::class, 'destroy']);
+
+        /*
+         | Hari libur nasional — daftar kecil yang menentukan tarif akhir
+         | pekan. /banyak WAJIB sebelum /{libur}: rute berparameter yang
+         | terdaftar lebih dulu akan menelan "banyak" sebagai sebuah id.
+         */
+        Route::get('/hari-libur', [HariLiburController::class, 'index']);
+        Route::post('/hari-libur/banyak', [HariLiburController::class, 'banyak']);
+        Route::post('/hari-libur', [HariLiburController::class, 'store']);
+        Route::patch('/hari-libur/{libur}', [HariLiburController::class, 'update']);
+        Route::delete('/hari-libur/{libur}', [HariLiburController::class, 'destroy']);
 
         Route::get('/master-harga', [MasterHargaController::class, 'index']);
         // Sebelum /master-harga/{master}: rute berparameter yang terdaftar

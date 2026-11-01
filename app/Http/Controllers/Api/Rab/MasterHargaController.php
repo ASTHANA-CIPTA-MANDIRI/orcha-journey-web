@@ -154,9 +154,10 @@ class MasterHargaController extends ApiController
         }
 
         $lama = $master->harga;
+        $lamaAkhirPekan = $master->harga_akhir_pekan === null ? null : (int) $master->harga_akhir_pekan;
         $master->update($data);
 
-        $this->catatRiwayat($master, $lama, $request);
+        $this->catatRiwayat($master, $lama, $request, akhirPekanLama: $lamaAkhirPekan);
 
         $this->catat($request, 'ubah master harga', [
             'nama' => $master->nama, 'dari' => $lama, 'ke' => $master->harga,
@@ -283,7 +284,7 @@ class MasterHargaController extends ApiController
      * sini. Riwayat yang penuh baris "harga tetap" tidak bisa dibaca, dan
      * yang dicari orang saat membukanya selalu uangnya.
      */
-    private function catatRiwayat(MasterHarga $master, int $hargaLama, Request $request, ?string $catatan = null, ?BatchMassal $batch = null): void
+    private function catatRiwayat(MasterHarga $master, int $hargaLama, Request $request, ?string $catatan = null, ?BatchMassal $batch = null, ?int $akhirPekanLama = null): void
     {
         RiwayatHarga::rekam(
             $master,
@@ -291,6 +292,7 @@ class MasterHargaController extends ApiController
             $request->attributes->get('admin_pemanggil'),
             $catatan,
             $batch?->id,
+            $akhirPekanLama,
         );
     }
 
@@ -384,6 +386,8 @@ class MasterHargaController extends ApiController
             'baris' => ['required', 'array', 'min:1', 'max:200'],
             'baris.*.nama' => ['required', 'string', 'max:150'],
             'baris.*.harga' => ['required', 'integer', 'min:0', 'max:1000000000'],
+            // Kolom ketiga tempelan, bila ada: harga akhir pekannya.
+            'baris.*.harga_akhir_pekan' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
             'baris.*.destinasi' => ['nullable', 'string', 'max:150'],
             'kategori' => ['required', Rule::in(array_keys(config('orcha.rab.kategori')))],
             'satuan' => ['required', Rule::in(array_keys(config('orcha.rab.satuan')))],
@@ -422,6 +426,8 @@ class MasterHargaController extends ApiController
                 'nama' => $nama,
                 'destinasi' => trim((string) ($b['destinasi'] ?? '')) ?: null,
                 'harga' => (int) $b['harga'],
+                'harga_akhir_pekan' => isset($b['harga_akhir_pekan']) && $b['harga_akhir_pekan'] !== ''
+                    ? (int) $b['harga_akhir_pekan'] : null,
                 'otomatis' => false,
                 'aktif' => true,
             ]);
@@ -531,7 +537,23 @@ class MasterHargaController extends ApiController
             'harga_baru' => RincianBiaya::rupiah($r->harga_baru),
             'selisih' => ($r->selisih > 0 ? '+' : '-').RincianBiaya::rupiah(abs($r->selisih)),
             'naik' => $r->selisih > 0,
+            /*
+             | Apakah harga HARI KERJA-nya yang berubah.
+             |
+             | Perubahan yang hanya menyentuh harga akhir pekan menyisakan
+             | selisih nol di sini, dan layar menulisnya "−Rp 0" dengan panah
+             | turun — terbaca sebagai perubahan yang tidak terjadi, padahal
+             | justru itu yang dicari orang saat membuka riwayat.
+             */
+            'harga_berubah' => $r->selisih !== 0,
             'persen' => $r->persen,
+            // Hanya dikirim bila memang berubah, supaya layar tidak perlu
+            // menebak bedanya "tidak berubah" dari "tidak diketahui" —
+            // riwayat lama memulangkan keduanya null.
+            'akhir_pekan' => $r->akhir_pekan_berubah ? [
+                'lama' => $r->akhir_pekan_lama === null ? null : RincianBiaya::rupiah($r->akhir_pekan_lama),
+                'baru' => $r->akhir_pekan_baru === null ? null : RincianBiaya::rupiah($r->akhir_pekan_baru),
+            ] : null,
             'oleh' => $r->oleh,
             'catatan' => $r->catatan,
             'pada' => $r->created_at?->locale('id')->translatedFormat('j M Y, H:i'),
@@ -587,6 +609,7 @@ class MasterHargaController extends ApiController
             'sebelum' => $daftar->map(fn (MasterHarga $m) => [
                 'id' => $m->id,
                 'harga' => $m->harga,
+                'harga_akhir_pekan' => $m->harga_akhir_pekan,
                 'aktif' => $m->aktif,
                 'vendor_id' => $m->vendor_id,
                 'berlaku_sampai' => $m->berlaku_sampai?->toDateString(),
@@ -642,14 +665,26 @@ class MasterHargaController extends ApiController
             }
 
             $hargaKini = $m->harga;
+            $akhirPekanKini = $m->harga_akhir_pekan === null ? null : (int) $m->harga_akhir_pekan;
             $m->update([
                 'harga' => $lama['harga'],
+                /*
+                 | ?? harga kini, BUKAN ?? null.
+                 |
+                 | Batch yang dibuat sebelum kolom ini ada tidak menyimpan
+                 | harga akhir pekannya. Memulihkannya ke null akan MENGHAPUS
+                 | harga akhir pekan yang tidak pernah disentuh perintah
+                 | massal itu — pembatalan yang merusak lebih banyak daripada
+                 | yang diperbaikinya.
+                 */
+                'harga_akhir_pekan' => array_key_exists('harga_akhir_pekan', $lama)
+                    ? $lama['harga_akhir_pekan'] : $akhirPekanKini,
                 'aktif' => $lama['aktif'],
                 'vendor_id' => $lama['vendor_id'],
                 'berlaku_sampai' => $lama['berlaku_sampai'],
             ]);
 
-            $this->catatRiwayat($m, $hargaKini, $request, 'pembatalan perubahan massal');
+            $this->catatRiwayat($m, $hargaKini, $request, 'pembatalan perubahan massal', akhirPekanLama: $akhirPekanKini);
             $kembali++;
         }
 
@@ -671,14 +706,28 @@ class MasterHargaController extends ApiController
 
         if (in_array($data['aksi'], ['naik', 'turun'], true)) {
             $lama = $m->harga;
+            $lamaAkhirPekan = $m->harga_akhir_pekan === null ? null : (int) $m->harga_akhir_pekan;
             $faktor = 1 + ($data['aksi'] === 'naik' ? 1 : -1) * ((float) $data['persen'] / 100);
             // Dibulatkan ke ratusan rupiah: harga hasil perkalian persen
             // seperti "Rp 60.500,25" tidak pernah ditawarkan vendor mana pun.
-            $m->harga = max(0, (int) (round($lama * $faktor / 100) * 100));
+            $bulat = fn (int $n) => max(0, (int) (round($n * $faktor / 100) * 100));
+            $m->harga = $bulat($lama);
+            /*
+             | Harga akhir pekannya IKUT naik.
+             |
+             | Kenaikan vendor berlaku untuk kedua harganya. Menaikkan hari
+             | kerjanya saja membuat selisih akhir pekan menyusut sendiri
+             | tiap kali ada kenaikan massal — sampai suatu hari harga akhir
+             | pekan jadi lebih murah daripada hari kerja, tanpa satu pun
+             | tanda.
+             */
+            if ($lamaAkhirPekan !== null) {
+                $m->harga_akhir_pekan = $bulat($lamaAkhirPekan);
+            }
             $m->save();
-            $this->catatRiwayat($m, $lama, $request, 'perubahan massal '.$data['persen'].'%', $batch);
+            $this->catatRiwayat($m, $lama, $request, 'perubahan massal '.$data['persen'].'%', $batch, $lamaAkhirPekan);
 
-            return $m->harga !== $lama;
+            return $m->harga !== $lama || (int) $m->harga_akhir_pekan !== $lamaAkhirPekan;
         }
 
         $m->update(match ($data['aksi']) {
@@ -716,6 +765,15 @@ class MasterHargaController extends ApiController
             'satuan' => ['required', Rule::in(array_keys(config('orcha.rab.satuan')))],
             'harga' => ['required', 'integer', 'min:0', 'max:1000000000'],
             /*
+             | Harga akhir pekan & hari libur. KOSONG, bukan nol, berarti
+             | harganya sama setiap hari.
+             |
+             | Nol adalah harga yang sah — ada tempat yang memang gratis di
+             | hari kerja — jadi keduanya tidak boleh ditumpuk jadi satu arti.
+             | Karena itu kolomnya nullable dan bukan default 0.
+             */
+            'harga_akhir_pekan' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+            /*
              | Kapasitas WAJIB untuk satuan yang dihitung per unit.
              |
              | Tanpanya, 40 peserta dihitung naik SATU bus — dan penawarannya
@@ -723,7 +781,8 @@ class MasterHargaController extends ApiController
              | sampai rombongannya berdiri di pinggir jalan.
              */
             'kapasitas' => ['nullable', 'integer', 'min:1', 'max:1000',
-                Rule::requiredIf(in_array($request->input('satuan'), ['unit_hari', 'kamar_malam'], true))],
+                Rule::requiredIf(in_array($request->input('satuan'),
+                    config('orcha.rab.satuan_berkapasitas', []), true))],
             // Kosong berarti "tidak ada batas", bukan "belum diisi".
             'berlaku_sampai' => ['nullable', 'date'],
             'otomatis' => ['nullable', 'boolean'],
@@ -762,6 +821,12 @@ class MasterHargaController extends ApiController
             'satuan_label' => $m->satuan_label,
             'harga' => $m->harga,
             'harga_teks' => RincianBiaya::rupiah($m->harga),
+            'harga_akhir_pekan' => $m->harga_akhir_pekan,
+            'harga_akhir_pekan_teks' => $m->harga_akhir_pekan === null
+                ? null : RincianBiaya::rupiah($m->harga_akhir_pekan),
+            // Dipulangkan terhitung, bukan disimpulkan ulang di layar:
+            // "ada isinya" dan "beda dari hari kerja" bukan hal yang sama.
+            'dua_harga' => $m->dua_harga,
             'kapasitas' => $m->kapasitas,
             'otomatis' => $m->otomatis,
             'aktif' => $m->aktif,
@@ -783,7 +848,7 @@ class MasterHargaController extends ApiController
         return [
             'kategori' => config('orcha.rab.kategori'),
             'satuan' => collect(config('orcha.rab.satuan'))->map(fn ($s) => $s['label'])->all(),
-            'satuan_berkapasitas' => ['unit_hari', 'kamar_malam'],
+            'satuan_berkapasitas' => config('orcha.rab.satuan_berkapasitas'),
             'margin_jenis' => config('orcha.rab.margin_jenis'),
             'pembulatan' => config('orcha.rab.pembulatan_pilihan'),
             'status' => config('orcha.rab.status'),
