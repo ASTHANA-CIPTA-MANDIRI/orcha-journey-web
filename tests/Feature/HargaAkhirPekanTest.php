@@ -279,6 +279,21 @@ test('memindahkan kunjungan ke hari kerja menandai harga beku yang tak cocok lag
         ->and($baris['harga_sebab_seharusnya'])->toContain('hari kerja');
 });
 
+test('tanggal berangkat yang dikosongkan disebut apa adanya', function () {
+    baluran();
+    $rab = rabBaluran('2027-01-09'); // Sabtu
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk();
+
+    // Tanpa penjagaan ini layar menulis "harga hari kerja ()" — tanda baca
+    // tanpa isi, yang terbaca sebagai layar rusak, bukan tanggal yang hilang.
+    $rab->update(['tanggal_mulai' => null]);
+
+    $baris = collect(HitungRab::ringkas($rab->fresh())['baris'])->firstWhere('nama', 'Tiket Baluran');
+
+    expect($baris['harga_sebab_seharusnya'])->toBe('tanggal berangkatnya dikosongkan');
+});
+
 test('kenaikan massal menaikkan kedua harga sekaligus', function () {
     $m = baluran();
 

@@ -134,10 +134,22 @@ class HargaHari
             return null;
         }
 
-        return $kini['akhir_pekan']
-            ? $kini['sebab']
-            : 'harga hari kerja ('.$this->tanggal($b->master->destinasi)
-                ?->locale('id')->translatedFormat('l, j M').')';
+        if ($kini['akhir_pekan']) {
+            return $kini['sebab'];
+        }
+
+        $tanggal = $this->tanggal($b->master->destinasi);
+
+        /*
+         | Tanggal yang DIKOSONGKAN disebut apa adanya.
+         |
+         | Admin yang menghapus tanggal berangkat sesudah biaya ditarik akan
+         | melihat "harga hari kerja ()" — tanda baca tanpa isi, yang terbaca
+         | sebagai layar rusak alih-alih sebagai tanggal yang hilang.
+         */
+        return $tanggal === null
+            ? 'tanggal berangkatnya dikosongkan'
+            : 'harga hari kerja ('.$tanggal->locale('id')->translatedFormat('l, j M').')';
     }
 
     /**
