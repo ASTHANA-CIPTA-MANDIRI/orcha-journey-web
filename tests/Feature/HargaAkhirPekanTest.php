@@ -294,6 +294,105 @@ test('tanggal berangkat yang dikosongkan disebut apa adanya', function () {
     expect($baris['harga_sebab_seharusnya'])->toBe('tanggal berangkatnya dikosongkan');
 });
 
+/* -------------------- TIKET PER KENDARAAN -------------------- */
+
+/** Tiket kendaraan Alas Purwo: dua jenis, destinasi yang sama persis. */
+function tiketKendaraan(string $nama, int $harga, int $kapasitas): MasterHarga
+{
+    return MasterHarga::create([
+        'kategori' => 'tiket',
+        'nama' => $nama,
+        'provinsi' => 'Jawa Timur',
+        'destinasi' => 'Taman Nasional Baluran',
+        'satuan' => 'unit',
+        'harga' => $harga,
+        'kapasitas' => $kapasitas,
+        'otomatis' => false,
+        'aktif' => true,
+    ]);
+}
+
+test('tiket per kendaraan TIDAK ikut tertarik, melainkan ditawarkan', function () {
+    baluran();
+    tiketKendaraan('Tiket kendaraan roda 4', 10_000, 4);
+    tiketKendaraan('Tiket kendaraan bus', 50_000, 40);
+
+    $rab = rabBaluran('2027-01-04'); // Senin
+
+    $balasan = $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk();
+
+    /*
+     | Yang masuk HANYA tiket per orang. Ditarik semua, rombongan bermobil
+     | ikut membayar tiket bus yang tidak pernah datang — modal naik tanpa
+     | satu pun salah ketik.
+     */
+    $biaya = RabBiaya::where('rab_id', $rab->id)->get();
+
+    expect($biaya)->toHaveCount(1)
+        ->and($biaya->first()->nama)->toBe('Tiket Baluran');
+
+    $balasan->assertJsonCount(2, 'data.tawaran_kendaraan')
+        ->assertJsonPath('data.tawaran_kendaraan.0.nama', 'Tiket kendaraan roda 4')
+        ->assertJsonPath('data.tawaran_kendaraan.1.nama', 'Tiket kendaraan bus');
+});
+
+test('tawaran kendaraan memakai tarif tanggal kunjungannya', function () {
+    baluran();
+    $m = tiketKendaraan('Tiket kendaraan roda 4', 10_000, 4);
+    $m->update(['harga_akhir_pekan' => 15_000]);
+
+    $rab = rabBaluran('2027-01-09'); // Sabtu
+
+    // Tawaran yang berubah nominalnya begitu ditekan adalah tawaran yang
+    // tidak dipercaya lagi.
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk()
+        ->assertJsonPath('data.tawaran_kendaraan.0.harga', 15_000)
+        ->assertJsonPath('data.tawaran_kendaraan.0.harga_sebab', fn ($s) => str_contains($s, 'Sabtu'));
+});
+
+test('tawaran yang sudah dipakai tidak ditawarkan lagi', function () {
+    baluran();
+    $m = tiketKendaraan('Tiket kendaraan bus', 50_000, 40);
+    $rab = rabBaluran('2027-01-04');
+
+    $this->postJson('/api/v1/rab/'.$rab->id.'/tarik-biaya', [], kepalaLibur())->assertOk()
+        ->assertJsonCount(1, 'data.tawaran_kendaraan');
+
+    // Admin memilihnya.
+    $this->postJson('/api/v1/rab/'.$rab->id.'/biaya', [
+        'master_harga_id' => $m->id,
+    ], kepalaLibur())->assertOk()->assertJsonCount(0, 'data.tawaran_kendaraan');
+
+    $baris = RabBiaya::where('rab_id', $rab->id)->where('master_harga_id', $m->id)->firstOrFail();
+
+    // 10 peserta / 40 per bus = 1 bus, SEKALI — bukan dikali hari.
+    expect($baris->satuan)->toBe('unit')
+        ->and(HitungRab::subtotal($baris, $rab->fresh()))->toBe(50_000);
+});
+
+test('tawaran ikut di setiap pembacaan RAB, bukan cuma sesudah tarik biaya', function () {
+    baluran();
+    tiketKendaraan('Tiket kendaraan roda 4', 10_000, 4);
+    $rab = rabBaluran('2027-01-04');
+
+    // Admin yang membuka kembali RAB kemarin tidak menekan "Tarik biaya"
+    // lagi; tawaran yang cuma muncul sekali adalah tawaran yang terlupakan.
+    $this->getJson('/api/v1/rab/'.$rab->id, kepalaLibur())->assertOk()
+        ->assertJsonCount(1, 'data.tawaran_kendaraan');
+});
+
+test('biaya wajib provinsi per kendaraan tidak ikut terisi saat RAB dibuat', function () {
+    MasterHarga::create([
+        'kategori' => 'tiket', 'nama' => 'Parkir bus', 'provinsi' => 'Jawa Timur',
+        'satuan' => 'unit', 'harga' => 25_000, 'kapasitas' => 40,
+        'otomatis' => true, 'aktif' => true,
+    ]);
+
+    $rab = rabBaluran('2027-01-04');
+
+    expect(RabBiaya::where('rab_id', $rab->id)->count())->toBe(0);
+});
+
 test('kenaikan massal menaikkan kedua harga sekaligus', function () {
     $m = baluran();
 

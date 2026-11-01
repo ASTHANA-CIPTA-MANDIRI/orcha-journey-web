@@ -197,7 +197,9 @@ class RabController extends ApiController
              | tidak ketahuan sampai modalnya habis di lapangan.
              */
             $this->tambahkanDariMaster($rab, MasterHarga::query()->untukProvinsi($rab->provinsi)
-                ->where('otomatis', true)->get());
+                // Lihat tarikBiaya(): yang per kendaraan ditawarkan, tidak
+                // ditarik — jenis kendaraannya keputusan per-RAB.
+                ->where('otomatis', true)->where('satuan', '!=', 'unit')->get());
 
             return $rab;
         });
@@ -823,9 +825,26 @@ class RabController extends ApiController
                     ->where(fn ($p) => $p->whereNull('provinsi')->orWhere('provinsi', $rab->provinsi))))
             ->get();
 
-        $ditambah = $this->tambahkanDariMaster($rab, $calon);
+        /*
+         | Biaya PER KENDARAAN tidak ikut tertarik sendiri.
+         |
+         | Satu destinasi bisa punya beberapa tiket kendaraan sekaligus —
+         | Alas Purwo memungut roda 4 Rp 10.000 dan bus Rp 50.000 — dan
+         | keduanya berdestinasi sama. Ditarik semua, rombongan bermobil ikut
+         | membayar tiket bus yang tidak pernah datang, dan modalnya naik
+         | tanpa satu pun salah ketik.
+         |
+         | Jenis kendaraannya keputusan per-RAB, bukan sifat destinasinya,
+         | jadi yang benar menawarkannya — lihat tawaranKendaraan(). Tiket
+         | per orang tetap ditarik seperti biasa: tiap peserta membayarnya,
+         | tidak ada yang perlu dipilih.
+         */
+        $ditarik = $calon->reject(fn (MasterHarga $m) => $m->satuan === 'unit');
+
+        $ditambah = $this->tambahkanDariMaster($rab, $ditarik);
         $dibuang = $this->buangTiketYatim($rab->fresh());
-        $campuran = (new HargaHari($rab))->campuran($calon);
+        $campuran = (new HargaHari($rab))->campuran($ditarik);
+        $tawaran = $this->tawaranKendaraan($rab->fresh());
 
         $punyaTiket = $calon->map(fn ($m) => $kunci($m->destinasi))->filter()->flip();
         $tanpaTiket = $destinasi->reject(fn ($d) => $punyaTiket->has($kunci($d)))->values();
@@ -836,6 +855,12 @@ class RabController extends ApiController
                 $ditambah > 0 && $dibuang !== [] => "{$ditambah} biaya ditarik, ".count($dibuang).' tiket yatim dibuang.',
                 $ditambah > 0 => "{$ditambah} biaya ditarik dari itinerary.",
                 $dibuang !== [] => count($dibuang).' tiket dibuang karena tempatnya tidak lagi dikunjungi.',
+                /*
+                 | "Tidak ada biaya baru" sambil menyembunyikan tiket
+                 | kendaraan yang menunggu dipilih adalah kalimat yang
+                 | menutup pekerjaan yang belum selesai.
+                 */
+                $tawaran !== [] => 'Tiket per orang sudah lengkap. Tinggal pilih tiket kendaraannya di bawah.',
                 default => 'Tidak ada biaya baru — semuanya sudah ada di RAB.',
             },
             'tiket_dibuang' => $dibuang,
@@ -961,6 +986,58 @@ class RabController extends ApiController
     }
 
     /* ------------------------------------------------------------------ */
+
+    /**
+     * Tiket per kendaraan di tempat yang dikunjungi, yang belum ada di RAB.
+     *
+     * Ditawarkan alih-alih ditarik karena satu destinasi bisa memungut
+     * beberapa sekaligus — roda 4, roda 6, bus — dan rombongan ini cuma
+     * membawa salah satunya. Lihat alasan panjangnya di tarikBiaya().
+     *
+     * Harganya sudah memakai tarif tanggal kunjungannya, supaya angka yang
+     * diklik sama dengan angka yang masuk. Tawaran yang berubah nominalnya
+     * begitu ditekan adalah tawaran yang tidak dipercaya lagi.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function tawaranKendaraan(Rab $rab): array
+    {
+        $kunci = fn ($teks) => mb_strtolower(trim((string) $teks));
+
+        $dikunjungi = $rab->itinerary()->whereNotNull('destinasi')
+            ->pluck('destinasi')->map($kunci)->filter()->unique()->values();
+
+        if ($dikunjungi->isEmpty()) {
+            return [];
+        }
+
+        $sudah = $rab->biaya()->whereNotNull('master_harga_id')->pluck('master_harga_id')->all();
+        $hari = new HargaHari($rab);
+
+        return MasterHarga::query()
+            ->where('aktif', true)
+            ->where('satuan', 'unit')
+            ->whereIn(DB::raw('LOWER(TRIM(destinasi))'), $dikunjungi)
+            ->whereNotIn('id', $sudah ?: [0])
+            ->orderBy('harga')
+            ->get()
+            ->map(function (MasterHarga $m) use ($hari) {
+                $pilih = $hari->untuk($m);
+
+                return [
+                    'master_harga_id' => $m->id,
+                    'nama' => $m->nama,
+                    'destinasi' => $m->destinasi,
+                    'kapasitas' => $m->kapasitas,
+                    'harga' => $pilih['harga'],
+                    'harga_teks' => RincianBiaya::rupiah($pilih['harga']),
+                    // Sebab tarifnya ikut, supaya tawaran akhir pekan tidak
+                    // terbaca sebagai harga master yang salah.
+                    'harga_sebab' => $pilih['sebab'],
+                    'satuan_label' => $m->satuan_label,
+                ];
+            })->values()->all();
+    }
 
     /**
      * @param  Collection<int, MasterHarga>  $master
@@ -1132,6 +1209,15 @@ class RabController extends ApiController
                 : null,
             'catatan' => $rab->catatan,
             'catatan_penawaran' => $rab->catatan_penawaran,
+            /*
+             | Dikirim di SETIAP pembacaan, bukan cuma sebagai balasan
+             | "Tarik biaya".
+             |
+             | Admin yang membuka kembali RAB kemarin tidak menekan tombol
+             | itu lagi — dan tiket kendaraan yang hanya muncul sekali,
+             | sesudah tombol ditekan, adalah tiket yang terlupakan.
+             */
+            'tawaran_kendaraan' => $this->tawaranKendaraan($rab),
             'itinerary' => $rab->itinerary->map(fn (RabItinerary $i) => [
                 'id' => $i->id,
                 'hari_ke' => $i->hari_ke,
