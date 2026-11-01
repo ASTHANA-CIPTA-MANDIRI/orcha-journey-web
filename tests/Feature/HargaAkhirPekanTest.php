@@ -393,6 +393,60 @@ test('biaya wajib provinsi per kendaraan tidak ikut terisi saat RAB dibuat', fun
     expect(RabBiaya::where('rab_id', $rab->id)->count())->toBe(0);
 });
 
+test('tempelan massal menolak satuan berkapasitas tanpa kapasitas', function () {
+    /*
+     | Lubang paling mahal kalau dibiarkan: menempel dua puluh rute carter
+     | tanpa kapasitas membuat KEDUA PULUHNYA menghitung satu kendaraan
+     | untuk rombongan sebesar apa pun. Formulir satu baris sudah menolaknya;
+     | penolakan yang berlaku di satu pintu saja bukan penjagaan.
+     */
+    $this->postJson('/api/v1/master-harga/banyak', [
+        'kategori' => 'transportasi',
+        'satuan' => 'unit',
+        'provinsi' => 'DI Yogyakarta',
+        'baris' => [['nama' => 'Sewa Hiace Jogja-Banyuwangi 4D3N', 'harga' => 8_500_000]],
+    ], kepalaLibur())->assertUnprocessable()->assertJsonValidationErrors('kapasitas');
+
+    expect(MasterHarga::count())->toBe(0);
+});
+
+test('tempelan massal rute carter masuk sekali jalan', function () {
+    $this->postJson('/api/v1/master-harga/banyak', [
+        'kategori' => 'transportasi',
+        // Carter per rute dibayar SEKALI per kendaraan, tidak dikali hari.
+        'satuan' => 'unit',
+        'provinsi' => 'DI Yogyakarta',
+        'kapasitas' => 14,
+        'baris' => [
+            ['nama' => 'Sewa Hiace Jogja-Banyuwangi 4D3N', 'harga' => 8_500_000],
+            ['nama' => 'Sewa Hiace Jogja-Bromo 3D2N', 'harga' => 6_500_000],
+        ],
+    ], kepalaLibur())->assertCreated()->assertJsonPath('masuk', 2);
+
+    $m = MasterHarga::where('nama', 'Sewa Hiace Jogja-Banyuwangi 4D3N')->firstOrFail();
+
+    expect($m->satuan)->toBe('unit')->and($m->kapasitas)->toBe(14);
+});
+
+test('carter per rute dihitung sekali, bukan dikali hari', function () {
+    $rab = rabBaluran('2027-01-04', hari: 4);
+
+    $carter = RabBiaya::create([
+        'rab_id' => $rab->id, 'kategori' => 'transportasi',
+        'nama' => 'Sewa Hiace Jogja-Banyuwangi 4D3N',
+        'satuan' => 'unit', 'harga_satuan' => 8_500_000, 'kapasitas' => 14,
+        'jumlah' => 1, 'urutan' => 1,
+    ]);
+
+    /*
+     | 10 peserta / 14 per Hiace = 1 unit, SEKALI. Dengan satuan unit_hari,
+     | angka yang sama jadi 8,5 jt x 4 hari = Rp 34 juta — empat kali lipat,
+     | dan tidak ada yang terlihat salah karena 8.500.000 memang harganya.
+     */
+    expect(HitungRab::subtotal($carter, $rab))->toBe(8_500_000)
+        ->and(HitungRab::faktor('unit_hari', 14, $rab))->toBe(4);
+});
+
 test('kenaikan massal menaikkan kedua harga sekaligus', function () {
     $m = baluran();
 

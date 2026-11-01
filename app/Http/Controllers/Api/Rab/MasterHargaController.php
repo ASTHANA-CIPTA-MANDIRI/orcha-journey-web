@@ -394,7 +394,23 @@ class MasterHargaController extends ApiController
             'provinsi' => ['nullable', 'string', 'max:80'],
             'daerah' => ['nullable', 'string', 'max:80'],
             'vendor_id' => ['nullable', 'integer', 'exists:tbl_vendor,id'],
-            'kapasitas' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            /*
+             | Sama wajibnya dengan di formulir satu baris.
+             |
+             | Sempat nullable di sini saja, dan itu lubang yang paling
+             | mahal: menempel dua puluh rute carter sekaligus tanpa
+             | kapasitas membuat KEDUA PULUHNYA menghitung satu kendaraan
+             | untuk rombongan sebesar apa pun. Formulir satu baris menolak
+             | hal yang sama — penolakan yang berlaku di satu pintu saja
+             | bukan penjagaan, melainkan pintu belakang.
+             */
+            'kapasitas' => ['nullable', 'integer', 'min:1', 'max:1000',
+                Rule::requiredIf(in_array($request->input('satuan'),
+                    config('orcha.rab.satuan_berkapasitas', []), true))],
+        ], [
+            'kapasitas.required' => 'Isi kapasitasnya — satuan ini menghitung jumlah unit, dan tanpanya seluruh baris yang ditempel menghitung satu unit saja.',
+        ], [
+            'kapasitas' => 'kapasitas',
         ]);
 
         $masuk = 0;
