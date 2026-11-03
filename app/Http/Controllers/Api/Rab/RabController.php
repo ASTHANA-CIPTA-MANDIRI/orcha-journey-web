@@ -796,7 +796,28 @@ class RabController extends ApiController
          | yang menyebar dari satu kali menekan tombol, dan tidak akan pernah
          | dicurigai karena angkanya memang pernah benar.
          */
-        $sisiAkhirPekan = (bool) $biaya->pakai_akhir_pekan && $biaya->master->harga_akhir_pekan !== null;
+        $pilihan = $request->validate([
+            'catatan' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'sisi' => ['sometimes', 'nullable', 'in:hari_kerja,akhir_pekan'],
+        ]);
+
+        /*
+         | Sisinya BOLEH disebut pemanggil, dan itu bukan kemewahan.
+         |
+         | Penanda pakai_akhir_pekan benar untuk baris yang ditarik sendiri
+         | dari jadwal — tanggal kunjungannya diketahui. Ia TIDAK benar untuk
+         | baris yang digandakan tangan: admin menggandakan satu baris justru
+         | untuk menutup hari yang jenisnya BERBEDA, lalu mengetik harga hari
+         | itu. Penandanya tetap menunjuk sisi yang lama, dan "Simpan ke
+         | master" menulis harga akhir pekan ke kolom hari kerja — kerugian
+         | yang menyebar ke seluruh RAB berikutnya dan tidak akan pernah
+         | dicurigai, karena angkanya memang pernah benar.
+         */
+        $sisiAkhirPekan = array_key_exists('sisi', $pilihan) && $pilihan['sisi'] !== null
+            ? $pilihan['sisi'] === 'akhir_pekan'
+            : (bool) $biaya->pakai_akhir_pekan;
+
+        $sisiAkhirPekan = $sisiAkhirPekan && $biaya->master->harga_akhir_pekan !== null;
         $hargaLama = (int) ($sisiAkhirPekan ? $biaya->master->harga_akhir_pekan : $biaya->master->harga);
         $hargaBaru = (int) $biaya->harga_satuan;
 
@@ -806,9 +827,7 @@ class RabController extends ApiController
             ], 422);
         }
 
-        $data = $request->validate([
-            'catatan' => ['sometimes', 'nullable', 'string', 'max:200'],
-        ]);
+        $data = $pilihan;
 
         $akhirPekanLama = $biaya->master->harga_akhir_pekan === null
             ? null : (int) $biaya->master->harga_akhir_pekan;

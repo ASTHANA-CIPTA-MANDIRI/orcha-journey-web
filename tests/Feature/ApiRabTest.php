@@ -2278,3 +2278,66 @@ test('jejak audit bisa disaring per kode', function () {
     expect($jejak)->not->toBeEmpty()
         ->and(collect($jejak)->pluck('kode')->unique()->all())->toBe([$rab['kode']]);
 });
+
+test('simpan ke master boleh menyebut sisinya sendiri', function () {
+    /*
+     | Baris yang DIGANDAKAN tangan tidak tahu ia mewakili hari apa: admin
+     | menggandakan justru untuk menutup hari yang jenisnya berbeda, lalu
+     | mengetik harga hari itu. Tanpa bisa menyebut sisinya, harga akhir
+     | pekan tertulis ke kolom hari kerja — dan SELURUH RAB berikutnya
+     | memakai angka itu di hari Selasa.
+     */
+    $m = masterUji(['harga' => 21_000, 'harga_akhir_pekan' => 31_000]);
+    $rab = buatRabLewatApi($this);
+
+    $baris = $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $m->id, 'jumlah' => 1,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    // Penandanya hari kerja, tetapi yang diketik harga akhir pekan.
+    $this->patchJson("/api/v1/rab/{$rab['id']}/biaya/{$baris['id']}", [
+        'harga_satuan' => 35_000,
+    ], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya/{$baris['id']}/ke-master", [
+        'sisi' => 'akhir_pekan',
+    ], kepalaRab())->assertOk();
+
+    $m->refresh();
+
+    expect($m->harga)->toBe(21_000)
+        ->and($m->harga_akhir_pekan)->toBe(35_000);
+});
+
+test('tanpa menyebut sisi, penanda barisnya yang dipakai seperti dulu', function () {
+    $m = masterUji(['harga' => 21_000, 'harga_akhir_pekan' => 31_000]);
+    $rab = buatRabLewatApi($this);
+
+    $baris = $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $m->id, 'jumlah' => 1,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    $this->patchJson("/api/v1/rab/{$rab['id']}/biaya/{$baris['id']}", [
+        'harga_satuan' => 25_000,
+    ], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya/{$baris['id']}/ke-master", [], kepalaRab())->assertOk();
+
+    $m->refresh();
+
+    expect($m->harga)->toBe(25_000)
+        ->and($m->harga_akhir_pekan)->toBe(31_000);
+});
+
+test('baris menyebut apakah masternya punya dua harga', function () {
+    $satu = masterUji(['harga' => 50_000]);
+    $dua = masterUji(['nama' => 'Tiket Baluran', 'destinasi' => 'Baluran', 'harga' => 21_000, 'harga_akhir_pekan' => 31_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $satu->id, 'jumlah' => 1], kepalaRab())->assertOk();
+    $baris = $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $dua->id, 'jumlah' => 1], kepalaRab())
+        ->assertOk()->json('data.ringkasan.baris');
+
+    expect(collect($baris)->firstWhere('nama', 'Tiket Candi Prambanan')['master_dua_harga'])->toBeFalse()
+        ->and(collect($baris)->firstWhere('nama', 'Tiket Baluran')['master_dua_harga'])->toBeTrue();
+});

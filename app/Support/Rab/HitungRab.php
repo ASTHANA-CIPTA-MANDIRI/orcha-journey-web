@@ -369,6 +369,17 @@ class HitungRab
                  | layak dibawa pulang ke master.
                  */
                 'selisih_master' => $hargaMaster !== null ? (int) $b->harga_satuan - $hargaMaster : null,
+                /*
+                 | Masternya punya DUA harga — hari kerja dan akhir pekan.
+                 |
+                 | Layar perlu tahu ini supaya "Simpan ke master" menanyakan
+                 | sisi mana yang dimaksud. Pada baris yang ditarik sendiri
+                 | dari jadwal, sisinya memang sudah pasti dari tanggal
+                 | kunjungannya; pada baris yang DIGANDAKAN tangan ia tidak
+                 | pasti sama sekali — admin menggandakan justru untuk menutup
+                 | hari yang jenisnya berbeda.
+                 */
+                'master_dua_harga' => $b->master?->harga_akhir_pekan !== null,
                 'catatan' => $b->catatan,
             ];
         })
