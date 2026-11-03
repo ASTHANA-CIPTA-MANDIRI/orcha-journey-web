@@ -41,6 +41,17 @@ class JejakAuditController extends ApiController
              | sering diajukan.
              */
             ->when($request->query('aksi'), fn ($q, $aksi) => $q->where('aksi', $aksi))
+
+            /*
+             | Penyaring per KODE, dipakai layar yang ingin memperlihatkan
+             | jejak satu benda saja — "siapa mengubah apa pada RAB ini".
+             |
+             | Pencarian bebas sebetulnya bisa menemukannya, tetapi ia ikut
+             | menjaring baris lain yang kebetulan menyebut kode itu di
+             | kalimatnya, dan daftar audit yang mencampur dua benda lebih
+             | buruk daripada tidak ada daftar sama sekali.
+             */
+            ->when($request->query('kode'), fn ($q, $kode) => $q->where('kode', $kode))
             ->when($request->query('ip'), fn ($q, $ip) => $q->where('ip', 'like', "%{$ip}%"))
             ->when($request->query('dari'), fn ($q, $dari) => $q->whereDate('created_at', '>=', $dari))
             ->when($request->query('sampai'), fn ($q, $sampai) => $q->whereDate('created_at', '<=', $sampai))

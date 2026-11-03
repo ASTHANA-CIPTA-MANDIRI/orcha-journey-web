@@ -239,6 +239,7 @@ Route::prefix('v1')
         // master harga sekaligus — lihat RabController::cariTempat().
         Route::get('/rab/cari-tempat', [RabController::class, 'cariTempat']);
         Route::get('/rab/sumber-itinerary', [RabController::class, 'sumberItinerary']);
+        Route::delete('/rab/templat/{templat}', [RabController::class, 'hapusTemplat']);
         Route::post('/rab', [RabController::class, 'store']);
         Route::get('/rab/{rab}', [RabController::class, 'show']);
         Route::patch('/rab/{rab}', [RabController::class, 'update']);
@@ -254,6 +255,8 @@ Route::prefix('v1')
         Route::post('/rab/{rab}/jadikan-pendaftaran', [RabController::class, 'jadikanPendaftaran']);
         Route::post('/rab/{rab}/salin', [RabController::class, 'salin']);
         Route::get('/rab/{rab}/versi', [RabController::class, 'versi']);
+        Route::post('/rab/{rab}/versi/{versi}/pulihkan', [RabController::class, 'pulihkanVersi']);
+        Route::post('/rab/{rab}/simpan-templat', [RabController::class, 'simpanTemplat']);
 
         Route::get('/keuntungan', [KeuntunganController::class, 'index']);
         Route::get('/keuntungan/rincian', [KeuntunganController::class, 'rincian']);

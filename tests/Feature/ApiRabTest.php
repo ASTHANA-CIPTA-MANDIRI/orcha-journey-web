@@ -2110,3 +2110,171 @@ test('kelipatan nol, minus, dan di atas sejuta ditolak', function () {
             ->assertJsonValidationErrors('pembulatan');
     }
 });
+
+/*
+|--------------------------------------------------------------------------
+| Memulihkan versi, menyimpan jadwal jadi templat
+|--------------------------------------------------------------------------
+*/
+
+test('versi yang dikirim ikut menyimpan rincian biayanya', function () {
+    $m = masterUji(['harga' => 100_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $m->id, 'jumlah' => 2,
+    ], kepalaRab())->assertOk();
+
+    $this->patchJson("/api/v1/rab/{$rab['id']}", ['status' => 'dikirim'], kepalaRab())->assertOk();
+
+    $versi = VersiPenawaran::where('rab_id', $rab['id'])->first();
+
+    // Angka ringkas saja tidak cukup: ia menjawab "dulu berapa?" tetapi
+    // tidak cukup untuk MENGEMBALIKANNYA.
+    expect($versi->bisaDipulihkan())->toBeTrue()
+        ->and($versi->rincian['baris'])->toHaveCount(1)
+        ->and($versi->rincian['baris'][0]['harga_satuan'])->toBe(100_000)
+        ->and($versi->rincian['margin_nilai'])->not->toBeNull();
+});
+
+test('memulihkan versi mengganti seluruh baris, bukan menambahkannya', function () {
+    $m = masterUji(['harga' => 100_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $m->id, 'jumlah' => 1,
+    ], kepalaRab())->assertOk();
+    $this->patchJson("/api/v1/rab/{$rab['id']}", ['status' => 'dikirim'], kepalaRab())->assertOk();
+
+    $versi = VersiPenawaran::where('rab_id', $rab['id'])->first();
+
+    // Sesudah dikirim, tim menambah satu baris lagi dan menaikkan margin.
+    $lain = masterUji(['nama' => 'Sewa Bus', 'kategori' => 'transportasi', 'destinasi' => null, 'harga' => 900_000]);
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $lain->id, 'jumlah' => 1,
+    ], kepalaRab())->assertOk();
+    $this->patchJson("/api/v1/rab/{$rab['id']}", ['margin_nilai' => 40], kepalaRab())->assertOk();
+
+    expect(RabBiaya::where('rab_id', $rab['id'])->count())->toBe(2);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/versi/{$versi->id}/pulihkan", [], kepalaRab())->assertOk();
+
+    // Digabung, penawaran yang dipulihkan jadi lebih mahal daripada yang
+    // dilihat pelanggan — tanpa ada yang menyadarinya.
+    expect(RabBiaya::where('rab_id', $rab['id'])->count())->toBe(1)
+        ->and(Rab::find($rab['id'])->margin_nilai)->toEqual($versi->rincian['margin_nilai']);
+});
+
+test('versi tanpa rincian menolak dipulihkan, dan menyebut sebabnya', function () {
+    $rab = buatRabLewatApi($this);
+
+    // Versi lama: dicatat sebelum kolom rincian ada.
+    $versi = VersiPenawaran::create([
+        'rab_id' => $rab['id'], 'urutan' => 1, 'harga_total' => 1_000_000,
+        'harga_per_orang' => 60_000, 'untung' => 100_000, 'persen_untung' => 10,
+        'jumlah_peserta' => 17, 'jumlah_baris' => 3, 'oleh' => 'Berto',
+    ]);
+
+    $balasan = $this->postJson("/api/v1/rab/{$rab['id']}/versi/{$versi->id}/pulihkan", [], kepalaRab())
+        ->assertStatus(422);
+
+    expect($balasan->json('pesan'))->toContain('sebelum rinciannya ikut disimpan');
+});
+
+test('versi milik RAB lain tidak bisa dipulihkan ke sini', function () {
+    $a = buatRabLewatApi($this);
+    $b = buatRabLewatApi($this, ['judul' => 'Trip lain']);
+
+    $versi = VersiPenawaran::create([
+        'rab_id' => $b['id'], 'urutan' => 1, 'harga_total' => 1, 'harga_per_orang' => 1,
+        'untung' => 0, 'persen_untung' => 0, 'jumlah_peserta' => 1, 'jumlah_baris' => 0,
+        'rincian' => ['baris' => [['nama' => 'x', 'kategori' => 'lainnya', 'satuan' => 'paket', 'harga_satuan' => 1, 'jumlah' => 1]]],
+    ]);
+
+    $this->postJson("/api/v1/rab/{$a['id']}/versi/{$versi->id}/pulihkan", [], kepalaRab())
+        ->assertStatus(404);
+});
+
+test('memulihkan versi TIDAK memundurkan jadwal perjalanannya', function () {
+    /*
+     | Jadwal itu rencana, bukan angka penawaran. Memundurkannya berarti
+     | membuang kunjungan yang mungkin baru disepakati lewat telepon
+     | sesudah penawaran terakhir dikirim.
+     */
+    $m = masterUji(['harga' => 100_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id, 'jumlah' => 1], kepalaRab())->assertOk();
+    $this->patchJson("/api/v1/rab/{$rab['id']}", ['status' => 'dikirim'], kepalaRab())->assertOk();
+    $versi = VersiPenawaran::where('rab_id', $rab['id'])->first();
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Kunjungan yang baru disepakati', 'jam' => '08:00'],
+    ]], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/versi/{$versi->id}/pulihkan", [], kepalaRab())->assertOk();
+
+    expect(RabItinerary::where('rab_id', $rab['id'])->count())->toBe(1);
+});
+
+test('jadwal bisa disimpan jadi templat, lalu muncul di sumber itinerary', function () {
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Penjemputan peserta', 'jam' => '08:00'],
+        ['hari_ke' => 2, 'nama' => 'Candi Prambanan', 'jam' => '09:00', 'destinasi' => 'Candi Prambanan'],
+    ]], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/simpan-templat", ['nama' => 'Jogja Heritage 2 hari'], kepalaRab())
+        ->assertCreated();
+
+    $sumber = $this->getJson('/api/v1/rab/sumber-itinerary', kepalaRab())->assertOk()->json('data');
+    $templat = collect($sumber)->firstWhere('nama', 'Jogja Heritage 2 hari');
+
+    expect($templat)->not->toBeNull()
+        ->and($templat['asal'])->toBe('templat')
+        ->and($templat['jumlah_hari'])->toBe(2)
+        ->and($templat['jumlah_kegiatan'])->toBe(2)
+        // Harga TIDAK ikut: ia milik master, dan templat yang membawa harga
+        // beku akan menua diam-diam.
+        ->and($templat['itinerary'][1]['destinasi'])->toBe('Candi Prambanan');
+});
+
+test('jadwal kosong tidak bisa disimpan jadi templat', function () {
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/simpan-templat", ['nama' => 'Templat kosong'], kepalaRab())
+        ->assertStatus(422);
+});
+
+test('templat buatan tim berdiri di depan paket katalog', function () {
+    TravelPackage::create([
+        'name' => 'Paket Katalog', 'provinsi' => 'DI Yogyakarta',
+        'itinerary' => [['agenda' => [['jam' => '08.00', 'kegiatan' => 'Berangkat']]]],
+    ]);
+
+    $rab = buatRabLewatApi($this);
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Penjemputan', 'jam' => '08:00'],
+    ]], kepalaRab())->assertOk();
+    $this->postJson("/api/v1/rab/{$rab['id']}/simpan-templat", ['nama' => 'Punya tim'], kepalaRab())->assertCreated();
+
+    $sumber = $this->getJson('/api/v1/rab/sumber-itinerary', kepalaRab())->assertOk()->json('data');
+
+    expect($sumber[0]['nama'])->toBe('Punya tim')
+        ->and($sumber[0]['asal'])->toBe('templat');
+});
+
+test('jejak audit bisa disaring per kode', function () {
+    $rab = buatRabLewatApi($this);
+    buatRabLewatApi($this, ['judul' => 'RAB lain']);
+
+    $this->patchJson("/api/v1/rab/{$rab['id']}", ['judul' => 'Judul baru'], kepalaRab())->assertOk();
+
+    $jejak = $this->getJson('/api/v1/jejak-audit?kode='.$rab['kode'], kepalaRab())->assertOk()->json('data');
+
+    // Daftar audit yang mencampur dua benda lebih buruk daripada tidak ada
+    // daftar sama sekali.
+    expect($jejak)->not->toBeEmpty()
+        ->and(collect($jejak)->pluck('kode')->unique()->all())->toBe([$rab['kode']]);
+});

@@ -11,6 +11,7 @@ use App\Models\Rab\Rab;
 use App\Models\Rab\RabBiaya;
 use App\Models\Rab\RabItinerary;
 use App\Models\Rab\RiwayatHarga;
+use App\Models\Rab\TemplatItinerary;
 use App\Models\Rab\Vendor;
 use App\Models\Rab\VersiPenawaran;
 use App\Support\Rab\BerkasRab;
@@ -394,6 +395,96 @@ class RabController extends ApiController
             'jumlah_peserta' => (int) $rab->jumlah_peserta,
             'jumlah_baris' => count($r['baris'] ?? []),
             'oleh' => $request->attributes->get('admin_pemanggil'),
+            'rincian' => $this->potretRab($rab),
+        ]);
+    }
+
+    /**
+     * Potret utuh RAB untuk disimpan di versi penawaran.
+     *
+     * Baris biayanya disalin apa adanya, bukan dirujuk lewat id: baris yang
+     * dirujuk bisa dihapus atau diubah sesudahnya, dan versi yang isinya
+     * ikut berubah bukan lagi catatan tentang apa yang pernah dikirim.
+     *
+     * @return array<string, mixed>
+     */
+    private function potretRab(Rab $rab): array
+    {
+        return [
+            'margin_jenis' => $rab->margin_jenis,
+            'margin_nilai' => $rab->margin_nilai,
+            'pembulatan' => $rab->pembulatan,
+            'harga_nego' => $rab->harga_nego,
+            'alasan_nego' => $rab->alasan_nego,
+            'baris' => $rab->biaya()->orderBy('urutan')->get()->map(fn (RabBiaya $b) => [
+                'master_harga_id' => $b->master_harga_id,
+                'vendor_id' => $b->vendor_id,
+                'kategori' => $b->kategori,
+                'nama' => $b->nama,
+                'satuan' => $b->satuan,
+                'harga_satuan' => $b->harga_satuan,
+                'harga_sebab' => $b->harga_sebab,
+                'pakai_akhir_pekan' => $b->pakai_akhir_pekan,
+                'kapasitas' => $b->kapasitas,
+                'jumlah' => $b->jumlah,
+                'urutan' => $b->urutan,
+                'catatan' => $b->catatan,
+            ])->all(),
+        ];
+    }
+
+    /**
+     * Memasang kembali penawaran yang pernah dikirim.
+     *
+     * Seluruh baris biaya yang ada SEKARANG dibuang, lalu diganti dengan
+     * salinan dari potret. Bukan digabung: penawaran yang dipulihkan harus
+     * sama persis dengan yang dilihat pelanggan, dan baris sisa yang ikut
+     * bertahan membuatnya lebih mahal tanpa ada yang menyadarinya.
+     *
+     * Itinerary TIDAK ikut dipulihkan. Ia rencana perjalanan, bukan angka
+     * penawaran — dan memundurkannya berarti membuang kunjungan yang mungkin
+     * baru disepakati lewat telepon sesudah penawaran terakhir dikirim.
+     */
+    public function pulihkanVersi(Rab $rab, VersiPenawaran $versi, Request $request): JsonResponse
+    {
+        if ($versi->rab_id !== $rab->id) {
+            return response()->json(['pesan' => 'Versi itu milik RAB lain.'], 404);
+        }
+
+        if (! $versi->bisaDipulihkan()) {
+            return response()->json([
+                'pesan' => 'Versi ini dicatat sebelum rinciannya ikut disimpan, '
+                    .'jadi baris biayanya tidak ada untuk dipasang kembali.',
+            ], 422);
+        }
+
+        $potret = $versi->rincian;
+
+        DB::transaction(function () use ($rab, $potret) {
+            $rab->biaya()->delete();
+
+            foreach ($potret['baris'] as $baris) {
+                $rab->biaya()->create($baris);
+            }
+
+            $rab->update([
+                'margin_jenis' => $potret['margin_jenis'],
+                'margin_nilai' => $potret['margin_nilai'],
+                'pembulatan' => $potret['pembulatan'],
+                'harga_nego' => $potret['harga_nego'],
+                'alasan_nego' => $potret['alasan_nego'],
+            ]);
+        });
+
+        $this->catat($request, 'pulihkan versi rab', [
+            'kode' => $rab->kode,
+            'versi' => $versi->urutan,
+        ]);
+
+        return response()->json([
+            'data' => $this->bentuk($rab->fresh()),
+            'pesan' => 'Penawaran versi '.$versi->urutan.' dipasang kembali. '
+                .'Jadwal perjalanannya tidak ikut diubah.',
         ]);
     }
 
@@ -413,6 +504,7 @@ class RabController extends ApiController
                 'persen_untung' => $v->persen_untung,
                 'jumlah_peserta' => $v->jumlah_peserta,
                 'jumlah_baris' => $v->jumlah_baris,
+                'bisa_dipulihkan' => $v->bisaDipulihkan(),
                 'oleh' => $v->oleh,
                 'pada' => $v->created_at?->locale('id')->translatedFormat('j M Y, H:i'),
                 'pada_teks' => $v->created_at?->locale('id')->diffForHumans(),
@@ -787,7 +879,94 @@ class RabController extends ApiController
             ->values()
             ->all();
 
-        return response()->json(['data' => $daftar]);
+        /*
+         | Templat buatan tim ditaruh DI DEPAN paket katalog: ia disusun untuk
+         | pekerjaan ini, sedangkan paket disusun untuk dijual. Keduanya
+         | menyebut asalnya supaya admin tahu mana yang boleh dihapus.
+         */
+        $templat = TemplatItinerary::query()
+            ->when($request->string('provinsi')->toString(), fn ($q, $p) => $q->where('provinsi', $p))
+            ->orderBy('nama')
+            ->get()
+            ->map(fn (TemplatItinerary $t) => [
+                'id' => $t->id,
+                'nama' => $t->nama,
+                'jumlah_hari' => $t->jumlah_hari,
+                'jumlah_kegiatan' => $t->jumlah_kegiatan,
+                'asal' => 'templat',
+                'oleh' => $t->oleh,
+                'itinerary' => $t->itinerary,
+            ])
+            ->values()
+            ->all();
+
+        $daftar = array_map(fn ($p) => $p + ['asal' => 'paket', 'oleh' => null], $daftar);
+
+        return response()->json(['data' => array_merge($templat, $daftar)]);
+    }
+
+    /**
+     * Menyimpan jadwal RAB ini supaya bisa dipakai lagi.
+     *
+     * Jalurnya dulu satu arah: jadwal bisa DIAMBIL dari paket wisata, tetapi
+     * yang baru disusun tidak bisa disimpan ke mana pun — jadi tiap "Jogja
+     * 3H2M" berikutnya disusun dari nol lagi.
+     *
+     * Yang disimpan hanya bentuk jadwalnya: hari, jam, nama kegiatan,
+     * destinasi, keterangan. Harga TIDAK ikut: harga milik master, dan
+     * templat yang membawa harga beku akan menua diam-diam.
+     */
+    public function simpanTemplat(Rab $rab, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'nama' => ['required', 'string', 'min:3', 'max:150'],
+        ]);
+
+        $kegiatan = $rab->itinerary()->orderBy('hari_ke')->orderBy('urutan')->get();
+
+        if ($kegiatan->isEmpty()) {
+            return response()->json([
+                'pesan' => 'Jadwalnya masih kosong — belum ada yang bisa disimpan.',
+            ], 422);
+        }
+
+        $templat = TemplatItinerary::create([
+            'nama' => $data['nama'],
+            'provinsi' => $rab->provinsi,
+            'jumlah_hari' => (int) $kegiatan->max('hari_ke'),
+            'jumlah_kegiatan' => $kegiatan->count(),
+            'oleh' => $request->attributes->get('admin_pemanggil'),
+            'itinerary' => $kegiatan->map(fn (RabItinerary $k) => [
+                'hari_ke' => (int) $k->hari_ke,
+                'jam' => $k->jam,
+                'jam_selesai' => $k->jam_selesai,
+                'nama' => $k->nama,
+                'keterangan' => $k->keterangan,
+                'destinasi' => $k->destinasi,
+            ])->all(),
+        ]);
+
+        $this->catat($request, 'simpan templat jadwal', [
+            'kode' => $rab->kode,
+            'templat' => $templat->nama,
+        ]);
+
+        return response()->json([
+            'data' => ['id' => $templat->id, 'nama' => $templat->nama],
+            'pesan' => 'Jadwal disimpan sebagai "'.$templat->nama.'". '
+                .'Mulai sekarang ia muncul di panel "ambil jadwal" RAB mana pun.',
+        ], 201);
+    }
+
+    /** Membuang templat jadwal yang tidak terpakai lagi. */
+    public function hapusTemplat(TemplatItinerary $templat, Request $request): JsonResponse
+    {
+        $nama = $templat->nama;
+        $templat->delete();
+
+        $this->catat($request, 'hapus templat jadwal', ['templat' => $nama]);
+
+        return response()->json(['pesan' => 'Templat "'.$nama.'" dihapus.']);
     }
 
     /**
