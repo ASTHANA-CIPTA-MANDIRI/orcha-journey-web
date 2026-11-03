@@ -2504,3 +2504,127 @@ test('hasil "bukan tempat" menyebut mana yang juga kejadian berwaktu', function 
         ->and($makan['catatan'])->toBe('Pesan H-1')
         ->and($hiace['bisa_jadi_kegiatan'])->toBeFalse();
 });
+
+/*
+|--------------------------------------------------------------------------
+| Hari ke berapa biaya ini terpakai
+|--------------------------------------------------------------------------
+*/
+
+test('tiket destinasi membawa hari kunjungannya', function () {
+    $m = masterUji(['destinasi' => 'Kawah Ijen', 'nama' => 'Tiket Kawah Ijen', 'harga' => 50_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 2, 'nama' => 'Kawah Ijen', 'jam' => '02:00', 'destinasi' => 'Kawah Ijen'],
+    ]], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id, 'jumlah' => 1], kepalaRab())->assertOk();
+
+    $baris = $this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    expect($baris['hari'])->toBe([2]);
+});
+
+test('tempat yang dikunjungi dua hari menyebut keduanya', function () {
+    $m = masterUji(['destinasi' => 'Pulau Merah', 'nama' => 'Tiket Pulau Merah', 'harga' => 20_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Pulau Merah', 'jam' => '08:00', 'destinasi' => 'Pulau Merah'],
+        ['hari_ke' => 3, 'nama' => 'Pulau Merah lagi', 'jam' => '15:00', 'destinasi' => 'Pulau Merah'],
+    ]], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id, 'jumlah' => 1], kepalaRab())->assertOk();
+
+    $baris = $this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    expect($baris['hari'])->toBe([1, 3]);
+});
+
+test('biaya tanpa kunjungan yang cocok TIDAK menebak hari', function () {
+    /*
+     | Kosong berarti "tidak bisa dipastikan", bukan "hari 1". Hari yang
+     | salah lebih buruk daripada hari yang kosong.
+     */
+    $m = masterUji(['destinasi' => null, 'nama' => 'Sewa Hiace', 'kategori' => 'transportasi',
+        'satuan' => 'unit_hari', 'kapasitas' => 14, 'harga' => 900_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Kawah Ijen', 'jam' => '02:00', 'destinasi' => 'Kawah Ijen'],
+    ]], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id, 'jumlah' => 1], kepalaRab())->assertOk();
+
+    $baris = $this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    // Tidak ada harinya, TETAPI ia memang menempati seluruh perjalanan —
+    // satuannya dikali lamanya trip.
+    expect($baris['hari'])->toBe([])
+        ->and($baris['seluruh_perjalanan'])->toBeTrue();
+});
+
+test('biaya yang namanya sama dengan kegiatan ikut membawa harinya', function () {
+    /*
+     | Jalur kedua: biaya konsumsi yang dipilih dari hasil cari lalu ikut
+     | ditambahkan sebagai kegiatan. Masternya tidak punya destinasi, jadi
+     | yang mencocokkan namanya.
+     */
+    $m = masterUji(['destinasi' => null, 'nama' => 'Makan di Restoku Chen-Chen',
+        'kategori' => 'konsumsi', 'harga' => 40_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Penjemputan', 'jam' => '05:00'],
+        ['hari_ke' => 2, 'nama' => 'Makan di Restoku Chen-Chen', 'jam' => '12:00'],
+    ]], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id, 'jumlah' => 1], kepalaRab())->assertOk();
+
+    $baris = $this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    expect($baris['hari'])->toBe([2]);
+});
+
+test('nama yang MIRIP tidak dianggap cocok', function () {
+    /*
+     | "Makan siang" yang cocok dengan "Makan siang di Bromo" akan
+     | menempelkan hari yang salah ke baris yang salah.
+     */
+    $m = masterUji(['destinasi' => null, 'nama' => 'Makan siang', 'kategori' => 'konsumsi', 'harga' => 30_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 2, 'nama' => 'Makan siang di Bromo', 'jam' => '12:00'],
+    ]], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id, 'jumlah' => 1], kepalaRab())->assertOk();
+
+    $baris = $this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    expect($baris['hari'])->toBe([]);
+});
+
+test('hari ikut berpindah saat kunjungannya dipindah', function () {
+    /*
+     | Sebabnya hari TIDAK disimpan di kolom: hari yang tersimpan akan diam
+     | saat kunjungannya dipindah, dan angka yang diam sambil terlihat benar
+     | lebih berbahaya daripada angka yang tidak ada.
+     */
+    $m = masterUji(['destinasi' => 'Kawah Ijen', 'nama' => 'Tiket Kawah Ijen', 'harga' => 50_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Kawah Ijen', 'jam' => '02:00', 'destinasi' => 'Kawah Ijen'],
+    ]], kepalaRab())->assertOk();
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id, 'jumlah' => 1], kepalaRab())->assertOk();
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 3, 'nama' => 'Kawah Ijen', 'jam' => '02:00', 'destinasi' => 'Kawah Ijen'],
+    ]], kepalaRab())->assertOk();
+
+    $baris = $this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    expect($baris['hari'])->toBe([3]);
+});

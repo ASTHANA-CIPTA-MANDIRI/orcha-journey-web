@@ -281,14 +281,69 @@ class HitungRab
      *
      * @return array<string, mixed>
      */
+    /**
+     * Satuan yang dikali lamanya perjalanan — jadi ia memang menempati
+     * SELURUH hari, bukan satu hari tertentu.
+     */
+    private const SATUAN_SEPANJANG_TRIP = ['unit_hari', 'kamar_malam', 'hari', 'orang_hari'];
+
+    /**
+     * Hari ke berapa tiap baris biaya terpakai, diturunkan dari jadwal.
+     *
+     * Dicocokkan lewat DUA jalur, karena biaya sampai ke RAB lewat dua
+     * pintu: tiket yang ditarik dari kunjungan (cocok lewat destinasi
+     * masternya), dan biaya yang dipilih dari hasil cari lalu ikut
+     * ditambahkan sebagai kegiatan (cocok lewat namanya).
+     *
+     * Nama dicocokkan apa adanya sesudah dirapikan spasi & hurufnya — bukan
+     * pencarian longgar. "Makan siang" yang cocok dengan "Makan siang di
+     * Bromo" akan menempelkan hari yang salah, dan hari yang salah lebih
+     * buruk daripada hari yang kosong.
+     *
+     * @return array<int, array<int, int>> id baris biaya → daftar hari
+     */
+    private static function hariPerBiaya(Rab $rab): array
+    {
+        $rapi = fn (?string $t) => mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string) $t)));
+
+        $perDestinasi = [];
+        $perNama = [];
+
+        foreach ($rab->itinerary as $k) {
+            $hari = (int) $k->hari_ke;
+
+            if (trim((string) $k->destinasi) !== '') {
+                $perDestinasi[$rapi($k->destinasi)][] = $hari;
+            }
+
+            $perNama[$rapi($k->nama)][] = $hari;
+        }
+
+        $hasil = [];
+
+        foreach ($rab->biaya as $b) {
+            $dest = $rapi($b->master?->destinasi);
+            $nama = $rapi($b->nama);
+
+            $hari = $dest !== '' && isset($perDestinasi[$dest])
+                ? $perDestinasi[$dest]
+                : ($perNama[$nama] ?? []);
+
+            $hasil[$b->id] = collect($hari)->unique()->sort()->values()->all();
+        }
+
+        return $hasil;
+    }
+
     public static function ringkas(Rab $rab): array
     {
-        $rab->loadMissing('biaya.master', 'biaya.vendor');
+        $rab->loadMissing('biaya.master', 'biaya.vendor', 'itinerary');
         $peserta = max(1, (int) $rab->jumlah_peserta);
         // Dibuat sekali, lalu ditanya per baris — lihat HargaHari.
         $hariHarga = new HargaHari($rab);
+        $hariBiaya = self::hariPerBiaya($rab);
 
-        $baris = $rab->biaya->map(function (RabBiaya $b) use ($rab, $hariHarga) {
+        $baris = $rab->biaya->map(function (RabBiaya $b) use ($rab, $hariHarga, $hariBiaya) {
             $subtotal = self::subtotal($b, $rab);
 
             /*
@@ -396,6 +451,19 @@ class HitungRab
                  | hari yang jenisnya berbeda.
                  */
                 'master_dua_harga' => $b->master?->harga_akhir_pekan !== null,
+                /*
+                 | Hari ke berapa biaya ini terpakai.
+                 |
+                 | TIDAK disimpan di kolom — ia DITURUNKAN dari jadwal, dan
+                 | itu disengaja: hari yang tersimpan akan diam saat
+                 | kunjungannya dipindah ke hari lain, dan angka yang diam
+                 | sambil terlihat benar lebih berbahaya daripada angka yang
+                 | tidak ada.
+                 |
+                 | Kosong berarti "tidak bisa dipastikan", bukan "hari 1".
+                 */
+                'hari' => $hariBiaya[$b->id] ?? [],
+                'seluruh_perjalanan' => in_array($b->satuan, self::SATUAN_SEPANJANG_TRIP, true),
                 'catatan' => $b->catatan,
             ];
         })
