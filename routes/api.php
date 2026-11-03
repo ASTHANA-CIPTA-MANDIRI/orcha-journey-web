@@ -257,6 +257,7 @@ Route::prefix('v1')
         Route::get('/rab/{rab}/versi', [RabController::class, 'versi']);
         Route::post('/rab/{rab}/versi/{versi}/pulihkan', [RabController::class, 'pulihkanVersi']);
         Route::post('/rab/{rab}/simpan-templat', [RabController::class, 'simpanTemplat']);
+        Route::post('/rab/{rab}/kirim-email', [RabController::class, 'kirimEmail']);
 
         Route::get('/keuntungan', [KeuntunganController::class, 'index']);
         Route::get('/keuntungan/rincian', [KeuntunganController::class, 'rincian']);

@@ -1,5 +1,6 @@
 <?php
 
+use App\Mail\PenawaranRab;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
 use App\Models\Rab\MasterHarga;
@@ -11,6 +12,7 @@ use App\Models\Rab\Vendor;
 use App\Models\Rab\VersiPenawaran;
 use App\Support\Rab\BerkasRab;
 use App\Support\Rab\HitungRab;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Jalur admin untuk master harga dan RAB.
@@ -2340,4 +2342,68 @@ test('baris menyebut apakah masternya punya dua harga', function () {
 
     expect(collect($baris)->firstWhere('nama', 'Tiket Candi Prambanan')['master_dua_harga'])->toBeFalse()
         ->and(collect($baris)->firstWhere('nama', 'Tiket Baluran')['master_dua_harga'])->toBeTrue();
+});
+
+test('penawaran terkirim ke email pelanggan berikut PDF-nya', function () {
+    Mail::fake();
+
+    $m = masterUji(['harga' => 100_000]);
+    $rab = buatRabLewatApi($this, ['email' => 'hendra@contoh.test']);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id, 'jumlah' => 1], kepalaRab())->assertOk();
+    $this->postJson("/api/v1/rab/{$rab['id']}/kirim-email", [], kepalaRab())->assertOk();
+
+    Mail::assertSent(PenawaranRab::class, function (PenawaranRab $surat) use ($rab) {
+        return $surat->hasTo('hendra@contoh.test')
+            && $surat->rab->id === $rab['id'];
+    });
+});
+
+test('RAB tanpa email menolak kirim, dan menyebut jalan keluarnya', function () {
+    Mail::fake();
+
+    $rab = buatRabLewatApi($this);
+
+    $balasan = $this->postJson("/api/v1/rab/{$rab['id']}/kirim-email", [], kepalaRab())->assertStatus(422);
+
+    expect($balasan->json('pesan'))->toContain('Data perjalanan');
+
+    Mail::assertNothingSent();
+});
+
+test('alamat tujuan diambil dari RAB, bukan dari badan permintaan', function () {
+    /*
+     | Alamat yang boleh disebut pemanggil menjadikan jalur ini alat mengirim
+     | berkas berisi harga ke alamat mana pun, dan satu salah ketik sudah
+     | cukup.
+     */
+    Mail::fake();
+
+    $rab = buatRabLewatApi($this, ['email' => 'pemilik@contoh.test']);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/kirim-email", [
+        'email' => 'orang-lain@contoh.test',
+    ], kepalaRab())->assertOk();
+
+    Mail::assertSent(PenawaranRab::class, fn (PenawaranRab $s) => $s->hasTo('pemilik@contoh.test'));
+    Mail::assertNotSent(PenawaranRab::class, fn (PenawaranRab $s) => $s->hasTo('orang-lain@contoh.test'));
+});
+
+test('surat penawaran melampirkan berkas PENAWARAN, bukan yang internal', function () {
+    /*
+     | Berkas internal memuat modal dan margin. Pilihannya tidak diserahkan
+     | ke pemanggil: satu parameter yang salah isi sekali saja sudah cukup
+     | untuk membocorkan seluruh struktur harga kantor.
+     */
+    $m = masterUji(['harga' => 100_000]);
+    $rab = buatRabLewatApi($this, ['email' => 'hendra@contoh.test']);
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id, 'jumlah' => 1], kepalaRab())->assertOk();
+
+    $lampiran = (new PenawaranRab(Rab::find($rab['id'])))->attachments();
+
+    expect($lampiran)->toHaveCount(1);
+
+    [$view] = BerkasRab::bahan(Rab::find($rab['id']), 'penawaran');
+
+    expect($view)->not->toContain('internal');
 });

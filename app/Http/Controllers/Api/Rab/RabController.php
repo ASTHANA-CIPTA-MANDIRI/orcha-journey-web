@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Rab;
 
 use App\Http\Controllers\Api\ApiController;
+use App\Mail\PenawaranRab;
 use App\Models\Etalase\KatalogDestinasi;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
@@ -23,6 +24,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -1187,6 +1190,58 @@ class RabController extends ApiController
         return response($isi, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="'.$rab->namaBerkas($jenis === 'internal' ? 'rab-internal' : 'penawaran').'"',
+        ]);
+    }
+
+    /**
+     * Mengirim penawaran ke email pelanggan, berikut PDF-nya.
+     *
+     * Sebelum ini email dikumpulkan di borang RAB lalu tidak pernah dipakai:
+     * satu-satunya jalur keluar adalah WhatsApp, dan berkasnya diunduh admin
+     * lalu dilampirkan sendiri. Isian yang meminta kerja tanpa memberi hasil.
+     *
+     * Alamat tujuannya diambil dari RAB, BUKAN dari badan permintaan. Alamat
+     * yang boleh disebut pemanggil menjadikan jalur ini alat mengirim berkas
+     * berisi harga ke alamat mana pun, dan satu salah ketik sudah cukup.
+     */
+    public function kirimEmail(Rab $rab, Request $request): JsonResponse
+    {
+        $tujuan = trim((string) $rab->email);
+
+        if ($tujuan === '' || ! filter_var($tujuan, FILTER_VALIDATE_EMAIL)) {
+            return response()->json([
+                'pesan' => 'RAB ini belum punya alamat email pelanggan yang sah. '
+                    .'Isi dulu di Data perjalanan.',
+            ], 422);
+        }
+
+        try {
+            Mail::to($tujuan)->send(new PenawaranRab($rab->load('itinerary', 'biaya.master')));
+        } catch (\Throwable $e) {
+            /*
+             | Pesannya TIDAK diteruskan apa adanya ke layar: galat SMTP sering
+             | memuat alamat, nama pengguna, bahkan potongan percakapan server.
+             | Yang ditulis ke log pun sengaja tanpa alamat tujuan.
+             */
+            Log::error('Gagal mengirim penawaran RAB', [
+                'kode' => $rab->kode,
+                'galat' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'pesan' => 'Suratnya gagal dikirim. Coba lagi sebentar; '
+                    .'kalau tetap gagal, kirim PDF-nya lewat WhatsApp dulu.',
+            ], 502);
+        }
+
+        // Alamatnya TIDAK ikut dicatat: jejak audit dibaca banyak orang, dan
+        // alamat pelanggan tidak perlu ada di sana untuk menjawab
+        // "penawarannya sudah dikirim atau belum?".
+        $this->catat($request, 'kirim penawaran lewat email', ['kode' => $rab->kode]);
+
+        return response()->json([
+            'pesan' => 'Penawaran terkirim ke email pelanggan, berikut PDF-nya.',
+            'data' => $this->bentuk($rab->fresh()),
         ]);
     }
 
