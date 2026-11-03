@@ -194,14 +194,29 @@ class RabController extends ApiController
          | itinerary adalah kesalahan yang terlihat benar. Yang dipulangkan
          | cuma namanya, supaya layar bisa menunjuk ke rincian biaya alih-alih
          | mengaku tidak menemukan apa-apa.
+         |
+         | TETAPI tidak semuanya begitu. "Makan di Restoku Chen-Chen" dan
+         | "Check-in Hotel Mawar" adalah biaya SEKALIGUS kejadian berwaktu —
+         | keduanya menempati jam di hari itu, dan admin yang mengkliknya
+         | memang berharap keduanya ikut. Yang tidak pernah jadi kegiatan cuma
+         | yang tidak punya jam: armada, asuransi, operasional tim.
+         |
+         | Penggolongnya dikirim bersama hasilnya supaya layar tidak perlu
+         | menebak sendiri — tebakan kedua di sisi lemon akan berselisih dengan
+         | yang di sini suatu hari.
          */
+        $kegiatanBerwaktu = ['konsumsi', 'akomodasi'];
+
         $bukanTempat = MasterHarga::query()->where('aktif', true)->whereNull('destinasi')
-            ->get(['id', 'nama', 'kategori'])
+            ->get(['id', 'nama', 'kategori', 'catatan'])
             ->filter(fn (MasterHarga $m) => $cocok($m->nama))
             ->map(fn (MasterHarga $m) => [
                 'id' => $m->id,
                 'nama' => $m->nama,
+                'kategori' => $m->kategori,
                 'kategori_label' => $m->kategori_label,
+                'catatan' => $m->catatan,
+                'bisa_jadi_kegiatan' => in_array($m->kategori, $kegiatanBerwaktu, true),
             ])->take(8)->values();
 
         return response()->json([
@@ -1552,9 +1567,44 @@ class RabController extends ApiController
     }
 
     /** @return array<string, mixed> */
+    /**
+     * Catatan master harga per destinasi, untuk ditempelkan ke itinerary.
+     *
+     * Dikunci nama destinasi apa adanya: itinerary menyimpan destinasinya
+     * sebagai teks, bukan sebagai rujukan id, dan menebak-nebak kecocokannya
+     * dengan pencarian longgar akan menempelkan catatan tempat lain ke
+     * kunjungan yang salah — peringatan palsu lebih buruk daripada tidak ada
+     * peringatan.
+     *
+     * @return array<string, string>
+     */
+    private function catatanDestinasi(Rab $rab): array
+    {
+        $nama = $rab->itinerary->pluck('destinasi')->filter()->unique()->values();
+
+        if ($nama->isEmpty()) {
+            return [];
+        }
+
+        return MasterHarga::query()
+            ->whereIn('destinasi', $nama)
+            ->whereNotNull('catatan')
+            ->where('catatan', '!=', '')
+            ->where('aktif', true)
+            ->orderBy('id')
+            ->get(['destinasi', 'catatan'])
+            // Satu destinasi bisa punya beberapa baris master (tiket roda 4,
+            // roda 6, …). Catatannya digabung, bukan diambil yang pertama:
+            // yang pertama belum tentu yang paling penting.
+            ->groupBy('destinasi')
+            ->map(fn ($g) => $g->pluck('catatan')->unique()->implode(' · '))
+            ->all();
+    }
+
     private function bentuk(Rab $rab): array
     {
-        $rab->loadMissing('itinerary', 'biaya.master');
+        $rab->loadMissing('itinerary', 'biaya.master', 'biaya.vendor');
+        $catatanDestinasi = $this->catatanDestinasi($rab);
 
         return $this->kepala($rab) + [
             // Supaya layar bisa menautkan langsung ke pendaftarannya.
@@ -1595,6 +1645,10 @@ class RabController extends ApiController
                 'nama' => $i->nama,
                 'keterangan' => $i->keterangan,
                 'destinasi' => $i->destinasi,
+                // Catatan master harga tempat ini — "tutup hari Senin",
+                // "rombongan wajib pesan H-1". Ditulis admin berbulan-bulan
+                // lalu, lalu tidak pernah terlihat saat jadwalnya disusun.
+                'catatan_master' => $i->destinasi ? ($catatanDestinasi[$i->destinasi] ?? null) : null,
             ])->values()->all(),
             'ringkasan' => HitungRab::ringkas($rab),
         ];

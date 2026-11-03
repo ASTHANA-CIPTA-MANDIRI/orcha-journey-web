@@ -319,6 +319,22 @@ class HitungRab
                 'vendor_id' => $b->vendor_id,
                 'vendor' => $b->vendor?->nama,
                 'vendor_kontak' => $b->vendor?->kontak,
+                /*
+                 | Catatan master harga & catatan vendor, dibaca HIDUP seperti
+                 | nomor teleponnya.
+                 |
+                 | Keduanya sudah lama diketik admin — "tutup hari Senin",
+                 | "DP 50% H-3", "minta Pak Budi, jangan lewat CS" — lalu
+                 | tidak pernah terlihat lagi di layar mana pun selain
+                 | formulirnya sendiri. Yang terjadi: tim menelepon di hari
+                 | tutup, atau lupa DP, padahal peringatannya sudah ditulis
+                 | berbulan-bulan lalu.
+                 |
+                 | TIDAK dibekukan bersama harganya: yang dibutuhkan saat
+                 | menelepon selalu syarat yang berlaku hari ini.
+                 */
+                'master_catatan' => $b->master?->catatan,
+                'vendor_catatan' => $b->vendor?->catatan,
                 'kategori' => $b->kategori,
                 'kategori_label' => config("orcha.rab.kategori.{$b->kategori}") ?? ucfirst($b->kategori),
                 'nama' => $b->nama,

@@ -2407,3 +2407,100 @@ test('surat penawaran melampirkan berkas PENAWARAN, bukan yang internal', functi
 
     expect($view)->not->toContain('internal');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Catatan master harga & vendor ikut terbaca
+|--------------------------------------------------------------------------
+*/
+
+test('baris biaya membawa catatan master harga dan catatan vendornya', function () {
+    /*
+     | Keduanya sudah lama diketik admin — "tutup hari Senin", "DP 50% H-3" —
+     | lalu tidak pernah terlihat lagi di layar mana pun selain formulirnya
+     | sendiri. Yang terjadi: tim menelepon di hari tutup, padahal
+     | peringatannya sudah ditulis berbulan-bulan lalu.
+     */
+    $vendor = Vendor::create([
+        'nama' => 'PO Sumber Jaya', 'kontak' => '0812', 'jenis' => 'transportasi',
+        'catatan' => 'Minta Pak Budi, jangan lewat CS.', 'aktif' => true,
+    ]);
+    $m = masterUji([
+        'harga' => 100_000, 'vendor_id' => $vendor->id,
+        'catatan' => 'Tutup hari Senin. Rombongan wajib pesan H-1.',
+    ]);
+    $rab = buatRabLewatApi($this);
+
+    $baris = $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'master_harga_id' => $m->id, 'jumlah' => 1,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    expect($baris['master_catatan'])->toContain('Tutup hari Senin')
+        ->and($baris['vendor_catatan'])->toContain('Pak Budi');
+});
+
+test('catatan dibaca HIDUP, tidak ikut dibekukan bersama harganya', function () {
+    $m = masterUji(['harga' => 100_000, 'catatan' => 'Syarat lama']);
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id, 'jumlah' => 1], kepalaRab())->assertOk();
+
+    // Syaratnya berubah sesudah penawaran dibuat.
+    $m->update(['catatan' => 'Syarat baru mulai bulan ini']);
+
+    $baris = $this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    // Yang dibutuhkan saat menelepon selalu syarat yang berlaku HARI INI.
+    expect($baris['master_catatan'])->toBe('Syarat baru mulai bulan ini');
+});
+
+test('kunjungan di itinerary membawa catatan master harga tempatnya', function () {
+    masterUji(['destinasi' => 'Kawah Ijen', 'nama' => 'Tiket Kawah Ijen', 'catatan' => 'Pendakian ditutup pukul 02.00']);
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Kawah Ijen', 'jam' => '01:00', 'destinasi' => 'Kawah Ijen'],
+        ['hari_ke' => 1, 'nama' => 'Sarapan', 'jam' => '07:00'],
+    ]], kepalaRab())->assertOk();
+
+    $itin = $this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())->assertOk()->json('data.itinerary');
+
+    expect($itin[0]['catatan_master'])->toContain('ditutup pukul 02.00')
+        // Kegiatan tanpa destinasi tidak boleh kebagian catatan tempat lain.
+        ->and($itin[1]['catatan_master'])->toBeNull();
+});
+
+test('dua master harga untuk satu tempat menggabungkan catatannya', function () {
+    masterUji(['destinasi' => 'Alas Purwo', 'nama' => 'Tiket roda 4', 'catatan' => 'Roda 4 lewat gerbang utara']);
+    masterUji(['destinasi' => 'Alas Purwo', 'nama' => 'Tiket roda 6', 'catatan' => 'Bus wajib lapor pos']);
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Alas Purwo', 'jam' => '08:00', 'destinasi' => 'Alas Purwo'],
+    ]], kepalaRab())->assertOk();
+
+    $itin = $this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())->assertOk()->json('data.itinerary');
+
+    // Yang pertama belum tentu yang paling penting, jadi keduanya disebut.
+    expect($itin[0]['catatan_master'])->toContain('gerbang utara')
+        ->and($itin[0]['catatan_master'])->toContain('lapor pos');
+});
+
+test('hasil "bukan tempat" menyebut mana yang juga kejadian berwaktu', function () {
+    /*
+     | "Makan di Restoku" menempati jam di hari itu; "Hiace" tidak. Admin yang
+     | mengklik yang pertama memang berharap jadwalnya ikut terisi.
+     */
+    masterUji(['nama' => 'Makan di Restoku Chen-Chen', 'kategori' => 'konsumsi', 'destinasi' => null, 'catatan' => 'Pesan H-1']);
+    masterUji(['nama' => 'Sewa Hiace Chen', 'kategori' => 'transportasi', 'destinasi' => null, 'satuan' => 'unit_hari', 'kapasitas' => 14]);
+    buatRabLewatApi($this);
+
+    $hasil = $this->getJson('/api/v1/rab/cari-tempat?q=chen', kepalaRab())->assertOk()->json('bukan_tempat');
+
+    $makan = collect($hasil)->firstWhere('kategori', 'konsumsi');
+    $hiace = collect($hasil)->firstWhere('kategori', 'transportasi');
+
+    expect($makan['bisa_jadi_kegiatan'])->toBeTrue()
+        ->and($makan['catatan'])->toBe('Pesan H-1')
+        ->and($hiace['bisa_jadi_kegiatan'])->toBeFalse();
+});
