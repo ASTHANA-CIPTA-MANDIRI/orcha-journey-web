@@ -256,9 +256,19 @@
 
     {{-- ======================= JUDUL ======================= --}}
     <div style="padding-top:24px">
-        <div class="alis">Private Trip</div>
+        {{-- Jenisnya dibaca, bukan dipatok. Penawaran open trip yang
+             bertuliskan "Private Trip" di barisnya yang paling atas sudah
+             salah sebelum satu angka pun dibaca. --}}
+        <div class="alis">{{ $rab->jenis === 'open' ? 'Open Trip' : 'Private Trip' }}</div>
         <div class="judul">{{ $aman($rab->judul) }}</div>
-        <div class="untuk">Disiapkan khusus untuk <b>{{ $aman($rab->nama_pelanggan) }}</b></div>
+        {{-- "Disiapkan khusus untuk Umum" lebih buruk daripada tidak ada
+             barisnya sama sekali: open trip memang terbuka, dan menyapa
+             pembacanya dengan kata "Umum" membuatnya terasa kiriman massal. --}}
+        @if ($rab->jenis === 'open')
+            <div class="untuk">{{ 'Terbuka untuk umum'.($rab->peserta_minimum ? ' · berangkat mulai '.$rab->peserta_minimum.' peserta' : '') }}</div>
+        @else
+            <div class="untuk">Disiapkan khusus untuk <b>{{ $aman($rab->nama_pelanggan) }}</b></div>
+        @endif
 
         {{-- Destinasinya disebut di depan, bukan menunggu dibaca di jadwal.
              Yang membuat seseorang membuka penawaran sampai halaman kedua

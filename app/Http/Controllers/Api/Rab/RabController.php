@@ -1509,9 +1509,21 @@ class RabController extends ApiController
     {
         $wajib = $rab ? 'sometimes' : 'required';
 
+        /*
+         | Open trip tidak punya pelanggan saat RAB-nya disusun.
+         |
+         | Harganya diumumkan DULU, pesertanya menyusul — itu definisinya.
+         | Mewajibkan nama pelanggan di sana memaksa admin mengarang isian:
+         | "-", "umum", "open trip desember", apa saja yang membuat tombol
+         | simpan mau jalan. Isian karangan lebih buruk daripada kolom
+         | kosong, karena ia terlihat seperti data.
+         */
+        $jenis = $request->input('jenis', $rab?->jenis ?? 'private');
+        $pelanggan = $jenis === 'open' ? 'nullable' : $wajib;
+
         $data = $request->validate([
             'judul' => [$wajib, 'string', 'min:3', 'max:150'],
-            'nama_pelanggan' => [$wajib, 'string', 'min:2', 'max:120'],
+            'nama_pelanggan' => [$pelanggan, 'string', 'min:2', 'max:120'],
             'whatsapp' => ['nullable', 'string', 'max:32'],
             'email' => ['nullable', 'email', 'max:150'],
             'provinsi' => [$wajib, 'string', 'max:80'],
@@ -1576,6 +1588,19 @@ class RabController extends ApiController
             throw ValidationException::withMessages([
                 'margin_nilai' => 'Margin dari harga jual harus di bawah 100%. Pada 100% seluruh harga jual adalah untung, yang hanya mungkin bila modalnya nol — mungkin yang dimaksud "persen dari modal"?',
             ]);
+        }
+
+        /*
+         | Kolomnya tetap terisi, supaya daftar RAB dan RAB internal tidak
+         | menampilkan baris tanpa nama — tetapi yang mengisi SISTEM, bukan
+         | admin yang dipaksa mengarang.
+         */
+        if ($jenis === 'open' && array_key_exists('nama_pelanggan', $data) && blank($data['nama_pelanggan'])) {
+            $data['nama_pelanggan'] = 'Umum';
+        }
+
+        if ($jenis === 'open' && ! $rab && ! array_key_exists('nama_pelanggan', $data)) {
+            $data['nama_pelanggan'] = 'Umum';
         }
 
         return $data;

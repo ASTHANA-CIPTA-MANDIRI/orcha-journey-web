@@ -4,6 +4,8 @@ use App\Models\PaketWisata\TravelPackage;
 use App\Models\Rab\Rab;
 use App\Models\Rab\RabBiaya;
 use App\Models\Rab\RabItinerary;
+use App\Support\Rab\BerkasRab;
+use App\Support\Rab\HitungRab;
 
 /**
  * Open trip dirakit sekali di RAB, bukan diketik dua kali.
@@ -58,7 +60,7 @@ test('paket dirakit dari RAB, lengkap dengan harga dan itinerarynya', function (
         ->assertCreated()->json('data');
 
     $paket = TravelPackage::find($data['id']);
-    $r = App\Support\Rab\HitungRab::ringkas($rab->fresh());
+    $r = HitungRab::ringkas($rab->fresh());
 
     expect($paket->name)->toBe('Open Trip Banyuwangi 3H2M')
         ->and($paket->category)->toBe('open_trip')
@@ -189,4 +191,59 @@ test('jawaban RAB menyebut paketnya berikut status tayangnya', function () {
         ->and($data['paket']['status'])->toBe('draf')
         // Yang menentukan orang sudah bisa mendaftar atau belum.
         ->and($data['paket']['tayang'])->toBeFalse();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Open trip tidak punya pelanggan
+|--------------------------------------------------------------------------
+|
+| Harganya diumumkan DULU, pesertanya menyusul — itu definisinya. Mewajibkan
+| nama pelanggan di sana memaksa admin mengarang isian supaya tombol simpan
+| mau jalan, dan isian karangan lebih buruk daripada kolom kosong: ia terlihat
+| seperti data, lalu tercetak di penawaran yang dibaca orang.
+*/
+test('open trip bisa dibuat tanpa nama pelanggan', function () {
+    $data = $this->postJson('/api/v1/rab', [
+        'judul' => 'Open Trip Banyuwangi 3H2M', 'provinsi' => 'Jawa Timur',
+        'jenis' => 'open', 'jumlah_hari' => 3, 'jumlah_peserta' => 20,
+    ], kepalaPaket())->assertCreated()->json('data');
+
+    // Kolomnya tetap terisi supaya daftar RAB tidak menampilkan baris tanpa
+    // nama — tetapi yang mengisi sistem, bukan admin yang dipaksa mengarang.
+    expect($data['nama_pelanggan'])->toBe('Umum');
+});
+
+test('private trip tetap mewajibkan nama pelanggannya', function () {
+    $this->postJson('/api/v1/rab', [
+        'judul' => 'Private Trip Banyuwangi', 'provinsi' => 'Jawa Timur',
+        'jenis' => 'private', 'jumlah_hari' => 3, 'jumlah_peserta' => 5,
+    ], kepalaPaket())->assertUnprocessable()->assertJsonValidationErrors('nama_pelanggan');
+});
+
+test('penawaran open trip tidak menyapa pembacanya dengan kata "Umum"', function () {
+    $rab = rabOpenTrip(['nama_pelanggan' => 'Umum']);
+
+    $html = view(...BerkasRab::bahan($rab, 'penawaran'))->render();
+
+    expect($html)->toContain('Open Trip')
+        ->and($html)->toContain('Terbuka untuk umum')
+        ->and($html)->not->toContain('Disiapkan khusus untuk');
+});
+
+test('penawaran open trip tidak lagi menulis "Private Trip" di barisnya yang paling atas', function () {
+    // Salah sebelum satu angka pun dibaca.
+    $html = view(...BerkasRab::bahan(rabOpenTrip(), 'penawaran'))->render();
+
+    expect($html)->not->toContain('>Private Trip<');
+});
+
+test('penawaran private trip tetap menyebut nama pelanggannya', function () {
+    $rab = rabOpenTrip(['jenis' => 'private', 'nama_pelanggan' => 'Keluarga Bpk. Hendra']);
+
+    $html = view(...BerkasRab::bahan($rab, 'penawaran'))->render();
+
+    expect($html)->toContain('Disiapkan khusus untuk')
+        ->and($html)->toContain('Keluarga Bpk. Hendra')
+        ->and($html)->toContain('>Private Trip<');
 });
