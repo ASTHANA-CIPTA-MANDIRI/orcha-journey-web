@@ -161,10 +161,16 @@
     .rute-nama { font-size: 9.5px; color: {{ $navy }}; font-weight: bold; }
 
     /* ---------- termasuk ---------- */
-    .termasuk td { width: 50%; vertical-align: top; padding: 0 6px 10px 0; }
-    .termasuk-kotak { border: 1px solid #e2eaf1; background-color: #fbfdfe; padding: 10px 12px; }
-    .termasuk-kat { font-size: 8px; letter-spacing: 1.6px; color: {{ $hijau }}; text-transform: uppercase; font-weight: bold; }
-    .termasuk-item { font-size: 9.5px; color: #334155; padding-top: 4px; }
+    .termasuk { width: 100%; border-collapse: collapse; }
+    .termasuk td { width: 50%; vertical-align: top; }
+    .termasuk td.kiri { padding: 0 5px 9px 0; }
+    .termasuk td.kanan { padding: 0 0 9px 5px; }
+    .termasuk td.penuh { width: 100%; padding: 0 0 9px 0; }
+    .termasuk-kotak { border: 1px solid #e2eaf1; background-color: #fbfdfe; padding: 9px 10px; text-align: center; }
+    .termasuk-judul { font-size: 10px; color: {{ $ocean }}; font-weight: bold; }
+    .termasuk-rinci { font-size: 8.5px; color: #64748b; padding-top: 3px; line-height: 1.5; }
+    .termasuk-lead { font-size: 9.5px; color: #334155; text-align: center; line-height: 1.55; padding: 11px 30px 9px; }
+    .termasuk-tutup { font-size: 8.5px; color: #64748b; text-align: center; line-height: 1.5; padding-top: 4px; }
     .centang { display: inline-block; width: 6px; height: 6px; background-color: {{ $hijau }}; margin-right: 6px; }
 
     /* ---------- harga ---------- */
@@ -368,23 +374,31 @@
             <div class="bagian-judul">Harga Sudah Termasuk</div>
             <div class="bagian-garis"></div>
 
-            <table class="termasuk" style="margin-top:12px">
-                @foreach (array_chunk($termasuk, 2, true) as $pasangan)
+            <div class="termasuk-lead">
+                Semua kebutuhan di bawah ini sudah masuk ke dalam harga.
+                Peserta tinggal datang &mdash; tidak ada lagi yang perlu dibayar di lokasi.
+            </div>
+
+            <table class="termasuk">
+                @foreach (array_chunk($termasuk, 2) as $pasangan)
                     <tr>
-                        @foreach ($pasangan as $kategori => $barang)
-                            <td>
+                        @php($tunggal = count($pasangan) === 1)
+                        @foreach ($pasangan as $i => $t)
+                            <td class="{{ $tunggal ? 'penuh' : ($i === 0 ? 'kiri' : 'kanan') }}"
+                                @if ($tunggal) colspan="2" @endif>
                                 <div class="termasuk-kotak">
-                                    <div class="termasuk-kat">{{ $kategori }}</div>
-                                    @foreach ($barang as $b)
-                                        <div class="termasuk-item"><span class="centang"></span>{{ $aman($b) }}</div>
-                                    @endforeach
+                                    <div class="termasuk-judul"><span class="centang"></span>{{ $aman($t['judul']) }}</div>
+                                    <div class="termasuk-rinci">{{ $aman($t['rinci']) }}</div>
                                 </div>
                             </td>
                         @endforeach
-                        @if (count($pasangan) === 1)<td></td>@endif
                     </tr>
                 @endforeach
             </table>
+
+            <div class="termasuk-tutup">
+                Termasuk juga seluruh biaya persiapan dan operasional tim kami selama perjalanan.
+            </div>
         </div>
     @endif
 

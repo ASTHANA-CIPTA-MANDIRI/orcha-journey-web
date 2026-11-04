@@ -71,10 +71,7 @@ class BerkasRab
                 'per_orang_teks' => $r['harga_per_orang_teks'],
                 'total_teks' => $r['harga_total_teks'],
             ];
-            $data['termasuk'] = collect($r['baris'])
-                ->groupBy('kategori_label')
-                ->map(fn ($isi) => $isi->pluck('nama')->unique()->values()->all())
-                ->all();
+            $data['termasuk'] = self::termasuk($rab, $r);
             $data['dp_persen'] = (int) config('orcha.pembayaran.dp_persen', 30);
             $data['pelunasan_hari'] = (int) config('orcha.pembayaran.pelunasan_hari_sebelum', 5);
             $data['atas_nama'] = config('orcha.pembayaran.atas_nama', 'PT ASTHANA CIPTA MANDIRI');
@@ -82,6 +79,137 @@ class BerkasRab
         }
 
         return [$view, $data];
+    }
+
+    /**
+     * Daftar "harga sudah termasuk" untuk pelanggan.
+     *
+     * NAMA BARIS BIAYA TIDAK PERNAH IKUT KE SINI. Admin menulis nama baris
+     * untuk dirinya sendiri — "Dana Tak Terduga", "Uang Rokok Supir",
+     * "Operasional Tim Internal", "Tour Leader Internal" — dan nama seperti
+     * itu dulu sampai ke pelanggan karena daftarnya memungut nama mentah lalu
+     * mengelompokkannya per kategori. Pelanggan jadi membaca istilah dapur
+     * kami, dan baris yang sebenarnya cuma cadangan margin terbaca sebagai
+     * biaya yang ia tanggung.
+     *
+     * Sekarang setiap kalimat di bawah KAMI yang tulis. Baris biaya hanya
+     * menentukan kalimat mana yang MUNCUL, tidak pernah apa isinya — jadi apa
+     * pun yang diketik admin, yang dibaca pelanggan tetap bahasa sehari-hari.
+     * Kategori yang murni internal (operasional, cadangan) sengaja tidak punya
+     * kalimat sama sekali; yang mewakilinya satu catatan penutup.
+     *
+     * @param  array<string, mixed>  $ringkas
+     * @return array<int, array{judul: string, rinci: string}>
+     */
+    private static function termasuk(Rab $rab, array $ringkas): array
+    {
+        $baris = collect($ringkas['baris'] ?? []);
+
+        $punya = fn (string ...$kategori) => $baris->contains(
+            fn ($b) => in_array($b['kategori'] ?? '', $kategori, true)
+        );
+
+        // Nama dibaca HANYA untuk memilah, tidak pernah untuk ditampilkan.
+        $cocok = fn (string $pola) => $baris->contains(
+            fn ($b) => (bool) preg_match($pola, mb_strtolower((string) ($b['nama'] ?? '')))
+        );
+
+        $daftar = [];
+
+        if ($punya('transportasi', 'sopir')) {
+            $daftar[] = [
+                'judul' => 'Transportasi',
+                'rinci' => 'Kendaraan ber-AC selama perjalanan, sudah termasuk BBM, tol, parkir, dan sopir',
+            ];
+        }
+
+        $malam = max(0, (int) $rab->jumlah_malam);
+        if ($punya('akomodasi')) {
+            $daftar[] = [
+                'judul' => $malam > 0 ? "Penginapan {$malam} malam" : 'Penginapan',
+                'rinci' => 'Kamar sesuai jadwal, siap pakai saat tiba',
+            ];
+        }
+
+        // "Makan 5x" dihitung dari baris konsumsi, bukan dari kegiatan: satu
+        // kegiatan "ishoma" bisa jadi satu kali makan, dan "oleh-oleh" ikut
+        // terbaca sebagai makan oleh jenis(). Baris snack dikeluarkan supaya
+        // tidak ikut terhitung sebagai jatah makan.
+        $snack = $baris->filter(
+            fn ($b) => ($b['kategori'] ?? '') === 'konsumsi'
+                && preg_match('/snack|coffee|air mineral|camilan/u', mb_strtolower((string) ($b['nama'] ?? '')))
+        );
+        $makan = $baris->filter(fn ($b) => ($b['kategori'] ?? '') === 'konsumsi')->count() - $snack->count();
+
+        if ($makan > 0) {
+            $daftar[] = [
+                'judul' => "Makan {$makan}×",
+                'rinci' => 'Sudah diatur di jadwal, peserta tidak perlu cari makan sendiri',
+            ];
+        } elseif ($punya('konsumsi')) {
+            $daftar[] = [
+                'judul' => 'Konsumsi',
+                'rinci' => 'Makan peserta selama perjalanan',
+            ];
+        }
+
+        if ($snack->isNotEmpty()) {
+            $daftar[] = [
+                'judul' => 'Snack & air mineral',
+                'rinci' => 'Dibagikan di kendaraan sepanjang perjalanan',
+            ];
+        }
+
+        if ($punya('tiket')) {
+            $daftar[] = [
+                'judul' => 'Tiket masuk & retribusi',
+                'rinci' => 'Seluruh tempat yang tertulis di jadwal, tanpa bayar lagi di lokasi',
+            ];
+        }
+
+        if ($punya('pemandu')) {
+            $daftar[] = [
+                'judul' => 'Tour leader & pemandu',
+                'rinci' => 'Mendampingi rombongan dari awal sampai kembali',
+            ];
+        }
+
+        if ($punya('dokumentasi')) {
+            $daftar[] = [
+                'judul' => 'Dokumentasi perjalanan',
+                'rinci' => 'Foto dan video oleh tim kami, dibagikan setelah perjalanan',
+            ];
+        }
+
+        if ($punya('asuransi')) {
+            $daftar[] = [
+                'judul' => 'Asuransi perjalanan',
+                'rinci' => 'Perlindungan untuk seluruh peserta',
+            ];
+        }
+
+        if ($cocok('/p3k|obat|kesehatan/u')) {
+            $daftar[] = [
+                'judul' => 'Perlengkapan P3K',
+                'rinci' => 'Obat-obatan dasar selalu dibawa tim',
+            ];
+        }
+
+        if ($cocok('/merchandise|merchendise|souvenir|suvenir|kaos|jaket|tumbler|goodie|goody|id card/u')) {
+            $daftar[] = [
+                'judul' => 'Merchandise peserta',
+                'rinci' => 'Dibagikan ke setiap peserta di awal perjalanan',
+            ];
+        }
+
+        if ($cocok('/banner|spanduk|backdrop/u')) {
+            $daftar[] = [
+                'judul' => 'Banner kegiatan',
+                'rinci' => 'Disiapkan untuk foto bersama rombongan',
+            ];
+        }
+
+        return $daftar;
     }
 
     /**

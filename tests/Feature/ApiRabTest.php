@@ -208,7 +208,9 @@ test('PDF penawaran tidak memuat angka modal, PDF internal memuatnya', function 
     $data = fn ($jenis) => view(...BerkasRab::bahan($model, $jenis))->render();
 
     $penawaran = $data('penawaran');
-    expect($penawaran)->toContain('Sewa Hiace')
+    // Nama barisnya pun tidak ikut — lihat PenawaranTanpaIstilahInternalTest.
+    expect($penawaran)->toContain('Transportasi')
+        ->and($penawaran)->not->toContain('Sewa Hiace')
         ->and($penawaran)->not->toContain('1.234.567')
         ->and($penawaran)->not->toContain('Modal')
         ->and($penawaran)->not->toContain('INTERNAL');
