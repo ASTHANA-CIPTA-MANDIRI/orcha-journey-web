@@ -204,15 +204,47 @@ class BerkasRab
             ];
         }
 
-        // "Makan 5x" dihitung dari baris konsumsi, bukan dari kegiatan: satu
-        // kegiatan "ishoma" bisa jadi satu kali makan, dan "oleh-oleh" ikut
-        // terbaca sebagai makan oleh jenis(). Baris snack dikeluarkan supaya
-        // tidak ikut terhitung sebagai jatah makan.
-        $snack = $baris->filter(
-            fn ($b) => ($b['kategori'] ?? '') === 'konsumsi'
-                && preg_match('/snack|coffee|air mineral|camilan/u', mb_strtolower((string) ($b['nama'] ?? '')))
-        );
-        $makan = $baris->filter(fn ($b) => ($b['kategori'] ?? '') === 'konsumsi')->count() - $snack->count();
+        // Collection::diff() membandingkan isinya sebagai teks, jadi tidak
+        // bisa dipakai untuk baris yang berupa larik. Disaring dua kali
+        // dengan syarat yang sama, bukan dikurangkan.
+        $camilan = fn ($b) => (bool) preg_match('/snack|coffee|air mineral|camilan/u', mb_strtolower((string) ($b['nama'] ?? '')));
+        $snack = $baris->filter(fn ($b) => ($b['kategori'] ?? '') === 'konsumsi' && $camilan($b));
+        $konsumsi = $baris->filter(fn ($b) => ($b['kategori'] ?? '') === 'konsumsi' && ! $camilan($b));
+
+        /*
+         | "Makan 8x" dihitung dari JADWAL, ditambah yang dibayar tetapi belum
+         | masuk jadwal. Satu sumber saja selalu kurang:
+         |
+         | - Baris biaya saja melewatkan sarapan hotel. Sarapannya sudah
+         |   termasuk harga kamar, jadi tidak pernah punya baris sendiri —
+         |   padahal peserta tetap memakannya. Dua sarapan hilang begitu saja.
+         | - Jadwal saja melewatkan makan yang dibeli tetapi lupa ditulis di
+         |   jadwal, seperti nasi box hari terakhir.
+         |
+         | Keduanya digabung: tiap kegiatan makan dihitung satu, lalu baris
+         | konsumsi yang tidak cocok dengan kegiatan mana pun ditambahkan.
+         | Yang cocok tidak dihitung dua kali.
+         |
+         | Jatuh kembali ke jumlah baris konsumsi bila jadwalnya memang belum
+         | diisi — penawaran yang jadwalnya kosong tetap harus menyebut angka.
+         */
+        $rapi = fn (?string $t) => mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string) $t)));
+        $kegiatanMakan = $rab->itinerary
+            ->filter(fn ($k) => self::jenis($k->nama, $k->keterangan, $k->destinasi) === 'makan')
+            ->map(fn ($k) => $rapi($k->nama))
+            ->values();
+
+        $belumDijadwalkan = $konsumsi->reject(function ($b) use ($kegiatanMakan, $rapi) {
+            $nama = $rapi($b['nama'] ?? '');
+
+            return $nama !== '' && $kegiatanMakan->contains(
+                fn ($k) => $k === $nama || str_contains($k, $nama) || str_contains($nama, $k)
+            );
+        });
+
+        $makan = $kegiatanMakan->isEmpty()
+            ? $konsumsi->count()
+            : $kegiatanMakan->count() + $belumDijadwalkan->count();
 
         if ($makan > 0) {
             $daftar[] = [
@@ -329,6 +361,26 @@ class BerkasRab
     public static function jenis(string $nama, ?string $keterangan = null, ?string $destinasi = null): string
     {
         $teks = mb_strtolower($nama.' '.$keterangan);
+
+        /*
+         | Kegiatan yang NAMANYA dimulai kata gerak adalah perpindahan, apa
+         | pun yang disebut sesudahnya.
+         |
+         | "Menuju tempat makan" mengandung kata "makan", dan tangga di bawah
+         | memeriksa makan lebih dulu — jadi ia terbaca sebagai jatah makan.
+         | Akibatnya dua: titiknya berwarna oranye "Makan / singgah" di jadwal
+         | PDF padahal itu perjalanan, dan jumlah "Makan 6x" di penawaran ikut
+         | salah hitung. Di satu RAB saja ada empat langkah perjalanan yang
+         | tertukar begitu.
+         |
+         | Yang diperiksa KATA PERTAMA pada namanya, bukan seluruh teks:
+         | "Makan siang di perjalanan" tetap makan, dan keterangan yang
+         | kebetulan menyebut "menuju bj pool makan malam" tidak menyeret
+         | kegiatannya jadi perjalanan.
+         */
+        if (preg_match('/^\s*(menuju|perjalanan|transit|pulang|berangkat|kumpul|penjemputan)\b/u', mb_strtolower($nama))) {
+            return 'perjalanan';
+        }
 
         return match (true) {
             str_contains($teks, 'snack') => 'snack',
