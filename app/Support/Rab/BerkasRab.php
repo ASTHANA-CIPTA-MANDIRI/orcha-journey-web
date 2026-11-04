@@ -61,6 +61,8 @@ class BerkasRab
 
         if ($jenis === 'internal') {
             $data['r'] = $r;
+            $data['rekap_vendor'] = self::rekapVendor($r);
+            $data['siapkan'] = self::siapkan($r);
             $view = 'pdf.rab-internal';
         } else {
             // Yang diserahkan ke templat penawaran HANYA harga jual dan nama
@@ -79,6 +81,77 @@ class BerkasRab
         }
 
         return [$view, $data];
+    }
+
+    /**
+     * Siapa harus dibayar berapa.
+     *
+     * Vendor sudah tercetak di tiap baris, tetapi kategori memisahkan yang
+     * sebenarnya satu tagihan: Innova di transportasi, homestay di akomodasi,
+     * dan keduanya bisa dari orang yang sama. Yang menyiapkan pembayaran
+     * harus menjumlahkannya sendiri dari tabel yang urutannya bukan urutan
+     * pembayaran — dan salah jumlah di sini berarti vendor ditelepon dua kali.
+     *
+     * Baris tanpa vendor IKUT DIHITUNG, bukan diabaikan. Yang tidak terlihat
+     * di rekap akan dikira sudah ada yang mengurus.
+     *
+     * @param  array<string, mixed>  $ringkas
+     * @return array{daftar: array<int, array<string, mixed>>, tanpa_vendor: int, tanpa_vendor_teks: string}
+     */
+    private static function rekapVendor(array $ringkas): array
+    {
+        $baris = collect($ringkas['baris'] ?? []);
+        $punya = $baris->filter(fn ($b) => ! empty($b['vendor']));
+
+        $daftar = $punya->groupBy('vendor')->map(function ($isi, $nama) {
+            $total = $isi->sum(fn ($b) => (int) $b['subtotal']);
+
+            return [
+                'nama' => $nama,
+                'kontak' => $isi->firstWhere('vendor_kontak', '!=', null)['vendor_kontak'] ?? null,
+                // Syarat bayar hidup di catatan vendor: "DP 50% H-3" tidak
+                // berguna kalau baru terbaca saat menyiapkan uangnya.
+                'catatan' => $isi->firstWhere('vendor_catatan', '!=', null)['vendor_catatan'] ?? null,
+                'jumlah_baris' => $isi->count(),
+                'total' => $total,
+                'total_teks' => 'Rp '.number_format($total, 0, ',', '.'),
+            ];
+        })->sortByDesc('total')->values()->all();
+
+        $tanpa = $baris->count() - $punya->count();
+        $tanpaTotal = $baris->filter(fn ($b) => empty($b['vendor']))->sum(fn ($b) => (int) $b['subtotal']);
+
+        return [
+            'daftar' => $daftar,
+            'tanpa_vendor' => $tanpa,
+            'tanpa_vendor_teks' => 'Rp '.number_format($tanpaTotal, 0, ',', '.'),
+        ];
+    }
+
+    /**
+     * Yang disiapkan tim sendiri, bukan dibeli di tempat.
+     *
+     * Dokumentasi, P3K, banner, tour leader, merchandise — semuanya sudah
+     * tercetak sebagai biaya, tetapi biaya adalah daftar UANG, bukan daftar
+     * BARANG. Yang berangkat pagi-pagi membaca tabel rincian untuk tahu
+     * berapa yang dibayar, bukan untuk tahu apa yang harus dimasukkan ke
+     * mobil; banner yang anggarannya sudah benar tetap tertinggal di kantor.
+     *
+     * @param  array<string, mixed>  $ringkas
+     * @return array<int, string>
+     */
+    private static function siapkan(array $ringkas): array
+    {
+        $kategori = ['dokumentasi', 'pemandu', 'asuransi'];
+        $kata = '/p3k|obat|banner|spanduk|backdrop|merchandise|merchendise|souvenir|suvenir|kaos|jaket|tumbler|id card/u';
+
+        return collect($ringkas['baris'] ?? [])
+            ->filter(fn ($b) => in_array($b['kategori'] ?? '', $kategori, true)
+                || preg_match($kata, mb_strtolower((string) ($b['nama'] ?? ''))))
+            ->pluck('nama')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

@@ -132,6 +132,29 @@
     .duo-tanda { margin-top: 9px; border-top: 1px solid #bfe3cc; padding-top: 7px; }
     .kotak-judul { font-size: 8px; letter-spacing: 1.5px; color: {{ $ocean }}; text-transform: uppercase; font-weight: bold; padding-bottom: 6px; }
     .peringatan { margin-top: 12px; border-left: 3px solid {{ $merah }}; background-color: #fef3f2; padding: 8px 12px; font-size: 9px; color: {{ $merah }}; }
+    /* Kuning, bukan merah: harga nol bukan galat — yang gratis memang ada.
+       Yang dituju cuma supaya tidak terlewat saat RAB-nya dikirim. */
+    .awas { margin-top: 12px; border-left: 3px solid #d97706; background-color: #fffbeb; padding: 8px 12px; font-size: 9px; color: #92400e; }
+    /* Hari ke berapa baris ini terpakai. Tanpa ini "Tiket Baluran" harus
+       dicocokkan sendiri ke itinerary di halaman lain. */
+    .hari-pakai { display: inline-block; font-size: 7px; letter-spacing: .4px; color: {{ $ocean }}; background-color: #eff6ff; border: 1px solid #dbe7f0; padding: 1px 5px; margin-top: 3px; }
+    /* Syarat vendor & master harga: jam tutup, DP, siapa yang ditanya.
+       Dibaca orang yang tidak menyusun RAB-nya, di tempat tanpa sinyal. */
+    .syarat { font-size: 7.5px; color: #92400e; background-color: #fffbeb; border-left: 2px solid #fcd34d; padding: 2px 6px; margin-top: 3px; line-height: 1.45; }
+    .nol { font-size: 7.5px; color: #92400e; font-weight: bold; padding-top: 2px; }
+    /* Rekap vendor & daftar siap-berangkat: dua kolom yang tingginya ikut
+       baris, bukan isinya — lihat catatan .duo di atas. */
+    .vd { width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 10px; }
+    .vd td.vd-sel { vertical-align: top; border: 1px solid #e2eaf1; padding: 10px 12px; }
+    .vd td.vd-sela { width: 2%; padding: 0; border: 0; }
+    .vd-baris { font-size: 9px; color: #334155; padding: 4px 0; border-top: 1px solid #eef3f8; }
+    .vd-baris:first-child { border-top: 0; }
+    .vd-nama { font-weight: bold; color: {{ $navy }}; }
+    .vd-ket { font-size: 7.5px; color: #94a3b8; }
+    .vd-total { float: right; font-weight: bold; color: {{ $navy }}; }
+    .vd-syarat { font-size: 7.5px; color: #92400e; }
+    .siap { font-size: 9px; color: #334155; padding: 4px 0; }
+    .siap-kotak { display: inline-block; width: 7px; height: 7px; border: 1px solid #94a3b8; margin-right: 6px; }
     .catatan { margin-top: 12px; border-left: 3px solid {{ $emas }}; background-color: #fffbf0; padding: 8px 12px; font-size: 9px; color: #5b4a1a; line-height: 1.55; }
 
     /* ---------- keterangan penanda ---------- */
@@ -229,7 +252,9 @@
     <div class="kaki">
         <table><tr>
             <td><b style="color:#fff">DOKUMEN INTERNAL</b> — berisi modal & margin. Jangan dikirim ke pelanggan; kirim PDF Penawaran.</td>
-            <td style="text-align:right">{{ $rab->kode }} · dicetak {{ $terbit }} &nbsp;·&nbsp; <span class="hal"></span></td>
+            {{-- Siapa yang menyusun. Saat angkanya dipertanyakan berminggu
+                 kemudian, tanpa baris ini tidak ada yang bisa ditanya. --}}
+            <td style="text-align:right">{{ $rab->kode }}@if ($rab->dibuat_oleh) · disusun {{ $aman($rab->dibuat_oleh) }}@endif · dicetak {{ $terbit }} &nbsp;·&nbsp; <span class="hal"></span></td>
         </tr></table>
     </div>
 </div>
@@ -247,6 +272,12 @@
             <div class="jenis-dok">Rencana Anggaran Biaya</div>
             <div class="kode-dok">{{ $rab->kode }}</div>
             <div class="terbit">Status: {{ $rab->status_label }}</div>
+            {{-- Masa berlaku ada di PDF penawaran tetapi tidak pernah di sini,
+                 padahal yang perlu tahu harganya akan kedaluwarsa adalah
+                 kantor — pelanggan justru tidak rugi kalau lupa. --}}
+            @if ($berlaku)
+                <div class="terbit">Berlaku sampai {{ $berlaku }}</div>
+            @endif
         </td>
     </tr></table>
 </div>
@@ -257,6 +288,7 @@
     <div class="sub">
         <b>{{ $aman($rab->nama_pelanggan) }}</b>
         @if ($rab->whatsapp) · {{ $rab->whatsapp }} @endif
+        @if ($rab->email) · {{ $aman($rab->email) }} @endif
         · {{ $aman($tujuan) }} · {{ $rentang ?? 'tanggal belum ditentukan' }} · {{ $durasi }} · {{ $rab->jumlah_peserta }} peserta
     </div>
 
@@ -304,6 +336,23 @@
         <div class="peringatan"><b>Harga master sudah berubah</b> untuk baris bertanda merah. Angka di RAB ini masih harga lama yang dibekukan — perbarui sebelum mengirim penawaran baru.</div>
     @endif
 
+    {{-- Tanggalnya bergeser sesudah biaya ditarik. Barisnya memang sudah
+         ditandai satu per satu, tetapi di RAB dua puluh baris tanda sekecil
+         itu lewat begitu saja — dan penawaran yang terkirim dengan tarif
+         akhir pekan untuk kunjungan hari Senin adalah kemahalan yang tidak
+         akan pernah dicurigai siapa pun. --}}
+    @if ($r['ada_harga_salah_hari'])
+        <div class="peringatan"><b>Tanggal perjalanan bergeser</b> setelah biaya ditarik, jadi ada baris yang masih memakai tarif hari yang lama. Harganya sengaja tidak berubah sendiri — barisnya ditandai di bawah.</div>
+    @endif
+
+    {{-- Harganya masih nol: barisnya IKUT tercetak di penawaran sebagai yang
+         sudah termasuk, tetapi tidak menyumbang satu rupiah pun ke harga
+         jual. Di layar sudah ditandai; lembar inilah yang dicetak dan dibawa,
+         jadi tandanya harus ikut. --}}
+    @if (($r['harga_nol'] ?? []) !== [])
+        <div class="awas"><b>{{ $aman(implode(', ', $r['harga_nol'])) }}</b> masih berharga Rp 0 — ikut dijanjikan ke pelanggan, tetapi belum terhitung di harga jual. Kalau memang gratis, biarkan.</div>
+    @endif
+
     {{-- ======================= RINCIAN BIAYA ======================= --}}
     <div class="bagian">
         <div class="bagian-judul">Rincian Biaya</div>
@@ -346,6 +395,24 @@
                                 @if (! empty($b['harga_sebab_seharusnya']))
                                     <div class="basi">Tanggalnya bergeser — sekarang {{ $aman($b['harga_sebab_seharusnya']) }}</div>
                                 @endif
+                                @if ((int) $b['harga_satuan'] === 0)
+                                    <div class="nol">Harga belum diisi — ikut dijanjikan, belum dianggarkan</div>
+                                @endif
+                                {{-- Syaratnya dibaca di lapangan, oleh orang yang
+                                     tidak menyusun RAB ini. "Tutup hari Senin" yang
+                                     hanya ada di layar kantor sama saja dengan tidak
+                                     ditulis. --}}
+                                @if (! empty($b['master_catatan']))
+                                    <div class="syarat">{{ $aman($b['master_catatan']) }}</div>
+                                @endif
+                                @if (! empty($b['vendor_catatan']))
+                                    <div class="syarat">{{ $aman($b['vendor_catatan']) }}</div>
+                                @endif
+                                @if (! empty($b['hari']))
+                                    <div class="hari-pakai">Hari {{ implode(', ', $b['hari']) }}</div>
+                                @elseif ($b['seluruh_perjalanan'] ?? false)
+                                    <div class="hari-pakai">Sepanjang perjalanan</div>
+                                @endif
                             </td>
                             <td>
                                 @if ($b['variabel'])
@@ -366,6 +433,50 @@
             </table>
         @endif
     </div>
+
+    {{-- ============ SIAPA DIBAYAR BERAPA & APA YANG DIBAWA ============ --}}
+    {{-- Dua pertanyaan yang ditanyakan sebelum berangkat, dan dua-duanya
+         TIDAK terjawab oleh tabel rincian di atas. Tabel itu diurutkan
+         menurut kategori — urutan menghitung harga — sedangkan yang
+         dibutuhkan pagi itu urutan membayar dan urutan memasukkan barang ke
+         mobil. --}}
+    @if ($rekap_vendor['daftar'] !== [] || $siapkan !== [])
+        <div class="bagian" style="page-break-inside:avoid">
+            <table class="vd"><tr>
+                <td class="vd-sel" style="width:{{ $siapkan !== [] ? '60%' : '100%' }}">
+                    <div class="kotak-judul">Yang harus dibayar</div>
+                    @foreach ($rekap_vendor['daftar'] as $v)
+                        <div class="vd-baris">
+                            <span class="vd-total">{{ $v['total_teks'] }}</span>
+                            <span class="vd-nama">{{ $aman($v['nama']) }}</span>
+                            <span class="vd-ket">· {{ $v['jumlah_baris'] }} baris{{ $v['kontak'] ? ' · '.$aman($v['kontak']) : '' }}</span>
+                            @if ($v['catatan'])
+                                <div class="vd-syarat">{{ $aman($v['catatan']) }}</div>
+                            @endif
+                        </div>
+                    @endforeach
+                    {{-- Baris tanpa vendor ikut disebut. Yang tidak terlihat di
+                         rekap akan dikira sudah ada yang mengurus. --}}
+                    @if ($rekap_vendor['tanpa_vendor'] > 0)
+                        <div class="vd-baris">
+                            <span class="vd-total">{{ $rekap_vendor['tanpa_vendor_teks'] }}</span>
+                            <span class="vd-nama" style="color:#94a3b8">Belum ada vendornya</span>
+                            <span class="vd-ket">· {{ $rekap_vendor['tanpa_vendor'] }} baris</span>
+                        </div>
+                    @endif
+                </td>
+                @if ($siapkan !== [])
+                    <td class="vd-sela"></td>
+                    <td class="vd-sel" style="width:38%">
+                        <div class="kotak-judul">Disiapkan tim sendiri</div>
+                        @foreach ($siapkan as $nama)
+                            <div class="siap"><span class="siap-kotak"></span>{{ $aman($nama) }}</div>
+                        @endforeach
+                    </td>
+                @endif
+            </tr></table>
+        </div>
+    @endif
 
     {{-- ======================= PERHITUNGAN HARGA ======================= --}}
     <table class="duo" style="margin-top:18px; page-break-inside:avoid"><tr>
