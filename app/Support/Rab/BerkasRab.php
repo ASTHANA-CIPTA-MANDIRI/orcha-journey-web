@@ -142,8 +142,12 @@ class BerkasRab
      */
     private static function siapkan(array $ringkas): array
     {
+        // Kategorinya beku — lihat catatan di termasuk(). "Tour Leader
+        // Internal" yang masih berkategori `operasional` tetap harus masuk
+        // daftar bawaan, karena orangnya tetap harus berangkat.
         $kategori = ['dokumentasi', 'pemandu', 'asuransi'];
-        $kata = '/p3k|obat|banner|spanduk|backdrop|merchandise|merchendise|souvenir|suvenir|kaos|jaket|tumbler|id card/u';
+        $kata = '/p3k|obat|banner|spanduk|backdrop|merchandise|merchendise|souvenir|suvenir|kaos|jaket|tumbler|id card'
+            .'|tour ?leader|tour ?guide|\bguide\b|pemandu|dokumentasi|fotografer|videografer|drone/u';
 
         return collect($ringkas['baris'] ?? [])
             ->filter(fn ($b) => in_array($b['kategori'] ?? '', $kategori, true)
@@ -187,9 +191,30 @@ class BerkasRab
             fn ($b) => (bool) preg_match($pola, mb_strtolower((string) ($b['nama'] ?? '')))
         );
 
+        /*
+         | Kategori ATAU nama. Satu saja tidak cukup.
+         |
+         | Kategori baris biaya DIBEKUKAN saat baris itu dibuat, dan tidak ikut
+         | berubah kalau kategori di master harga dibetulkan belakangan. RAB
+         | nyata punya "Tour Leader Internal" yang masih berkategori
+         | `operasional` — kategori yang sengaja tidak punya kalimat supaya
+         | biaya dapur tidak bocor — sehingga tour leader yang jelas-jelas ada
+         | TIDAK PERNAH tercetak sebagai yang sudah termasuk.
+         |
+         | Kegagalannya diam: tidak ada galat, tidak ada baris kosong, cuma
+         | satu janji yang hilang dari penawaran. Pelanggan membandingkan
+         | beberapa penawaran sekaligus, dan yang tidak tertulis dianggap
+         | tidak diberikan.
+         |
+         | Karena itu tiap kalimat punya DUA jalan muncul: kategorinya benar,
+         | atau namanya menyebut barangnya. Salah arsip tidak lagi menghapus
+         | janji — paling jauh menampilkan kalimat yang memang kita berikan.
+         */
+        $ada = fn (array $kategori, string $pola) => $punya(...$kategori) || $cocok($pola);
+
         $daftar = [];
 
-        if ($punya('transportasi', 'sopir')) {
+        if ($ada(['transportasi', 'sopir'], '/\bbus\b|hiace|elf\b|avanza|innova|jeep|shuttle|kendaraan|armada|sopir|supir|driver|bbm/u')) {
             $daftar[] = [
                 'judul' => 'Transportasi',
                 'rinci' => 'Kendaraan ber-AC selama perjalanan, sudah termasuk BBM, tol, parkir, dan sopir',
@@ -197,7 +222,7 @@ class BerkasRab
         }
 
         $malam = max(0, (int) $rab->jumlah_malam);
-        if ($punya('akomodasi')) {
+        if ($ada(['akomodasi'], '/homestay|hotel|penginapan|villa|vila|losmen|guest ?house|resort|glamping|kamar/u')) {
             $daftar[] = [
                 'judul' => $malam > 0 ? "Penginapan {$malam} malam" : 'Penginapan',
                 'rinci' => 'Kamar sesuai jadwal, siap pakai saat tiba',
@@ -265,28 +290,28 @@ class BerkasRab
             ];
         }
 
-        if ($punya('tiket')) {
+        if ($ada(['tiket'], '/tiket|retribusi|karcis|htm\b/u')) {
             $daftar[] = [
                 'judul' => 'Tiket masuk & retribusi',
                 'rinci' => 'Seluruh tempat yang tertulis di jadwal, tanpa bayar lagi di lokasi',
             ];
         }
 
-        if ($punya('pemandu')) {
+        if ($ada(['pemandu'], '/tour ?leader|tour ?guide|\bguide\b|pemandu|\btl\b/u')) {
             $daftar[] = [
                 'judul' => 'Tour leader & pemandu',
                 'rinci' => 'Mendampingi rombongan dari awal sampai kembali',
             ];
         }
 
-        if ($punya('dokumentasi')) {
+        if ($ada(['dokumentasi'], '/dokumentasi|fotografer|videografer|drone|foto ?video/u')) {
             $daftar[] = [
                 'judul' => 'Dokumentasi perjalanan',
                 'rinci' => 'Foto dan video oleh tim kami, dibagikan setelah perjalanan',
             ];
         }
 
-        if ($punya('asuransi')) {
+        if ($ada(['asuransi'], '/asuransi|insurance/u')) {
             $daftar[] = [
                 'judul' => 'Asuransi perjalanan',
                 'rinci' => 'Perlindungan untuk seluruh peserta',

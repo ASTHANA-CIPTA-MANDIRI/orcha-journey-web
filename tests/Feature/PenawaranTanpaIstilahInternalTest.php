@@ -139,3 +139,69 @@ test('RAB internal tetap menyebut nama baris biayanya', function () {
 
     expect(view($view, $data)->render())->toContain('Uang Rokok Supir');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Kategori yang salah arsip tidak boleh menghapus janji
+|--------------------------------------------------------------------------
+|
+| Kategori baris biaya DIBEKUKAN saat barisnya dibuat, dan tidak ikut berubah
+| kalau kategori di master harga dibetulkan belakangan. RAB produksi punya
+| "Tour Leader Internal" yang masih berkategori `operasional` — kategori yang
+| sengaja tidak punya kalimat — sehingga tour leader yang jelas-jelas ada
+| tidak pernah tercetak sebagai yang sudah termasuk.
+|
+| Gagalnya diam: tidak ada galat, cuma satu janji yang hilang. Pelanggan
+| membandingkan beberapa penawaran, dan yang tidak tertulis dianggap tidak
+| diberikan.
+*/
+test('tour leader tetap tercetak walau barisnya salah kategori', function () {
+    $html = rabPenawaran([
+        ['operasional', 'Tour Leader Internal', 'hari', 300_000, 3],
+    ]);
+
+    expect($html)->toContain('Tour leader &amp; pemandu')
+        // Namanya sendiri tetap tidak ikut.
+        ->and($html)->not->toContain('Tour Leader Internal');
+});
+
+test('barang lain juga punya dua jalan muncul: kategori atau namanya', function () {
+    // Semuanya diarsip di kategori yang salah; yang menolong namanya.
+    $html = rabPenawaran([
+        ['lainnya', 'Sewa Hiace 14 seat', 'unit_hari', 1_400_000, 2],
+        ['lainnya', 'Naila Homestay Banyuwangi', 'kamar_malam', 280_000, 6],
+        ['lainnya', 'Tiket Masuk Baluran', 'orang', 21_000, 20],
+        ['lainnya', 'Fotografer & drone', 'paket', 1_500_000, 1],
+        ['lainnya', 'Asuransi perjalanan peserta', 'orang', 15_000, 20],
+    ]);
+
+    foreach (['Transportasi', 'Penginapan', 'Tiket masuk &amp; retribusi',
+        'Dokumentasi perjalanan', 'Asuransi perjalanan'] as $kalimat) {
+        expect($html)->toContain($kalimat);
+    }
+});
+
+test('kategori yang benar tetap cukup tanpa bantuan nama', function () {
+    // Jalan pertama tidak boleh ikut hilang saat jalan kedua ditambahkan.
+    $html = rabPenawaran([
+        ['pemandu', 'Nala Tour', 'orang', 300_000, 20],
+        ['transportasi', 'ZXQV-9981', 'unit_hari', 800_000, 3],
+    ]);
+
+    expect($html)->toContain('Tour leader &amp; pemandu')
+        ->and($html)->toContain('Transportasi')
+        ->and($html)->not->toContain('ZXQV')
+        ->and($html)->not->toContain('Nala Tour');
+});
+
+test('operasional murni tetap tidak punya kalimat sendiri', function () {
+    // Jaring namanya tidak boleh jadi pintu belakang buat biaya dapur.
+    $html = rabPenawaran([
+        ['operasional', 'Operasional Tim Internal', 'paket', 750_000, 1],
+        ['lainnya', 'Dana Tak Terduga', 'paket', 500_000, 1],
+    ]);
+
+    expect(substr_count($html, 'class="termasuk-kotak"'))->toBe(0)
+        ->and($html)->not->toContain('Operasional Tim Internal')
+        ->and($html)->not->toContain('Dana Tak Terduga');
+});
