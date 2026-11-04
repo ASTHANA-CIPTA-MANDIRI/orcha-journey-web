@@ -5,6 +5,7 @@ namespace App\Support\Rab;
 use App\Models\Rab\Rab;
 use App\Models\Rab\RabBiaya;
 use App\Support\RincianBiaya;
+use Illuminate\Support\Collection;
 
 /**
  * Seluruh hitungan RAB, di satu tempat.
@@ -24,12 +25,26 @@ class HitungRab
      * ke bawah berarti tiga orang tidak punya kursi; membulatkan ke atas memang
      * kenyataannya — unit kedua disewa utuh walau setengah kosong.
      */
-    public static function faktor(string $satuan, ?int $kapasitas, Rab $rab): int
+    public static function faktor(string $satuan, ?int $kapasitas, Rab $rab, ?int $unitManual = null): int
     {
         $peserta = max(1, (int) $rab->jumlah_peserta);
         $hari = max(1, (int) $rab->jumlah_hari);
         $malam = max(0, (int) $rab->jumlah_malam);
-        $unit = $kapasitas && $kapasitas > 0 ? (int) ceil($peserta / $kapasitas) : 1;
+
+        /*
+         | Jumlah unit yang DITENTUKAN admin mengalahkan penurunan otomatis.
+         |
+         | ceil(peserta ÷ kapasitas) benar selama seluruh rombongan memakai
+         | satu jenis unit. Begitu pelanggan minta campuran — dua kamar Family
+         | dan tiga kamar Standard di hotel yang sama — setiap baris
+         | menginapkan SELURUH rombongan, dan tagihannya berlipat.
+         |
+         | NULL berarti "hitung seperti biasa", jadi baris yang sudah ada
+         | tidak berubah sedikit pun.
+         */
+        $unit = $unitManual !== null && $unitManual > 0
+            ? $unitManual
+            : ($kapasitas && $kapasitas > 0 ? (int) ceil($peserta / $kapasitas) : 1);
 
         return match ($satuan) {
             'orang' => $peserta,
@@ -58,7 +73,7 @@ class HitungRab
         $peserta = max(1, (int) $rab->jumlah_peserta);
         $hari = max(1, (int) $rab->jumlah_hari);
         $malam = max(0, (int) $rab->jumlah_malam);
-        $unit = $b->kapasitas && $b->kapasitas > 0 ? (int) ceil($peserta / $b->kapasitas) : 1;
+        $unit = self::faktor('unit', $b->kapasitas, $rab, $b->unit_manual);
 
         $bagian = [RincianBiaya::rupiah($b->harga_satuan)];
 
@@ -231,10 +246,41 @@ class HitungRab
         ];
     }
 
+    /**
+     * Cukup tidaknya kamar yang dipesan untuk seluruh rombongan.
+     *
+     * Dihitung HANYA dari baris ber-satuan kamar yang jumlah kamarnya diisi
+     * sendiri. RAB yang membiarkan sistem menurunkannya dari peserta tidak
+     * pernah kekurangan, jadi penandanya tidak boleh menyala di sana dan
+     * membuat orang berhenti membacanya.
+     *
+     * @param  Collection<int, array<string, mixed>>  $baris
+     * @return array{manual: bool, muat: int, peserta: int, kurang: int}|null
+     */
+    private static function dayaTampung(Rab $rab, $baris): ?array
+    {
+        $kamar = $baris->filter(fn ($b) => $b['satuan'] === 'kamar_malam'
+            && ($b['unit_manual'] ?? null) !== null);
+
+        if ($kamar->isEmpty()) {
+            return null;
+        }
+
+        $peserta = max(1, (int) $rab->jumlah_peserta);
+        $muat = (int) $kamar->sum(fn ($b) => (int) $b['unit_manual'] * max(1, (int) ($b['kapasitas'] ?: 1)));
+
+        return [
+            'manual' => true,
+            'muat' => $muat,
+            'peserta' => $peserta,
+            'kurang' => max(0, $peserta - $muat),
+        ];
+    }
+
     public static function subtotal(RabBiaya $b, Rab $rab): int
     {
         return (int) $b->harga_satuan * max(1, (int) $b->jumlah)
-            * self::faktor($b->satuan, $b->kapasitas, $rab);
+            * self::faktor($b->satuan, $b->kapasitas, $rab, $b->unit_manual);
     }
 
     public static function variabel(string $satuan): bool
@@ -425,8 +471,11 @@ class HitungRab
                  */
                 'harga_sebab_seharusnya' => $hariHarga->tidakCocok($b),
                 'kapasitas' => $b->kapasitas,
+                // Jumlah unit yang ditentukan admin; null = diturunkan dari
+                // peserta seperti biasa.
+                'unit_manual' => $b->unit_manual,
                 'jumlah' => $b->jumlah,
-                'faktor' => self::faktor($b->satuan, $b->kapasitas, $rab),
+                'faktor' => self::faktor($b->satuan, $b->kapasitas, $rab, $b->unit_manual),
                 'penjelasan' => self::penjelasan($b, $rab),
                 'subtotal' => $subtotal,
                 'subtotal_teks' => RincianBiaya::rupiah($subtotal),
@@ -734,6 +783,17 @@ class HitungRab
              */
             'harga_nol' => $baris->filter(fn ($b) => (int) $b['harga_satuan'] === 0)
                 ->pluck('nama')->values()->all(),
+            /*
+             | Kamar yang dipesan tidak cukup untuk seluruh rombongan.
+             |
+             | Begitu jumlah unitnya ditentukan sendiri, penurunan otomatis
+             | yang dulu menjamin "semua kebagian" tidak berlaku lagi — dan
+             | dua kamar Family berisi 8 orang untuk rombongan 20 adalah
+             | kesalahan yang tidak menampakkan diri di satu angka pun.
+             | Hanya dihitung bila MEMANG ada baris yang mengisi sendiri;
+             | RAB biasa tidak pernah memasang penandanya.
+             */
+            'daya_tampung' => self::dayaTampung($rab, $baris),
             'nego_aktif' => $negoAktif,
             'alasan_nego' => $rab->alasan_nego,
             // Kesepakatan yang sudah di bawah modal. Bukan larangan — tanda.

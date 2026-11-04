@@ -739,6 +739,14 @@ class RabController extends ApiController
                     Rule::requiredIf(in_array($request->input('satuan'),
                         config('orcha.rab.satuan_berkapasitas', []), true))],
                 'jumlah' => ['nullable', 'integer', 'min:1', 'max:100'],
+                /*
+                 | Jumlah kamar/unit yang ditentukan sendiri.
+                 |
+                 | Tanpa ini campuran tipe kamar tidak bisa ditulis: dua
+                 | Family dan tiga Standard di hotel yang sama jadi dua baris
+                 | yang masing-masing menginapkan SELURUH rombongan.
+                 */
+                'unit_manual' => ['nullable', 'integer', 'min:1', 'max:500'],
                 // Biaya manual pun punya vendornya sendiri — justru di sinilah
                 // vendor dadakan muncul: sewa perahu, sewa jip, pemandu lokal.
                 'vendor_id' => ['nullable', 'integer', 'exists:tbl_vendor,id'],
@@ -784,6 +792,8 @@ class RabController extends ApiController
                 'harga_satuan' => ['sometimes', 'integer', 'min:0', 'max:1000000000'],
                 'jumlah' => ['sometimes', 'integer', 'min:1', 'max:100'],
                 'kapasitas' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:1000'],
+                // null mengembalikannya ke penurunan otomatis dari peserta.
+                'unit_manual' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:500'],
                 'catatan' => ['sometimes', 'nullable', 'string', 'max:200'],
             ]);
             $biaya->update($data);

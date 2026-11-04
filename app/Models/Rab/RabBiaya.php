@@ -18,13 +18,14 @@ class RabBiaya extends Model
 
     protected $fillable = [
         'rab_id', 'master_harga_id', 'vendor_id', 'kategori', 'nama', 'satuan',
-        'harga_satuan', 'harga_sebab', 'pakai_akhir_pekan', 'kapasitas',
+        'harga_satuan', 'harga_sebab', 'pakai_akhir_pekan', 'kapasitas', 'unit_manual',
         'jumlah', 'urutan', 'catatan',
     ];
 
     protected $casts = [
         'harga_satuan' => 'integer',
         'kapasitas' => 'integer',
+        'unit_manual' => 'integer',
         'jumlah' => 'integer',
         'urutan' => 'integer',
         'pakai_akhir_pekan' => 'boolean',
