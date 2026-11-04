@@ -128,3 +128,48 @@ test('satuan per orang tidak terpengaruh jumlah unit', function () {
     expect(collect(HitungRab::ringkas($rab->fresh())['baris'])->first()['subtotal'])
         ->toBe(800_000);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Beberapa tipe kamar yang belum dipilah
+|--------------------------------------------------------------------------
+|
+| Keadaan yang persis dialami admin sesudah menarik dua tipe kamar dari master:
+| keduanya masih menghitung diri dari jumlah peserta, jadi masing-masing
+| menginapkan SELURUH rombongan. Rp 3.800.000 terhitung Rp 11.000.000, dan
+| tidak ada satu pun tanda.
+*/
+test('dua tipe kamar yang belum diisi jumlahnya disebut namanya', function () {
+    $rab = rabKamar();
+    kamar($rab, 'Hotel X — Family', 500_000, 4, null);
+    kamar($rab, 'Hotel X — Standard', 300_000, 2, null);
+
+    expect(HitungRab::ringkas($rab->fresh())['kamar_belum_dipilah'])
+        ->toBe(['Hotel X — Family', 'Hotel X — Standard']);
+});
+
+test('yang sudah diisi tidak ikut disebut', function () {
+    $rab = rabKamar();
+    kamar($rab, 'Hotel X — Family', 500_000, 4, 2);
+    kamar($rab, 'Hotel X — Standard', 300_000, 2, null);
+
+    expect(HitungRab::ringkas($rab->fresh())['kamar_belum_dipilah'])
+        ->toBe(['Hotel X — Standard']);
+});
+
+test('keduanya terisi, penandanya diam', function () {
+    $rab = rabKamar();
+    kamar($rab, 'Hotel X — Family', 500_000, 4, 2);
+    kamar($rab, 'Hotel X — Standard', 300_000, 2, 6);
+
+    expect(HitungRab::ringkas($rab->fresh())['kamar_belum_dipilah'])->toBe([]);
+});
+
+test('satu tipe kamar saja tidak pernah dilaporkan', function () {
+    // Di sana penurunan otomatis memang benar, dan penanda yang menyala di
+    // tempat yang tidak mungkin salah akan membuat orang berhenti membacanya.
+    $rab = rabKamar();
+    kamar($rab, 'Homestay', 350_000, 4, null);
+
+    expect(HitungRab::ringkas($rab->fresh())['kamar_belum_dipilah'])->toBe([]);
+});

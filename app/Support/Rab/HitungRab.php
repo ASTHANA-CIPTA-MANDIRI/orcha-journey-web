@@ -247,6 +247,29 @@ class HitungRab
     }
 
     /**
+     * Baris kamar yang jumlahnya masih diturunkan dari peserta, padahal ada
+     * lebih dari satu tipe.
+     *
+     * Satu tipe kamar saja TIDAK dilaporkan: di sana penurunan otomatis
+     * memang benar, dan penanda yang menyala di tempat yang tidak mungkin
+     * salah akan membuat orang berhenti membacanya.
+     *
+     * @param  Collection<int, array<string, mixed>>  $baris
+     * @return array<int, string>
+     */
+    private static function kamarBelumDipilah($baris): array
+    {
+        $kamar = $baris->filter(fn ($b) => $b['satuan'] === 'kamar_malam');
+
+        if ($kamar->count() < 2) {
+            return [];
+        }
+
+        return $kamar->filter(fn ($b) => ($b['unit_manual'] ?? null) === null)
+            ->pluck('nama')->values()->all();
+    }
+
+    /**
      * Cukup tidaknya kamar yang dipesan untuk seluruh rombongan.
      *
      * Dihitung HANYA dari baris ber-satuan kamar yang jumlah kamarnya diisi
@@ -794,6 +817,18 @@ class HitungRab
              | RAB biasa tidak pernah memasang penandanya.
              */
             'daya_tampung' => self::dayaTampung($rab, $baris),
+            /*
+             | Beberapa tipe kamar, tetapi jumlah kamarnya belum dipilah.
+             |
+             | Keadaan yang persis dialami admin sesudah menarik dua tipe dari
+             | master: keduanya masih menghitung diri dari jumlah peserta,
+             | jadi masing-masing menginapkan SELURUH rombongan. Modalnya
+             | berlipat tanpa satu pun tanda — bukan galat, bukan angka merah.
+             |
+             | Disebut namanya, karena "periksa lagi" tanpa menunjuk barisnya
+             | hanya memindahkan pekerjaan mencari ke admin.
+             */
+            'kamar_belum_dipilah' => self::kamarBelumDipilah($baris),
             'nego_aktif' => $negoAktif,
             'alasan_nego' => $rab->alasan_nego,
             // Kesepakatan yang sudah di bawah modal. Bukan larangan — tanda.
