@@ -141,8 +141,11 @@ class RabController extends ApiController
             mb_strtolower(implode(' ', array_filter($teks))), $kata
         );
 
-        $bertiket = MasterHarga::where('aktif', true)->whereNotNull('destinasi')
-            ->pluck('destinasi')->map(fn ($d) => mb_strtolower(trim((string) $d)))->flip();
+        // Tiket terusan menandai SELURUH destinasi yang dicakupnya, bukan
+        // cuma yang utama — lihat MasterHarga::semuaDestinasi().
+        $bertiket = MasterHarga::where('aktif', true)->whereNotNull('destinasi')->get()
+            ->flatMap(fn (MasterHarga $m) => $m->semuaDestinasi())
+            ->map(fn ($d) => mb_strtolower(trim((string) $d)))->flip();
 
         $hasil = [];
 
@@ -232,8 +235,8 @@ class RabController extends ApiController
         $katalog = KatalogDestinasi::gabungan();
 
         // Sekali untuk seluruh katalog, bukan satu kueri per destinasi.
-        $bertiket = MasterHarga::where('aktif', true)->whereNotNull('destinasi')
-            ->pluck('destinasi')->flip();
+        $bertiket = MasterHarga::where('aktif', true)->whereNotNull('destinasi')->get()
+            ->flatMap(fn (MasterHarga $m) => $m->semuaDestinasi())->flip();
 
         $destinasi = collect($katalog)
             ->filter(fn ($v) => ! $provinsi || ($v['provinsi'] ?? null) === $provinsi)
@@ -255,6 +258,7 @@ class RabController extends ApiController
                 'kategori_label' => $m->kategori_label,
                 'nama' => $m->nama,
                 'destinasi' => $m->destinasi,
+                'destinasi_lain' => $m->destinasi_lain ?? [],
                 'daerah' => $m->daerah,
                 'satuan' => $m->satuan,
                 'satuan_label' => $m->satuan_label,
@@ -694,9 +698,19 @@ class RabController extends ApiController
         $dibuang = [];
 
         foreach ($rab->biaya()->with('master')->get() as $biaya) {
-            $destinasi = $biaya->master?->destinasi;
+            $tercakup = $biaya->master?->semuaDestinasi() ?? [];
 
-            if (! $destinasi || $masihDikunjungi->has($kunci($destinasi))) {
+            /*
+             | Tiket terusan dibuang HANYA bila seluruh destinasinya sudah
+             | tidak dikunjungi.
+             |
+             | Dulu yang dibaca cuma `destinasi` utamanya. Menggeser Candi
+             | Arjuna keluar jadwal membuang tiket Dieng, padahal Kawah
+             | Sikidang masih dikunjungi dan masih membayarnya — barisnya
+             | hilang tanpa pemberitahuan, RAB-nya tetap terlihat wajar, dan
+             | modalnya berkurang diam-diam.
+             */
+            if ($tercakup === [] || collect($tercakup)->contains(fn ($d) => $masihDikunjungi->has($kunci($d)))) {
                 continue;
             }
 
@@ -1082,18 +1096,30 @@ class RabController extends ApiController
          | akibat yang jauh lebih besar daripada sebabnya. Jadi yang
          | dipulangkan keterangannya, dan layar yang menawarkan pilihan.
          */
-        $destinasi = $biaya->master?->destinasi;
-        $masihDiItinerary = $destinasi && $rab->itinerary()
-            ->whereRaw('LOWER(TRIM(destinasi)) = ?', [mb_strtolower(trim($destinasi))])
-            ->exists();
+        /*
+         | Tiket terusan menyangkut BEBERAPA kunjungan sekaligus.
+         |
+         | Yang dibaca dulu cuma destinasi utamanya, jadi menghapus tiket
+         | Dieng menawarkan membuang kunjungan Candi Arjuna saja — Kawah
+         | Sikidang tertinggal di jadwal tanpa tiket, dan tidak ada yang
+         | menyebutnya.
+         */
+        $tercakup = collect($biaya->master?->semuaDestinasi() ?? []);
+        $rapi = fn ($t) => mb_strtolower(trim((string) $t));
+
+        $masih = $tercakup->filter(fn ($d) => $rab->itinerary()
+            ->whereRaw('LOWER(TRIM(destinasi)) = ?', [$rapi($d)])->exists())->values();
+
+        $masihDiItinerary = $masih->isNotEmpty();
+        $destinasi = $masih->implode(' dan ');
 
         $biaya->delete();
 
         // Diminta sekalian: kunjungannya ikut dibuang dari itinerary.
         if ($masihDiItinerary && $request->boolean('sekalian_itinerary')) {
-            $rab->itinerary()
-                ->whereRaw('LOWER(TRIM(destinasi)) = ?', [mb_strtolower(trim($destinasi))])
-                ->delete();
+            foreach ($masih as $d) {
+                $rab->itinerary()->whereRaw('LOWER(TRIM(destinasi)) = ?', [$rapi($d)])->delete();
+            }
 
             return response()->json([
                 'data' => $this->bentuk($rab->fresh()),
@@ -1137,11 +1163,29 @@ class RabController extends ApiController
         $kunci = fn ($teks) => mb_strtolower(trim((string) $teks));
         $dicari = $destinasi->map($kunci)->filter()->values();
 
+        /*
+         | Dijodohkan di PHP, bukan di SQL.
+         |
+         | Tiket terusan menyebut destinasi keduanya di kolom JSON
+         | `destinasi_lain`, dan mencocokkan isi JSON lewat SQL berbeda bentuk
+         | antara MySQL dan SQLite — yang berarti uji bisa hijau sementara
+         | produksi tidak menarik tiketnya sama sekali. Daftarnya puluhan
+         | baris, jadi menyaringnya di PHP tidak berarti apa-apa bagi
+         | kecepatan dan menghilangkan seluruh kelas selisih itu.
+         */
         $calon = MasterHarga::query()->where('aktif', true)
-            ->where(fn ($q) => $q->whereIn(DB::raw('LOWER(TRIM(destinasi))'), $dicari)
+            ->where(fn ($q) => $q->whereNotNull('destinasi')
                 ->orWhere(fn ($o) => $o->where('otomatis', true)
                     ->where(fn ($p) => $p->whereNull('provinsi')->orWhere('provinsi', $rab->provinsi))))
-            ->get();
+            ->get()
+            ->filter(function (MasterHarga $m) use ($dicari, $rab) {
+                $perDestinasi = $dicari->contains(fn ($d) => $m->mencakup($d));
+                $wajib = $m->otomatis
+                    && ($m->provinsi === null || $m->provinsi === $rab->provinsi);
+
+                return $perDestinasi || $wajib;
+            })
+            ->values();
 
         /*
          | Biaya PER KENDARAAN tidak ikut tertarik sendiri.
@@ -1164,8 +1208,12 @@ class RabController extends ApiController
         $campuran = (new HargaHari($rab))->campuran($ditarik);
         $tawaran = $this->tawaranKendaraan($rab->fresh());
 
-        $punyaTiket = $calon->map(fn ($m) => $kunci($m->destinasi))->filter()->flip();
-        $tanpaTiket = $destinasi->reject(fn ($d) => $punyaTiket->has($kunci($d)))->values();
+        // Tiket terusan menutup SELURUH destinasi yang dicakupnya: tanpa ini
+        // Kawah Sikidang dilaporkan "belum ada tiketnya" padahal sudah
+        // terbayar bersama Candi Arjuna.
+        $tanpaTiket = $destinasi
+            ->reject(fn ($d) => $calon->contains(fn (MasterHarga $m) => $m->mencakup($d)))
+            ->values();
 
         return response()->json([
             'data' => $this->bentuk($rab->fresh()),

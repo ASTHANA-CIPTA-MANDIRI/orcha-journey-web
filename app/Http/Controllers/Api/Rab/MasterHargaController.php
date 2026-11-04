@@ -266,6 +266,29 @@ class MasterHargaController extends ApiController
                     ->orWhereRaw('LOWER(TRIM(destinasi)) = ?', [$rapi($d)])))
             ->first();
 
+        /*
+         | Destinasi yang baru disebut sebagai bagian tiket terusan juga
+         | diperiksa.
+         |
+         | Menambahkan Kawah Sikidang ke tiket Dieng sementara sudah ada baris
+         | tiket Kawah Sikidang tersendiri berarti keduanya tertarik ke RAB
+         | yang sama — persis kerugian yang hendak dicegah pemeriksa ini,
+         | cuma lewat kolom yang dulu belum ada.
+         */
+        if (! $sama && ($data['destinasi_lain'] ?? []) !== []) {
+            $cari = collect($data['destinasi_lain'])->map($rapi)->filter();
+
+            $sama = MasterHarga::query()
+                ->when($kecuali, fn ($q, $id) => $q->where('id', '!=', $id))
+                ->where(fn ($q) => $data['provinsi'] === null
+                    ? $q->whereNull('provinsi')
+                    : $q->where('provinsi', $data['provinsi']))
+                ->whereNotNull('destinasi')
+                ->get()
+                ->first(fn (MasterHarga $m) => collect($m->semuaDestinasi())
+                    ->map($rapi)->intersect($cari)->isNotEmpty());
+        }
+
         if (! $sama) {
             return null;
         }
@@ -845,6 +868,16 @@ class MasterHargaController extends ApiController
             'provinsi' => ['nullable', 'string', 'max:80'],
             'daerah' => ['nullable', 'string', 'max:80'],
             'destinasi' => ['nullable', 'string', 'max:150'],
+            /*
+             | Destinasi LAIN yang tercakup tiket yang sama.
+             |
+             | Tiket terusan Dieng berlaku untuk Candi Arjuna dan Kawah
+             | Sikidang, dibayar sekali. Tanpa kolom ini admin terpaksa
+             | membuat dua baris — dan keduanya tertarik ke RAB, lalu
+             | tiketnya ditagih dua kali.
+             */
+            'destinasi_lain' => ['nullable', 'array', 'max:20'],
+            'destinasi_lain.*' => ['required', 'string', 'max:150'],
             'satuan' => ['required', Rule::in(array_keys(config('orcha.rab.satuan')))],
             'harga' => ['required', 'integer', 'min:0', 'max:1000000000'],
             /*
@@ -900,6 +933,7 @@ class MasterHargaController extends ApiController
             'provinsi' => $m->provinsi,
             'daerah' => $m->daerah,
             'destinasi' => $m->destinasi,
+            'destinasi_lain' => $m->destinasi_lain ?? [],
             'satuan' => $m->satuan,
             'satuan_label' => $m->satuan_label,
             'harga' => $m->harga,

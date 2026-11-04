@@ -322,12 +322,21 @@ class HitungRab
         $hasil = [];
 
         foreach ($rab->biaya as $b) {
-            $dest = $rapi($b->master?->destinasi);
-            $nama = $rapi($b->nama);
+            /*
+             | Tiket terusan dipakai di SEMUA hari destinasinya.
+             |
+             | Yang dibaca dulu cuma destinasi utamanya, jadi tiket Dieng
+             | berpil "Hari 1" padahal Kawah Sikidang dikunjungi hari 2 dengan
+             | tiket yang sama — dan yang membacanya di lapangan mengira hari
+             | kedua belum ada tiketnya.
+             */
+            $hari = collect($b->master?->semuaDestinasi() ?? [])
+                ->flatMap(fn ($d) => $perDestinasi[$rapi($d)] ?? [])
+                ->all();
 
-            $hari = $dest !== '' && isset($perDestinasi[$dest])
-                ? $perDestinasi[$dest]
-                : ($perNama[$nama] ?? []);
+            if ($hari === []) {
+                $hari = $perNama[$rapi($b->nama)] ?? [];
+            }
 
             $hasil[$b->id] = collect($hari)->unique()->sort()->values()->all();
         }

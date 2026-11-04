@@ -20,7 +20,7 @@ class MasterHarga extends Model
     protected $table = 'tbl_master_harga';
 
     protected $fillable = [
-        'kategori', 'vendor_id', 'nama', 'provinsi', 'daerah', 'destinasi',
+        'kategori', 'vendor_id', 'nama', 'provinsi', 'daerah', 'destinasi', 'destinasi_lain',
         'satuan', 'harga', 'harga_akhir_pekan', 'kapasitas', 'berlaku_sampai',
         'otomatis', 'aktif', 'catatan',
     ];
@@ -33,6 +33,7 @@ class MasterHarga extends Model
         'berlaku_sampai' => 'date',
         'otomatis' => 'boolean',
         'aktif' => 'boolean',
+        'destinasi_lain' => 'array',
     ];
 
     /**
@@ -81,6 +82,58 @@ class MasterHarga extends Model
      * memaksa admin mengisinya ulang per provinsi berarti satu harga yang
      * dirawat di sepuluh tempat.
      */
+    /**
+     * Seluruh destinasi yang tercakup harga ini, sudah dirapikan.
+     *
+     * Tiket terusan berlaku untuk beberapa tempat sekaligus dan dibayar
+     * sekali — Candi Arjuna dan Kawah Sikidang satu tiket. `destinasi` tetap
+     * yang utama; sisanya hidup di `destinasi_lain`.
+     *
+     * SATU-SATUNYA tempat daftar itu dirakit. Penjodohan destinasi tersebar
+     * di belasan titik — pencarian tempat, katalog, tarik biaya, pembuang
+     * tiket yatim, pil hari — dan masing-masing merakitnya sendiri berarti
+     * suatu hari ada satu yang lupa membaca destinasi lainnya, lalu tiket
+     * terusan terhapus di sana saja.
+     *
+     * @return array<int, string>
+     */
+    public function semuaDestinasi(): array
+    {
+        return collect([$this->destinasi])
+            ->merge($this->destinasi_lain ?? [])
+            ->map(fn ($d) => trim((string) $d))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Destinasi ini tercakup harga tersebut?
+     *
+     * Dicocokkan tanpa memedulikan huruf besar-kecil dan spasi di ujung,
+     * dengan alasan yang sama seperti di tarikBiaya(): nama destinasi pernah
+     * diketik bebas, jadi "Candi Arjuna " dan "candi arjuna" memang ada di
+     * data.
+     */
+    public function mencakup(?string $destinasi): bool
+    {
+        $rapi = fn (?string $t) => mb_strtolower(trim((string) $t));
+        $cari = $rapi($destinasi);
+
+        if ($cari === '') {
+            return false;
+        }
+
+        foreach ($this->semuaDestinasi() as $d) {
+            if ($rapi($d) === $cari) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function scopeUntukProvinsi(Builder $q, ?string $provinsi): Builder
     {
         return $q->where('aktif', true)->where(
