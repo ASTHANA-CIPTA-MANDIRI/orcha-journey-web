@@ -42,9 +42,9 @@ function masterUji(array $ubah = []): MasterHarga
     ], $ubah));
 }
 
-function buatRabLewatApi($uji, array $ubah = []): array
+function buatRabLewatApi($uji, array $ubah = [], bool $denganBawaan = false): array
 {
-    return $uji->postJson('/api/v1/rab', array_merge([
+    $rab = $uji->postJson('/api/v1/rab', array_merge([
         'judul' => 'Private Trip Jogja',
         'nama_pelanggan' => 'Bu Siti',
         'whatsapp' => '081234567890',
@@ -55,6 +55,29 @@ function buatRabLewatApi($uji, array $ubah = []): array
         'margin_jenis' => 'persen',
         'margin_nilai' => 20,
     ], $ubah), kepalaRab())->assertCreated()->json('data');
+
+    if ($denganBawaan) {
+        return $rab;
+    }
+
+    /*
+     | Baris bawaan dibuang supaya uji di bawah tetap berangkat dari RAB
+     | kosong.
+     |
+     | Sejak item wajib — dokumentasi, P3K, banner, tour leader — ditandai
+     | `otomatis` di master harga, SETIAP RAB baru lahir sudah berisi empat
+     | baris. Dibiarkan, tiap uji yang menghitung baris atau menjumlahkan
+     | modal harus ikut memperhitungkan angka yang tidak ada hubungannya
+     | dengan yang sedang diujinya, dan setiap item wajib baru akan
+     | memerahkan puluhan uji sekaligus tanpa ada yang benar-benar rusak.
+     |
+     | Perilaku bawaannya sendiri diuji tersendiri — lihat
+     | ItemWajibTiapRabTest — jadi yang dibuang di sini tidak ikut hilang
+     | dari jangkauan uji.
+     */
+    RabBiaya::where('rab_id', $rab['id'])->delete();
+
+    return $uji->getJson('/api/v1/rab/'.$rab['id'], kepalaRab())->json('data');
 }
 
 test('master harga per unit menolak tanpa kapasitas', function () {
@@ -109,7 +132,8 @@ test('RAB baru langsung membawa biaya wajib provinsinya, bukan provinsi lain', f
     masterUji(['kategori' => 'konsumsi', 'nama' => 'Makan Bali', 'destinasi' => null, 'provinsi' => 'Bali', 'otomatis' => true]);
     masterUji(['nama' => 'Parkir (nonaktif)', 'destinasi' => null, 'otomatis' => true, 'aktif' => false]);
 
-    $rab = buatRabLewatApi($this);
+    // Justru baris bawaannya yang sedang diuji, jadi jangan dibuang.
+    $rab = buatRabLewatApi($this, denganBawaan: true);
 
     expect(collect($rab['ringkasan']['baris'])->pluck('nama')->sort()->values()->all())
         ->toBe(['Asuransi', 'Makan'])

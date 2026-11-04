@@ -707,6 +707,24 @@ class HitungRab
              | menelusuri seluruh baris sendiri.
              */
             'ada_harga_salah_hari' => $baris->contains(fn ($b) => $b['harga_sebab_seharusnya'] !== null),
+            /*
+             | Baris yang harganya masih NOL.
+             |
+             | Item yang selalu ikut — dokumentasi, P3K, banner, tour leader —
+             | masuk sendiri ke tiap RAB lewat tanda `otomatis` di master
+             | harga, dan sebagiannya sengaja dibuat berharga nol supaya
+             | admin mengisinya sendiri. Sampai diisi, barisnya ADA di layar
+             | dan IKUT tercetak sebagai "sudah termasuk" di penawaran, tetapi
+             | tidak menyumbang satu rupiah pun ke modal.
+             |
+             | Itulah bentuk kesalahan yang paling mahal di sini: penawaran
+             | yang menjanjikan banner dan P3K dengan harga jual yang tidak
+             | pernah menghitung keduanya. Nol bukan kesalahan — gratis itu
+             | ada — jadi yang benar menyebut namanya, bukan menolak
+             | menghitung.
+             */
+            'harga_nol' => $baris->filter(fn ($b) => (int) $b['harga_satuan'] === 0)
+                ->pluck('nama')->values()->all(),
             'nego_aktif' => $negoAktif,
             'alasan_nego' => $rab->alasan_nego,
             // Kesepakatan yang sudah di bawah modal. Bukan larangan — tanda.

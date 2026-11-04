@@ -1,7 +1,9 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /*
@@ -36,6 +38,26 @@ pest()->extend(TestCase::class)
         // Jaring pengaman: permintaan keluar yang tidak distub menggagalkan uji,
         // bukan diam-diam berhasil.
         Http::preventStrayRequests();
+
+        /*
+         | Item wajib dikosongkan dari DB uji.
+         |
+         | Migrasi 2026_11_04_090000 menanam empat master harga bertanda
+         | `otomatis` — dokumentasi, P3K, banner, tour leader — supaya setiap
+         | RAB di PRODUKSI lahir sudah membawanya. Di sini keempatnya jadi
+         | latar yang ikut terhitung di mana-mana: daftar master harga
+         | bertambah empat, penyaring dan pengurutnya bergeser, dan "tarik
+         | biaya" menariknya lagi. Enam belas uji memerah bukan karena ada
+         | yang rusak, melainkan karena latarnya berubah.
+         |
+         | Yang dihapus HANYA yang bertanda `otomatis`, dan perilakunya tetap
+         | diuji tersendiri di ItemWajibTiapRabTest yang menanamnya kembali.
+         | Jadi ini bukan menyembunyikan fitur dari uji — ini memisahkan latar
+         | dari yang sedang diuji.
+         */
+        if (Schema::hasTable('tbl_master_harga')) {
+            DB::table('tbl_master_harga')->where('otomatis', true)->delete();
+        }
     })
     ->in('Feature');
 
