@@ -2,6 +2,7 @@
 
 namespace App\Models\Rab;
 
+use App\Support\Rab\PaketDariRab;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -24,7 +25,7 @@ class Rab extends Model
         'jumlah_peserta', 'peserta_minimum', 'harga_dasar',
         'margin_jenis', 'margin_nilai', 'pembulatan', 'harga_nego', 'alasan_nego',
         'catatan', 'catatan_penawaran', 'status', 'berlaku_sampai',
-        'kode_pendaftaran', 'dibuat_oleh',
+        'kode_pendaftaran', 'travel_package_id', 'dibuat_oleh',
     ];
 
     /**
@@ -71,6 +72,21 @@ class Rab extends Model
             $rab->kode ??= self::kodeBaru();
             $rab->berlaku_sampai ??= now()->addDays((int) config('orcha.rab.berlaku_hari', 14))->toDateString();
             $rab->pembulatan = $rab->pembulatan ?: (int) config('orcha.rab.pembulatan', 1000);
+        });
+
+        /*
+         | Kepala RAB berubah — judul, tanggal, jumlah hari, peserta minimum,
+         | margin — paket yang dirakit darinya ikut menyesuaikan.
+         |
+         | Dibatasi pada RAB yang MEMANG punya paket, dan dilewati saat yang
+         | berubah cuma kolom tautannya sendiri: tanpa itu, menautkan paket
+         | akan memanggil penyelarasan yang menulis balik ke RAB yang sedang
+         | disimpan, dan hook-nya memanggil dirinya sendiri.
+         */
+        static::updated(function (self $rab) {
+            if ($rab->travel_package_id && $rab->wasChanged() && ! $rab->wasChanged('travel_package_id')) {
+                PaketDariRab::selaraskan($rab);
+            }
         });
     }
 

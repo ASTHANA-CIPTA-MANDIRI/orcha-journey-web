@@ -18,6 +18,7 @@ use App\Models\Rab\VersiPenawaran;
 use App\Support\Rab\BerkasRab;
 use App\Support\Rab\HargaHari;
 use App\Support\Rab\HitungRab;
+use App\Support\Rab\PaketDariRab;
 use App\Support\RincianBiaya;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -1269,6 +1270,58 @@ class RabController extends ApiController
      * yang berbeda beberapa rupiah dari penawaran yang disetujui pelanggan
      * adalah selisih yang tidak bisa dijelaskan siapa pun kelak.
      */
+    /**
+     * Merakit paket wisata publik dari RAB ini.
+     *
+     * Sampai sekarang open trip yang sudah lengkap di RAB tetap harus diketik
+     * ulang ke borang paket — dua puluhan kolom berikut seluruh itinerary —
+     * supaya bisa didaftari lewat halaman publik. Yang mahal bukan mengetiknya,
+     * melainkan dua sumber untuk angka yang sama sesudahnya.
+     *
+     * Paketnya lahir sebagai DRAF. Foto, kuota, dan titik jemput tidak ada di
+     * RAB, dan paket yang tayang tanpa ketiganya terlihat rusak di mata calon
+     * pelanggan — sekali terlihat tidak bisa ditarik. Menerbitkan tetap
+     * keputusan manusia, satu klik berikutnya di borang paket.
+     */
+    public function jadikanPaket(Rab $rab, Request $request): JsonResponse
+    {
+        if ($rab->travel_package_id && TravelPackage::whereKey($rab->travel_package_id)->exists()) {
+            return response()->json([
+                'pesan' => 'RAB ini sudah punya paket wisata. Perubahan di RAB langsung ikut ke paketnya.',
+                'data' => ['id' => $rab->travel_package_id],
+            ], 422);
+        }
+
+        if ($rab->jenis !== 'open') {
+            return response()->json([
+                'pesan' => 'Hanya open trip yang bisa dijadikan paket publik. Private trip dipesan atas nama satu rombongan, bukan dibuka untuk umum.',
+            ], 422);
+        }
+
+        $r = HitungRab::ringkas($rab);
+
+        if ($r['modal_total'] <= 0) {
+            return response()->json(['pesan' => 'RAB ini belum berisi biaya apa pun.'], 422);
+        }
+
+        if ($rab->itinerary()->count() === 0) {
+            return response()->json([
+                'pesan' => 'Jadwalnya masih kosong. Halaman paket menampilkan itinerary hari per hari — tanpa itu calon peserta tidak punya apa pun untuk dibaca.',
+            ], 422);
+        }
+
+        $paket = PaketDariRab::buat($rab);
+
+        $this->catat($request, 'jadikan rab paket wisata', [
+            'rab' => $rab->kode, 'paket' => $paket->name, 'paket_id' => $paket->id,
+        ]);
+
+        return response()->json([
+            'data' => ['id' => $paket->id, 'uuid' => $paket->uuid, 'nama' => $paket->name, 'status' => $paket->status],
+            'pesan' => 'Paket "'.$paket->name.'" dibuat sebagai draf. Lengkapi foto, kuota, dan titik jemputnya, lalu terbitkan.',
+        ], 201);
+    }
+
     public function jadikanPendaftaran(Rab $rab, Request $request): JsonResponse
     {
         if ($rab->kode_pendaftaran) {
@@ -1561,6 +1614,27 @@ class RabController extends ApiController
             'berlaku_sampai' => $rab->berlaku_sampai?->toDateString(),
             'kedaluwarsa' => $rab->berlaku_sampai?->isPast() && in_array($rab->status, ['draf', 'dikirim'], true),
             'kode_pendaftaran' => $rab->kode_pendaftaran,
+            /*
+             | Paket wisata yang dirakit dari RAB ini, bila ada.
+             |
+             | Statusnya ikut dikirim karena itu yang menentukan apakah orang
+             | sudah bisa mendaftar: paket draf tidak pernah muncul di halaman
+             | publik, dan layar perlu bisa mengatakan itu dengan jelas
+             | daripada membiarkan admin mengira trip-nya sudah terbuka.
+             */
+            'paket' => (function () use ($rab) {
+                $paket = $rab->travel_package_id
+                    ? TravelPackage::find($rab->travel_package_id)
+                    : null;
+
+                return $paket ? [
+                    'id' => $paket->id,
+                    'uuid' => $paket->uuid,
+                    'nama' => $paket->name,
+                    'status' => $paket->status,
+                    'tayang' => $paket->sedang_tayang,
+                ] : null;
+            })(),
             'dibuat_oleh' => $rab->dibuat_oleh,
             'dibuat_pada' => $rab->created_at?->toIso8601String(),
         ];

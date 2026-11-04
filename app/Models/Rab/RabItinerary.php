@@ -2,6 +2,7 @@
 
 namespace App\Models\Rab;
 
+use App\Support\Rab\PaketDariRab;
 use Illuminate\Database\Eloquent\Model;
 
 class RabItinerary extends Model
@@ -9,6 +10,37 @@ class RabItinerary extends Model
     protected $table = 'tbl_rab_itinerary';
 
     protected $fillable = ['rab_id', 'hari_ke', 'urutan', 'jam', 'jam_selesai', 'nama', 'keterangan', 'destinasi'];
+
+    protected static function booted(): void
+    {
+        static::saved(fn (self $k) => self::selaraskanPaket($k->rab));
+        static::deleted(fn (self $k) => self::selaraskanPaket($k->rab));
+    }
+
+    /**
+     * Paket wisata yang dirakit dari RAB ini ikut diperbarui.
+     *
+     * Penyelarasan dipasang di MODEL, bukan di tiap titik API, karena RAB
+     * berubah dari belasan tempat — tambah biaya, ubah harga, hapus baris,
+     * susun ulang, tarik biaya, simpan jadwal, pulihkan versi. Memanggilnya
+     * satu per satu di sana berarti yang lupa dipasang akan diam-diam
+     * membiarkan paket publik memuat harga yang sudah tidak berlaku, dan
+     * tidak ada galat yang memberi tahu.
+     *
+     * Pendaftar yang sudah ada tidak terpengaruh: PendaftaranOpenTrip
+     * membekukan harga_jual dan harga_modal miliknya sendiri saat dibuat.
+     */
+    protected static function selaraskanPaket(?Rab $rab): void
+    {
+        if ($rab && $rab->travel_package_id) {
+            PaketDariRab::selaraskan($rab);
+        }
+    }
+
+    public function rab()
+    {
+        return $this->belongsTo(Rab::class, 'rab_id');
+    }
 
     /**
      * Lamanya kegiatan, dihitung — bukan disimpan.
