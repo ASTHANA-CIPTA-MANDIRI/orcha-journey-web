@@ -110,14 +110,25 @@
         background-color: {{ $kabut }}; font-size: 7.5px; letter-spacing: 1.2px; text-transform: uppercase;
         font-weight: bold; color: {{ $ocean }}; border-bottom: 1px solid #dbe7f0;
     }
-    .keg .jam { width: 86px; font-family: Courier, monospace; font-weight: bold; color: {{ $ocean }}; font-size: 9.5px; }
+    /* Jam & durasi DITENGAHKAN, tujuan & kegiatan rata kiri.
+
+       Empat kolom yang semuanya rata kiri membuat tiap kolom berakhir di
+       tempat yang berbeda-beda, dan tabelnya terbaca compang-camping di
+       sisi kanan tiap kolom. Jam dan durasi panjangnya seragam, jadi
+       keduanya justru paling rapi saat ditengahkan — dan kolom yang isinya
+       sempit berhenti menyisakan pita kosong di kanannya sendiri. */
+    .keg .jam { width: 92px; font-family: Courier, monospace; font-weight: bold; color: {{ $ocean }}; font-size: 9.5px; text-align: center; }
     .keg-kepala .jam, .keg-kepala .lama { font-family: Helvetica, Arial, sans-serif; }
-    .keg .lama { width: 58px; }
+    .keg .lama { width: 62px; text-align: center; }
     .pil-lama {
         display: inline-block; background-color: #eef4f9; color: {{ $ocean }};
         font-size: 7.5px; font-weight: bold; padding: 2px 6px 3px; border-radius: 7px;
     }
-    .keg .tuju { width: 168px; }
+    /* 186px, bukan 168: nama tempat yang panjang ("Baluran, Savana Bekol,
+       & Pantai Bama") melipat jadi dua baris di 168px, sementara kolom
+       kegiatan di sebelahnya menyisakan pita kosong di kanan hampir tiap
+       barisnya. Lebarnya dipindahkan ke tempat yang memang memakainya. */
+    .keg .tuju { width: 186px; }
     .keg .nama { font-weight: bold; color: {{ $navy }}; font-size: 9.5px; }
     .keg .ket { color: #64748b; font-size: 9px; line-height: 1.5; }
     .keg .kosong { color: #cbd5e1; }
@@ -132,12 +143,21 @@
     }
     .rute td { padding: 5px 12px; border-bottom: 1px solid #f2f6fa; vertical-align: middle; }
     .rute tr:last-child td { border-bottom: none; }
-    .rute-no { width: 26px; padding-right: 0; }
-    .bulat-no {
-        display: inline-block; width: 15px; height: 15px; border-radius: 8px;
-        color: #fff; font-size: 8px; font-weight: bold; text-align: center; line-height: 15px;
+    .rute-no { width: 30px; padding-left: 12px; padding-right: 0; text-align: center; }
+    /* Lingkaran nomor dirakit sebagai TABEL satu sel, bukan inline-block
+       ber-line-height.
+
+       dompdf tidak menengahkan isi inline-block lewat line-height: angkanya
+       duduk di sepertiga atas lingkaran, dan itu baru terlihat setelah
+       PDF-nya benar-benar dicetak — di peramban tampak benar. Sel tabel
+       dengan vertical-align: middle ditengahkan dompdf dengan benar. */
+    .bulat-no { width: 15px; height: 15px; border-radius: 8px; }
+    .bulat-no td {
+        width: 15px; height: 15px; padding: 0; border: none;
+        color: #fff; font-size: 8px; font-weight: bold;
+        text-align: center; vertical-align: middle;
     }
-    .rute-jam { width: 92px; font-family: Courier, monospace; font-size: 8.5px; color: {{ $ocean }}; font-weight: bold; }
+    .rute-jam { width: 86px; font-family: Courier, monospace; font-size: 8.5px; color: {{ $ocean }}; font-weight: bold; text-align: center; }
     .rute-nama { font-size: 9.5px; color: {{ $navy }}; font-weight: bold; }
 
     /* ---------- termasuk ---------- */
@@ -328,7 +348,9 @@
                             @foreach ($hr['titik'] as $t)
                                 @php [$labelT, $warnaT] = $rupa[$t['jenis']]; @endphp
                                 <tr>
-                                    <td class="rute-no"><span class="bulat-no" style="background-color: {{ $warnaT }}">{{ $t['no'] }}</span></td>
+                                    <td class="rute-no">
+                                        <table class="bulat-no" style="background-color: {{ $warnaT }}"><tr><td>{{ $t['no'] }}</td></tr></table>
+                                    </td>
                                     <td class="rute-jam">{{ $t['waktu'] }}</td>
                                     <td class="rute-nama">{{ $aman($t['nama']) }}</td>
                                 </tr>

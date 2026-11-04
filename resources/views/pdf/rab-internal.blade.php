@@ -129,11 +129,14 @@
         background-color: {{ $kabut }}; font-size: 7px; letter-spacing: 1.1px; text-transform: uppercase;
         font-weight: bold; color: {{ $ocean }}; border-bottom: 1px solid #dbe7f0;
     }
-    .keg .jam { width: 80px; font-family: Courier, monospace; font-weight: bold; color: {{ $ocean }}; font-size: 9px; }
+    /* Jam & durasi ditengahkan — sama alasannya dengan berkas penawaran:
+       empat kolom rata kiri membuat sisi kanan tiap kolom compang-camping,
+       sedangkan jam dan durasi panjangnya seragam. */
+    .keg .jam { width: 86px; font-family: Courier, monospace; font-weight: bold; color: {{ $ocean }}; font-size: 9px; text-align: center; }
     .keg-kepala .jam, .keg-kepala .lama { font-family: Helvetica, Arial, sans-serif; }
-    .keg .lama { width: 54px; }
+    .keg .lama { width: 58px; text-align: center; }
     .pil-lama { display: inline-block; background-color: #eef4f9; color: {{ $ocean }}; font-size: 7px; font-weight: bold; padding: 2px 5px 3px; border-radius: 6px; }
-    .keg .tuju { width: 162px; }
+    .keg .tuju { width: 178px; }
     .keg .nama { font-weight: bold; color: {{ $navy }}; font-size: 9px; }
     .keg .dest { color: #94a3b8; font-size: 8px; }
     .keg .ket { color: #64748b; font-size: 8.5px; line-height: 1.45; }
@@ -164,9 +167,17 @@
     }
     .rute td { padding: 4px 11px; border-bottom: 1px solid #f2f6fa; vertical-align: middle; }
     .rute tr:last-child td { border-bottom: none; }
-    .rute-no { width: 24px; padding-right: 0; }
-    .bulat-no { display: inline-block; width: 14px; height: 14px; border-radius: 7px; color: #fff; font-size: 7.5px; font-weight: bold; text-align: center; line-height: 14px; }
-    .rute-jam { width: 86px; font-family: Courier, monospace; font-size: 8px; color: {{ $ocean }}; font-weight: bold; }
+    .rute-no { width: 28px; padding-left: 12px; padding-right: 0; text-align: center; }
+    /* Sama seperti di berkas penawaran: dompdf tidak menengahkan isi
+       inline-block lewat line-height, jadi lingkarannya dirakit sebagai
+       tabel satu sel. */
+    .bulat-no { width: 14px; height: 14px; border-radius: 7px; }
+    .bulat-no td {
+        width: 14px; height: 14px; padding: 0; border: none;
+        color: #fff; font-size: 7.5px; font-weight: bold;
+        text-align: center; vertical-align: middle;
+    }
+    .rute-jam { width: 82px; font-family: Courier, monospace; font-size: 8px; color: {{ $ocean }}; font-weight: bold; text-align: center; }
     .rute-nama { font-size: 9px; color: {{ $navy }}; font-weight: bold; }
 
     .kaki-luar { position: fixed; bottom: -56px; left: 0; right: 0; }
@@ -550,7 +561,9 @@
                         @foreach ($hr['titik'] as $t)
                             @php [$labelT, $warnaT] = $rupa[$t['jenis']]; @endphp
                             <tr>
-                                <td class="rute-no"><span class="bulat-no" style="background-color: {{ $warnaT }}">{{ $t['no'] }}</span></td>
+                                <td class="rute-no">
+                                    <table class="bulat-no" style="background-color: {{ $warnaT }}"><tr><td>{{ $t['no'] }}</td></tr></table>
+                                </td>
                                 <td class="rute-jam">{{ $t['waktu'] }}</td>
                                 <td class="rute-nama">{{ $aman($t['nama']) }}</td>
                             </tr>

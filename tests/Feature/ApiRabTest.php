@@ -2628,3 +2628,82 @@ test('hari ikut berpindah saat kunjungannya dipindah', function () {
 
     expect($baris['hari'])->toBe([3]);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Rupa berkas PDF
+|--------------------------------------------------------------------------
+*/
+
+test('nomor urutan singgah dirakit sebagai sel tabel, bukan inline-block', function () {
+    /*
+     | dompdf TIDAK menengahkan isi inline-block lewat line-height: angkanya
+     | duduk di sepertiga atas lingkaran. Di peramban tampak benar, jadi
+     | cacatnya hanya terlihat sesudah PDF-nya betul-betul dicetak — dan
+     | itu jenis cacat yang bertahan berbulan-bulan.
+     |
+     | Dijaga di sumber templatnya: yang rusak kalau seseorang
+     | mengembalikannya ke <span> adalah rupa, dan rupa tidak menerbitkan
+     | galat apa pun.
+     */
+    foreach (['rab-penawaran', 'rab-internal'] as $berkas) {
+        $templat = file_get_contents(resource_path("views/pdf/{$berkas}.blade.php"));
+
+        $aturan = substr($templat, strpos($templat, '.bulat-no'), 420);
+
+        expect($aturan)->toContain('vertical-align: middle')
+            ->and($aturan)->not->toContain('line-height')
+            ->and($templat)->toContain('<table class="bulat-no"');
+    }
+});
+
+test('kolom jam & durasi ditengahkan di kedua berkas', function () {
+    /*
+     | Empat kolom yang semuanya rata kiri membuat sisi kanan tiap kolom
+     | compang-camping. Jam dan durasi panjangnya seragam, jadi keduanya
+     | paling rapi saat ditengahkan.
+     */
+    foreach (['rab-penawaran', 'rab-internal'] as $berkas) {
+        $templat = file_get_contents(resource_path("views/pdf/{$berkas}.blade.php"));
+
+        $jam = substr($templat, strpos($templat, '.keg .jam {'), 200);
+        $lama = substr($templat, strpos($templat, '.keg .lama {'), 120);
+
+        expect($jam)->toContain('text-align: center')
+            ->and($lama)->toContain('text-align: center');
+    }
+});
+
+test('kolom tujuan cukup lebar untuk nama tempat yang panjang', function () {
+    /*
+     | "Baluran, Savana Bekol, & Pantai Bama" melipat jadi dua baris di
+     | 168px, sementara kolom kegiatan di sebelahnya menyisakan pita kosong
+     | di kanan hampir tiap barisnya.
+     */
+    foreach ([['rab-penawaran', 180], ['rab-internal', 172]] as [$berkas, $minimal]) {
+        $templat = file_get_contents(resource_path("views/pdf/{$berkas}.blade.php"));
+
+        preg_match('/\.keg \.tuju \{ width: (\d+)px/', $templat, $m);
+
+        expect($m)->not->toBeEmpty()
+            ->and((int) $m[1])->toBeGreaterThanOrEqual($minimal);
+    }
+});
+
+test('kedua berkas PDF tetap bisa dirakit utuh', function () {
+    $m = masterUji(['harga' => 100_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Baluran, Savana Bekol, & Pantai Bama', 'jam' => '08:00',
+            'jam_selesai' => '10:00', 'destinasi' => 'Baluran'],
+    ]], kepalaRab())->assertOk();
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id, 'jumlah' => 1], kepalaRab())->assertOk();
+
+    foreach (['penawaran', 'internal'] as $jenis) {
+        $isi = BerkasRab::buat(Rab::find($rab['id']), $jenis);
+
+        expect(substr($isi, 0, 4))->toBe('%PDF')
+            ->and(strlen($isi))->toBeGreaterThan(5_000);
+    }
+});
