@@ -70,10 +70,20 @@
     .untuk b { color: {{ $navy }}; }
 
     /* ---------- ubin fakta ---------- */
-    .ubin td { width: 25%; padding: 0 4px; vertical-align: top; }
-    .ubin td:first-child { padding-left: 0; }
-    .ubin td:last-child { padding-right: 0; }
-    .ubin-isi { background-color: {{ $kabut }}; border: 1px solid #dbe7f0; border-top: 3px solid {{ $ocean }}; padding: 10px 12px 11px; height: 34px; }
+    /* Kartunya adalah SELNYA sendiri — lihat catatan yang sama di
+       rab-internal.blade.php. Sel sebaris selalu setinggi yang tertinggi,
+       jadi `height: 34px` yang dulu menyamakan tingginya tidak diperlukan
+       lagi: patokan tetap itu justru memotong isi begitu nama tujuannya
+       cukup panjang untuk turun ke baris kedua. Jarak antarkartu kini kolom
+       tersendiri, supaya keempatnya selebar yang sama DAN rata di kedua
+       ujung — dua hal yang tidak bisa dipenuhi sekaligus oleh padding sel. */
+    .ubin { width: 100%; table-layout: fixed; border-collapse: collapse; }
+    .ubin td.ubin-sel {
+        width: 23.5%; vertical-align: top;
+        background-color: {{ $kabut }}; border: 1px solid #dbe7f0;
+        border-top: 3px solid {{ $ocean }}; padding: 10px 12px 11px;
+    }
+    .ubin td.ubin-sela { width: 2%; padding: 0; border: 0; }
     .ubin-label { font-size: 7px; letter-spacing: 1.6px; color: #94a3b8; text-transform: uppercase; font-weight: bold; }
     .ubin-nilai { font-size: 12.5px; color: {{ $navy }}; font-weight: bold; padding-top: 4px; }
 
@@ -264,10 +274,13 @@
 
     {{-- ======================= UBIN FAKTA ======================= --}}
     <table class="ubin" style="margin-top:18px"><tr>
-        <td><div class="ubin-isi"><div class="ubin-label">Tujuan</div><div class="ubin-nilai">{{ $aman($tujuan) }}</div></div></td>
-        <td><div class="ubin-isi"><div class="ubin-label">Tanggal</div><div class="ubin-nilai">{{ $rentang ?? 'Menyesuaikan' }}</div></div></td>
-        <td><div class="ubin-isi"><div class="ubin-label">Durasi</div><div class="ubin-nilai">{{ $durasi }}</div></div></td>
-        <td><div class="ubin-isi"><div class="ubin-label">Peserta</div><div class="ubin-nilai">{{ $rab->jumlah_peserta }} orang</div></div></td>
+        <td class="ubin-sel"><div class="ubin-label">Tujuan</div><div class="ubin-nilai">{{ $aman($tujuan) }}</div></td>
+        <td class="ubin-sela"></td>
+        <td class="ubin-sel"><div class="ubin-label">Tanggal</div><div class="ubin-nilai">{{ $rentang ?? 'Menyesuaikan' }}</div></td>
+        <td class="ubin-sela"></td>
+        <td class="ubin-sel"><div class="ubin-label">Durasi</div><div class="ubin-nilai">{{ $durasi }}</div></td>
+        <td class="ubin-sela"></td>
+        <td class="ubin-sel"><div class="ubin-label">Peserta</div><div class="ubin-nilai">{{ $rab->jumlah_peserta }} orang</div></td>
     </tr></table>
 
     {{-- ======================= ITINERARY ======================= --}}

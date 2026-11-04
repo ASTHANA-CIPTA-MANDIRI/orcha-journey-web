@@ -115,8 +115,10 @@ test('bagian termasuk tidak menyisakan kolom kosong', function () {
 
         $html = rabPenawaran($isi);
 
-        expect($html)->not->toContain('<td></td>', "jumlah {$banyak} menyisakan sel kosong")
-            ->and(substr_count($html, 'class="termasuk-kotak"'))->toBe($banyak);
+        // toContain() menerima BANYAK jarum, bukan pesan — pesannya di toBe.
+        expect($html)->not->toContain('<td></td>')
+            ->and(substr_count($html, 'class="termasuk-kotak"'))
+            ->toBe($banyak, "jumlah {$banyak} menyisakan sel kosong");
     }
 });
 

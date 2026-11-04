@@ -69,10 +69,24 @@
     .sub { font-size: 9.5px; color: #64748b; padding-top: 4px; }
     .sub b { color: {{ $navy }}; }
 
-    .ubin td { width: 20%; padding: 0 4px; vertical-align: top; }
-    .ubin td:first-child { padding-left: 0; }
-    .ubin td:last-child { padding-right: 0; }
-    .ubin-isi { background-color: {{ $kabut }}; border: 1px solid #dbe7f0; padding: 9px 11px; }
+    /* Kartunya adalah SELNYA sendiri, bukan div di dalam sel.
+       Dua sebab, keduanya kelihatan di berkas jadi:
+       1. Tinggi. Sel-sel dalam satu baris selalu setinggi yang tertinggi,
+          sedangkan div di dalamnya hanya setinggi isinya — jadi kartu yang
+          keterangannya dua baris ("biaya tetap ... ÷ ...") berdiri lebih
+          tinggi daripada empat tetangganya.
+       2. Lebar. Jarak antarkartu dulu dibuat dari padding sel, lalu padding
+          itu dicabut di sel pertama dan terakhir supaya rata dengan tepi
+          halaman. Akibatnya kartu pertama 8px lebih lebar daripada yang di
+          tengah — selisih yang tidak pernah kelihatan di layar, tetapi jelas
+          di PDF. Sekarang jaraknya kolom tersendiri, jadi kelima kartu
+          benar-benar selebar yang sama dan tetap rata di kedua ujung. */
+    .ubin { width: 100%; table-layout: fixed; border-collapse: collapse; }
+    .ubin td.ubin-sel {
+        width: 18.4%; vertical-align: top;
+        background-color: {{ $kabut }}; border: 1px solid #dbe7f0; padding: 9px 11px;
+    }
+    .ubin td.ubin-sela { width: 2%; padding: 0; border: 0; }
     .ubin-label { font-size: 6.5px; letter-spacing: 1.5px; color: #94a3b8; text-transform: uppercase; font-weight: bold; }
     .ubin-nilai { font-size: 13px; color: {{ $navy }}; font-weight: bold; padding-top: 3px; }
     .ubin-ket { font-size: 7.5px; color: #64748b; padding-top: 2px; }
@@ -104,6 +118,18 @@
     .hitung .untung td { color: {{ $hijau }}; font-weight: bold; }
 
     .kotak { border: 1px solid #e2eaf1; padding: 10px 12px; }
+    /* Dua kotak berdampingan — alasannya sama dengan .ubin di atas: sel
+       sebaris selalu setinggi yang tertinggi, sedangkan div di dalam sel
+       hanya setinggi isinya. "Perhitungan harga" punya tujuh baris dan
+       "Bila dijadikan pendaftaran" tiga, jadi yang kanan dulu berhenti di
+       tengah dan menyisakan lubang putih di bawahnya. */
+    .duo { width: 100%; table-layout: fixed; border-collapse: collapse; }
+    .duo td.duo-sel { vertical-align: top; border: 1px solid #e2eaf1; padding: 10px 12px; }
+    .duo td.duo-sela { width: 2%; padding: 0; border: 0; }
+    .duo-nota { font-size: 7.5px; color: #94a3b8; padding-top: 6px; }
+    /* Dipisah garis, bukan jadi kotak tersendiri: kotak di dalam sel akan
+       mengembalikan persis masalah yang baru saja dibereskan. */
+    .duo-tanda { margin-top: 9px; border-top: 1px solid #bfe3cc; padding-top: 7px; }
     .kotak-judul { font-size: 8px; letter-spacing: 1.5px; color: {{ $ocean }}; text-transform: uppercase; font-weight: bold; padding-bottom: 6px; }
     .peringatan { margin-top: 12px; border-left: 3px solid {{ $merah }}; background-color: #fef3f2; padding: 8px 12px; font-size: 9px; color: {{ $merah }}; }
     .catatan { margin-top: 12px; border-left: 3px solid {{ $emas }}; background-color: #fffbf0; padding: 8px 12px; font-size: 9px; color: #5b4a1a; line-height: 1.55; }
@@ -235,22 +261,25 @@
     </div>
 
     <table class="ubin" style="margin-top:14px"><tr>
-        <td><div class="ubin-isi">
+        <td class="ubin-sel">
             <div class="ubin-label">Modal total</div>
             <div class="ubin-nilai">{{ $r['modal_total_teks'] }}</div>
             <div class="ubin-ket">{{ $r['modal_per_kepala_teks'] }} per kepala</div>
-        </div></td>
-        <td><div class="ubin-isi" style="border-top:3px solid {{ $emas }}">
+        </td>
+        <td class="ubin-sela"></td>
+        <td class="ubin-sel" style="border-top:3px solid {{ $emas }}">
             <div class="ubin-label">Harga jual / orang</div>
             <div class="ubin-nilai">{{ $r['harga_per_orang_teks'] }}</div>
             <div class="ubin-ket">dibulatkan ke {{ $rp($rab->pembulatan) }}</div>
-        </div></td>
-        <td><div class="ubin-isi">
+        </td>
+        <td class="ubin-sela"></td>
+        <td class="ubin-sel">
             <div class="ubin-label">Harga total</div>
             <div class="ubin-nilai">{{ $r['harga_total_teks'] }}</div>
             <div class="ubin-ket">{{ $rab->jumlah_peserta }} × {{ $r['harga_per_orang_teks'] }}</div>
-        </div></td>
-        <td><div class="ubin-isi" style="border-top:3px solid {{ ($r['bep_tercapai'] ?? false) ? $hijau : $merah }}">
+        </td>
+        <td class="ubin-sela"></td>
+        <td class="ubin-sel" style="border-top:3px solid {{ ($r['bep_tercapai'] ?? false) ? $hijau : $merah }}">
             <div class="ubin-label">Balik modal mulai</div>
             <div class="ubin-nilai" style="color:{{ ($r['bep_tercapai'] ?? false) ? $hijau : $merah }}">
                 {{ $r['bep_peserta'] !== null ? $r['bep_peserta'].' peserta' : '-' }}
@@ -262,12 +291,13 @@
                     harga belum menutup biaya per orang
                 @endif
             </div>
-        </div></td>
-        <td><div class="ubin-isi" style="border-top:3px solid {{ $hijau }}">
+        </td>
+        <td class="ubin-sela"></td>
+        <td class="ubin-sel" style="border-top:3px solid {{ $hijau }}">
             <div class="ubin-label">Untung</div>
             <div class="ubin-nilai" style="color:{{ $hijau }}">{{ $r['untung_teks'] }}</div>
             <div class="ubin-ket">{{ $r['persen_untung'] !== null ? str_replace('.', ',', $r['persen_untung']).'% dari modal' : '-' }}</div>
-        </div></td>
+        </td>
     </tr></table>
 
     @if ($r['ada_harga_basi'])
@@ -338,9 +368,8 @@
     </div>
 
     {{-- ======================= PERHITUNGAN HARGA ======================= --}}
-    <table style="margin-top:18px; page-break-inside:avoid"><tr>
-        <td style="width:56%; vertical-align:top; padding-right:10px">
-            <div class="kotak">
+    <table class="duo" style="margin-top:18px; page-break-inside:avoid"><tr>
+        <td class="duo-sel" style="width:55%">
                 <div class="kotak-judul">Perhitungan harga</div>
                 <table class="hitung">
                     <tr><td>Modal variabel (dikali peserta)</td><td class="kanan">{{ $r['modal_variabel_teks'] }}</td></tr>
@@ -362,20 +391,18 @@
                     <tr class="besar"><td>Harga total</td><td class="kanan">{{ $r['harga_total_teks'] }}</td></tr>
                     <tr class="untung"><td>Untung bersih</td><td class="kanan">{{ $r['untung_teks'] }}</td></tr>
                 </table>
-            </div>
         </td>
-        <td style="width:44%; vertical-align:top">
-            <div class="kotak">
+        <td class="duo-sela"></td>
+        <td class="duo-sel" style="width:43%">
                 <div class="kotak-judul">Bila dijadikan pendaftaran</div>
                 <table class="hitung">
                     <tr><td>Harga jual / orang</td><td class="kanan">{{ $rp($r['untuk_pendaftaran']['harga_jual']) }}</td></tr>
                     <tr><td>Harga modal / orang</td><td class="kanan">{{ $rp($r['untuk_pendaftaran']['harga_modal']) }}</td></tr>
                     <tr><td>Biaya tetap</td><td class="kanan">{{ $rp($r['untuk_pendaftaran']['biaya_tetap']) }}</td></tr>
                 </table>
-                <div style="font-size:7.5px; color:#94a3b8; padding:6px 10px 0">Modal pendaftaran = modal/orang × {{ $rab->jumlah_peserta }} + biaya tetap = {{ $r['modal_total_teks'] }}, sama persis dengan RAB.</div>
-            </div>
+                <div class="duo-nota">Modal pendaftaran = modal/orang × {{ $rab->jumlah_peserta }} + biaya tetap = {{ $r['modal_total_teks'] }}, sama persis dengan RAB.</div>
             @if ($rab->kode_pendaftaran)
-                <div class="kotak" style="margin-top:8px; border-color:#bfe3cc; background-color:#f1faf4">
+                <div class="duo-tanda">
                     <div class="kotak-judul" style="color:{{ $hijau }}; padding-bottom:2px">Sudah jadi pendaftaran</div>
                     <div style="font-family:Courier, monospace; font-weight:bold; color:{{ $navy }}">{{ $rab->kode_pendaftaran }}</div>
                 </div>
