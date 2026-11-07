@@ -25,11 +25,50 @@ class HitungRab
      * ke bawah berarti tiga orang tidak punya kursi; membulatkan ke atas memang
      * kenyataannya — unit kedua disewa utuh walau setengah kosong.
      */
-    public static function faktor(string $satuan, ?int $kapasitas, Rab $rab, ?int $unitManual = null): int
-    {
+    /**
+     | Satuan yang DIKALI durasi, jadi kotak malam/harinya berarti.
+     |
+     | Satu daftar untuk tiga pembaca: faktor(), ringkasan baris, dan
+     | validasi di RabController. Daftar kedua di salah satunya akan
+     | berselisih begitu satuan baru ditambahkan, dan yang kalah selalu
+     | validasinya — sama seperti satuan_berkapasitas dulu.
+     |
+     | 'unit' TIDAK di sini: tiket masuk kendaraan dibayar sekali di gerbang.
+     */
+    public const SATUAN_BERDURASI = ['orang_hari', 'hari', 'unit_hari', 'kamar_malam'];
+
+    public static function faktor(
+        string $satuan,
+        ?int $kapasitas,
+        Rab $rab,
+        ?int $unitManual = null,
+        ?int $malamManual = null,
+    ): int {
         $peserta = max(1, (int) $rab->jumlah_peserta);
         $hari = max(1, (int) $rab->jumlah_hari);
         $malam = max(0, (int) $rab->jumlah_malam);
+
+        /*
+         | Durasi yang DITENTUKAN admin mengalahkan panjang perjalanan.
+         |
+         | Memakai jumlah_malam untuk tiap baris benar selama satu akomodasi
+         | menutup seluruh perjalanan. Begitu rombongannya pindah menginap,
+         | Homestay 1 malam dan Sans Hotel 2 malam KEDUANYA tertagih 3 malam
+         | — enam malam dibayar untuk tiga malam menginap.
+         |
+         | Nol dibiarkan sebagai nol dan bukan dinaikkan jadi satu: "0 malam"
+         | adalah jawaban yang sah untuk baris yang batal dipakai tetapi
+         | sengaja ditahan di penawaran sebagai catatan. Keduanya diperlakukan
+         | sama — kalau hari dinaikkan ke 1 sementara malam dibiarkan 0, "0"
+         | yang sama berarti gratis di kartu hotel dan sehari penuh di kartu
+         | armada.
+         |
+         | NULL berarti "ikut perjalanan", jadi baris lama tidak berubah.
+         */
+        if ($malamManual !== null) {
+            $malam = max(0, $malamManual);
+            $hari = max(0, $malamManual);
+        }
 
         /*
          | Jumlah unit yang DITENTUKAN admin mengalahkan penurunan otomatis.
@@ -73,6 +112,20 @@ class HitungRab
         $peserta = max(1, (int) $rab->jumlah_peserta);
         $hari = max(1, (int) $rab->jumlah_hari);
         $malam = max(0, (int) $rab->jumlah_malam);
+
+        /*
+         | Kalimatnya harus memakai angka yang BENAR-BENAR dikalikan.
+         |
+         | "Rp 450.000 × 4 kamar × 3 malam" di bawah subtotal yang dihitung
+         | dari 2 malam adalah penjelasan yang membantah angkanya sendiri —
+         | dan yang dipercaya orang adalah kalimatnya, lalu subtotalnya
+         | dikira salah hitung.
+         */
+        if ($b->malam_manual !== null) {
+            $malam = max(0, (int) $b->malam_manual);
+            $hari = max(0, (int) $b->malam_manual);
+        }
+
         $unit = self::faktor('unit', $b->kapasitas, $rab, $b->unit_manual);
 
         $bagian = [RincianBiaya::rupiah($b->harga_satuan)];
@@ -303,7 +356,7 @@ class HitungRab
     public static function subtotal(RabBiaya $b, Rab $rab): int
     {
         return (int) $b->harga_satuan * max(1, (int) $b->jumlah)
-            * self::faktor($b->satuan, $b->kapasitas, $rab, $b->unit_manual);
+            * self::faktor($b->satuan, $b->kapasitas, $rab, $b->unit_manual, $b->malam_manual);
     }
 
     public static function variabel(string $satuan): bool
@@ -450,6 +503,62 @@ class HitungRab
         return $sisi;
     }
 
+    /**
+     * Akomodasi menutup berapa malam, dan apakah itu cukup.
+     *
+     * Penjaga yang LAHIR BERSAMA malam_manual, dan tidak boleh dikirim
+     * terpisah darinya.
+     *
+     * Sebelum kolom itu ada, kesalahan ini mustahil: tiap baris kamar_malam
+     * otomatis sepanjang perjalanan, jadi akomodasi selalu menutup semuanya.
+     * Begitu malamnya diisi tangan, perjalanan 3 malam dengan Homestay 1
+     * malam dan Sans Hotel 1 malam berarti SATU MALAM rombongan tidak tidur
+     * di mana pun — dan tidak ada satu pun angka yang salah, jadi tidak ada
+     * yang berbunyi. Penawarannya terkirim, dan yang menemukannya adalah
+     * tour leader pada pukul sembilan malam.
+     *
+     * Dihitung hanya dari baris kamar_malam: armada per hari boleh saja
+     * lebih pendek daripada perjalanan — rombongan yang naik kereta di hari
+     * terakhir memang tidak menyewa bus hari itu.
+     *
+     * Baris yang DIGANDAKAN untuk menutup malam yang sama — dua tipe kamar
+     * di hotel yang sama, satu malam — tidak boleh dihitung dua kali. Karena
+     * itu yang dijumlahkan malam TERBANYAK per nama akomodasi, bukan total
+     * seluruh baris.
+     *
+     * @return array{tertutup: int, perjalanan: int, cukup: bool}|null
+     */
+    private static function malamAkomodasi(Rab $rab): ?array
+    {
+        $perjalanan = max(0, (int) $rab->jumlah_malam);
+
+        $menginap = $rab->biaya->where('satuan', 'kamar_malam');
+
+        /*
+         | Tidak ada baris menginap sama sekali = tidak ada yang bisa
+         | dikatakan. Perjalanan sehari memang tidak punya akomodasi, dan
+         | penawaran yang belum diisi biayanya belum punya apa pun — menuduh
+         | keduanya "kurang 3 malam" adalah peringatan yang muncul sebelum
+         | ada yang bisa salah.
+         */
+        if ($menginap->isEmpty() || $perjalanan === 0) {
+            return null;
+        }
+
+        $tertutup = $menginap
+            ->groupBy(fn (RabBiaya $b) => mb_strtolower(trim((string) $b->nama)))
+            ->map(fn ($baris) => $baris->max(fn (RabBiaya $b) => $b->malam_manual !== null
+                ? max(0, (int) $b->malam_manual)
+                : $perjalanan))
+            ->sum();
+
+        return [
+            'tertutup' => (int) $tertutup,
+            'perjalanan' => $perjalanan,
+            'cukup' => (int) $tertutup >= $perjalanan,
+        ];
+    }
+
     public static function ringkas(Rab $rab): array
     {
         // biaya.master.musim ikut dimuat: tingkat harga sebuah baris dibaca
@@ -540,8 +649,23 @@ class HitungRab
                 // Jumlah unit yang ditentukan admin; null = diturunkan dari
                 // peserta seperti biasa.
                 'unit_manual' => $b->unit_manual,
+                /*
+                 | Berapa malam/hari baris ini dipakai; null = sepanjang
+                 | perjalanan.
+                 |
+                 | Dipulangkan apa adanya, BUKAN sudah diisi angka
+                 | perjalanan: layar perlu membedakan "sengaja 3 malam" dari
+                 | "ikut perjalanan yang kebetulan 3 malam". Keduanya
+                 | berperilaku beda saat panjang perjalanannya diubah.
+                 */
+                'malam_manual' => $b->malam_manual,
+                // Satuan ini dikali durasi, jadi kotak malam/harinya berarti.
+                // Dihitung di sini supaya layar tidak menyimpan daftar
+                // satuannya sendiri — daftar kedua yang akan berselisih.
+                'pakai_durasi' => in_array($b->satuan, self::SATUAN_BERDURASI, true),
+                'durasi_sebutan' => $b->satuan === 'kamar_malam' ? 'malam' : 'hari',
                 'jumlah' => $b->jumlah,
-                'faktor' => self::faktor($b->satuan, $b->kapasitas, $rab, $b->unit_manual),
+                'faktor' => self::faktor($b->satuan, $b->kapasitas, $rab, $b->unit_manual, $b->malam_manual),
                 'penjelasan' => self::penjelasan($b, $rab),
                 'subtotal' => $subtotal,
                 'subtotal_teks' => RincianBiaya::rupiah($subtotal),
@@ -841,6 +965,15 @@ class HitungRab
              | menelusuri seluruh baris sendiri.
              */
             'ada_harga_salah_hari' => $baris->contains(fn ($b) => $b['harga_sebab_seharusnya'] !== null),
+            /*
+             | Akomodasinya menutup berapa malam dari perjalanan ini.
+             |
+             | Dipulangkan walau sudah cukup: layar memakainya untuk berkata
+             | "3 dari 3 malam tertutup", dan konfirmasi yang terlihat jauh
+             | lebih menenangkan daripada tidak ada apa-apa di tempat yang
+             | kadang berisi peringatan.
+             */
+            'malam_akomodasi' => self::malamAkomodasi($rab),
             /*
              | Baris yang tanggalnya masuk MUSIM tetapi masternya belum punya
              | tarif musim itu.

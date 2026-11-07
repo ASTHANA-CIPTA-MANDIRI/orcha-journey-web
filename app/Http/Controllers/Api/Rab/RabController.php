@@ -484,6 +484,16 @@ class RabController extends ApiController
                 'tingkat_harga' => $b->tingkat_harga,
                 'musim_id' => $b->musim_id,
                 'kapasitas' => $b->kapasitas,
+                /*
+                 | Jumlah unit & malam yang ditentukan tangan ikut dipotret.
+                 |
+                 | Tanpa keduanya, versi yang dipulihkan kembali menghitung
+                 | otomatis: tiga kamar jadi lima, satu malam jadi tiga, dan
+                 | totalnya tidak lagi sama dengan yang dilihat pelanggan.
+                 | Penawaran yang dipulihkan harus sama PERSIS.
+                 */
+                'unit_manual' => $b->unit_manual,
+                'malam_manual' => $b->malam_manual,
                 'jumlah' => $b->jumlah,
                 'urutan' => $b->urutan,
                 'catatan' => $b->catatan,
@@ -782,6 +792,15 @@ class RabController extends ApiController
                  | yang masing-masing menginapkan SELURUH rombongan.
                  */
                 'unit_manual' => ['nullable', 'integer', 'min:1', 'max:500'],
+                /*
+                 | Berapa malam/hari biaya ini dipakai; kosong = ikut
+                 | panjang perjalanan.
+                 |
+                 | Justru biaya manual yang paling sering lebih pendek
+                 | daripada perjalanannya: homestay semalam di tengah trip
+                 | tiga malam, jip yang disewa sehari saja.
+                 */
+                'malam_manual' => ['nullable', 'integer', 'min:0', 'max:365'],
                 // Biaya manual pun punya vendornya sendiri — justru di sinilah
                 // vendor dadakan muncul: sewa perahu, sewa jip, pemandu lokal.
                 'vendor_id' => ['nullable', 'integer', 'exists:tbl_vendor,id'],
@@ -846,6 +865,16 @@ class RabController extends ApiController
                 'kapasitas' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:1000'],
                 // null mengembalikannya ke penurunan otomatis dari peserta.
                 'unit_manual' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:500'],
+                /*
+                 | Berapa malam/hari baris ini dipakai; null = ikut panjang
+                 | perjalanan.
+                 |
+                 | min:0, bukan min:1 — "0 malam" adalah jawaban yang sah
+                 | untuk baris yang batal dipakai tetapi sengaja ditahan di
+                 | penawaran sebagai catatan. Menolaknya memaksa admin
+                 | menghapus barisnya, dan catatannya ikut hilang.
+                 */
+                'malam_manual' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:365'],
                 'catatan' => ['sometimes', 'nullable', 'string', 'max:200'],
             ]);
             $biaya->update($data);

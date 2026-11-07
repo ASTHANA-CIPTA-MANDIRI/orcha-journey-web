@@ -270,7 +270,14 @@ class HargaHari
              | dengan tanggal kunjungannya, dan menyebutnya di sini hanya
              | menambah peringatan yang tidak punya jalan keluar.
              */
-            if (! in_array($m->satuan, self::SATUAN_PER_HARI, true)) {
+            /*
+             | Daftarnya milik HitungRab, bukan salinan di sini.
+             |
+             | Dua daftar satuan berdurasi akan berselisih begitu satuan baru
+             | ditambahkan — dan yang kalah adalah peringatan ini, yang
+             | berhenti menyebut satuan yang justru paling baru.
+             */
+            if (! in_array($m->satuan, HitungRab::SATUAN_BERDURASI, true)) {
                 continue;
             }
 
@@ -291,15 +298,6 @@ class HargaHari
 
         return $nama;
     }
-
-    /**
-     | Satuan yang DIKALI jumlah hari, jadi satu baris harus memegang
-     | beberapa hari sekaligus.
-     |
-     | Tiket sekali masuk tidak di sini: ia sudah benar dengan tanggal
-     | kunjungannya sendiri.
-     */
-    private const SATUAN_PER_HARI = ['orang_hari', 'hari', 'unit_hari', 'kamar_malam'];
 
     /**
      * Harga baris ini pada SETIAP hari perjalanan, tanpa kembar.
