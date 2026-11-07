@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\Rab;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Models\Rab\BatchMassal;
+use App\Models\Rab\HargaMusim;
 use App\Models\Rab\MasterHarga;
+use App\Models\Rab\MusimHarga;
 use App\Models\Rab\RabBiaya;
 use App\Models\Rab\RiwayatHarga;
 use App\Models\Rab\Vendor;
@@ -82,7 +84,9 @@ class MasterHargaController extends ApiController
     public function index(Request $request): JsonResponse
     {
         $daftar = $this->saring($request)
-            ->with('vendor')->withCount('biaya')
+            // musim.musim ikut: baris() menyebut nama & rentang musimnya,
+            // dan tanpa dimuat di sini jadi dua kueri per baris daftar.
+            ->with('vendor', 'musim.musim')->withCount('biaya')
             ->tap(fn ($q) => $this->urutkan($q, $request->string('urut')->toString()))
             ->paginate($this->perHalaman($request));
 
@@ -139,7 +143,16 @@ class MasterHargaController extends ApiController
             return $bentrok;
         }
 
-        $m = MasterHarga::create($data)->load('vendor')->loadCount('biaya');
+        $m = MasterHarga::create($data);
+
+        /*
+         | Tarif musim disimpan SESUDAH baris masternya ada: ia butuh
+         | master_harga_id. Perubahannya tidak dicatat ke riwayat di sini —
+         | baris yang baru dibuat tidak punya "dari".
+         */
+        $this->simpanHargaMusim($m, $request->input('harga_musim', []));
+
+        $m = $m->fresh()->load('vendor', 'musim.musim')->loadCount('biaya');
 
         $this->catat($request, 'tambah master harga', ['nama' => $m->nama, 'harga' => $m->harga]);
 
@@ -159,15 +172,25 @@ class MasterHargaController extends ApiController
         $sebelum = $master->replicate();
         $master->update($data);
 
+        /*
+         | Tarif musim ikut dicatat lewat jalur riwayat yang SAMA.
+         |
+         | Bentuknya sengaja sama dengan bedakan() — ['medan','dari','ke'] —
+         | supaya layar riwayat tidak perlu tahu bahwa musim itu hal baru.
+         | Riwayat yang punya dua bentuk akan menampilkan salah satunya kosong
+         | begitu layarnya diubah, dan tidak ada yang akan menyadari mana.
+         */
+        $ubahMusim = $this->simpanHargaMusim($master, $request->input('harga_musim', []));
+
         $this->catatRiwayat($master, $lama, $request,
             akhirPekanLama: $lamaAkhirPekan,
-            perubahan: $this->bedakan($sebelum, $master));
+            perubahan: array_merge($this->bedakan($sebelum, $master), $ubahMusim));
 
         $this->catat($request, 'ubah master harga', [
             'nama' => $master->nama, 'dari' => $lama, 'ke' => $master->harga,
         ]);
 
-        return response()->json(['data' => $this->baris($master->fresh()->load('vendor')->loadCount('biaya')), 'pesan' => 'Harga diperbarui.']);
+        return response()->json(['data' => $this->baris($master->fresh()->load('vendor', 'musim.musim')->loadCount('biaya')), 'pesan' => 'Harga diperbarui.']);
     }
 
     public function destroy(MasterHarga $master, Request $request): JsonResponse
@@ -890,6 +913,21 @@ class MasterHargaController extends ApiController
              */
             'harga_akhir_pekan' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
             /*
+             | Tarif MUSIM — Nataru, Lebaran, long weekend.
+             |
+             | Dikirim sebagai daftar, bukan satu kolom ketiga: Nataru dan
+             | Lebaran di hotel yang sama hampir selalu berbeda, dan satu
+             | kolom "high season" memaksa salah satunya keliru.
+             |
+             | harga null berarti HAPUS tarif musim itu, dan itu bukan sama
+             | dengan nol: nol adalah harga yang sah — ada tempat yang memang
+             | digratiskan di musim tertentu. Yang berarti "pakai tarif biasa"
+             | adalah tidak adanya barisnya.
+             */
+            'harga_musim' => ['sometimes', 'array', 'max:50'],
+            'harga_musim.*.musim_id' => ['required', 'integer', 'exists:tbl_musim_harga,id'],
+            'harga_musim.*.harga' => ['present', 'nullable', 'integer', 'min:0', 'max:1000000000'],
+            /*
              | Kapasitas WAJIB untuk satuan yang dihitung per unit.
              |
              | Tanpanya, 40 peserta dihitung naik SATU bus — dan penawarannya
@@ -913,7 +951,68 @@ class MasterHargaController extends ApiController
         $data['otomatis'] = (bool) ($data['otomatis'] ?? false);
         $data['aktif'] = array_key_exists('aktif', $data) ? (bool) $data['aktif'] : true;
 
+        /*
+         | Tarif musim TIDAK ikut ke create()/update(): ia baris di tabel lain.
+         |
+         | Dibiarkan di dalam, Eloquent akan mencoba menulis kolom harga_musim
+         | yang tidak ada — galat SQL yang menyebut kolom, bukan sebabnya.
+         | Divalidasi di sini karena validasi yang tersebar dua tempat akan
+         | berselisih; disimpan di store()/update() lewat simpanHargaMusim().
+         */
+        unset($data['harga_musim']);
+
         return $data;
+    }
+
+    /**
+     * Menyimpan tarif musim sebuah baris, dan menyebut apa yang berubah.
+     *
+     * Perubahannya dipulangkan dalam bentuk yang sama dengan bedakan(), supaya
+     * ia ikut masuk riwayat harga lewat jalur yang sudah ada. Tarif Nataru
+     * yang naik Rp 100.000 tanpa meninggalkan jejak adalah angka yang berubah
+     * tanpa sebab — persis yang membuat kolom akhir pekan dulu diberi
+     * riwayatnya sendiri.
+     *
+     * @param  array<int, array{musim_id: int, harga: int|null}>  $baris
+     * @return array<int, array{medan: string, dari: string|null, ke: string|null}>
+     */
+    private function simpanHargaMusim(MasterHarga $master, array $baris): array
+    {
+        if ($baris === []) {
+            return [];
+        }
+
+        $sebelum = $master->musim()->with('musim')->get()->keyBy('musim_id');
+        $nama = MusimHarga::query()->whereIn('id', collect($baris)->pluck('musim_id'))->get()->keyBy('id');
+        $ubah = [];
+
+        foreach ($baris as $b) {
+            $id = (int) $b['musim_id'];
+            $lama = $sebelum->get($id);
+            $baru = $b['harga'] === null || $b['harga'] === '' ? null : (int) $b['harga'];
+            $lamaNilai = $lama ? (int) $lama->harga : null;
+
+            if ($lamaNilai === $baru) {
+                continue;
+            }
+
+            if ($baru === null) {
+                $master->musim()->where('musim_id', $id)->delete();
+            } else {
+                HargaMusim::updateOrCreate(
+                    ['master_harga_id' => $master->id, 'musim_id' => $id],
+                    ['harga' => $baru],
+                );
+            }
+
+            $ubah[] = [
+                'medan' => 'Harga '.($nama->get($id)?->nama ?? 'musim #'.$id),
+                'dari' => $lamaNilai === null ? null : RincianBiaya::rupiah($lamaNilai),
+                'ke' => $baru === null ? null : RincianBiaya::rupiah($baru),
+            ];
+        }
+
+        return $ubah;
     }
 
     /**
@@ -926,7 +1025,7 @@ class MasterHargaController extends ApiController
      */
     public function show(MasterHarga $master): JsonResponse
     {
-        return response()->json(['data' => $this->baris($master->load('vendor'))]);
+        return response()->json(['data' => $this->baris($master->load('vendor', 'musim.musim'))]);
     }
 
     /** @return array<string, mixed> */
@@ -954,6 +1053,20 @@ class MasterHargaController extends ApiController
             'harga_akhir_pekan' => $m->harga_akhir_pekan,
             'harga_akhir_pekan_teks' => $m->harga_akhir_pekan === null
                 ? null : RincianBiaya::rupiah($m->harga_akhir_pekan),
+            /*
+             | Tarif musim baris ini, bila ada. Hanya musim yang BENAR-BENAR
+             | punya angka di sini — ketiadaannya berarti "tidak naik di musim
+             | itu", dan mengirim seluruh musim dengan harga null akan membuat
+             | layar tidak bisa membedakannya dari nol.
+             */
+            'harga_musim' => $m->musim->map(fn ($hm) => [
+                'musim_id' => (int) $hm->musim_id,
+                'nama' => $hm->musim?->nama,
+                'rentang_teks' => $hm->musim?->rentang_teks,
+                'aktif' => (bool) ($hm->musim?->aktif ?? false),
+                'harga' => (int) $hm->harga,
+                'harga_teks' => RincianBiaya::rupiah($hm->harga),
+            ])->values()->all(),
             // Dipulangkan terhitung, bukan disimpulkan ulang di layar:
             // "ada isinya" dan "beda dari hari kerja" bukan hal yang sama.
             'dua_harga' => $m->dua_harga,

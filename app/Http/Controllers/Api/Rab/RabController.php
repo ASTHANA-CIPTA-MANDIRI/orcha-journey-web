@@ -8,6 +8,7 @@ use App\Models\Etalase\KatalogDestinasi;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
 use App\Models\Rab\MasterHarga;
+use App\Models\Rab\MusimHarga;
 use App\Models\Rab\Rab;
 use App\Models\Rab\RabBiaya;
 use App\Models\Rab\RabItinerary;
@@ -300,6 +301,25 @@ class RabController extends ApiController
             'vendor' => $vendor,
             'paket' => TravelPackage::query()->orderBy('name')->get(['id', 'name', 'category'])
                 ->map(fn ($p) => ['id' => $p->id, 'nama' => $p->name, 'kategori' => $p->category]),
+            /*
+             | Musim yang masih berlaku — ikut katalog, bukan dibaca sendiri.
+             |
+             | Borang master harga perlu satu kotak per musim. Memuatnya lewat
+             | panggilan tersendiri berarti satu perjalanan tambahan ke sini
+             | tiap kali borang digambar, dan borang itu digambar ulang pada
+             | setiap ketikan.
+             |
+             | Yang DIMATIKAN tidak ikut: kotaknya hanya akan mengundang
+             | pengisian tarif yang tidak akan dipakai RAB mana pun.
+             */
+            'musim' => MusimHarga::berlaku()->map(fn (MusimHarga $m) => [
+                'id' => $m->id,
+                'nama' => $m->nama,
+                'rentang_teks' => $m->rentang_teks,
+                'tanggal_mulai' => $m->tanggal_mulai->toDateString(),
+                'jumlah_hari' => $m->jumlah_hari,
+                'lewat' => $m->lewat,
+            ])->values(),
             'kosakata' => MasterHargaController::kosakataRab(),
         ]]);
     }
@@ -448,6 +468,21 @@ class RabController extends ApiController
                 'harga_satuan' => $b->harga_satuan,
                 'harga_sebab' => $b->harga_sebab,
                 'pakai_akhir_pekan' => $b->pakai_akhir_pekan,
+                /*
+                 | TINGKAT harganya ikut dipotret.
+                 |
+                 | Tanpa ini, versi yang dipulihkan kehilangan tingkatnya dan
+                 | seluruh barisnya kembali terbaca 'hari_kerja' — lalu
+                 | "Pakai harga master" menimpa tarif Nataru dengan harga hari
+                 | biasa. Penawaran yang dipulihkan harus sama persis dengan
+                 | yang dilihat pelanggan, termasuk alasan angkanya.
+                 |
+                 | Potret LAMA tidak punya kedua kunci ini; RabBiaya::$tingkat
+                 | menjatuhkannya kembali ke pakai_akhir_pekan, yang memang
+                 | ada di sana.
+                 */
+                'tingkat_harga' => $b->tingkat_harga,
+                'musim_id' => $b->musim_id,
                 'kapasitas' => $b->kapasitas,
                 'jumlah' => $b->jumlah,
                 'urutan' => $b->urutan,
@@ -782,10 +817,27 @@ class RabController extends ApiController
              | kehilangan selisihnya tanpa satu pun tanda — dan "Pakai harga
              | master" terbaca sebagai memperbarui, bukan menurunkan.
              */
-            $biaya->update(['harga_satuan' => $biaya->pakai_akhir_pekan
-                && $biaya->master->harga_akhir_pekan !== null
-                    ? (int) $biaya->master->harga_akhir_pekan
-                    : (int) $biaya->master->harga]);
+            $kini = $biaya->hargaMasterKini();
+
+            /*
+             | Sisi yang sudah TIDAK ADA lagi di master ditolak, tidak
+             | diturunkan ke harga hari kerja.
+             |
+             | Baris bertarif Nataru yang tarif Nataru-nya sudah dihapus dari
+             | master tidak punya angka sebanding. Menimpanya dengan harga
+             | hari kerja adalah penurunan Rp 350.000 yang dilakukan tombol
+             | bernama "pakai harga master" — dan penawarannya dikirim tanpa
+             | ada yang melihat.
+             */
+            if ($kini === null) {
+                return response()->json([
+                    'pesan' => 'Baris ini memakai tarif '.($biaya->musim?->nama ?? 'musim')
+                        .', dan tarif itu sudah tidak ada lagi di master harga. '
+                        .'Isi kembali tarif musimnya di Master Harga, atau ketik harganya langsung di baris ini.',
+                ], 422);
+            }
+
+            $biaya->update(['harga_satuan' => $kini]);
         } else {
             $data = $request->validate([
                 'nama' => ['sometimes', 'string', 'max:150'],
@@ -841,7 +893,18 @@ class RabController extends ApiController
          */
         $pilihan = $request->validate([
             'catatan' => ['sometimes', 'nullable', 'string', 'max:200'],
-            'sisi' => ['sometimes', 'nullable', 'in:hari_kerja,akhir_pekan'],
+            /*
+             | 'hari_kerja', 'akhir_pekan', atau 'musim:<id>'.
+             |
+             | Daftarnya tidak bisa ditulis sebagai in: — musimnya bertambah
+             | sendiri — jadi bentuknya yang dijaga di sini dan keberadaan
+             | tarifnya diperiksa di bawah. Menerima musim mana pun tanpa
+             | memeriksa berarti tombol "simpan" bisa MEMBUAT tarif musim
+             | baru, lalu seluruh RAB berikutnya memakainya.
+             */
+            'sisi' => ['sometimes', 'nullable', 'string', 'regex:/^(hari_kerja|akhir_pekan|musim:\d+)$/'],
+        ], [
+            'sisi.regex' => 'Sisi harga tidak dikenali.',
         ]);
 
         /*
@@ -856,12 +919,47 @@ class RabController extends ApiController
          | yang menyebar ke seluruh RAB berikutnya dan tidak akan pernah
          | dicurigai, karena angkanya memang pernah benar.
          */
-        $sisiAkhirPekan = array_key_exists('sisi', $pilihan) && $pilihan['sisi'] !== null
-            ? $pilihan['sisi'] === 'akhir_pekan'
-            : (bool) $biaya->pakai_akhir_pekan;
+        $sisi = array_key_exists('sisi', $pilihan) && $pilihan['sisi'] !== null
+            ? $pilihan['sisi']
+            : ($biaya->tingkat === 'musim' ? 'musim:'.$biaya->musim_id : $biaya->tingkat);
 
-        $sisiAkhirPekan = $sisiAkhirPekan && $biaya->master->harga_akhir_pekan !== null;
-        $hargaLama = (int) ($sisiAkhirPekan ? $biaya->master->harga_akhir_pekan : $biaya->master->harga);
+        /*
+         | Sisi yang tidak bisa ditulis diturunkan ke hari kerja — KECUALI
+         | musim, yang ditolak.
+         |
+         | Master tanpa kolom akhir pekan yang diminta menulis ke sana memang
+         | paling benar diperlakukan sebagai hari kerja: itu satu-satunya
+         | angka yang ada, dan admin melihat sebutannya di pesan balasan.
+         |
+         | Musim lain: menulis tarif Nataru ke kolom hari kerja berarti
+         | SELURUH hari biasa sepanjang tahun ikut jadi Rp 900.000. Diam-diam
+         | menurunkannya ke hari kerja adalah kerugian yang menyebar dari satu
+         | kali menekan tombol, dan tidak akan pernah dicurigai karena
+         | angkanya memang pernah benar.
+         */
+        if ($sisi === 'akhir_pekan' && $biaya->master->harga_akhir_pekan === null) {
+            $sisi = 'hari_kerja';
+        }
+
+        $musimId = str_starts_with($sisi, 'musim:') ? (int) substr($sisi, 6) : null;
+        $barisMusim = $musimId
+            ? $biaya->master->musim()->where('musim_id', $musimId)->first()
+            : null;
+
+        if ($musimId && ! $barisMusim) {
+            return response()->json([
+                'pesan' => 'Harga master ini belum punya tarif untuk musim itu, jadi tidak ada yang bisa diperbarui. '
+                    .'Isi dulu tarif musimnya di Master Harga — "Simpan ke master" memperbarui tarif yang sudah ada, '
+                    .'bukan membuat tarif baru.',
+            ], 422);
+        }
+
+        $sisiAkhirPekan = $sisi === 'akhir_pekan';
+        $hargaLama = (int) match (true) {
+            $barisMusim !== null => $barisMusim->harga,
+            $sisiAkhirPekan => $biaya->master->harga_akhir_pekan,
+            default => $biaya->master->harga,
+        };
         $hargaBaru = (int) $biaya->harga_satuan;
 
         if ($hargaLama === $hargaBaru) {
@@ -876,9 +974,28 @@ class RabController extends ApiController
             ? null : (int) $biaya->master->harga_akhir_pekan;
         $hargaHariKerja = (int) $biaya->master->harga;
 
-        $biaya->master->update($sisiAkhirPekan
-            ? ['harga_akhir_pekan' => $hargaBaru]
-            : ['harga' => $hargaBaru]);
+        /*
+         | Tarif musim punya BARISNYA sendiri, bukan kolom di master.
+         |
+         | Karena itu ia tidak bisa ikut update() di sini, dan perubahannya
+         | masuk riwayat lewat `perubahan` — bentuk yang sama dipakai layar
+         | Master Harga, jadi layar riwayat tidak perlu tahu bahwa harga musim
+         | itu hal baru.
+         */
+        $ubahMusim = [];
+
+        if ($barisMusim) {
+            $barisMusim->update(['harga' => $hargaBaru]);
+            $ubahMusim[] = [
+                'medan' => 'Harga '.($barisMusim->musim?->nama ?? 'musim #'.$musimId),
+                'dari' => RincianBiaya::rupiah($hargaLama),
+                'ke' => RincianBiaya::rupiah($hargaBaru),
+            ];
+        } else {
+            $biaya->master->update($sisiAkhirPekan
+                ? ['harga_akhir_pekan' => $hargaBaru]
+                : ['harga' => $hargaBaru]);
+        }
 
         RiwayatHarga::rekam(
             $biaya->master->fresh(),
@@ -891,6 +1008,7 @@ class RabController extends ApiController
             // yang berubah tanpa sebab.
             trim(($data['catatan'] ?? $biaya->catatan ?? '').' (dari RAB '.$rab->kode.')'),
             akhirPekanLama: $akhirPekanLama,
+            perubahan: $ubahMusim,
         );
 
         $this->catat($request, 'harga master dari rab', [
@@ -905,7 +1023,11 @@ class RabController extends ApiController
         return response()->json([
             'data' => $this->bentuk($rab->fresh()),
             'pesan' => 'Master harga "'.$biaya->master->nama.'"'
-                .($sisiAkhirPekan ? ' (akhir pekan)' : '').' '.$arah.' jadi '
+                .match (true) {
+                    $barisMusim !== null => ' ('.($barisMusim->musim?->nama ?? 'musim').')',
+                    $sisiAkhirPekan => ' (akhir pekan)',
+                    default => '',
+                }.' '.$arah.' jadi '
                 .RincianBiaya::rupiah($hargaBaru).'. RAB berikutnya memakai angka ini.',
         ]);
     }
@@ -1184,6 +1306,10 @@ class RabController extends ApiController
          | kecepatan dan menghilangkan seluruh kelas selisih itu.
          */
         $calon = MasterHarga::query()->where('aktif', true)
+            // musim.musim ikut: harga tiap calon ditentukan lewat
+            // hargaUntuk(), dan tanpa dimuat di sini jadi dua kueri per
+            // calon — di jalur yang dipanggil tiap kali layar RAB dibuka.
+            ->with('musim.musim')
             ->where(fn ($q) => $q->whereNotNull('destinasi')
                 ->orWhere(fn ($o) => $o->where('otomatis', true)
                     ->where(fn ($p) => $p->whereNull('provinsi')->orWhere('provinsi', $rab->provinsi))))
@@ -1497,6 +1623,9 @@ class RabController extends ApiController
         return MasterHarga::query()
             ->where('aktif', true)
             ->where('satuan', 'unit')
+            // Harga tiap tawaran ditentukan lewat hargaUntuk(), yang membaca
+            // tarif musimnya.
+            ->with('musim.musim')
             ->whereIn(DB::raw('LOWER(TRIM(destinasi))'), $dikunjungi)
             ->whereNotIn('id', $sudah ?: [0])
             ->orderBy('harga')
@@ -1551,6 +1680,11 @@ class RabController extends ApiController
                 'harga_satuan' => $pilih['harga'],
                 'harga_sebab' => $pilih['sebab'],
                 'pakai_akhir_pekan' => $pilih['akhir_pekan'],
+                // TINGKAT yang dibekukan, bukan cuma ya/tidak akhir pekan:
+                // tarif Nataru dan tarif hari kerja keduanya berpenanda
+                // false, dan "Simpan ke master" tidak boleh menebak.
+                'tingkat_harga' => $pilih['tingkat'],
+                'musim_id' => $pilih['musim_id'],
                 'kapasitas' => $m->kapasitas,
                 'jumlah' => 1,
                 'urutan' => ++$urutan,

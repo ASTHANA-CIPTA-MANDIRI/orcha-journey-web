@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Satu hal yang bisa dibayar dalam sebuah perjalanan, berikut cara
@@ -164,22 +165,60 @@ class MasterHarga extends Model
     }
 
     /**
+     * Harga-harga musim milik baris ini.
+     *
+     * Hanya ada untuk musim yang benar-benar menaikkan harganya. Tiket Candi
+     * Arjuna tetap Rp 10.000 pada 25 Desember, jadi ia memang tidak punya
+     * baris di sini sama sekali.
+     */
+    public function musim(): HasMany
+    {
+        return $this->hasMany(HargaMusim::class, 'master_harga_id');
+    }
+
+    /**
      * Harga yang berlaku pada sebuah tanggal, berikut sebabnya.
      *
      * Satu-satunya tempat yang memutuskannya. Pemilihan harga yang tersebar
      * di beberapa tempat akan berbeda tafsir tentang apa itu "akhir pekan",
      * dan selisihnya baru ketahuan saat tagihan vendor datang.
      *
-     * Tanggal kosong atau harga akhir pekan yang tidak diisi memulangkan
-     * harga biasa tanpa sebab — itu yang membuat seluruh baris master lama
-     * berperilaku persis seperti sebelumnya.
+     * TIGA tingkat, dan urutannya: musim → akhir pekan → hari kerja.
+     *
+     * Musim menang karena ia yang paling khusus. 25 Desember adalah tanggal
+     * merah DAN di dalam Nataru; membiarkan akhir pekan menang membuat
+     * Nataru dibayar tarif hari Sabtu, yaitu persis kesalahan yang jadi
+     * alasan musim dibuat.
+     *
+     * Tanggal kosong, harga akhir pekan yang tidak diisi, dan tidak adanya
+     * harga musim semuanya memulangkan harga biasa tanpa sebab — itu yang
+     * membuat seluruh baris master lama berperilaku persis seperti
+     * sebelumnya.
+     *
+     * Baris yang jatuh di dalam musim tetapi TIDAK punya harga musim jatuh
+     * balik ke dua tingkat di bawahnya. Itu memang jawaban yang benar — tidak
+     * semua harga naik di Nataru — tetapi diam-diam juga jawaban yang benar
+     * untuk harga yang lupa diisi. Keduanya tidak bisa dibedakan dari sini,
+     * dan karena itu HargaHari::belumPunyaHargaMusim() menyebut barisnya,
+     * bukan menebaknya.
      *
      * @param  array<string, string>|null  $libur  peta dari HariLibur::peta()
-     * @return array{harga: int, sebab: string|null, akhir_pekan: bool}
+     * @param  Collection<int, MusimHarga>|null  $musim  dari MusimHarga::berlaku()
+     * @return array{harga: int, sebab: string|null, akhir_pekan: bool, tingkat: string, musim_id: int|null}
      */
-    public function hargaUntuk(?Carbon $tanggal, ?array $libur = null): array
+    public function hargaUntuk(?Carbon $tanggal, ?array $libur = null, ?Collection $musim = null): array
     {
-        $biasa = ['harga' => (int) $this->harga, 'sebab' => null, 'akhir_pekan' => false];
+        $biasa = [
+            'harga' => (int) $this->harga,
+            'sebab' => null,
+            'akhir_pekan' => false,
+            'tingkat' => 'hari_kerja',
+            'musim_id' => null,
+        ];
+
+        if ($pilih = $this->hargaMusimPada($tanggal, $musim)) {
+            return $pilih;
+        }
 
         if ($this->harga_akhir_pekan === null) {
             return $biasa;
@@ -196,7 +235,97 @@ class MasterHarga extends Model
             'sebab' => 'harga akhir pekan ('.$hari['sebab'].', '
                 .$tanggal->locale('id')->translatedFormat('j M').')',
             'akhir_pekan' => true,
+            'tingkat' => 'akhir_pekan',
+            'musim_id' => null,
         ];
+    }
+
+    /**
+     * Tingkat musim, bila tanggalnya masuk musim DAN barisnya punya harganya.
+     *
+     * akhir_pekan dipulangkan FALSE walau tanggalnya jatuh di hari Sabtu, dan
+     * itu bukan kelalaian: penanda itu berarti "angka ini berasal dari kolom
+     * harga_akhir_pekan". Mengisinya true membuat "Simpan ke master" menulis
+     * harga Nataru ke kolom akhir pekan — lalu setiap Sabtu biasa sepanjang
+     * tahun ikut jadi tarif Nataru.
+     *
+     * @param  Collection<int, MusimHarga>|null  $musim
+     * @return array{harga: int, sebab: string, akhir_pekan: bool, tingkat: string, musim_id: int}|null
+     */
+    private function hargaMusimPada(?Carbon $tanggal, ?Collection $musim = null): ?array
+    {
+        if (! $tanggal) {
+            return null;
+        }
+
+        /*
+         | Relasi yang SUDAH dimuat dipakai apa adanya.
+         |
+         | Jalur ini dilewati sekali per baris biaya, termasuk saat kedua PDF
+         | dirakit. Menembak kueri di sini berarti satu kueri per baris per
+         | pembacaan ringkasan — yang diam-diam melipatkan beban halaman RAB
+         | berisi 30 biaya.
+         */
+        $punya = $this->relationLoaded('musim')
+            ? $this->musim
+            : $this->musim()->get();
+
+        if ($punya->isEmpty()) {
+            return null;
+        }
+
+        /*
+         | Diperiksa menurut urutan MENANG, bukan urutan harga musimnya.
+         |
+         | Mengambil musim mana pun yang memuat tanggalnya lalu mencari
+         | harganya akan melewatkan tingkat yang benar: bila cuti bersama
+         | (prioritas lebih tinggi) tidak punya harga di baris ini sementara
+         | Nataru punya, yang berlaku adalah harga Nataru — bukan jatuh ke
+         | tarif akhir pekan karena pemenangnya kosong.
+         */
+        foreach (($musim ?? MusimHarga::berlaku()) as $m) {
+            if (! $m->memuat($tanggal)) {
+                continue;
+            }
+
+            $harga = $punya->firstWhere('musim_id', (int) $m->id);
+
+            if (! $harga) {
+                continue;
+            }
+
+            return [
+                'harga' => (int) $harga->harga,
+                /*
+                 | Dipangkas ke lebar kolomnya, bukan dibiarkan apa adanya.
+                 |
+                 | Nama musim boleh 120 huruf dan rab_biaya.harga_sebab juga
+                 | 120 — jadi "harga " di depannya sudah cukup membuatnya
+                 | lewat. MySQL ketat menolaknya jadi galat 500 saat biaya
+                 | ditarik; MySQL longgar memangkasnya diam-diam. Keduanya
+                 | tidak boleh jadi cara kolom ini diisi.
+                 */
+                'sebab' => mb_substr('harga '.$m->nama.' ('
+                    .$tanggal->locale('id')->translatedFormat('j M').')', 0, 120),
+                'akhir_pekan' => false,
+                'tingkat' => 'musim',
+                'musim_id' => (int) $m->id,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Apakah baris ini punya tarif musim sama sekali.
+     *
+     * Dipakai penjaga "harga beku sudah tidak cocok": baris yang tidak punya
+     * tarif musim mana pun tidak bisa salah tingkat, dan memeriksanya hanya
+     * menghasilkan peringatan yang tidak punya jalan keluar.
+     */
+    public function getPunyaHargaMusimAttribute(): bool
+    {
+        return ($this->relationLoaded('musim') ? $this->musim : $this->musim()->get())->isNotEmpty();
     }
 
     /** Apakah harga ini berbeda antara hari kerja dan akhir pekan. */

@@ -413,9 +413,48 @@ class HitungRab
         return $hasil;
     }
 
+    /**
+     * Sisi master yang bisa dipilih "Simpan ke master" untuk baris ini.
+     *
+     * Hanya sisi yang BENAR-BENAR ada. Menawarkan "harga Nataru" pada baris
+     * yang masternya tidak punya tarif Nataru berarti menawarkan pembuatan
+     * tarif baru lewat tombol yang namanya "simpan" — dan tarif musim yang
+     * lahir tanpa sengaja akan dipakai seluruh RAB berikutnya.
+     *
+     * @return array<int, array{nilai: string, label: string, harga: int}>
+     */
+    private static function sisiMaster(RabBiaya $b): array
+    {
+        if (! $b->master) {
+            return [];
+        }
+
+        $sisi = [['nilai' => 'hari_kerja', 'label' => 'Harga hari kerja', 'harga' => (int) $b->master->harga]];
+
+        if ($b->master->harga_akhir_pekan !== null) {
+            $sisi[] = [
+                'nilai' => 'akhir_pekan',
+                'label' => 'Harga akhir pekan',
+                'harga' => (int) $b->master->harga_akhir_pekan,
+            ];
+        }
+
+        foreach ($b->master->musim as $hm) {
+            $sisi[] = [
+                'nilai' => 'musim:'.$hm->musim_id,
+                'label' => 'Harga '.($hm->musim?->nama ?? 'musim #'.$hm->musim_id),
+                'harga' => (int) $hm->harga,
+            ];
+        }
+
+        return $sisi;
+    }
+
     public static function ringkas(Rab $rab): array
     {
-        $rab->loadMissing('biaya.master', 'biaya.vendor', 'itinerary');
+        // biaya.master.musim ikut dimuat: tingkat harga sebuah baris dibaca
+        // per baris, dan tanpa dimuat di sini jadi satu kueri per baris.
+        $rab->loadMissing('biaya.master.musim.musim', 'biaya.vendor', 'biaya.musim', 'itinerary');
         $peserta = max(1, (int) $rab->jumlah_peserta);
         // Dibuat sekali, lalu ditanya per baris — lihat HargaHari.
         $hariHarga = new HargaHari($rab);
@@ -424,20 +463,9 @@ class HitungRab
         $baris = $rab->biaya->map(function (RabBiaya $b) use ($rab, $hariHarga, $hariBiaya) {
             $subtotal = self::subtotal($b, $rab);
 
-            /*
-             | Dibandingkan dengan SISI master yang dipakai baris ini.
-             |
-             | Baris berharga akhir pekan yang dibandingkan dengan harga hari
-             | kerja akan selamanya berteriak "harga master sudah berubah,
-             | lebih mahal Rp 10.000" — dan admin akan menurutinya, lalu
-             | penawarannya kekurangan modal justru di tanggal yang paling
-             | mahal.
-             */
-            $hargaMaster = $b->master
-                ? (int) ($b->pakai_akhir_pekan && $b->master->harga_akhir_pekan !== null
-                    ? $b->master->harga_akhir_pekan
-                    : $b->master->harga)
-                : null;
+            // Aturannya di RabBiaya, bukan di sini: tombol "Pakai harga
+            // master" harus memakai aturan yang sama persis.
+            $hargaMaster = $b->hargaMasterKini();
 
             return [
                 'id' => $b->id,
@@ -482,6 +510,21 @@ class HitungRab
                  */
                 'harga_sebab' => $b->harga_sebab,
                 'pakai_akhir_pekan' => (bool) $b->pakai_akhir_pekan,
+                /*
+                 | TINGKAT yang dibekukan baris ini, dibaca kode.
+                 |
+                 | pakai_akhir_pekan tetap dikirim demi layar versi lama,
+                 | tetapi ia tidak bisa lagi membedakan tarif Nataru dari
+                 | tarif hari kerja — keduanya false. "Simpan ke master" yang
+                 | menebak dari boolean itu akan menulis harga Nataru ke kolom
+                 | akhir pekan.
+                 */
+                'tingkat_harga' => $b->tingkat,
+                'musim_id' => $b->musim_id,
+                // Nama musimnya dibaca HIDUP dari tabel musim, bukan dari
+                // harga_sebab yang sudah dibekukan: musim yang diganti nama
+                // harus terbaca baru di seluruh baris yang memakainya.
+                'musim_nama' => $b->musim?->nama,
                 /*
                  | Harga beku yang sudah tidak cocok dengan itinerary-nya.
                  |
@@ -532,6 +575,16 @@ class HitungRab
                  | hari yang jenisnya berbeda.
                  */
                 'master_dua_harga' => $b->master?->harga_akhir_pekan !== null,
+                /*
+                 | SISI master mana saja yang ada untuk baris ini, berikut
+                 | sebutannya — dipakai "Simpan ke master" untuk bertanya.
+                 |
+                 | Dirakit di sini, bukan di layar: layar yang merakitnya
+                 | sendiri harus tahu bahwa musim yang tidak punya harga di
+                 | baris ini tidak boleh ditawarkan, dan aturan itu akan
+                 | berselisih dengan yang dipakai peladen saat menyimpannya.
+                 */
+                'sisi_master' => self::sisiMaster($b),
                 /*
                  | Hari ke berapa biaya ini terpakai.
                  |
@@ -788,6 +841,34 @@ class HitungRab
              | menelusuri seluruh baris sendiri.
              */
             'ada_harga_salah_hari' => $baris->contains(fn ($b) => $b['harga_sebab_seharusnya'] !== null),
+            /*
+             | Baris yang tanggalnya masuk MUSIM tetapi masternya belum punya
+             | tarif musim itu.
+             |
+             | Bukan galat — tidak semua harga naik di Nataru, dan tiket Candi
+             | Arjuna memang tetap Rp 10.000 pada 25 Desember. Tetapi "memang
+             | tidak naik" dan "lupa diisi" terlihat persis sama dari tabel,
+             | dan yang kedua baru terbaca di meja resepsionis hotel.
+             |
+             | Jadi disebut NAMANYA, bukan dihitung jumlahnya saja: daftar
+             | yang bisa dibaca sekali lirik akan diperiksa; angka "3 baris"
+             | yang tidak menyebut baris mana tidak akan.
+             */
+            'musim_belum_diisi' => $hariHarga->belumPunyaHargaMusim(
+                $rab->biaya->map(fn (RabBiaya $b) => $b->master)->filter()->unique('id'),
+            ),
+            /*
+             | Musim yang memuat tanggal BERANGKAT perjalanan ini.
+             |
+             | Dipulangkan walau tidak ada satu pun harga musim terpasang:
+             | justru RAB yang jatuh di Nataru tanpa satu pun tarif musim yang
+             | paling perlu diberi tahu.
+             */
+            'musim_perjalanan' => ($m = $hariHarga->musimUntuk(null)) ? [
+                'id' => $m->id,
+                'nama' => $m->nama,
+                'rentang_teks' => $m->rentang_teks,
+            ] : null,
             /*
              | Baris yang harganya masih NOL.
              |

@@ -4,9 +4,11 @@ namespace App\Support\Rab;
 
 use App\Models\Rab\HariLibur;
 use App\Models\Rab\MasterHarga;
+use App\Models\Rab\MusimHarga;
 use App\Models\Rab\Rab;
 use App\Models\Rab\RabBiaya;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Satu-satunya tempat yang memutuskan TANGGAL MANA menentukan harga.
@@ -25,12 +27,18 @@ class HargaHari
     /** @var array<string, string> tanggal 'Y-m-d' => nama liburnya */
     private array $libur;
 
+    /** @var Collection<int, MusimHarga> musim yang berlaku, terurut dari yang menang */
+    private Collection $musim;
+
     /** @var array<string, Carbon> destinasi (huruf kecil) => kunjungan pertama */
     private array $kunjungan;
 
     public function __construct(private Rab $rab)
     {
         $this->libur = HariLibur::peta();
+        // Dibaca SEKALI, bukan sekali per baris biaya. Satu RAB bisa punya 30
+        // baris, dan jalur ini ikut dilewati kedua PDF.
+        $this->musim = MusimHarga::berlaku();
         $this->kunjungan = $this->petaKunjungan();
     }
 
@@ -108,7 +116,61 @@ class HargaHari
      */
     public function untuk(MasterHarga $m): array
     {
-        return $m->hargaUntuk($this->tanggal($m->destinasi), $this->libur);
+        return $m->hargaUntuk($this->tanggal($m->destinasi), $this->libur, $this->musim);
+    }
+
+    /** Musim yang memuat tanggal sebuah destinasi, atau null. */
+    public function musimUntuk(?string $destinasi): ?MusimHarga
+    {
+        return MusimHarga::pada($this->tanggal($destinasi), $this->musim);
+    }
+
+    /**
+     * Baris master yang jatuh DI DALAM musim tetapi tidak punya harga musimnya.
+     *
+     * Bukan kesalahan, dan karena itu bukan galat: tidak semua harga naik di
+     * Nataru — tiket Candi Arjuna tetap Rp 10.000 pada 25 Desember. Tetapi
+     * "memang tidak naik" dan "lupa diisi" terlihat persis sama dari tabel,
+     * dan yang kedua baru terbaca di meja resepsionis hotel.
+     *
+     * Jadi disebut namanya, bukan dipilih diam-diam — alasan yang sama dengan
+     * tidakCocok() dan campuran(). Admin yang melihat "Hotel Dieng belum
+     * punya harga Nataru" akan tahu dalam dua detik apakah itu benar.
+     *
+     * @param  iterable<MasterHarga>  $master
+     * @return array<int, array{nama: string, musim: string}>
+     */
+    public function belumPunyaHargaMusim(iterable $master): array
+    {
+        if ($this->musim->isEmpty()) {
+            return [];
+        }
+
+        $hasil = [];
+
+        foreach ($master as $m) {
+            $musim = $this->musimUntuk($m->destinasi);
+
+            if (! $musim) {
+                continue;
+            }
+
+            /*
+             | Yang SUDAH memakai tarif musim dilewati.
+             |
+             | Diperiksa lewat hargaUntuk(), bukan dengan mencari musim_id
+             | pemenang: bila pemenangnya tidak punya harga di baris ini
+             | sementara musim lain yang memuat tanggal yang sama punya, baris
+             | itu sudah bertarif musim dan tidak perlu disebut.
+             */
+            if ($this->untuk($m)['tingkat'] === 'musim') {
+                continue;
+            }
+
+            $hasil[] = ['nama' => $m->nama, 'musim' => $musim->nama];
+        }
+
+        return $hasil;
     }
 
     /**
@@ -124,17 +186,44 @@ class HargaHari
      */
     public function tidakCocok(RabBiaya $b): ?string
     {
-        if (! $b->master || ! $b->master->dua_harga) {
+        if (! $b->master) {
+            return null;
+        }
+
+        /*
+         | Baris yang hanya punya SATU harga tidak bisa salah tingkat.
+         |
+         | Memeriksanya tetap tidak berbahaya, tetapi menghasilkan peringatan
+         | yang tidak punya jalan keluar: tidak ada tarif lain untuk dipindah
+         | ke sana.
+         */
+        if (! $b->master->dua_harga && ! $b->master->punya_harga_musim) {
             return null;
         }
 
         $kini = $this->untuk($b->master);
 
-        if ($kini['akhir_pekan'] === (bool) $b->pakai_akhir_pekan) {
+        /*
+         | Dibandingkan TINGKATNYA, bukan lagi benar/salah akhir pekan.
+         |
+         | Baris bertarif Nataru dan baris bertarif hari kerja keduanya
+         | punya pakai_akhir_pekan = false. Membandingkan boolean itu membuat
+         | keduanya terbaca cocok, dan RAB yang digeser keluar dari rentang
+         | Nataru akan tetap memegang tarif Nataru tanpa satu pun tanda —
+         | penawaran yang kemahalan, lalu kalah, dan tidak ada yang tahu
+         | sebabnya.
+         |
+         | musim_id ikut dibandingkan: berpindah dari Nataru ke Lebaran tetap
+         | 'musim' di kedua sisi, tetapi angkanya lain.
+         */
+        $samaTingkat = $kini['tingkat'] === $b->tingkat
+            && (int) ($kini['musim_id'] ?? 0) === (int) ($b->musim_id ?? 0);
+
+        if ($samaTingkat) {
             return null;
         }
 
-        if ($kini['akhir_pekan']) {
+        if ($kini['tingkat'] !== 'hari_kerja') {
             return $kini['sebab'];
         }
 
@@ -181,7 +270,21 @@ class HargaHari
              | dengan tanggal kunjungannya, dan menyebutnya di sini hanya
              | menambah peringatan yang tidak punya jalan keluar.
              */
-            if ($m->dua_harga && in_array($m->satuan, ['orang_hari', 'hari', 'unit_hari', 'kamar_malam'], true)) {
+            if (! in_array($m->satuan, self::SATUAN_PER_HARI, true)) {
+                continue;
+            }
+
+            /*
+             | Yang menentukan bukan "perjalanannya lintas hari", melainkan
+             | apakah HARGA BARIS INI benar-benar berbeda di sepanjangnya.
+             |
+             | Hotel tanpa tarif akhir pekan maupun tarif musim membayar angka
+             | yang sama Jumat sampai Minggu; menyebutnya campuran hanya
+             | karena perjalanannya melewati Sabtu adalah peringatan yang
+             | tidak ada jalan keluarnya — dan peringatan yang selalu muncul
+             | adalah peringatan yang berhenti dibaca, termasuk saat ia benar.
+             */
+            if (count($this->hargaTiapHari($m)) > 1) {
                 $nama[] = $m->nama;
             }
         }
@@ -189,7 +292,48 @@ class HargaHari
         return $nama;
     }
 
-    /** Apakah perjalanannya melewati hari kerja DAN akhir pekan sekaligus. */
+    /**
+     | Satuan yang DIKALI jumlah hari, jadi satu baris harus memegang
+     | beberapa hari sekaligus.
+     |
+     | Tiket sekali masuk tidak di sini: ia sudah benar dengan tanggal
+     | kunjungannya sendiri.
+     */
+    private const SATUAN_PER_HARI = ['orang_hari', 'hari', 'unit_hari', 'kamar_malam'];
+
+    /**
+     * Harga baris ini pada SETIAP hari perjalanan, tanpa kembar.
+     *
+     * Lebih dari satu angka berarti tidak ada satu pun angka yang benar untuk
+     * seluruh barisnya.
+     *
+     * @return array<int, int>
+     */
+    private function hargaTiapHari(MasterHarga $m): array
+    {
+        $harga = [];
+
+        for ($h = 0; $h < max(1, (int) $this->rab->jumlah_hari); $h++) {
+            $harga[] = $m->hargaUntuk(
+                $this->rab->tanggal_mulai->copy()->addDays($h),
+                $this->libur,
+                $this->musim,
+            )['harga'];
+        }
+
+        return array_values(array_unique($harga));
+    }
+
+    /**
+     * Apakah perjalanannya melewati lebih dari satu JENIS hari.
+     *
+     * Bukan lagi cuma hari kerja vs akhir pekan: perjalanan 3–6 Januari yang
+     * keluar dari rentang Nataru pada tanggal 5 juga lintas jenis, walau
+     * keempat harinya hari kerja. Tanpa musim ikut dihitung, hotel yang
+     * separuh malamnya tarif Nataru akan dibekukan satu angka tanpa satu pun
+     * tanda — dan selisih dua malam di tarif tinggi adalah selisih yang
+     * memakan seluruh margin penawarannya.
+     */
     public function lintasJenisHari(): bool
     {
         if (! $this->rab->tanggal_mulai || (int) $this->rab->jumlah_hari < 2) {
@@ -199,10 +343,19 @@ class HargaHari
         $jenis = [];
 
         for ($h = 0; $h < max(1, (int) $this->rab->jumlah_hari); $h++) {
-            $jenis[] = HariLibur::periksa(
-                $this->rab->tanggal_mulai->copy()->addDays($h),
-                $this->libur,
-            )['akhir_pekan'];
+            $tanggal = $this->rab->tanggal_mulai->copy()->addDays($h);
+
+            /*
+             | Musim disebut lebih dulu, karena ia yang menang di
+             | hargaUntuk(). Memakai akhir pekan sebagai jenis pada tanggal
+             | yang juga masuk Nataru membuat 25 & 26 Desember terbaca jenis
+             | yang sama dengan Sabtu biasa di bulan lain.
+             */
+            $musim = MusimHarga::pada($tanggal, $this->musim);
+
+            $jenis[] = $musim
+                ? 'musim:'.$musim->id
+                : (HariLibur::periksa($tanggal, $this->libur)['akhir_pekan'] ? 'akhir_pekan' : 'hari_kerja');
         }
 
         return count(array_unique($jenis)) > 1;

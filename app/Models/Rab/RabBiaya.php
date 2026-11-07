@@ -18,8 +18,8 @@ class RabBiaya extends Model
 
     protected $fillable = [
         'rab_id', 'master_harga_id', 'vendor_id', 'kategori', 'nama', 'satuan',
-        'harga_satuan', 'harga_sebab', 'pakai_akhir_pekan', 'kapasitas', 'unit_manual',
-        'jumlah', 'urutan', 'catatan',
+        'harga_satuan', 'harga_sebab', 'pakai_akhir_pekan', 'tingkat_harga', 'musim_id',
+        'kapasitas', 'unit_manual', 'jumlah', 'urutan', 'catatan',
     ];
 
     protected $casts = [
@@ -29,7 +29,18 @@ class RabBiaya extends Model
         'jumlah' => 'integer',
         'urutan' => 'integer',
         'pakai_akhir_pekan' => 'boolean',
+        'musim_id' => 'integer',
     ];
+
+    /**
+     | TINGKAT harga yang dibekukan baris ini, dan satu-satunya daftarnya.
+     |
+     | Dibaca kode, bukan orang — yang dibaca orang adalah harga_sebab.
+     | Ditulis sebagai tetapan supaya "musim" yang salah ketik berbunyi di
+     | tempat yang menulisnya, bukan diam-diam membuat baris itu diperlakukan
+     | sebagai hari kerja pada "Pakai harga master" berikutnya.
+     */
+    public const TINGKAT = ['hari_kerja', 'akhir_pekan', 'musim'];
 
     protected static function booted(): void
     {
@@ -78,5 +89,77 @@ class RabBiaya extends Model
     public function vendor()
     {
         return $this->belongsTo(Vendor::class, 'vendor_id');
+    }
+
+    /**
+     * Musim yang menentukan harga beku baris ini, bila ada.
+     *
+     * Boleh kosong walau tingkat_harga-nya 'musim': musim yang dihapus
+     * meninggalkan barisnya utuh dengan musim_id jadi null. Harganya tidak
+     * berubah — penawaran lama tidak boleh bergeser — yang hilang hanya
+     * kemampuan menyebut nama musimnya, dan harga_sebab masih menyimpan
+     * kalimatnya.
+     */
+    public function musim()
+    {
+        return $this->belongsTo(MusimHarga::class, 'musim_id');
+    }
+
+    /**
+     * Sisi master yang harus disentuh "Pakai harga master" & "Simpan ke master".
+     *
+     * Dibaca dari tingkat_harga, dengan pakai_akhir_pekan sebagai jaring
+     * untuk baris yang dibuat sebelum kolomnya ada. Keduanya seharusnya
+     * selalu sepakat — migrasi menerjemahkan yang lama — tetapi menebak dari
+     * yang mana saja yang kebetulan terisi lebih baik daripada memulangkan
+     * 'hari_kerja' untuk baris akhir pekan, yang akan menurunkan harganya.
+     */
+    /**
+     * Harga master SEKARANG pada sisi yang dipakai baris ini.
+     *
+     * Di model, bukan di pemanggilnya, karena DUA pihak membutuhkannya:
+     * HitungRab saat memberi tahu "harga master sudah berubah", dan
+     * RabController saat tombol "Pakai harga master" ditekan. Dua salinan
+     * aturan ini akan berselisih begitu salah satunya diubah — dan yang
+     * kalah adalah yang menulis harga, bukan yang cuma menampilkannya.
+     *
+     * Baris berharga akhir pekan yang dibandingkan dengan harga hari kerja
+     * akan selamanya berteriak "lebih mahal Rp 10.000", dan admin akan
+     * menurutinya — lalu penawarannya kekurangan modal justru di tanggal
+     * paling mahal. Dengan tarif musim, selisihnya jauh lebih besar.
+     *
+     * Memulangkan null bila sisinya sudah tidak ada lagi di master — tarif
+     * musim yang dihapus. Bukan harga terdekat: angka yang sekadar mirip
+     * akan ditawarkan layar sebagai "harga master terbaru", lalu dipakai.
+     */
+    public function hargaMasterKini(): ?int
+    {
+        if (! $this->master) {
+            return null;
+        }
+
+        if ($this->tingkat === 'musim') {
+            $musim = ($this->master->relationLoaded('musim')
+                ? $this->master->musim
+                : $this->master->musim()->get())
+                ->firstWhere('musim_id', (int) $this->musim_id);
+
+            return $musim ? (int) $musim->harga : null;
+        }
+
+        if ($this->tingkat === 'akhir_pekan' && $this->master->harga_akhir_pekan !== null) {
+            return (int) $this->master->harga_akhir_pekan;
+        }
+
+        return (int) $this->master->harga;
+    }
+
+    public function getTingkatAttribute(): string
+    {
+        if (in_array($this->tingkat_harga, self::TINGKAT, true)) {
+            return $this->tingkat_harga;
+        }
+
+        return $this->pakai_akhir_pekan ? 'akhir_pekan' : 'hari_kerja';
     }
 }

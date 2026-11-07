@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\PaketWisata\PromoRombonganController;
 use App\Http\Controllers\Api\Pelanggan\PelangganController;
 use App\Http\Controllers\Api\Rab\HariLiburController;
 use App\Http\Controllers\Api\Rab\MasterHargaController;
+use App\Http\Controllers\Api\Rab\MusimHargaController;
 use App\Http\Controllers\Api\Rab\RabController;
 use App\Http\Controllers\Api\Rab\VendorController;
 use App\Http\Controllers\Api\Rujukan\KodeRujukanController;
@@ -216,6 +217,21 @@ Route::prefix('v1')
         Route::post('/hari-libur', [HariLiburController::class, 'store']);
         Route::patch('/hari-libur/{libur}', [HariLiburController::class, 'update']);
         Route::delete('/hari-libur/{libur}', [HariLiburController::class, 'destroy']);
+
+        /*
+         | Musim harga — Nataru, Lebaran, long weekend.
+         |
+         | Terpisah dari hari-libur dan memang bukan hal yang sama: hari libur
+         | hanya berkata "perlakukan seperti akhir pekan", musim punya
+         | ANGKANYA SENDIRI per baris harga.
+         */
+        Route::get('/musim-harga', [MusimHargaController::class, 'index']);
+        Route::post('/musim-harga', [MusimHargaController::class, 'store']);
+        Route::get('/musim-harga/{musim}/isi', [MusimHargaController::class, 'isi']);
+        Route::get('/musim-harga/{musim}/calon', [MusimHargaController::class, 'calon']);
+        Route::post('/musim-harga/{musim}/pasang', [MusimHargaController::class, 'pasang']);
+        Route::patch('/musim-harga/{musim}', [MusimHargaController::class, 'update']);
+        Route::delete('/musim-harga/{musim}', [MusimHargaController::class, 'destroy']);
 
         Route::get('/master-harga', [MasterHargaController::class, 'index']);
         // Sebelum /master-harga/{master}: rute berparameter yang terdaftar
