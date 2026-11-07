@@ -916,6 +916,19 @@ class MasterHargaController extends ApiController
         return $data;
     }
 
+    /**
+     * Satu baris harga, apa adanya.
+     *
+     * Dibutuhkan sejak borangnya pindah ke halaman tersendiri: halaman yang
+     * dibuka dari alamat tidak punya baris yang sedang disorot untuk dibaca,
+     * dan menitipkan sembilan kolom lewat query string berarti siapa pun
+     * yang menempelkan tautannya bisa menyuntingnya.
+     */
+    public function show(MasterHarga $master): JsonResponse
+    {
+        return response()->json(['data' => $this->baris($master->load('vendor'))]);
+    }
+
     /** @return array<string, mixed> */
     private function baris(MasterHarga $m): array
     {

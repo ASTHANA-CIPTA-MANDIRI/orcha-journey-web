@@ -2733,3 +2733,19 @@ test('kedua berkas PDF tetap bisa dirakit utuh', function () {
             ->and(strlen($isi))->toBeGreaterThan(5_000);
     }
 });
+
+test('satu baris master harga bisa dibaca sendiri', function () {
+    // Dibutuhkan sejak borangnya pindah ke halaman tersendiri: halaman yang
+    // dibuka dari alamat tidak punya baris yang sedang disorot untuk dibaca.
+    $m = masterUji(['nama' => 'Tiket Candi Prambanan', 'harga' => 50_000]);
+
+    $data = $this->getJson("/api/v1/master-harga/{$m->id}", kepalaRab())->assertOk()->json('data');
+
+    expect($data['id'])->toBe($m->id)
+        ->and($data['nama'])->toBe('Tiket Candi Prambanan')
+        ->and($data['harga'])->toBe(50_000);
+});
+
+test('baris master harga yang tidak ada memulangkan 404', function () {
+    $this->getJson('/api/v1/master-harga/999999', kepalaRab())->assertNotFound();
+});

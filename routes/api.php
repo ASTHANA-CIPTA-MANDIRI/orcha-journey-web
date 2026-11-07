@@ -230,6 +230,7 @@ Route::prefix('v1')
         Route::post('/master-harga', [MasterHargaController::class, 'store']);
         Route::get('/master-harga/{master}/riwayat', [MasterHargaController::class, 'riwayat']);
         Route::get('/master-harga/{master}/dipakai', [MasterHargaController::class, 'dipakaiDi']);
+        Route::get('/master-harga/{master}', [MasterHargaController::class, 'show']);
         Route::patch('/master-harga/{master}', [MasterHargaController::class, 'update']);
         Route::delete('/master-harga/{master}', [MasterHargaController::class, 'destroy']);
 
