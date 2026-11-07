@@ -93,6 +93,19 @@ class RabBiaya extends Model
     }
 
     /**
+     * Rekap pengeluaran baris ini, sesudah trip jalan.
+     *
+     * Kosong berarti BELUM direkap — dan itu beda dari "tagihannya nol".
+     * Destinasi yang ternyata gratis punya rekap dengan tagihan 0; yang
+     * belum diperiksa sama sekali tidak punya rekap. Menyamakan keduanya
+     * membuat baris yang terlupa hilang dari daftar tunggakan.
+     */
+    public function realisasi()
+    {
+        return $this->hasOne(RabRealisasi::class, 'rab_biaya_id');
+    }
+
+    /**
      * Musim yang menentukan harga beku baris ini, bila ada.
      *
      * Boleh kosong walau tingkat_harga-nya 'musim': musim yang dihapus

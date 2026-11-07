@@ -1663,7 +1663,38 @@ return [
             'draf' => 'Draf',
             'dikirim' => 'Dikirim ke pelanggan',
             'disetujui' => 'Disetujui',
+            /*
+             | Trip sudah JALAN dan selesai — penanda yang membuka rekap
+             | pengeluaran.
+             |
+             | Bukan kemewahan administratif: tanpa status ini, "trip mana
+             | yang belum direkap" tidak bisa dijawab sama sekali. Rekap yang
+             | tidak punya daftar tunggakan adalah rekap yang dikerjakan
+             | untuk trip yang diingat saja, dan yang terlupa justru yang
+             | paling lama uangnya menggantung.
+             */
+            'selesai' => 'Selesai',
             'batal' => 'Batal',
+        ],
+
+        /*
+         | Jenis pembayaran ke vendor pada rekap pengeluaran.
+         |
+         | "DP" dan "pelunasan" hanyalah LABEL, bukan dua kolom yang selalu
+         | ada: tiket masuk dibayar sekali tanpa DP, hotel dua kali, dan
+         | sebagian vendor minta tiga kali.
+         */
+        'realisasi_jenis' => [
+            'dp' => 'DP / Uang muka',
+            'pelunasan' => 'Pelunasan',
+            'cicilan' => 'Cicilan',
+            /*
+             | Uang yang KEMBALI — cashback tunai, kelebihan bayar yang
+             | dikembalikan. Dicatat sebagai jenis tersendiri, bukan sebagai
+             | nominal negatif: sekali angka boleh negatif, setiap
+             | penjumlahan di seluruh laporan harus ingat memeriksa tandanya.
+             */
+            'refund' => 'Refund / Uang kembali',
         ],
 
         // Harga per orang dibulatkan ke atas ke kelipatan ini. Penawaran

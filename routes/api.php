@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\Rab\HariLiburController;
 use App\Http\Controllers\Api\Rab\MasterHargaController;
 use App\Http\Controllers\Api\Rab\MusimHargaController;
 use App\Http\Controllers\Api\Rab\RabController;
+use App\Http\Controllers\Api\Rab\RealisasiController;
 use App\Http\Controllers\Api\Rab\VendorController;
 use App\Http\Controllers\Api\Rujukan\KodeRujukanController;
 use App\Http\Controllers\Api\SewaKendaraan\BagianPemeriksaanController;
@@ -256,6 +257,10 @@ Route::prefix('v1')
         // master harga sekaligus — lihat RabController::cariTempat().
         Route::get('/rab/cari-tempat', [RabController::class, 'cariTempat']);
         Route::get('/rab/sumber-itinerary', [RabController::class, 'sumberItinerary']);
+        // Trip selesai yang rekap pengeluarannya belum beres. DI SINI, bukan
+        // di bawah: /rab/{rab} yang terdaftar lebih dulu akan menelannya dan
+        // mencoba memuat RAB berkode "rekap-tunggakan".
+        Route::get('/rab/rekap-tunggakan', [RealisasiController::class, 'tunggakan']);
         Route::delete('/rab/templat/{templat}', [RabController::class, 'hapusTemplat']);
         Route::post('/rab', [RabController::class, 'store']);
         Route::get('/rab/{rab}', [RabController::class, 'show']);
@@ -272,6 +277,19 @@ Route::prefix('v1')
         Route::post('/rab/{rab}/jadikan-pendaftaran', [RabController::class, 'jadikanPendaftaran']);
         Route::post('/rab/{rab}/jadikan-paket', [RabController::class, 'jadikanPaket']);
         Route::post('/rab/{rab}/salin', [RabController::class, 'salin']);
+        /*
+         | Rekap pengeluaran sesudah trip jalan.
+         |
+         | /rab/rekap-tunggakan WAJIB sebelum /rab/{rab}: rute berparameter
+         | yang terdaftar lebih dulu menelan rute bernama — jebakan yang
+         | sudah pernah kena dua kali di aplikasi ini.
+         */
+        Route::get('/rab/{rab}/rekap', [RealisasiController::class, 'index']);
+        Route::post('/rab/{rab}/rekap/biaya/{biaya}', [RealisasiController::class, 'simpan']);
+        Route::post('/rab/{rab}/rekap/biaya/{biaya}/bayar', [RealisasiController::class, 'tambahBayar']);
+        Route::post('/rab/{rab}/rekap/bayar/{bayar}/bukti', [RealisasiController::class, 'gantiBukti']);
+        Route::delete('/rab/{rab}/rekap/bayar/{bayar}', [RealisasiController::class, 'hapusBayar']);
+
         Route::get('/rab/{rab}/versi', [RabController::class, 'versi']);
         Route::post('/rab/{rab}/versi/{versi}/pulihkan', [RabController::class, 'pulihkanVersi']);
         Route::post('/rab/{rab}/simpan-templat', [RabController::class, 'simpanTemplat']);
