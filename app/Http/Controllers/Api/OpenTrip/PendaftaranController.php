@@ -73,7 +73,61 @@ class PendaftaranController extends ApiController
             ->latest('id')
             ->paginate($this->perHalaman($request));
 
-        return $this->halaman($daftar, PendaftaranResource::class);
+        return $this->halamanDipeta(
+            $daftar,
+            fn () => PendaftaranResource::collection($daftar->getCollection())->resolve(),
+            ['jumlah_tab' => $this->jumlahTab($request)],
+        );
+    }
+
+    /**
+     * Berapa pendaftaran di tiap tab — dihitung dari SELURUH data, bukan
+     * dari halaman yang sedang tampil.
+     *
+     * Angka di atas tab itulah yang membuatnya berguna. Tanpa angkanya,
+     * "Perlu ditagih" adalah tombol yang harus ditekan dulu untuk tahu
+     * apakah ada pekerjaan di baliknya — dan tombol semacam itu berhenti
+     * ditekan setelah dua kali kosong, termasuk pada hari ia berisi.
+     *
+     * Saringan paket & pencarian IKUT diperhitungkan, tetapi saringan
+     * status dan tagihan TIDAK: angka di tab harus menjawab "kalau saya
+     * pindah ke sana, ada berapa", bukan memantulkan pilihan yang sedang
+     * aktif. Tab yang angkanya ikut menyusut begitu ditekan tidak menjawab
+     * apa pun.
+     *
+     * @return array<string, int>
+     */
+    private function jumlahTab(Request $request): array
+    {
+        $dasar = fn () => PendaftaranOpenTrip::query()
+            ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
+                fn ($sub) => $sub->where('nama', 'like', "%{$cari}%")
+                    ->orWhere('kode', 'like', "%{$cari}%")
+                    ->orWhere('whatsapp', 'like', "%{$cari}%")
+                    ->orWhere('nama_paket', 'like', "%{$cari}%")
+            ))
+            ->when($request->integer('paket_id'), fn ($q, $id) => $q->where('travel_package_id', $id));
+
+        $perStatus = $dasar()->selectRaw('status, COUNT(*) as jumlah')
+            ->groupBy('status')->pluck('jumlah', 'status');
+
+        /*
+         | Kuncinya diambil dari config, bukan ditulis tangan.
+         |
+         | Status yang ditambahkan di config lalu terlupa di sini akan
+         | menghasilkan tab tanpa angka — dan tab yang angkanya selalu nol
+         | terbaca sebagai "tidak ada pekerjaan di sana", persis kebalikan
+         | dari yang sebenarnya.
+         */
+        $hasil = ['semua' => (int) $perStatus->sum()];
+
+        foreach (array_keys(config('orcha.status_pendaftaran', [])) as $status) {
+            $hasil[$status] = (int) ($perStatus[$status] ?? 0);
+        }
+
+        $hasil['perlu_ditagih'] = (int) $dasar()->perluDitagih()->count();
+
+        return $hasil;
     }
 
     /**
