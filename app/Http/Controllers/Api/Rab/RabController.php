@@ -876,7 +876,62 @@ class RabController extends ApiController
                  */
                 'malam_manual' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:365'],
                 'catatan' => ['sometimes', 'nullable', 'string', 'max:200'],
+                /*
+                 | Satuan baris yang SUDAH ada boleh diganti.
+                 |
+                 | Sebelumnya satuan hanya bisa ditentukan sekali, saat
+                 | barisnya dibuat — baik dari master harga maupun dari
+                 | formulir manual. Begitu salah, satu-satunya jalan adalah
+                 | menghapus barisnya lalu mengetik ulang seluruh isinya:
+                 | nama, vendor, harga hasil negosiasi, catatan, dan hari
+                 | pemakaiannya. Yang terjadi berikutnya bukan admin
+                 | mengetik ulang, melainkan barisnya dibiarkan salah dan
+                 | jumlahnya "dibetulkan" dengan angka karangan.
+                 */
+                'satuan' => ['sometimes', Rule::in(array_keys(config('orcha.rab.satuan', [])))],
             ]);
+
+            /*
+             | Mengganti satuan ikut membereskan medan turunannya.
+             |
+             | Kapasitas, unit_manual, dan malam_manual hanya berarti untuk
+             | sebagian satuan. Ditinggal apa adanya, nilainya tetap tampil
+             | di kartu dan di kalimat penjelasan — "kapasitas 2" pada baris
+             | yang kini dihitung per orang — dan yang membacanya akan
+             | mengira hitungannya masih memakai angka itu.
+             */
+            if (isset($data['satuan']) && $data['satuan'] !== $biaya->satuan) {
+                $berkapasitas = in_array($data['satuan'], config('orcha.rab.satuan_berkapasitas', []), true);
+                $kapasitasBaru = array_key_exists('kapasitas', $data) ? $data['kapasitas'] : $biaya->kapasitas;
+
+                /*
+                 | Pindah ke satuan berkapasitas TANPA kapasitas ditolak.
+                 |
+                 | Tanpa kapasitas, 40 peserta dihitung naik SATU unit —
+                 | penawarannya kekurangan dua bus penuh dan tidak berbunyi
+                 | apa pun. Menebak angkanya di sini (1, misalnya) justru
+                 | lebih buruk: ia menghasilkan 40 kamar yang terlihat
+                 | seperti hitungan sungguhan.
+                 */
+                if ($berkapasitas && ! $kapasitasBaru) {
+                    return response()->json([
+                        'pesan' => 'Isi dulu berapa orang per '
+                            .($data['satuan'] === 'kamar_malam' ? 'kamar' : 'unit')
+                            .'. Tanpa itu seluruh rombongan dihitung muat dalam satu '
+                            .($data['satuan'] === 'kamar_malam' ? 'kamar' : 'unit').'.',
+                    ], 422);
+                }
+
+                if (! $berkapasitas) {
+                    $data['kapasitas'] = null;
+                    $data['unit_manual'] = null;
+                }
+
+                if (! in_array($data['satuan'], HitungRab::SATUAN_BERDURASI, true)) {
+                    $data['malam_manual'] = null;
+                }
+            }
+
             $biaya->update($data);
         }
 

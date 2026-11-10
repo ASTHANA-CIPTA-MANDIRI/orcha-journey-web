@@ -2749,3 +2749,109 @@ test('satu baris master harga bisa dibaca sendiri', function () {
 test('baris master harga yang tidak ada memulangkan 404', function () {
     $this->getJson('/api/v1/master-harga/999999', kepalaRab())->assertNotFound();
 });
+
+/* ===================== GANTI SATUAN BARIS YANG SUDAH ADA ===================== */
+
+/*
+ | Satuan dulu hanya bisa ditentukan SEKALI, saat barisnya dibuat. Begitu
+ | salah, satu-satunya jalan adalah menghapus barisnya lalu mengetik ulang
+ | seluruh isinya: nama, vendor, harga hasil negosiasi, catatan, hari
+ | pemakaiannya. Yang terjadi berikutnya bukan admin mengetik ulang,
+ | melainkan barisnya dibiarkan salah dan jumlahnya "dibetulkan" dengan
+ | angka karangan.
+ */
+
+test('satuan baris boleh diganti, dan hitungannya ikut berubah', function () {
+    $rab = buatRabLewatApi($this, ['jumlah_peserta' => 13, 'jumlah_hari' => 2, 'jumlah_malam' => 1]);
+
+    $biaya = $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'nama' => 'Homestay Banyuwangi', 'kategori' => 'akomodasi',
+        'satuan' => 'kamar_malam', 'harga_satuan' => 300_000, 'kapasitas' => 2,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    // 13 peserta ÷ kapasitas 2 = 7 kamar × 1 malam.
+    expect($biaya['faktor'])->toBe(7);
+
+    $baris = $this->patchJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya['id']}", [
+        'satuan' => 'orang',
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    expect($baris['satuan'])->toBe('orang')
+        ->and($baris['faktor'])->toBe(13);
+});
+
+test('pindah ke satuan tanpa kapasitas ikut membereskan medan turunannya', function () {
+    $rab = buatRabLewatApi($this, ['jumlah_peserta' => 13, 'jumlah_hari' => 3, 'jumlah_malam' => 2]);
+
+    $biaya = $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'nama' => 'Sans Hotel', 'kategori' => 'akomodasi',
+        'satuan' => 'kamar_malam', 'harga_satuan' => 400_000, 'kapasitas' => 2,
+        'unit_manual' => 4, 'malam_manual' => 1,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    $this->patchJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya['id']}", [
+        'satuan' => 'rombongan',
+    ], kepalaRab())->assertOk();
+
+    /*
+     | Ditinggal apa adanya, "kapasitas 2" tetap tampil di kartu dan di
+     | kalimat penjelasan baris yang kini dihitung per rombongan — dan yang
+     | membacanya akan mengira hitungannya masih memakai angka itu.
+     */
+    $sesudah = \App\Models\Rab\RabBiaya::find($biaya['id']);
+    expect($sesudah->satuan)->toBe('rombongan')
+        ->and($sesudah->kapasitas)->toBeNull()
+        ->and($sesudah->unit_manual)->toBeNull()
+        ->and($sesudah->malam_manual)->toBeNull();
+});
+
+test('pindah ke satuan berkapasitas tanpa kapasitas DITOLAK, bukan ditebak', function () {
+    $rab = buatRabLewatApi($this, ['jumlah_peserta' => 40]);
+
+    $biaya = $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'nama' => 'Bus Pariwisata', 'kategori' => 'transportasi',
+        'satuan' => 'rombongan', 'harga_satuan' => 3_000_000,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    /*
+     | Menebak kapasitasnya (1, misalnya) justru lebih buruk daripada
+     | menolak: 40 peserta ÷ 1 menghasilkan 40 bus yang terlihat seperti
+     | hitungan sungguhan.
+     */
+    $this->patchJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya['id']}", [
+        'satuan' => 'unit_hari',
+    ], kepalaRab())->assertStatus(422);
+
+    expect(\App\Models\Rab\RabBiaya::find($biaya['id'])->satuan)->toBe('rombongan');
+});
+
+test('satuan dan kapasitas boleh dikirim bersamaan', function () {
+    // Jalan keluarnya: kirim keduanya sekali jalan, jadi admin tidak terkunci
+    // antara "kapasitas belum ada" dan "kotak kapasitas belum muncul".
+    $rab = buatRabLewatApi($this, ['jumlah_peserta' => 40, 'jumlah_hari' => 2]);
+
+    $biaya = $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'nama' => 'Bus Pariwisata', 'kategori' => 'transportasi',
+        'satuan' => 'rombongan', 'harga_satuan' => 3_000_000,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    $baris = $this->patchJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya['id']}", [
+        'satuan' => 'unit_hari', 'kapasitas' => 20,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    // 40 ÷ 20 = 2 bus × 2 hari.
+    expect($baris['satuan'])->toBe('unit_hari')
+        ->and($baris['kapasitas'])->toBe(20)
+        ->and($baris['faktor'])->toBe(4);
+});
+
+test('satuan yang tidak dikenal ditolak', function () {
+    $rab = buatRabLewatApi($this);
+    $biaya = $this->postJson("/api/v1/rab/{$rab['id']}/biaya", [
+        'nama' => 'Tiket', 'kategori' => 'tiket', 'satuan' => 'orang', 'harga_satuan' => 10_000,
+    ], kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    $this->patchJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya['id']}", [
+        'satuan' => 'per_bulan',
+    ], kepalaRab())->assertStatus(422);
+});
