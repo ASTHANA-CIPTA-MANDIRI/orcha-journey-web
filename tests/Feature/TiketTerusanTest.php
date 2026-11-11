@@ -124,6 +124,32 @@ test('katalog menandai kedua destinasinya sudah punya tiket', function () {
     expect($master['destinasi_lain'])->toBe(['Kawah Sikidang']);
 });
 
+test('satu retribusi boleh mencakup lebih dari dua puluh tempat', function () {
+    /*
+     | Retribusi pantai Gunung Kidul berlaku untuk lebih dari dua puluh
+     | pantai sekaligus — Baron, Kukup, Sepanjang, Drini dan seterusnya —
+     | dibayar sekali di satu gerbang.
+     |
+     | Batas lamanya 20 memotong tiket yang memang sah di tengah jalan, dan
+     | sisanya terpaksa dibuat baris sendiri: penagihan ganda yang kolom ini
+     | justru dibuat untuk mencegahnya.
+     */
+    $pantai = collect(range(1, 34))->map(fn ($n) => "Pantai Uji {$n}")->all();
+
+    $balasan = $this->postJson('/api/v1/master-harga', [
+        'kategori' => 'tiket', 'nama' => 'Retribusi Pantai Gunung Kidul',
+        'provinsi' => 'DI Yogyakarta', 'destinasi' => 'Pantai Baron',
+        'destinasi_lain' => $pantai,
+        'satuan' => 'orang', 'harga' => 10_000,
+    ], kepalaTerusan())->assertCreated();
+
+    $tersimpan = MasterHarga::find($balasan->json('data.id'));
+
+    expect($tersimpan->destinasi_lain)->toHaveCount(34)
+        // Semuanya benar-benar ikut berjodoh, bukan cuma tersimpan.
+        ->and($tersimpan->semuaDestinasi())->toContain('Pantai Uji 34');
+});
+
 test('menambah destinasi yang sudah punya tiket sendiri ditahan', function () {
     // Kalau lolos, keduanya tertarik ke RAB yang sama dan modalnya terhitung
     // dua kali — persis kerugian yang hendak dicegah pemeriksa kembar.

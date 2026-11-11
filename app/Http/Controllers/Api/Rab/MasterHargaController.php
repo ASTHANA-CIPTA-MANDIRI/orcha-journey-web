@@ -898,8 +898,15 @@ class MasterHargaController extends ApiController
              | Sikidang, dibayar sekali. Tanpa kolom ini admin terpaksa
              | membuat dua baris — dan keduanya tertarik ke RAB, lalu
              | tiketnya ditagih dua kali.
+             |
+             | Batasnya 100, bukan 20. Satu retribusi Gunung Kidul mencakup
+             | lebih dari dua puluh pantai — Baron, Kukup, Sepanjang, Drini
+             | dan seterusnya — jadi batas 20 memotong tiket yang memang
+             | sah di tengah jalan, dan sisanya terpaksa dibuat baris
+             | sendiri: persis penagihan ganda yang kolom ini cegah.
+             | Kolomnya JSON, jadi yang membatasi memang cuma angka ini.
              */
-            'destinasi_lain' => ['nullable', 'array', 'max:20'],
+            'destinasi_lain' => ['nullable', 'array', 'max:100'],
             'destinasi_lain.*' => ['required', 'string', 'max:150'],
             'satuan' => ['required', Rule::in(array_keys(config('orcha.rab.satuan')))],
             'harga' => ['required', 'integer', 'min:0', 'max:1000000000'],
