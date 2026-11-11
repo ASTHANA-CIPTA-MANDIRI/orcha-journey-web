@@ -239,6 +239,17 @@ class RabController extends ApiController
         $bertiket = MasterHarga::where('aktif', true)->whereNotNull('destinasi')->get()
             ->flatMap(fn (MasterHarga $m) => $m->semuaDestinasi())->flip();
 
+        /*
+         | Id entri katalog tambahan, untuk nama yang benar-benar akan hilang
+         | dari daftar bila barisnya dihapus.
+         |
+         | Katalog ini tumpukan tiga sumber dan hanya SATU di antaranya punya
+         | baris yang bisa dihapus. Tanpa penanda ini layar pemilih tidak
+         | punya cara membedakannya, dan tombol hapus di sebelah nama bawaan
+         | menjanjikan sesuatu yang tidak akan terjadi.
+         */
+        $kustom = KatalogDestinasi::bisaDihapus();
+
         $destinasi = collect($katalog)
             ->filter(fn ($v) => ! $provinsi || ($v['provinsi'] ?? null) === $provinsi)
             ->map(fn ($v, $nama) => [
@@ -248,6 +259,8 @@ class RabController extends ApiController
                 // Punya tiket di master? Ditandai supaya admin tahu mana yang
                 // biayanya akan tertarik sendiri dan mana yang harus diisi.
                 'punya_tiket' => $bertiket->has($nama),
+                // null = bawaan atau sudah tercatat; tidak bisa dihapus.
+                'katalog_id' => $kustom[$nama] ?? null,
             ])
             ->sortBy('nama')->values();
 

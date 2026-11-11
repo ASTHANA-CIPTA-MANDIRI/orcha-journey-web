@@ -8,6 +8,8 @@ use App\Models\Etalase\DestinationPopuler;
 use App\Models\Etalase\KatalogDestinasi;
 use App\Models\Etalase\ProvinsiTambahan;
 use App\Models\Etalase\WilayahTambahan;
+use App\Models\Rab\MasterHarga;
+use App\Models\Rab\RabItinerary;
 use App\Support\Etalase\CariLokasi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -144,6 +146,30 @@ class ProvinsiController extends ApiController
         $provinsi = trim((string) ($data['provinsi'] ?? '')) ?: ($usulan['provinsi'] ?? null);
         $daerah = trim((string) ($data['daerah'] ?? '')) ?: ($usulan['daerah'] ?? null);
 
+        /*
+         | Nama yang PERNAH dihapus dipulihkan, bukan dibuat ulang.
+         |
+         | Barisnya masih ada — cuma tidak ikut terbaca — berikut provinsi &
+         | daerah yang dulu diisikan pencari lokasi. Membuat baris baru
+         | berarti menebak ulang keduanya dari nol dan meninggalkan baris
+         | lama menggantung sebagai kembaran yang tak terlihat.
+         |
+         | Diperiksa SEBELUM gabungan(): yang terhapus memang tidak ada di
+         | sana, jadi pemeriksa "sudah ada" tidak akan pernah melihatnya.
+         */
+        $terhapus = KatalogDestinasi::onlyTrashed()
+            ->whereRaw('LOWER(TRIM(nama)) = ?', [mb_strtolower($nama)])
+            ->first();
+
+        if ($terhapus) {
+            $terhapus->restore();
+
+            return response()->json([
+                'pesan' => "{$terhapus->nama} dikembalikan ke daftar destinasi.",
+                'data' => KatalogDestinasi::kustom(),
+            ]);
+        }
+
         if (array_key_exists($nama, KatalogDestinasi::gabungan())) {
             return response()->json([
                 'pesan' => "{$nama} sudah ada di daftar.",
@@ -160,19 +186,55 @@ class ProvinsiController extends ApiController
     }
 
     /**
-     * Menghapus satu entri katalog.
+     * Menghapus satu entri katalog — DITOLAK bila namanya masih dipakai.
      *
-     * TIDAK menghapus destinasi apa pun. Destinasi yang sudah tercatat tetap
-     * utuh, dan namanya tetap muncul di daftar pilihan karena ikut dibaca dari
-     * destinasi yang ada.
+     * TIDAK menghapus destinasi apa pun. Baris harga, RAB, dan itinerary
+     * menyimpan NAMA destinasinya, bukan id katalog ini, jadi menghapus
+     * entri katalog tidak pernah menyentuh satu pun dari mereka.
+     *
+     * Justru itulah bahayanya, dan sebab penjaga di bawah ada: tanpa
+     * penjaga, menghapus "Candi Arjuna" dari katalog membuat baris harga
+     * tiketnya terus hidup sambil namanya hilang dari kotak pilih. Yang
+     * menyunting baris itu berikutnya melihat "— tidak ada di katalog", dan
+     * sekali ia menyimpan dengan destinasi lain, jodoh harga ke itinerary
+     * putus tanpa satu pun galat.
+     *
+     * Hapusnya sendiri LEMBUT: barisnya tetap ada dan kembali utuh begitu
+     * namanya ditambahkan lagi lewat jalan biasa.
      */
     public function hapusKatalogDestinasi(KatalogDestinasi $katalog): JsonResponse
     {
         $nama = $katalog->nama;
+        $rapi = mb_strtolower(trim($nama));
+
+        $diHarga = MasterHarga::query()->get(['destinasi', 'destinasi_lain'])
+            ->filter(fn (MasterHarga $m) => collect($m->semuaDestinasi())
+                ->contains(fn ($d) => mb_strtolower(trim((string) $d)) === $rapi))
+            ->count();
+
+        $diItinerary = RabItinerary::query()
+            ->whereRaw('LOWER(TRIM(destinasi)) = ?', [$rapi])
+            ->count();
+
+        if ($diHarga || $diItinerary) {
+            $sebab = collect([
+                $diHarga ? "{$diHarga} baris harga" : null,
+                $diItinerary ? "{$diItinerary} baris itinerary RAB" : null,
+            ])->filter()->join(' dan ');
+
+            return response()->json([
+                'pesan' => "{$nama} masih dipakai {$sebab}, jadi tidak dihapus. "
+                    .'Lepaskan dulu dari sana, atau biarkan — menghapusnya di sini '
+                    .'tidak akan menghapusnya dari RAB & itinerary, hanya membuat '
+                    .'namanya hilang dari kotak pilih.',
+                'dipakai' => ['harga' => $diHarga, 'itinerary' => $diItinerary],
+            ], 422);
+        }
+
         $katalog->delete();
 
         return response()->json([
-            'pesan' => "{$nama} dihapus dari daftar.",
+            'pesan' => "{$nama} dihapus dari daftar. Tambahkan lagi dengan nama yang sama untuk mengembalikannya.",
             'data' => KatalogDestinasi::kustom(),
         ]);
     }

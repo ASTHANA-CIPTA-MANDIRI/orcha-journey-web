@@ -3,12 +3,20 @@
 namespace App\Models\Etalase;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Nama destinasi yang ditambahkan admin sendiri.
+ *
+ * Dihapus secara LEMBUT: provinsi & daerahnya dulu diisikan sendiri oleh
+ * pencari lokasi, jadi baris yang terhapus permanen tidak bisa diketik
+ * ulang dengan benar oleh siapa pun. Menambahkan nama yang sama lewat jalan
+ * biasa memulihkannya utuh — lihat ProvinsiController::simpanKatalogDestinasi.
  */
 class KatalogDestinasi extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'katalog_destinasi_tambahan';
 
     protected $fillable = ['nama', 'provinsi', 'daerah'];
@@ -68,6 +76,32 @@ class KatalogDestinasi extends Model
             ->get(['id', 'nama', 'provinsi', 'daerah'])
             ->map(fn ($b) => ['id' => $b->id, 'nama' => $b->nama,
                 'provinsi' => $b->provinsi, 'daerah' => $b->daerah])
+            ->all();
+    }
+
+    /**
+     * Nama → id, HANYA untuk nama yang akan benar-benar hilang dari daftar
+     * bila barisnya dihapus.
+     *
+     * `gabungan()` menumpuk tiga sumber. Nama yang juga ada di katalog
+     * bawaan atau sudah tercatat sebagai destinasi tetap muncul di daftar
+     * sesudah baris tambahannya dihapus — tombol hapus di sebelahnya
+     * berarti menjanjikan sesuatu yang tidak terjadi: admin menekannya,
+     * namanya masih di sana, dan ia menekannya lagi.
+     *
+     * @return array<string, int>
+     */
+    public static function bisaDihapus(): array
+    {
+        $rapi = fn ($t) => mb_strtolower(trim((string) $t));
+
+        $lain = collect(array_keys(config('orcha.katalog_destinasi', [])))
+            ->merge(DestinationPopuler::query()->pluck('destination_name'))
+            ->map($rapi)->flip();
+
+        return static::orderBy('nama')->get(['id', 'nama'])
+            ->reject(fn ($b) => $lain->has($rapi($b->nama)))
+            ->mapWithKeys(fn ($b) => [$b->nama => (int) $b->id])
             ->all();
     }
 }
