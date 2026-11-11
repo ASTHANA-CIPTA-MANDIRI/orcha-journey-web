@@ -886,6 +886,16 @@ class MasterHargaController extends ApiController
     {
         $data = $request->validate([
             'kategori' => ['required', Rule::in(array_keys(config('orcha.rab.kategori')))],
+            /*
+             | Tipe/jenis barangnya: HiAce, Elf, Jeep, Twin, Deluxe.
+             |
+             | Selama ini diketik ke dalam NAMA barisnya, dan karena itu
+             | tidak pernah bisa dipakai apa pun selain mata — tidak bisa
+             | disaring, tidak bisa dibandingkan, dan hilang begitu namanya
+             | diubah. Boleh dikosongkan: retribusi pantai bukan "jenis"
+             | apa-apa.
+             */
+            'tipe' => ['nullable', 'string', 'max:40'],
             'vendor_id' => ['nullable', 'integer', 'exists:tbl_vendor,id'],
             'nama' => ['required', 'string', 'min:2', 'max:150'],
             'provinsi' => ['nullable', 'string', 'max:80'],
@@ -1042,6 +1052,7 @@ class MasterHargaController extends ApiController
             'id' => $m->id,
             'kategori' => $m->kategori,
             'kategori_label' => $m->kategori_label,
+            'tipe' => $m->tipe,
             // Nama & nomor vendornya dibaca HIDUP dari tabel vendor, bukan
             // disalin: nomor yang berganti harus sampai ke seluruh harga
             // yang memakainya tanpa satu pun diubah tangan.

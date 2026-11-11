@@ -220,6 +220,7 @@ class RabController extends ApiController
                 'nama' => $m->nama,
                 'kategori' => $m->kategori,
                 'kategori_label' => $m->kategori_label,
+                'tipe' => $m->tipe,
                 'catatan' => $m->catatan,
                 'bisa_jadi_kegiatan' => in_array($m->kategori, $kegiatanBerwaktu, true),
             ])->take(8)->values();
@@ -270,6 +271,7 @@ class RabController extends ApiController
                 'id' => $m->id,
                 'kategori' => $m->kategori,
                 'kategori_label' => $m->kategori_label,
+                'tipe' => $m->tipe,
                 'nama' => $m->nama,
                 'destinasi' => $m->destinasi,
                 'destinasi_lain' => $m->destinasi_lain ?? [],

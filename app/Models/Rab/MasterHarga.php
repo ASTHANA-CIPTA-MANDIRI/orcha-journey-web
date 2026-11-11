@@ -21,7 +21,7 @@ class MasterHarga extends Model
     protected $table = 'tbl_master_harga';
 
     protected $fillable = [
-        'kategori', 'vendor_id', 'nama', 'provinsi', 'daerah', 'destinasi', 'destinasi_lain',
+        'kategori', 'tipe', 'vendor_id', 'nama', 'provinsi', 'daerah', 'destinasi', 'destinasi_lain',
         'satuan', 'harga', 'harga_akhir_pekan', 'kapasitas', 'berlaku_sampai',
         'otomatis', 'aktif', 'catatan',
     ];

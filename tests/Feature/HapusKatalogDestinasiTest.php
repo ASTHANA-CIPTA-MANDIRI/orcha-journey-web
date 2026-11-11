@@ -19,7 +19,7 @@ use App\Models\Rab\RabItinerary;
  * - Provinsi & daerahnya dulu diisikan pencari lokasi, jadi hapus permanen
  *   berarti tidak ada yang bisa mengetiknya ulang dengan benar.
  */
-function kepalaKatalog(): array
+function kepalaHapusKatalog(): array
 {
     config()->set('orcha.api.kunci', 'kunci-uji-katalog');
 
@@ -31,7 +31,7 @@ test('destinasi yang tidak dipakai siapa pun bisa dihapus', function () {
         'nama' => 'Pantai Uji Sepi', 'provinsi' => 'DI Yogyakarta', 'daerah' => 'Gunung Kidul',
     ]);
 
-    $this->deleteJson("/api/v1/katalog-destinasi/{$entri->id}", [], kepalaKatalog())
+    $this->deleteJson("/api/v1/katalog-destinasi/{$entri->id}", [], kepalaHapusKatalog())
         ->assertOk();
 
     // Hilang dari daftar, tetapi barisnya MASIH ADA — itulah yang membuatnya
@@ -50,7 +50,7 @@ test('destinasi yang dipakai baris harga DITOLAK dihapus', function () {
         'satuan' => 'orang', 'harga' => 10_000, 'aktif' => true,
     ]);
 
-    $this->deleteJson("/api/v1/katalog-destinasi/{$entri->id}", [], kepalaKatalog())
+    $this->deleteJson("/api/v1/katalog-destinasi/{$entri->id}", [], kepalaHapusKatalog())
         ->assertStatus(422)
         ->assertJsonPath('dipakai.harga', 1);
 
@@ -68,7 +68,7 @@ test('destinasi yang cuma ikut tiket terusan juga DITOLAK dihapus', function () 
         'satuan' => 'orang', 'harga' => 30_000, 'aktif' => true,
     ]);
 
-    $this->deleteJson("/api/v1/katalog-destinasi/{$entri->id}", [], kepalaKatalog())
+    $this->deleteJson("/api/v1/katalog-destinasi/{$entri->id}", [], kepalaHapusKatalog())
         ->assertStatus(422)
         ->assertJsonPath('dipakai.harga', 1);
 });
@@ -83,7 +83,7 @@ test('destinasi yang dipakai itinerary RAB DITOLAK dihapus', function () {
     RabItinerary::create(['rab_id' => $rab->id, 'hari_ke' => 1, 'jam' => '09:00',
         'nama' => 'Pantai Uji Dijadwalkan', 'destinasi' => 'Pantai Uji Dijadwalkan', 'urutan' => 1]);
 
-    $this->deleteJson("/api/v1/katalog-destinasi/{$entri->id}", [], kepalaKatalog())
+    $this->deleteJson("/api/v1/katalog-destinasi/{$entri->id}", [], kepalaHapusKatalog())
         ->assertStatus(422)
         ->assertJsonPath('dipakai.itinerary', 1);
 
@@ -97,7 +97,7 @@ test('menambahkan nama yang sama mengembalikan baris yang dihapus', function () 
     ]);
     $entri->delete();
 
-    $this->postJson('/api/v1/katalog-destinasi', ['nama' => '  Pantai   Uji Pulang '], kepalaKatalog())
+    $this->postJson('/api/v1/katalog-destinasi', ['nama' => '  Pantai   Uji Pulang '], kepalaHapusKatalog())
         ->assertOk();
 
     $pulih = KatalogDestinasi::where('nama', 'Pantai Uji Pulang')->first();
@@ -121,7 +121,7 @@ test('katalog RAB menandai mana yang boleh dihapus', function () {
         'provinsi' => 'DI Yogyakarta',
     ]);
 
-    $data = $this->getJson('/api/v1/rab/katalog?provinsi=DI%20Yogyakarta', kepalaKatalog())
+    $data = $this->getJson('/api/v1/rab/katalog?provinsi=DI%20Yogyakarta', kepalaHapusKatalog())
         ->assertOk()->json('data.destinasi');
 
     $baris = collect($data)->keyBy('nama');
