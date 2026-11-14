@@ -1324,12 +1324,26 @@ class RabController extends ApiController
 
         foreach (array_values($agendaPaket) as $i => $hari) {
             foreach ($hari['agenda'] ?? [] as $kegiatan) {
-                $jam = str_replace('.', ':', trim((string) ($kegiatan['jam'] ?? '')));
+                /*
+                 | Jamnya boleh berupa RENTANG ("00.00 - 01.20").
+                 |
+                 | Paket membawa jam selesai sejak itinerary RAB ikut
+                 | memberikannya. Regex lama hanya menerima satu jam utuh,
+                 | jadi rentang jatuh ke null tanpa galat — seluruh jadwal
+                 | kehilangan jamnya begitu RAB dirakit balik dari paket.
+                 |
+                 | Pemisahnya longgar: admin mengetik ulang nilai ini dengan
+                 | tangan, dan tanda hubung bisa jadi "-", "–", atau "—".
+                 */
+                $teksJam = str_replace('.', ':', trim((string) ($kegiatan['jam'] ?? '')));
+                $bagian = preg_split('/\s*[-–—]\s*/u', $teksJam, 2);
+
+                $sah = fn ($t) => preg_match('/^\d{1,2}:\d{2}$/', (string) $t) ? $t : null;
 
                 $hasil[] = [
                     'hari_ke' => $i + 1,
-                    'jam' => preg_match('/^\d{2}:\d{2}$/', $jam) ? $jam : null,
-                    'jam_selesai' => null,
+                    'jam' => $sah($bagian[0] ?? null),
+                    'jam_selesai' => $sah($bagian[1] ?? null),
                     'nama' => trim((string) ($kegiatan['kegiatan'] ?? '')),
                     'keterangan' => null,
                     // Destinasi tidak ditebak dari nama kegiatan: salah

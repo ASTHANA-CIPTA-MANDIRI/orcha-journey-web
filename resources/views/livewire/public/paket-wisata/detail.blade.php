@@ -348,8 +348,12 @@ new #[Layout('components.layouts.guest')] class extends Component
                                                         <span
                                                             class="w-2.5 h-2.5 rounded-full bg-orcha-sky ring-4 ring-white"></span>
                                                     </span>
+                                                    {{-- w-28, bukan w-16: jamnya kini boleh berupa rentang
+                                                         ("00.00 - 01.20") sejak jam selesai ikut dibawa dari
+                                                         RAB. Pada lebar lama angkanya patah jadi dua baris dan
+                                                         barisnya tidak lagi sejajar dengan titiknya. --}}
                                                     <span
-                                                        class="font-mono text-sm font-bold leading-6 shrink-0 text-orcha-ocean w-16 tabular-nums">{{ $agenda['jam'] ?? '' }}</span>
+                                                        class="font-mono text-xs sm:text-sm font-bold leading-6 shrink-0 text-orcha-ocean w-28 tabular-nums whitespace-nowrap">{{ $agenda['jam'] ?? '' }}</span>
                                                     <span
                                                         class="text-sm leading-6 text-slate-600">{{ $agenda['kegiatan'] ?? '' }}</span>
                                                 </li>
