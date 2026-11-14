@@ -42,6 +42,19 @@ use Illuminate\Validation\ValidationException;
  */
 class RabController extends ApiController
 {
+    /**
+     * Biaya yang SEKALIGUS kejadian berwaktu.
+     *
+     * "Makan di Restoku Chen-Chen" dan "Check-in Hotel Mawar" menempati jam
+     * di hari itu, dan admin yang mengkliknya memang berharap keduanya ikut.
+     * Yang tidak pernah jadi kegiatan cuma yang tidak punya jam: armada,
+     * asuransi, operasional tim.
+     *
+     * Satu tempat saja — dipakai pencarian tempat maupun daftar pencarian
+     * lintas provinsi. Dua tebakan untuk hal yang sama suatu hari berselisih.
+     */
+    private const KEGIATAN_BERWAKTU = ['konsumsi', 'akomodasi'];
+
     public function index(Request $request): JsonResponse
     {
         $daftar = Rab::query()
@@ -210,8 +223,6 @@ class RabController extends ApiController
          | menebak sendiri — tebakan kedua di sisi lemon akan berselisih dengan
          | yang di sini suatu hari.
          */
-        $kegiatanBerwaktu = ['konsumsi', 'akomodasi'];
-
         $bukanTempat = MasterHarga::query()->where('aktif', true)->whereNull('destinasi')
             ->get(['id', 'nama', 'kategori', 'catatan'])
             ->filter(fn (MasterHarga $m) => $cocok($m->nama))
@@ -222,7 +233,7 @@ class RabController extends ApiController
                 'kategori_label' => $m->kategori_label,
                 'tipe' => $m->tipe,
                 'catatan' => $m->catatan,
-                'bisa_jadi_kegiatan' => in_array($m->kategori, $kegiatanBerwaktu, true),
+                'bisa_jadi_kegiatan' => in_array($m->kategori, self::KEGIATAN_BERWAKTU, true),
             ])->take(8)->values();
 
         return response()->json([
@@ -286,6 +297,51 @@ class RabController extends ApiController
                 'vendor_id' => $m->vendor_id,
                 'vendor' => $m->vendor?->nama,
                 'vendor_kontak' => $m->vendor?->kontak,
+                // Catatan harga ikut: isinya kerap syarat yang menentukan
+                // ("belum termasuk tiket masuk", "minimal 10 orang"), dan
+                // selama ini hanya terbaca di layar Master Harga.
+                'provinsi' => $m->provinsi,
+                'catatan' => $m->catatan,
+            ]);
+
+        /*
+         | Daftar untuk PENCARIAN, lintas provinsi.
+         |
+         | Terpisah dari `master` di atas yang sengaja disaring per provinsi —
+         | kotak biaya RAB memang hanya boleh menawarkan yang masuk akal di
+         | sana. Pencariannya berbeda: admin yang mengetik "hiace" sedang
+         | mencari barangnya, bukan menyaring provinsi, dan jawaban "tidak
+         | ada" untuk harga yang jelas-jelas ada cuma membuatnya mengetik
+         | ulang nama yang sama.
+         |
+         | Medannya dipulangkan apa adanya; yang merakit kalimat pencarian
+         | adalah layar, supaya satu-satunya tempat yang tahu bentuk
+         | tampilannya tetap di sana.
+         */
+        $masterCari = MasterHarga::query()->where('aktif', true)->with('vendor')
+            ->orderBy('kategori')->orderBy('nama')->get()
+            ->map(fn (MasterHarga $m) => [
+                'id' => $m->id,
+                'nama' => $m->nama,
+                'kategori' => $m->kategori,
+                'kategori_label' => $m->kategori_label,
+                'tipe' => $m->tipe,
+                'destinasi' => $m->destinasi,
+                'destinasi_lain' => $m->destinasi_lain ?? [],
+                'provinsi' => $m->provinsi,
+                'daerah' => $m->daerah,
+                'satuan' => $m->satuan,
+                'satuan_label' => $m->satuan_label,
+                'kapasitas' => $m->kapasitas,
+                'harga' => $m->harga,
+                'harga_teks' => RincianBiaya::rupiah($m->harga),
+                'vendor' => $m->vendor?->nama,
+                'vendor_kontak' => $m->vendor?->kontak,
+                'catatan' => $m->catatan,
+                // Penggolongnya ikut, supaya layar tidak menebak sendiri —
+                // tebakan kedua di sisi lemon akan berselisih dengan yang di
+                // sini suatu hari.
+                'bisa_jadi_kegiatan' => in_array($m->kategori, self::KEGIATAN_BERWAKTU, true),
             ]);
 
         /*
@@ -313,6 +369,7 @@ class RabController extends ApiController
             'provinsi' => $daftarProvinsi,
             'destinasi' => $destinasi,
             'master' => $master,
+            'master_cari' => $masterCari,
             'vendor' => $vendor,
             'paket' => TravelPackage::query()->orderBy('name')->get(['id', 'name', 'category'])
                 ->map(fn ($p) => ['id' => $p->id, 'nama' => $p->name, 'kategori' => $p->category]),
