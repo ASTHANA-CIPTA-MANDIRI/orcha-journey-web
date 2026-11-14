@@ -49,8 +49,17 @@ return new class extends Migration
 
             $t->timestamps();
 
-            $t->index(['travel_package_id', 'tanggal_berangkat']);
-            $t->index(['aktif', 'tanggal_berangkat']);
+            /*
+             | Nama indeksnya DISEBUT, bukan dibiarkan dirakit Laravel.
+             |
+             | Rakitan bawaannya "tbl_paket_keberangkatan_travel_package_id_
+             | tanggal_berangkat_index" — 65 huruf, satu lebih panjang dari
+             | batas 64 milik MySQL, dan migrasinya berhenti di tengah dengan
+             | tabel yang terlanjur terbuat. SQLite tidak punya batas itu,
+             | jadi seluruh uji tetap hijau sampai ia dijalankan di server.
+             */
+            $t->index(['travel_package_id', 'tanggal_berangkat'], 'kb_paket_tanggal_idx');
+            $t->index(['aktif', 'tanggal_berangkat'], 'kb_aktif_tanggal_idx');
         });
 
         /*
