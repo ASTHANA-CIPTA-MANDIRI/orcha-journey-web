@@ -147,7 +147,106 @@ class GambarWebp
         imagealphablending($gambar, false);
         imagesavealpha($gambar, true);
 
+        return self::tegakkan($gambar, $berkas);
+    }
+
+    /**
+     * Memutar gambar mengikuti tag EXIF Orientation kamera.
+     *
+     * Kamera ponsel jarang memutar pikselnya. Ia menyimpan foto tegak sebagai
+     * piksel MENDATAR, lalu menitipkan catatan "putar 90 derajat" di tag EXIF
+     * Orientation. Peramban menghormati catatan itu, jadi JPEG aslinya tampak
+     * tegak — tetapi imagecreatefromstring() mengabaikannya, dan WebP hasil
+     * GD tidak membawa EXIF sama sekali. Hasilnya: catatannya hilang, dan
+     * pikselnya tidak pernah diputar, sehingga foto tersimpan MIRING
+     * selamanya tanpa satu pun galat.
+     *
+     * Terbukti 14 Nov 2026: foto pertama yang diunggah admin tersimpan
+     * 1920x1080 mendatar padahal isinya foto tegak.
+     *
+     * @param  \GdImage  $gambar
+     * @return \GdImage
+     */
+    private static function tegakkan($gambar, UploadedFile $berkas)
+    {
+        $arah = self::arahExif($berkas);
+
+        if ($arah <= 1) {
+            return $gambar;
+        }
+
+        // imagerotate memutar BERLAWANAN arah jarum jam dan memulangkan
+        // gambar BARU; yang lama harus dilepas sendiri supaya memorinya tidak
+        // menumpuk saat admin mengunggah dua puluh foto sekaligus.
+        $putar = function ($lama, int $derajat) {
+            $baru = imagerotate($lama, $derajat, 0);
+
+            if (! $baru) {
+                return $lama;
+            }
+
+            imagedestroy($lama);
+            imagealphablending($baru, false);
+            imagesavealpha($baru, true);
+
+            return $baru;
+        };
+
+        switch ($arah) {
+            case 2:
+                imageflip($gambar, IMG_FLIP_HORIZONTAL);
+                break;
+            case 3:
+                $gambar = $putar($gambar, 180);
+                break;
+            case 4:
+                imageflip($gambar, IMG_FLIP_VERTICAL);
+                break;
+            case 5:
+                imageflip($gambar, IMG_FLIP_VERTICAL);
+                $gambar = $putar($gambar, -90);
+                break;
+            case 6:
+                $gambar = $putar($gambar, -90);
+                break;
+            case 7:
+                imageflip($gambar, IMG_FLIP_HORIZONTAL);
+                $gambar = $putar($gambar, -90);
+                break;
+            case 8:
+                $gambar = $putar($gambar, 90);
+                break;
+        }
+
         return $gambar;
+    }
+
+    /**
+     * Membaca tag EXIF Orientation; 1 (atau 0) berarti tidak perlu diputar.
+     *
+     * Dibungkus rapat-rapat: exif_read_data memperingatkan — dan di sebagian
+     * server melempar — untuk berkas yang bukan JPEG/TIFF, padahal PNG dan
+     * WebP memang tidak punya EXIF dan itu bukan keadaan salah.
+     */
+    private static function arahExif(UploadedFile $berkas): int
+    {
+        if (! function_exists('exif_read_data') || ! function_exists('imagerotate')) {
+            return 1;
+        }
+
+        $jalur = $berkas->getRealPath();
+
+        if (! $jalur || ! is_readable($jalur)) {
+            return 1;
+        }
+
+        try {
+            $exif = @exif_read_data($jalur);
+        } catch (\Throwable) {
+            return 1;
+        }
+
+        return (int) ($exif['Orientation'] ?? 1);
     }
 
     /**

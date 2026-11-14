@@ -1598,6 +1598,76 @@ test('foto galeri berukuran besar diterima, bukan ditolak validasi', function ()
         ->and($berkas[0])->toEndWith('.webp');
 });
 
+/**
+ * Menyisipkan blok EXIF Orientation ke sebuah JPEG.
+ *
+ * GD tidak bisa MENULIS EXIF, jadi tidak ada cara memakai berkas buatan
+ * GD apa adanya untuk menguji ini. Bloknya dirakit tangan dan diselipkan
+ * tepat sesudah penanda SOI, persis seperti yang dilakukan kamera.
+ */
+function jpegBerorientasi(int $lebar, int $tinggi, int $arah): string
+{
+    $im = imagecreatetruecolor($lebar, $tinggi);
+    ob_start();
+    imagejpeg($im, null, 90);
+    $jpeg = ob_get_clean();
+    imagedestroy($im);
+
+    // TIFF big-endian: "MM", 42, offset IFD0 = 8, satu entri Orientation
+    // (tag 0x0112, tipe SHORT, jumlah 1), lalu penunjuk IFD berikutnya = 0.
+    $tiff = "MM\x00\x2a\x00\x00\x00\x08"
+        ."\x00\x01"
+        ."\x01\x12\x00\x03\x00\x00\x00\x01".pack('n', $arah)."\x00\x00"
+        ."\x00\x00\x00\x00";
+
+    $isi = "Exif\x00\x00".$tiff;
+    $app1 = "\xFF\xE1".pack('n', strlen($isi) + 2).$isi;
+
+    return substr($jpeg, 0, 2).$app1.substr($jpeg, 2);
+}
+
+test('foto yang dipotret tegak tidak tersimpan miring', function () {
+    Storage::fake('public');
+
+    /*
+     | Kamera ponsel jarang memutar pikselnya: foto tegak disimpan sebagai
+     | piksel MENDATAR plus tag EXIF "putar 90 derajat". Peramban menghormati
+     | tag itu, GD tidak — dan WebP hasil GD tidak membawa EXIF sama sekali,
+     | jadi tagnya hilang sementara pikselnya tidak pernah diputar.
+     |
+     | Terjadi sungguhan 14 Nov 2026: foto pertama yang diunggah admin
+     | tersimpan 1920x1080 mendatar padahal isinya foto tegak, dan tidak ada
+     | satu pun galat yang menyebutkannya.
+     */
+    $berkas = UploadedFile::fake()->createWithContent(
+        'tegak.jpg',
+        jpegBerorientasi(400, 300, 6),
+    );
+
+    $this->post('/api/v1/galeri', ['gambar' => $berkas], kirim())->assertStatus(201);
+
+    $jalur = Storage::disk('public')->allFiles('galeri')[0];
+    [$lebar, $tinggi] = getimagesizefromstring(Storage::disk('public')->get($jalur));
+
+    // Pikselnya mendatar 400x300; sesudah diputar seharusnya 300x400.
+    expect($tinggi)->toBeGreaterThan($lebar);
+});
+
+test('foto tanpa tag orientasi dibiarkan apa adanya', function () {
+    Storage::fake('public');
+
+    // Penjagaan arah sebaliknya: pembetulan tidak boleh memutar foto yang
+    // memang sudah benar, dan foto mendatar harus tetap mendatar.
+    $this->post('/api/v1/galeri', [
+        'gambar' => UploadedFile::fake()->image('mendatar.jpg', 400, 300),
+    ], kirim())->assertStatus(201);
+
+    $jalur = Storage::disk('public')->allFiles('galeri')[0];
+    [$lebar, $tinggi] = getimagesizefromstring(Storage::disk('public')->get($jalur));
+
+    expect($lebar)->toBeGreaterThan($tinggi);
+});
+
 test('galeri hanya menampilkan yang ditandai tampil, mengikuti urutannya', function () {
     Galeri::create(['foto' => '/storage/galeri/c.webp', 'urutan' => 3]);
     Galeri::create(['foto' => '/storage/galeri/a.webp', 'urutan' => 1]);
