@@ -12,6 +12,7 @@ use App\Models\Rab\Vendor;
 use App\Models\Rab\VersiPenawaran;
 use App\Support\Rab\BerkasRab;
 use App\Support\Rab\HitungRab;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -79,6 +80,80 @@ function buatRabLewatApi($uji, array $ubah = [], bool $denganBawaan = false): ar
 
     return $uji->getJson('/api/v1/rab/'.$rab['id'], kepalaRab())->json('data');
 }
+
+test('daftar berhalaman tidak pernah mengulang atau melewatkan baris', function () {
+    /*
+     | Dulu tiap pilihan urutan memakai kolom yang nilainya banyak kembar
+     | (harga, updated_at, biaya_count) tanpa pemecah seri. Saat nilainya
+     | seri MySQL bebas menaruh yang mana dulu, dan ia tidak menjamin urutan
+     | yang SAMA antara kueri halaman 1 dan halaman 2 — sehingga satu baris
+     | terbit di dua halaman sementara baris lain tidak pernah muncul.
+     |
+     | Terbukti di produksi 14 Nov 2026 pada urut=termahal: tujuh id terbit
+     | dua kali, tujuh baris lain hilang. Yang dilihat admin "master harganya
+     | ke-dobel", padahal datanya bersih.
+     |
+     | Harga sengaja dibuat SERI semua: itu keadaan terburuknya, dan itulah
+     | yang terjadi di produksi.
+     */
+    foreach (range(1, 25) as $i) {
+        masterUji(['nama' => 'Barang '.$i, 'harga' => 100_000]);
+    }
+
+    $total = MasterHarga::count();
+
+    foreach (['termahal', 'termurah', 'terbaru', 'terlama', 'tersering', ''] as $urut) {
+        $terkumpul = [];
+
+        for ($halaman = 1; $halaman <= (int) ceil($total / 10); $halaman++) {
+            $terkumpul = array_merge($terkumpul, collect(
+                $this->getJson("/api/v1/master-harga?urut={$urut}&per_halaman=10&page={$halaman}", kepalaRab())
+                    ->assertOk()->json('data')
+            )->pluck('id')->all());
+        }
+
+        expect(array_unique($terkumpul))->toHaveCount(count($terkumpul), "urut={$urut}: ada baris yang terbit dua kali");
+        expect($terkumpul)->toHaveCount($total, "urut={$urut}: ada baris yang tidak pernah muncul");
+    }
+});
+
+test('tiap urutan daftar punya pemecah seri', function () {
+    /*
+     | Penjagaan yang SEBENARNYA untuk bug halaman-dobel.
+     |
+     | Menyusuri halaman di uji TIDAK cukup: uji berjalan di SQLite, yang
+     | kebetulan memulangkan urutan stabil meski tidak diminta — ujinya tetap
+     | hijau sekalipun pemecah serinya dicabut, sementara MySQL di produksi
+     | mengacaknya. Sudah dibuktikan: mematikan $q->orderBy('id') tidak
+     | membuat uji penyusur halaman di atas jadi merah sama sekali.
+     |
+     | Maka yang diperiksa SQL-nya, bukan hasilnya: selama ORDER BY ditutup
+     | kolom unik, urutannya pasti di basis data mana pun.
+     */
+    masterUji(['nama' => 'Contoh', 'harga' => 100_000]);
+
+    foreach (['termahal', 'termurah', 'terbaru', 'terlama', 'tersering', ''] as $urut) {
+        $kueri = [];
+        DB::listen(function ($q) use (&$kueri) {
+            if (str_contains($q->sql, 'tbl_master_harga') && str_contains(strtolower($q->sql), 'order by')) {
+                $kueri[] = strtolower($q->sql);
+            }
+        });
+
+        $this->getJson("/api/v1/master-harga?urut={$urut}&per_halaman=5", kepalaRab())->assertOk();
+
+        expect($kueri)->not->toBeEmpty("urut={$urut}: tidak ada kueri berurut yang tertangkap");
+
+        foreach ($kueri as $sql) {
+            $urutanNya = substr($sql, strrpos($sql, 'order by'));
+            // assertStringContainsString, bukan expect()->toContain(): di Pest
+            // argumen kedua toContain dibaca sebagai nilai KEDUA yang harus
+            // ada, bukan sebagai pesan galat.
+            $this->assertStringContainsString('"id"', $urutanNya,
+                "urut={$urut}: ORDER BY tidak ditutup kolom unik -> {$urutanNya}");
+        }
+    }
+});
 
 test('master harga per unit menolak tanpa kapasitas', function () {
     $this->postJson('/api/v1/master-harga', [
@@ -2798,7 +2873,7 @@ test('pindah ke satuan tanpa kapasitas ikut membereskan medan turunannya', funct
      | kalimat penjelasan baris yang kini dihitung per rombongan — dan yang
      | membacanya akan mengira hitungannya masih memakai angka itu.
      */
-    $sesudah = \App\Models\Rab\RabBiaya::find($biaya['id']);
+    $sesudah = RabBiaya::find($biaya['id']);
     expect($sesudah->satuan)->toBe('rombongan')
         ->and($sesudah->kapasitas)->toBeNull()
         ->and($sesudah->unit_manual)->toBeNull()
@@ -2822,7 +2897,7 @@ test('pindah ke satuan berkapasitas tanpa kapasitas DITOLAK, bukan ditebak', fun
         'satuan' => 'unit_hari',
     ], kepalaRab())->assertStatus(422);
 
-    expect(\App\Models\Rab\RabBiaya::find($biaya['id'])->satuan)->toBe('rombongan');
+    expect(RabBiaya::find($biaya['id'])->satuan)->toBe('rombongan');
 });
 
 test('satuan dan kapasitas boleh dikirim bersamaan', function () {

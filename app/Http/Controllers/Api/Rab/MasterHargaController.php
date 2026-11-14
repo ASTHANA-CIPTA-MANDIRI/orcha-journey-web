@@ -115,6 +115,30 @@ class MasterHargaController extends ApiController
             'tersering' => $q->orderByDesc('biaya_count'),
             default => $q->orderBy('provinsi')->orderBy('kategori')->orderBy('nama'),
         };
+
+        /*
+         | Pemecah seri. WAJIB, dan bukan kerapian belaka.
+         |
+         | Tiap pilihan di atas mengurutkan pakai kolom yang nilainya banyak
+         | kembar: 66 dari 85 baris berbagi harga dengan baris lain, dan
+         | biaya_count hampir seluruhnya 0. Saat nilainya seri, MySQL bebas
+         | menaruh yang mana dulu — dan ia tidak menjamin urutan yang SAMA
+         | antara kueri halaman 1 dan kueri halaman 2.
+         |
+         | Akibatnya daftar berhalaman menampilkan baris yang sama dua kali di
+         | halaman berbeda, sementara baris lain tidak pernah muncul sama
+         | sekali. Terbukti di produksi 14 Nov 2026 dengan urut=termahal:
+         | id 38, 40, 41, 49, 51, 57, dan 60 terbit dua kali, dan tujuh baris
+         | lain hilang dari seluruh halaman.
+         |
+         | Gejalanya menipu: terbaca sebagai "master harganya ke-dobel",
+         | padahal datanya bersih — yang dobel cuma tampilannya. Dan sisi
+         | satunya, tujuh harga yang tak pernah tampil, tidak ada yang
+         | menyadarinya sama sekali.
+         |
+         | id unik dan tidak pernah berubah, jadi urutannya pasti.
+         */
+        $q->orderBy('id');
     }
 
     /**
