@@ -163,8 +163,17 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
          | kolomnya null dan tidak ada yang ditampilkan.
          */
         $galleries = Galeri::tayang()->take(12)
-            ->get(['foto', 'keterangan'])
-            ->map(fn ($g) => ['foto' => $g->foto, 'keterangan' => $g->keterangan])
+            ->get(['foto', 'keterangan', 'fokus_x', 'fokus_y'])
+            /*
+             | fokus = bagian foto yang tetap terlihat saat dipotong jadi 4:3.
+             | Tanpa ini foto tegak selalu dipotong dari tengah, dan rombongan
+             | yang berdiri di bagian bawah kehilangan kepalanya.
+             */
+            ->map(fn ($g) => [
+                'foto' => $g->foto,
+                'keterangan' => $g->keterangan,
+                'fokus' => $g->fokus_css,
+            ])
             ->all();
 
         /*
@@ -185,14 +194,14 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                 ->flatMap(fn ($d) => array_merge([$d->main_photo], $d->others_photo ?? []))
                 ->filter()
                 ->take(8)
-                ->map(fn ($foto) => ['foto' => $foto, 'keterangan' => null])
+                ->map(fn ($foto) => ['foto' => $foto, 'keterangan' => null, 'fokus' => '50% 50%'])
                 ->values()
                 ->all();
         }
 
         if ($galleries === []) {
             $galleries = array_map(
-                fn ($file) => ['foto' => asset("images/$file"), 'keterangan' => null],
+                fn ($file) => ['foto' => asset("images/$file"), 'keterangan' => null, 'fokus' => '50% 50%'],
                 ['pantai-wide.webp', 'pantai-senja.webp', 'gapura.webp', 'pantai-ramai.webp', 'laut.webp', 'pantai-pinggir-laut.webp', 'pantai-atas.webp', 'pantai-pinggir.webp'],
             );
         }
@@ -578,6 +587,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                             <img src="{{ $img['foto'] }}"
                                 alt="{{ $img['keterangan'] ?: 'Dokumentasi perjalanan Orcha Journey' }}"
                                 loading="lazy"
+                                style="object-position: {{ $img['fokus'] ?? '50% 50%' }}"
                                 class="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110">
 
                             @if ($img['keterangan'])
@@ -601,6 +611,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                             <img src="{{ $img['foto'] }}"
                                 alt="{{ $img['keterangan'] ?: 'Dokumentasi perjalanan Orcha Journey' }}"
                                 loading="lazy"
+                                style="object-position: {{ $img['fokus'] ?? '50% 50%' }}"
                                 class="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110">
 
                             @if ($img['keterangan'])

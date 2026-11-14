@@ -1668,6 +1668,81 @@ test('foto tanpa tag orientasi dibiarkan apa adanya', function () {
     expect($lebar)->toBeGreaterThan($tinggi);
 });
 
+test('titik fokus foto disimpan dan dipulangkan API', function () {
+    Storage::fake('public');
+
+    /*
+     | Beranda memotong tiap foto jadi 4:3. Tanpa titik fokus, potongannya
+     | selalu dari tengah — dan foto rombongan yang orangnya berdiri di bagian
+     | bawah kehilangan kepalanya, tanpa cara apa pun bagi admin untuk
+     | memperbaikinya selain memotong sendiri di luar aplikasi.
+     */
+    $this->post('/api/v1/galeri', [
+        'gambar' => UploadedFile::fake()->image('rombongan.jpg', 800, 600),
+        'fokus_x' => 30,
+        'fokus_y' => 80,
+    ], kirim())->assertStatus(201);
+
+    $galeri = Galeri::first();
+
+    expect($galeri->fokus_x)->toBe(30)
+        ->and($galeri->fokus_y)->toBe(80)
+        ->and($galeri->fokus_css)->toBe('30% 80%');
+
+    $dipulangkan = $this->get('/api/v1/galeri', kirim())->json('data.0');
+
+    expect($dipulangkan['fokus_x'])->toBe(30)
+        ->and($dipulangkan['fokus_y'])->toBe(80);
+});
+
+test('foto lama tetap di tengah: bawaannya 50/50', function () {
+    Storage::fake('public');
+
+    // Migrasi memberi default 50 supaya delapan foto yang sudah terlanjur
+    // diunggah tidak bergeser sedikit pun saat kolomnya ditambahkan.
+    $this->post('/api/v1/galeri', [
+        'gambar' => UploadedFile::fake()->image('lama.jpg', 800, 600),
+    ], kirim())->assertStatus(201);
+
+    expect(Galeri::first()->fokus_css)->toBe('50% 50%');
+});
+
+test('menyunting keterangan tidak mengembalikan titik fokus ke tengah', function () {
+    Storage::fake('public');
+
+    $galeri = Galeri::create([
+        'foto' => '/storage/galeri/a.webp',
+        'keterangan' => 'Lama',
+        'fokus_x' => 20,
+        'fokus_y' => 70,
+    ]);
+
+    /*
+     | Penjagaan untuk kesalahan yang mudah sekali terjadi: menulis
+     | `?? 50` alih-alih `?? nilai lama` pada jalur perbarui. Gejalanya halus
+     | — titik fokus kembali ke tengah setiap kali admin membetulkan satu
+     | huruf di keterangannya, dan tidak ada galat apa pun.
+     */
+    // POST, bukan PUT: itu kata kerja yang dipakai lemon lewat OrchaClient.
+    $this->post('/api/v1/galeri/'.$galeri->id, ['keterangan' => 'Baru'], kirim())
+        ->assertOk();
+
+    $galeri->refresh();
+
+    expect($galeri->keterangan)->toBe('Baru')
+        ->and($galeri->fokus_x)->toBe(20)
+        ->and($galeri->fokus_y)->toBe(70);
+});
+
+test('titik fokus di luar 0-100 ditolak', function () {
+    Storage::fake('public');
+
+    $this->post('/api/v1/galeri', [
+        'gambar' => UploadedFile::fake()->image('a.jpg', 800, 600),
+        'fokus_x' => 140,
+    ], kirim())->assertStatus(422);
+});
+
 test('galeri hanya menampilkan yang ditandai tampil, mengikuti urutannya', function () {
     Galeri::create(['foto' => '/storage/galeri/c.webp', 'urutan' => 3]);
     Galeri::create(['foto' => '/storage/galeri/a.webp', 'urutan' => 1]);

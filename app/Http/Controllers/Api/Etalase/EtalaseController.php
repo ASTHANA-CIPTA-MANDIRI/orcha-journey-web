@@ -433,6 +433,8 @@ class EtalaseController extends ApiController
                 'id' => $satu->id,
                 'foto' => $satu->foto,
                 'keterangan' => $satu->keterangan,
+                'fokus_x' => $satu->fokus_x,
+                'fokus_y' => $satu->fokus_y,
                 'urutan' => $satu->urutan,
                 'tampil' => $satu->tampil,
             ])->all(),
@@ -446,6 +448,8 @@ class EtalaseController extends ApiController
         Galeri::create([
             'foto' => $this->simpanGambar($request, 'galeri'),
             'keterangan' => $data['keterangan'] ?? null,
+            'fokus_x' => $data['fokus_x'] ?? 50,
+            'fokus_y' => $data['fokus_y'] ?? 50,
             // Foto baru masuk ke belakang barisan, bukan menyerobot ke depan:
             // urutan yang sudah disusun admin tidak boleh berubah sendiri
             // hanya karena ada unggahan baru.
@@ -465,6 +469,10 @@ class EtalaseController extends ApiController
         $galeri->update([
             'foto' => $this->simpanGambar($request, 'galeri', $galeri->foto),
             'keterangan' => $data['keterangan'] ?? null,
+            // ?? nilai lama, bukan ?? 50: menyunting keterangan saja tidak
+            // boleh diam-diam mengembalikan titik fokus ke tengah.
+            'fokus_x' => $data['fokus_x'] ?? $galeri->fokus_x,
+            'fokus_y' => $data['fokus_y'] ?? $galeri->fokus_y,
             'urutan' => $data['urutan'] ?? $galeri->urutan,
             'tampil' => $data['tampil'] ?? $galeri->tampil,
         ]);
@@ -504,6 +512,15 @@ class EtalaseController extends ApiController
              */
             'gambar' => ($wajibGambar ? 'required' : 'nullable').'|image',
             'keterangan' => 'nullable|string|max:191',
+
+            /*
+             | Titik fokus dalam persen: bagian mana yang tetap terlihat saat
+             | fotonya dipotong jadi 4:3 di beranda. Nullable supaya pemanggil
+             | lama yang tidak mengirimnya tetap bekerja seperti dulu.
+             */
+            'fokus_x' => 'nullable|integer|min:0|max:100',
+            'fokus_y' => 'nullable|integer|min:0|max:100',
+
             'urutan' => 'nullable|integer|min:0|max:9999',
             'tampil' => 'nullable|boolean',
         ]);
