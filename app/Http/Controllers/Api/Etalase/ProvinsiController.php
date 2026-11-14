@@ -13,6 +13,7 @@ use App\Models\Rab\RabItinerary;
 use App\Support\Etalase\CariLokasi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Provinsi yang ditambahkan admin sendiri.
@@ -183,6 +184,104 @@ class ProvinsiController extends ApiController
             'pesan' => "{$nama} ditambahkan ke daftar destinasi.",
             'data' => KatalogDestinasi::kustom(),
         ], 201);
+    }
+
+    /**
+     * Mengganti NAMA satu entri katalog, berikut seluruh pemakainya.
+     *
+     * Baris harga, RAB, dan itinerary menyimpan NAMA destinasinya, bukan id
+     * katalog ini (lihat catatan panjang di hapusKatalogDestinasi). Jadi
+     * mengganti nama di sini saja akan memutus jodoh mereka diam-diam:
+     * tiketnya terus hidup dengan nama lama yang sudah tidak ada di kotak
+     * pilih, dan yang menyuntingnya berikutnya melihat "tidak ada di
+     * katalog" tanpa tahu sebabnya.
+     *
+     * Karena itu namanya dirambatkan — harga utama, destinasi tambahan di
+     * dalam JSON, dan itinerary RAB — dalam SATU transaksi. Setengah
+     * berganti lebih buruk daripada tidak berganti sama sekali.
+     */
+    public function ubahKatalogDestinasi(KatalogDestinasi $katalog, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'nama' => ['required', 'string', 'min:3', 'max:191'],
+        ], [], ['nama' => 'nama destinasi']);
+
+        $lama = $katalog->nama;
+        $baru = trim(preg_replace('/\s+/', ' ', $data['nama']));
+        $rapiLama = mb_strtolower(trim($lama));
+        $rapiBaru = mb_strtolower($baru);
+
+        if ($rapiBaru === $rapiLama && $baru === $lama) {
+            return response()->json([
+                'pesan' => 'Namanya tidak berubah.',
+                'data' => KatalogDestinasi::kustom(),
+            ]);
+        }
+
+        // Bentrok dengan nama LAIN yang sudah ada — termasuk destinasi bawaan,
+        // karena keduanya duduk di kotak pilih yang sama. Dua nama kembar di
+        // sana membuat admin memilih dengan menebak.
+        $bentrok = collect(KatalogDestinasi::gabungan())->keys()
+            ->contains(fn ($n) => mb_strtolower(trim((string) $n)) === $rapiBaru
+                && mb_strtolower(trim((string) $n)) !== $rapiLama);
+
+        if ($bentrok) {
+            return response()->json([
+                'pesan' => "Sudah ada destinasi bernama \"{$baru}\" di daftar.",
+            ], 422);
+        }
+
+        $diHarga = 0;
+        $diItinerary = 0;
+
+        DB::transaction(function () use ($katalog, $lama, $baru, $rapiLama, &$diHarga, &$diItinerary) {
+            $katalog->update(['nama' => $baru]);
+
+            // Destinasi utama.
+            $diHarga += MasterHarga::query()
+                ->whereRaw('LOWER(TRIM(destinasi)) = ?', [$rapiLama])
+                ->update(['destinasi' => $baru]);
+
+            /*
+             | Destinasi tambahan hidup di kolom JSON, jadi tidak bisa disapu
+             | satu UPDATE. Barisnya dibaca lalu ditulis ulang satu per satu —
+             | jumlahnya puluhan, bukan ribuan.
+             */
+            MasterHarga::query()->whereNotNull('destinasi_lain')->get()
+                ->each(function (MasterHarga $m) use ($lama, $rapiLama, $baru, &$diHarga) {
+                    $daftar = (array) ($m->destinasi_lain ?? []);
+                    $ubah = false;
+
+                    foreach ($daftar as $i => $d) {
+                        if (mb_strtolower(trim((string) $d)) === $rapiLama) {
+                            $daftar[$i] = $baru;
+                            $ubah = true;
+                        }
+                    }
+
+                    if ($ubah) {
+                        $m->update(['destinasi_lain' => array_values($daftar)]);
+                        $diHarga++;
+                    }
+                });
+
+            $diItinerary += RabItinerary::query()
+                ->whereRaw('LOWER(TRIM(destinasi)) = ?', [$rapiLama])
+                ->update(['destinasi' => $baru]);
+        });
+
+        $ikut = collect([
+            $diHarga ? "{$diHarga} baris harga" : null,
+            $diItinerary ? "{$diItinerary} baris itinerary" : null,
+        ])->filter()->join(' dan ');
+
+        return response()->json([
+            'pesan' => "{$lama} diganti jadi {$baru}.".($ikut ? " {$ikut} ikut diperbarui." : ''),
+            'dari' => $lama,
+            'ke' => $baru,
+            'ikut' => ['harga' => $diHarga, 'itinerary' => $diItinerary],
+            'data' => KatalogDestinasi::kustom(),
+        ]);
     }
 
     /**

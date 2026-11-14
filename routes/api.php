@@ -358,6 +358,7 @@ Route::prefix('v1')
         Route::post('/daerah', [ProvinsiController::class, 'simpanDaerah']);
         Route::delete('/daerah/{daerah}', [ProvinsiController::class, 'hapusDaerah']);
         Route::post('/katalog-destinasi', [ProvinsiController::class, 'simpanKatalogDestinasi']);
+        Route::patch('/katalog-destinasi/{katalog}', [ProvinsiController::class, 'ubahKatalogDestinasi']);
         Route::delete('/katalog-destinasi/{katalog}', [ProvinsiController::class, 'hapusKatalogDestinasi']);
         Route::post('/wilayah', [ProvinsiController::class, 'simpanWilayah']);
         Route::delete('/wilayah/{wilayah}', [ProvinsiController::class, 'hapusWilayah']);

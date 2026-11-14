@@ -129,3 +129,72 @@ test('katalog RAB menandai mana yang boleh dihapus', function () {
     expect($baris['Pantai Uji Kustom']['katalog_id'])->not->toBeNull()
         ->and($baris['Pantai Uji Ganda']['katalog_id'])->toBeNull();
 });
+
+/* ---------------------- MENGGANTI NAMA ---------------------- */
+
+test('ganti nama katalog ikut merambat ke harga, destinasi tambahan, dan itinerary', function () {
+    $entri = KatalogDestinasi::create([
+        'nama' => 'Candi Uji Lama', 'provinsi' => 'Jawa Tengah', 'daerah' => 'Magelang',
+    ]);
+
+    // Dipakai sebagai destinasi UTAMA...
+    $utama = MasterHarga::create([
+        'kategori' => 'tiket', 'nama' => 'Tiket Candi Uji Lama', 'provinsi' => 'Jawa Tengah',
+        'destinasi' => 'Candi Uji Lama', 'satuan' => 'orang', 'harga' => 20_000, 'aktif' => true,
+    ]);
+
+    // ...dan sebagai destinasi TAMBAHAN di baris lain (kolom JSON).
+    $terusan = MasterHarga::create([
+        'kategori' => 'tiket', 'nama' => 'Tiket Terusan Uji', 'provinsi' => 'Jawa Tengah',
+        'destinasi' => 'Gerbang Uji', 'destinasi_lain' => ['Candi Uji Lama', 'Tempat Lain'],
+        'satuan' => 'orang', 'harga' => 30_000, 'aktif' => true,
+    ]);
+
+    $rab = Rab::create([
+        'judul' => 'Trip Uji', 'nama_pelanggan' => 'Uji', 'provinsi' => 'Jawa Tengah',
+        'jumlah_hari' => 1, 'jumlah_peserta' => 5, 'margin_jenis' => 'persen', 'margin_nilai' => 20,
+    ]);
+    $baris = RabItinerary::create(['rab_id' => $rab->id, 'hari_ke' => 1, 'jam' => '09:00',
+        'nama' => 'Candi Uji Lama', 'destinasi' => 'Candi Uji Lama', 'urutan' => 1]);
+
+    $this->patchJson("/api/v1/katalog-destinasi/{$entri->id}", ['nama' => 'Candi Uji Baru'], kepalaHapusKatalog())
+        ->assertOk()
+        ->assertJsonPath('dari', 'Candi Uji Lama')
+        ->assertJsonPath('ke', 'Candi Uji Baru');
+
+    /*
+     | Inti ujinya. Tanpa perambatan, ketiga baris di bawah tetap memegang
+     | nama lama yang sudah hilang dari kotak pilih — jodoh harga ke
+     | itinerary putus TANPA satu pun galat.
+     */
+    expect($entri->fresh()->nama)->toBe('Candi Uji Baru')
+        ->and($utama->fresh()->destinasi)->toBe('Candi Uji Baru')
+        ->and($terusan->fresh()->destinasi_lain)->toBe(['Candi Uji Baru', 'Tempat Lain'])
+        ->and($baris->fresh()->destinasi)->toBe('Candi Uji Baru');
+});
+
+test('ganti nama tidak menyentuh destinasi lain yang namanya mirip', function () {
+    $entri = KatalogDestinasi::create(['nama' => 'Pantai Uji', 'provinsi' => 'DI Yogyakarta']);
+
+    $lain = MasterHarga::create([
+        'kategori' => 'tiket', 'nama' => 'Tiket Pantai Uji Selatan', 'provinsi' => 'DI Yogyakarta',
+        'destinasi' => 'Pantai Uji Selatan', 'satuan' => 'orang', 'harga' => 15_000, 'aktif' => true,
+    ]);
+
+    $this->patchJson("/api/v1/katalog-destinasi/{$entri->id}", ['nama' => 'Pantai Uji Utara'], kepalaHapusKatalog())
+        ->assertOk();
+
+    // "Pantai Uji Selatan" BUKAN "Pantai Uji": pencocokannya utuh, bukan awalan.
+    expect($lain->fresh()->destinasi)->toBe('Pantai Uji Selatan');
+});
+
+test('ganti nama ditolak bila bentrok dengan nama yang sudah ada', function () {
+    KatalogDestinasi::create(['nama' => 'Pantai Uji Satu', 'provinsi' => 'DI Yogyakarta']);
+    $kedua = KatalogDestinasi::create(['nama' => 'Pantai Uji Dua', 'provinsi' => 'DI Yogyakarta']);
+
+    $this->patchJson("/api/v1/katalog-destinasi/{$kedua->id}", ['nama' => 'Pantai Uji Satu'], kepalaHapusKatalog())
+        ->assertStatus(422);
+
+    // Dua nama kembar di satu kotak pilih membuat admin memilih dengan menebak.
+    expect($kedua->fresh()->nama)->toBe('Pantai Uji Dua');
+});
