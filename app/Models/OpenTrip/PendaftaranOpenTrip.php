@@ -32,6 +32,7 @@ class PendaftaranOpenTrip extends Model
         'riwayat_penggantian',
         'surat_penggantian',
         'surat_penggantian_pada',
+        'keberangkatan_id',
         'tanggal_berangkat',
         'titik_jemput',
         'catatan',

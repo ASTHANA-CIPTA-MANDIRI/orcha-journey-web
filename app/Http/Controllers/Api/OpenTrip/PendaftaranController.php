@@ -7,6 +7,7 @@ use App\Http\Resources\OpenTrip\PendaftaranResource;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\Pembatalan;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Models\PaketWisata\Keberangkatan;
 use App\Models\PaketWisata\TravelPackage;
 use App\Models\Umum\TautanPendek;
 use App\Support\BerkasKwitansi;
@@ -574,6 +575,15 @@ class PendaftaranController extends ApiController
     {
         $data = $request->validate([
             'travel_package_id' => ['required', 'integer', 'exists:tbl_travel_package,id'],
+            /*
+             | Tanggal keberangkatan yang dipilih pendaftar.
+             |
+             | Nullable supaya pemanggil lama — dan paket yang belum punya
+             | tanggal sama sekali — tetap bekerja seperti dulu. Yang dikirim
+             | diperiksa kepemilikannya di bawah: id milik paket LAIN akan
+             | memindahkan kuota ke rombongan yang salah.
+             */
+            'keberangkatan_id' => ['nullable', 'integer', 'exists:tbl_paket_keberangkatan,id'],
             'nama' => ['required', 'string', 'min:3', 'max:120'],
             'whatsapp' => ['required', 'string', 'min:8', 'max:32'],
             'email' => ['nullable', 'email', 'max:150'],
@@ -618,12 +628,60 @@ class PendaftaranController extends ApiController
             'biaya_tetap' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
         ], [], [
             'travel_package_id' => 'paket',
+            'keberangkatan_id' => 'tanggal keberangkatan',
             'peserta.*.nama' => 'nama peserta',
             'pendamping_gratis' => 'pendamping gratis',
             'biaya_tetap' => 'biaya tetap rombongan',
         ]);
 
         $paket = TravelPackage::find($data['travel_package_id']);
+
+        /*
+         | Keberangkatan yang dipilih, atau yang terdekat bila tidak disebut.
+         |
+         | Jatuh ke yang terdekat — bukan ke yang pertama di basis data —
+         | supaya pemanggil lama yang belum mengirim pilihannya tetap masuk ke
+         | rombongan yang masuk akal, bukan ke tanggal yang sudah lewat.
+         */
+        $keberangkatan = null;
+
+        if (! empty($data['keberangkatan_id'])) {
+            $keberangkatan = Keberangkatan::find($data['keberangkatan_id']);
+
+            if (! $keberangkatan || $keberangkatan->travel_package_id !== $paket->id) {
+                return response()->json([
+                    'pesan' => 'Tanggal keberangkatan itu bukan milik paket ini.',
+                ], 422);
+            }
+
+            if (! $keberangkatan->aktif) {
+                return response()->json([
+                    'pesan' => 'Tanggal '.$keberangkatan->rentang_tanggal.' sudah ditutup. Pilih tanggal lain.',
+                ], 422);
+            }
+        } else {
+            $keberangkatan = $paket->keberangkatanTersedia()->first();
+        }
+
+        /*
+         | Kuota diperiksa PER TANGGAL.
+         |
+         | Satu paket dengan tiga tanggal yang kuotanya dihitung bersama akan
+         | menolak pendaftar pada tanggal yang masih kosong hanya karena
+         | tanggal lain sudah penuh — dan penolakan itu tidak punya penjelasan
+         | yang bisa dibaca siapa pun.
+         */
+        if ($keberangkatan) {
+            $sisa = $keberangkatan->sisa_kursi;
+
+            if ($sisa !== null && $sisa < (int) $data['jumlah_peserta']) {
+                return response()->json([
+                    'pesan' => $sisa <= 0
+                        ? 'Tanggal '.$keberangkatan->rentang_tanggal.' sudah penuh. Pilih tanggal lain.'
+                        : 'Tanggal '.$keberangkatan->rentang_tanggal.' tinggal '.$sisa.' kursi.',
+                ], 422);
+            }
+        }
 
         $peserta = collect($data['peserta'] ?? [])
             ->map(fn ($baris) => [
@@ -638,6 +696,7 @@ class PendaftaranController extends ApiController
 
         $pendaftaran = PendaftaranOpenTrip::create([
             'travel_package_id' => $paket->id,
+            'keberangkatan_id' => $keberangkatan?->id,
             'nama_paket' => $paket->name,
             'nama' => $data['nama'],
             'whatsapp' => $data['whatsapp'],
@@ -645,7 +704,10 @@ class PendaftaranController extends ApiController
             'jumlah_peserta' => $data['jumlah_peserta'],
             'pendamping_gratis' => $data['pendamping_gratis'] ?? 0,
             'daftar_peserta' => $peserta,
-            'tanggal_berangkat' => $paket->tanggal_berangkat,
+            // Tanggal keberangkatannya, bukan tanggal paket: paket kini boleh
+            // punya beberapa, dan yang dipakai surat & kwitansi adalah yang
+            // benar-benar dipilih pendaftar.
+            'tanggal_berangkat' => $keberangkatan?->tanggal_berangkat ?? $paket->tanggal_berangkat,
             'titik_jemput' => $data['titik_jemput'] ?? null,
             'catatan' => $data['catatan'] ?? null,
 

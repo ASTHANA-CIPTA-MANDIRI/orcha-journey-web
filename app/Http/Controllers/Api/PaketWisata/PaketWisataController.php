@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api\PaketWisata;
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Controllers\Api\Concerns\MenyimpanGambar;
 use App\Http\Resources\PaketWisata\PaketWisataResource;
+use App\Models\PaketWisata\Keberangkatan;
 use App\Models\PaketWisata\SaranPaket;
 use App\Models\PaketWisata\TravelPackage;
 use App\Support\PaketWisata\ItineraryTeks;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 /**
  * Paket wisata: dibaca dan ditulis dari dashboard lemon.
@@ -36,7 +38,7 @@ class PaketWisataController extends ApiController
     public function show(TravelPackage $paket): JsonResponse
     {
         return response()->json([
-            'data' => (new PaketWisataResource($paket->loadCount('pendaftaran')))->resolve(),
+            'data' => (new PaketWisataResource($paket->loadCount('pendaftaran')->load('keberangkatan')))->resolve(),
         ]);
     }
 
@@ -86,6 +88,183 @@ class PaketWisataController extends ApiController
         $this->catat($request, 'hapus paket wisata', ['nama' => $paket->name]);
 
         return response()->json(['pesan' => 'Paket wisata dihapus.']);
+    }
+
+    /* ===================== KEBERANGKATAN ===================== */
+
+    /**
+     * Menambah satu tanggal keberangkatan pada paket yang sudah ada.
+     *
+     * Yang diminta HANYA tanggalnya. Isi paketnya — itinerary, destinasi,
+     * fasilitas, foto — dipakai bersama, dan kuota serta harga dibiarkan
+     * kosong supaya ikut paketnya. Admin yang memang perlu membedakan tinggal
+     * mengisinya; yang tidak, tidak perlu memikirkannya sama sekali.
+     */
+    public function tambahKeberangkatan(TravelPackage $paket, Request $request): JsonResponse
+    {
+        $data = $this->validasiKeberangkatan($request);
+
+        if ($bentrok = $this->tanggalBentrok($paket, $data['tanggal_berangkat'])) {
+            return $bentrok;
+        }
+
+        $k = $paket->keberangkatan()->create($data);
+
+        $this->catat($request, 'tambah keberangkatan paket', [
+            'paket' => $paket->name, 'tanggal' => $k->tanggal_berangkat?->toDateString(),
+        ]);
+
+        return response()->json([
+            'pesan' => 'Keberangkatan '.$k->rentang_tanggal.' ditambahkan.',
+            'data' => ['id' => $k->id],
+        ], 201);
+    }
+
+    /**
+     * Menyalin satu keberangkatan ke tanggal baru.
+     *
+     * Yang disalin kuota, harga, dan catatannya — hal-hal yang biasanya sama
+     * antara dua tanggal yang berdekatan. Admin cukup menyebut tanggal
+     * barunya, dan itulah satu-satunya yang wajib diisi.
+     */
+    public function salinKeberangkatan(TravelPackage $paket, Keberangkatan $keberangkatan, Request $request): JsonResponse
+    {
+        if ($keberangkatan->travel_package_id !== $paket->id) {
+            return response()->json(['pesan' => 'Keberangkatan itu bukan milik paket ini.'], 404);
+        }
+
+        $data = $this->validasiKeberangkatan($request);
+
+        if ($bentrok = $this->tanggalBentrok($paket, $data['tanggal_berangkat'])) {
+            return $bentrok;
+        }
+
+        /*
+         | Tanggal pulang ikut BERGESER sejauh yang sama bila tidak disebut.
+         |
+         | Menyalin 27–29 November ke 4 Desember hampir selalu berarti 4–6
+         | Desember. Membiarkannya kosong memaksa admin menghitung sendiri
+         | lama tripnya tiap kali menyalin — dan salah hitung di sana tidak
+         | terlihat salah sampai ada yang menanyakan tanggal pulangnya.
+         */
+        if (blank($data['tanggal_pulang'] ?? null) && $keberangkatan->tanggal_pulang) {
+            $lama = $keberangkatan->tanggal_berangkat->diffInDays($keberangkatan->tanggal_pulang);
+            $data['tanggal_pulang'] = Carbon::parse($data['tanggal_berangkat'])
+                ->addDays($lama)->toDateString();
+        }
+
+        $baru = $paket->keberangkatan()->create(array_merge([
+            'kuota' => $keberangkatan->kuota,
+            'price' => $keberangkatan->price,
+            'original_price' => $keberangkatan->original_price,
+            'harga_modal' => $keberangkatan->harga_modal,
+            'catatan' => $keberangkatan->catatan,
+            'aktif' => true,
+        ], array_filter($data, fn ($v) => $v !== null)));
+
+        $this->catat($request, 'salin keberangkatan paket', [
+            'paket' => $paket->name,
+            'dari' => $keberangkatan->tanggal_berangkat?->toDateString(),
+            'ke' => $baru->tanggal_berangkat?->toDateString(),
+        ]);
+
+        return response()->json([
+            'pesan' => 'Disalin jadi keberangkatan '.$baru->rentang_tanggal.'.',
+            'data' => ['id' => $baru->id],
+        ], 201);
+    }
+
+    public function ubahKeberangkatan(TravelPackage $paket, Keberangkatan $keberangkatan, Request $request): JsonResponse
+    {
+        if ($keberangkatan->travel_package_id !== $paket->id) {
+            return response()->json(['pesan' => 'Keberangkatan itu bukan milik paket ini.'], 404);
+        }
+
+        $data = $this->validasiKeberangkatan($request, wajibTanggal: false);
+
+        if (filled($data['tanggal_berangkat'] ?? null)
+            && $bentrok = $this->tanggalBentrok($paket, $data['tanggal_berangkat'], $keberangkatan->id)) {
+            return $bentrok;
+        }
+
+        $keberangkatan->update($data);
+
+        $this->catat($request, 'ubah keberangkatan paket', [
+            'paket' => $paket->name, 'tanggal' => $keberangkatan->tanggal_berangkat?->toDateString(),
+        ]);
+
+        return response()->json(['pesan' => 'Keberangkatan diperbarui.']);
+    }
+
+    /**
+     * Menghapus satu keberangkatan — DITOLAK bila sudah ada yang mendaftar.
+     *
+     * Pendaftarnya sudah membayar atas tanggal itu. Menghapus barisnya
+     * membuat pendaftaran kehilangan rombongannya, dan kuota tanggal lain
+     * ikut salah hitung. Yang benar: tutup, jangan hapus.
+     */
+    public function hapusKeberangkatan(TravelPackage $paket, Keberangkatan $keberangkatan, Request $request): JsonResponse
+    {
+        if ($keberangkatan->travel_package_id !== $paket->id) {
+            return response()->json(['pesan' => 'Keberangkatan itu bukan milik paket ini.'], 404);
+        }
+
+        if ($keberangkatan->pendaftaran()->where('status', '!=', 'batal')->exists()) {
+            return response()->json([
+                'pesan' => 'Tanggal ini sudah punya pendaftar, jadi tidak bisa dihapus. Tutup saja supaya tidak menerima pendaftar baru.',
+            ], 422);
+        }
+
+        $tanggal = $keberangkatan->rentang_tanggal;
+        $keberangkatan->delete();
+
+        $this->catat($request, 'hapus keberangkatan paket', [
+            'paket' => $paket->name, 'tanggal' => $tanggal,
+        ]);
+
+        return response()->json(['pesan' => 'Keberangkatan '.$tanggal.' dihapus.']);
+    }
+
+    /** @return array<string, mixed> */
+    private function validasiKeberangkatan(Request $request, bool $wajibTanggal = true): array
+    {
+        return $request->validate([
+            'tanggal_berangkat' => [$wajibTanggal ? 'required' : 'sometimes', 'date'],
+            'tanggal_pulang' => ['nullable', 'date', 'after_or_equal:tanggal_berangkat'],
+            // Kosong berarti ikut paketnya — itu yang paling sering benar.
+            'kuota' => ['nullable', 'integer', 'min:1', 'max:999'],
+            'price' => ['nullable', 'integer', 'min:0'],
+            'original_price' => ['nullable', 'integer', 'min:0'],
+            'harga_modal' => ['nullable', 'integer', 'min:0'],
+            'aktif' => ['sometimes', 'boolean'],
+            'catatan' => ['nullable', 'string', 'max:191'],
+        ], [], [
+            'tanggal_berangkat' => 'tanggal berangkat',
+            'tanggal_pulang' => 'tanggal pulang',
+        ]);
+    }
+
+    /**
+     * Dua keberangkatan bertanggal sama pada satu paket DITOLAK.
+     *
+     * Bukan kerapian: pendaftar melihat dua baris yang bunyinya persis sama
+     * dan memilih dengan menebak, lalu kuotanya terpecah dua tanpa ada yang
+     * menyadarinya.
+     */
+    private function tanggalBentrok(TravelPackage $paket, string $tanggal, ?int $kecuali = null): ?JsonResponse
+    {
+        $ada = $paket->keberangkatan()
+            ->whereDate('tanggal_berangkat', $tanggal)
+            ->when($kecuali, fn ($q, $id) => $q->where('id', '!=', $id))
+            ->exists();
+
+        if (! $ada) {
+            return null;
+        }
+
+        return response()->json([
+            'pesan' => 'Paket ini sudah punya keberangkatan di tanggal itu.',
+        ], 422);
     }
 
     private function validasi(Request $request): array

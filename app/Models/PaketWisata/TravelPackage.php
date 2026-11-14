@@ -25,6 +25,9 @@ class TravelPackage extends Model
         'tayang_sampai',
         'berakhir_otomatis',
         'duration',
+        // Dipertahankan meski keberangkatan kini punya tabelnya sendiri:
+        // kartu katalog, PDF, dan pendaftaran lama masih membacanya. Yang
+        // menulisinya kini penyelaras di Keberangkatan, bukan admin.
         'tanggal_berangkat',
         'tanggal_pulang',
         'titik_jemput',
@@ -199,6 +202,27 @@ class TravelPackage extends Model
      * hanya yang sudah lunas berarti menjual kursi yang sama kepada orang
      * kedua selama orang pertama belum sempat mentransfer.
      */
+    /**
+     * Tanggal-tanggal keberangkatan paket ini.
+     *
+     * Satu paket boleh dijual untuk beberapa tanggal dengan isi yang sama —
+     * itinerary, destinasi, fasilitas, dan fotonya dipakai bersama. Sebelum
+     * ada ini, tiga tanggal berarti tiga paket: tiga kali mengetik itinerary,
+     * dan tiga tempat yang harus diubah saat satu kegiatan bergeser.
+     */
+    public function keberangkatan(): HasMany
+    {
+        return $this->hasMany(Keberangkatan::class, 'travel_package_id')
+            ->orderBy('tanggal_berangkat');
+    }
+
+    /** Yang masih dibuka dan tanggalnya belum lewat. */
+    public function keberangkatanTersedia(): HasMany
+    {
+        return $this->keberangkatan()->where('aktif', true)
+            ->whereDate('tanggal_berangkat', '>=', today());
+    }
+
     public function getKursiTerpakaiAttribute(): int
     {
         /*

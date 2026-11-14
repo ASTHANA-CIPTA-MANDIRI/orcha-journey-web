@@ -40,6 +40,36 @@ class PaketWisataResource extends JsonResource
             // memperlihatkan "12 dari 20 kursi terisi" tanpa menghitung
             // sendiri — dua tempat yang menghitung sendiri-sendiri akan
             // berbeda angkanya suatu saat.
+            /*
+             | Tanggal-tanggal keberangkatan paket ini.
+             |
+             | Dimuat lewat whenLoaded: daftar paket tidak membutuhkannya dan
+             | memuatnya di sana berarti satu kueri per baris. Yang memakainya
+             | borang paket di lemon dan halaman publiknya.
+             */
+            'keberangkatan' => $this->whenLoaded('keberangkatan', fn () => $this->keberangkatan
+                ->map(fn ($k) => [
+                    'id' => $k->id,
+                    'tanggal_berangkat' => $k->tanggal_berangkat?->toDateString(),
+                    'tanggal_pulang' => $k->tanggal_pulang?->toDateString(),
+                    'rentang_tanggal' => $k->rentang_tanggal,
+                    // Angka MENTAHNYA ikut, supaya borang tahu mana yang
+                    // memang diisi dan mana yang ikut paket — keduanya tidak
+                    // bisa dibedakan lagi kalau cuma nilai akhirnya yang
+                    // dikirim.
+                    'kuota' => $k->kuota,
+                    'price' => $k->price,
+                    'original_price' => $k->original_price,
+                    'harga_modal' => $k->harga_modal,
+                    'kuota_dipakai' => $k->kuota_dipakai,
+                    'harga_dipakai' => $k->harga_dipakai,
+                    'kursi_terpakai' => $k->kursi_terpakai,
+                    'sisa_kursi' => $k->sisa_kursi,
+                    'penuh' => $k->penuh,
+                    'aktif' => $k->aktif,
+                    'catatan' => $k->catatan,
+                ])->values()->all()),
+
             'kuota' => $this->kuota,
             'kursi_terpakai' => $this->kursi_terpakai,
             'sisa_kursi' => $this->sisa_kursi,

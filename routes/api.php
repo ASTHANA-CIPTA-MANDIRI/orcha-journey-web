@@ -308,6 +308,16 @@ Route::prefix('v1')
         Route::match(['put', 'post'], '/paket-wisata/{paket}', [PaketWisataController::class, 'update']);
         Route::delete('/paket-wisata/{paket}', [PaketWisataController::class, 'destroy']);
 
+        /*
+         | Tanggal keberangkatan: satu paket boleh dijual untuk beberapa
+         | tanggal dengan isi yang sama. Bersarang di bawah paketnya supaya
+         | kepemilikannya terbaca dari alamatnya sendiri.
+         */
+        Route::post('/paket-wisata/{paket}/keberangkatan', [PaketWisataController::class, 'tambahKeberangkatan']);
+        Route::post('/paket-wisata/{paket}/keberangkatan/{keberangkatan}/salin', [PaketWisataController::class, 'salinKeberangkatan']);
+        Route::match(['put', 'post'], '/paket-wisata/{paket}/keberangkatan/{keberangkatan}', [PaketWisataController::class, 'ubahKeberangkatan']);
+        Route::delete('/paket-wisata/{paket}/keberangkatan/{keberangkatan}', [PaketWisataController::class, 'hapusKeberangkatan']);
+
         /* -------------------------------- BLOG --------------------------------
          | Dipakai layar Blog di mode Orcha pada lemon.
          |

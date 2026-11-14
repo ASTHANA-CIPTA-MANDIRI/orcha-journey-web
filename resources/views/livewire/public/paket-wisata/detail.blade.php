@@ -266,7 +266,62 @@ new #[Layout('components.layouts.guest')] class extends Component
                             @endforeach
                         </dl>
 
-                        @if ($paket->sudah_lewat)
+                        {{-- Pilihan tanggal keberangkatan.
+
+                             Trip yang sama kerap dijual untuk beberapa tanggal: isinya —
+                             itinerary, destinasi, fasilitas — persis sama, yang berbeda
+                             hanya tanggalnya, dan kadang harganya. Sebelum ada ini,
+                             ketiganya hanya tertulis di gambar sampul, sehingga pengunjung
+                             tidak bisa memilih dan kuotanya tidak terhitung per tanggal.
+
+                             Muncul hanya bila memang ada lebih dari satu; satu tanggal
+                             sudah disebut di Ringkasan Perjalanan di atas. --}}
+                        @php $pilihanTanggal = $paket->keberangkatanTersedia()->get(); @endphp
+
+                        @if ($pilihanTanggal->count() > 1)
+                            <div class="mt-6">
+                                <h3 class="text-sm font-bold tracking-wider uppercase text-orcha-ocean">
+                                    Pilihan tanggal keberangkatan
+                                </h3>
+
+                                <ul class="grid gap-3 mt-3 sm:grid-cols-2">
+                                    @foreach ($pilihanTanggal as $kb)
+                                        <li>
+                                            <a href="{{ route('pendaftaran-open-trip', ['paket' => $paket->uuid, 'keberangkatan' => $kb->id]) }}"
+                                                @class([
+                                                    'flex items-center justify-between gap-3 p-4 border rounded-2xl transition',
+                                                    'border-slate-200 hover:border-orcha-sky hover:bg-orcha-foam/50' => ! $kb->penuh,
+                                                    'border-slate-200 bg-slate-50 pointer-events-none opacity-60' => $kb->penuh,
+                                                ])>
+                                                <span>
+                                                    <span class="block font-bold text-orcha-navy">{{ $kb->rentang_tanggal }}</span>
+                                                    @if ($kb->harga_dipakai)
+                                                        <span class="block text-sm text-slate-500">
+                                                            Rp {{ number_format($kb->harga_dipakai, 0, ',', '.') }}/orang
+                                                        </span>
+                                                    @endif
+                                                </span>
+
+                                                {{-- Sisa kursinya TIDAK disebut angkanya.
+
+                                                     Ketersediaan dibicarakan lewat WhatsApp, dan angka
+                                                     di layar akan dibandingkan orang dengan yang
+                                                     dikatakan tim — dua angka berbeda melemahkan
+                                                     keduanya. Yang perlu diketahui pengunjung cuma
+                                                     masih bisa atau tidak. --}}
+                                                @if ($kb->penuh)
+                                                    <span class="px-3 py-1 text-xs font-bold rounded-full shrink-0 bg-slate-200 text-slate-600">Penuh</span>
+                                                @else
+                                                    <span class="px-3 py-1 text-xs font-bold text-white rounded-full shrink-0 bg-orcha-ocean">Pilih</span>
+                                                @endif
+                                            </a>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+
+                        @if ($paket->sudah_lewat && $pilihanTanggal->isEmpty())
                             <div class="p-4 mt-6 text-sm border rounded-2xl border-orcha-sun/40 bg-orcha-sun/10 text-orcha-navy">
                                 Tanggal keberangkatan paket ini sudah lewat. Hubungi kami untuk menanyakan jadwal
                                 berikutnya.

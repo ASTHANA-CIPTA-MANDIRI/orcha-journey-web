@@ -24,6 +24,16 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
 
     public string $paketId = '';
 
+    /**
+     * Tanggal keberangkatan yang dipilih.
+     *
+     * Satu paket boleh dijual untuk beberapa tanggal dengan isi yang sama.
+     * Kosong berarti pengunjung belum memilih — dan bila paketnya memang cuma
+     * punya satu, ia diisikan sendiri supaya tidak ada satu pun pertanyaan
+     * tambahan untuk pilihan yang tidak ada pilihannya.
+     */
+    public string $keberangkatanId = '';
+
     /*
      | SENGAJA tanpa tipe int.
      |
@@ -68,6 +78,45 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
         if ($paket !== '' && $this->paketTersedia()->contains('uuid', $paket)) {
             $this->paketId = $paket;
         }
+
+        $this->keberangkatanId = (string) request()->query('keberangkatan', '');
+        $this->samakanKeberangkatan();
+    }
+
+    /**
+     * Membuang pilihan yang tidak sah, lalu mengisi sendiri bila tunggal.
+     *
+     * Dipanggil juga saat paketnya berganti. Pilihan yang ditinggalkan dari
+     * paket sebelumnya akan menaruh pendaftar di rombongan yang sama sekali
+     * lain — dan tidak ada apa pun di layar yang memperlihatkannya.
+     */
+    private function samakanKeberangkatan(): void
+    {
+        $pilihan = $this->keberangkatanTersedia();
+
+        if ($this->keberangkatanId !== '' && ! $pilihan->contains('id', (int) $this->keberangkatanId)) {
+            $this->keberangkatanId = '';
+        }
+
+        if ($this->keberangkatanId === '' && $pilihan->count() === 1) {
+            $this->keberangkatanId = (string) $pilihan->first()->id;
+        }
+    }
+
+    /** Tanggal yang masih dibuka pada paket terpilih. */
+    public function keberangkatanTersedia(): \Illuminate\Support\Collection
+    {
+        $paket = $this->paketId === ''
+            ? null
+            : TravelPackage::where('uuid', $this->paketId)->first();
+
+        if (! $paket) {
+            return collect();
+        }
+
+        return $paket->keberangkatanTersedia()->get()
+            ->reject(fn ($k) => $k->penuh)
+            ->values();
     }
 
     /**
@@ -86,6 +135,27 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             'paketId' => 'required|exists:tbl_travel_package,uuid',
 
             /*
+             | Wajib HANYA bila paketnya memang menawarkan tanggal.
+             |
+             | Paket lama yang belum punya baris keberangkatan sama sekali
+             | tetap bisa didaftari seperti dulu — mewajibkannya di sana
+             | berarti menutup pendaftaran untuk paket yang tidak punya
+             | pilihan apa pun untuk dipilih.
+             */
+            'keberangkatanId' => [
+                $this->keberangkatanTersedia()->isEmpty() ? 'nullable' : 'required',
+                function ($atribut, $nilai, $gagal) {
+                    if ($nilai === '') {
+                        return;
+                    }
+
+                    if (! $this->keberangkatanTersedia()->contains('id', (int) $nilai)) {
+                        $gagal('Tanggal keberangkatan itu sudah tidak tersedia. Pilih tanggal lain.');
+                    }
+                },
+            ],
+
+            /*
              | Kursi yang tersisa diperiksa DI SERVER, saat menyimpan.
              |
              | Tulisan "sisa 2 kursi" di layar sudah basi sejak digambar: dua
@@ -100,11 +170,27 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                 function ($atribut, $nilai, $gagal) {
                     $paket = TravelPackage::where('uuid', $this->paketId)->first();
 
-                    if (! $paket || $paket->sisa_kursi === null) {
+                    if (! $paket) {
                         return;
                     }
 
-                    if ((int) $nilai > $paket->sisa_kursi) {
+                    /*
+                     | Sisanya dihitung pada TANGGAL yang dipilih, bukan
+                     | sepaket. Kuota yang dihitung bersama akan menolak
+                     | pendaftar pada tanggal yang masih kosong hanya karena
+                     | tanggal lain sudah penuh.
+                     */
+                    $kb = $this->keberangkatanId === ''
+                        ? null
+                        : $this->keberangkatanTersedia()->firstWhere('id', (int) $this->keberangkatanId);
+
+                    $sisa = $kb ? $kb->sisa_kursi : $paket->sisa_kursi;
+
+                    if ($sisa === null) {
+                        return;
+                    }
+
+                    if ((int) $nilai > $sisa) {
                         /*
                          | Pesannya TIDAK menyebut berapa kursi yang tersisa.
                          |
@@ -185,6 +271,16 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
         foreach ($this->peserta as $urutan => $satu) {
             $this->peserta[$urutan]['titik_jemput'] = '';
         }
+
+        /*
+         | Paket berganti berarti pilihan tanggalnya tidak berlaku lagi.
+         |
+         | Pilihan yang ditinggalkan dari paket sebelumnya akan menaruh
+         | pendaftar di rombongan yang sama sekali lain — dan tidak ada apa
+         | pun di layar yang memperlihatkannya.
+         */
+        $this->keberangkatanId = '';
+        $this->samakanKeberangkatan();
 
         $this->rapikanPeserta();
     }
@@ -294,6 +390,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             // pengunjung — supaya tidak ada pendaftaran dengan jadwal karangan.
             return PendaftaranOpenTrip::create([
                 'travel_package_id' => $paket->id,
+                'keberangkatan_id' => $this->keberangkatanId ?: null,
                 'nama_paket' => $paket->name,
                 'nama' => $this->nama,
                 'whatsapp' => $this->whatsapp,
@@ -304,7 +401,12 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                     'nama' => trim($satu['nama']),
                     'titik_jemput' => trim($satu['titik_jemput'] ?? ''),
                 ])->all(),
-                'tanggal_berangkat' => $paket->tanggal_berangkat,
+                // Tanggal yang BENAR-BENAR dipilih, bukan tanggal paket:
+                // paket kini boleh punya beberapa, dan yang dibaca surat,
+                // kwitansi, dan pengingat adalah yang ini.
+                'tanggal_berangkat' => $this->keberangkatanId !== ''
+                    ? $this->keberangkatanTersedia()->firstWhere('id', (int) $this->keberangkatanId)?->tanggal_berangkat
+                    : $paket->tanggal_berangkat,
                 // Yang disimpan titik yang benar-benar dipakai rombongan ini,
                 // bukan seluruh titik yang ditawarkan paket.
                 'titik_jemput' => collect($this->peserta)->pluck('titik_jemput')
@@ -638,6 +740,38 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                     <p class="galat-orcha">{{ $message }}</p>
                                 @enderror
                             </div>
+
+                            {{-- Tanggal keberangkatan: DIPILIH peserta bila trip yang sama
+                                 dijual untuk beberapa tanggal.
+
+                                 Hanya muncul saat memang ada lebih dari satu. Satu pilihan
+                                 yang tidak punya pilihan lain adalah pertanyaan yang
+                                 jawabannya sudah pasti, dan borang ini sudah panjang. --}}
+                            @php $pilihanTanggal = $this->keberangkatanTersedia(); @endphp
+
+                            @if ($pilihanTanggal->count() > 1)
+                                <div>
+                                    <label for="d-keberangkatan" class="label-orcha">
+                                        Tanggal keberangkatan <x-wajib />
+                                    </label>
+                                    <select id="d-keberangkatan" wire:model.live="keberangkatanId" required
+                                        class="isian-orcha @error('keberangkatanId') isian-galat @enderror">
+                                        <option value="">— Pilih tanggal —</option>
+                                        @foreach ($pilihanTanggal as $kb)
+                                            <option value="{{ $kb->id }}" @selected((string) $this->keberangkatanId === (string) $kb->id)>
+                                                {{ $kb->rentang_tanggal }}
+                                                @if ($kb->harga_dipakai) — {{ $rupiah($kb->harga_dipakai) }}/orang @endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('keberangkatanId')
+                                        <p class="galat-orcha">{{ $message }}</p>
+                                    @enderror
+                                    <p class="mt-1 text-xs text-slate-500">
+                                        Isi tripnya sama; yang berbeda hanya tanggalnya.
+                                    </p>
+                                </div>
+                            @endif
 
                             {{-- Jadwal & titik jemput: ditetapkan, tidak bisa dipilih peserta --}}
                             @if ($paketTerpilih)

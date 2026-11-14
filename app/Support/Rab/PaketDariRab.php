@@ -45,6 +45,25 @@ class PaketDariRab
             'minimal_peserta' => max(1, (int) ($rab->peserta_minimum ?: $rab->jumlah_peserta)),
         ] + self::isiDariRab($rab));
 
+        /*
+         | Tanggal RAB-nya jadi keberangkatan PERTAMA paket itu.
+         |
+         | Tanpa ini paket lahir tanpa satu pun tanggal yang bisa dipilih
+         | pendaftar — kolom tanggal_berangkat di paketnya memang terisi,
+         | tetapi yang dibaca halaman publik dan penghitung kuota kini
+         | tabel keberangkatan. Trip berikutnya ditambahkan admin dengan
+         | menyalin yang ini dan mengganti tanggalnya saja.
+         */
+        if ($rab->tanggal_mulai) {
+            $paket->keberangkatan()->create([
+                'tanggal_berangkat' => $rab->tanggal_mulai->toDateString(),
+                'tanggal_pulang' => $rab->tanggal_mulai
+                    ->copy()->addDays(max(1, (int) $rab->jumlah_hari) - 1)->toDateString(),
+                // Kosong: ikut paketnya, dan ikut berubah saat RAB-nya
+                // diselaraskan ulang.
+            ]);
+        }
+
         $rab->forceFill(['travel_package_id' => $paket->id])->save();
 
         return $paket;
