@@ -234,7 +234,7 @@ class ProvinsiController extends ApiController
         $diHarga = 0;
         $diItinerary = 0;
 
-        DB::transaction(function () use ($katalog, $lama, $baru, $rapiLama, &$diHarga, &$diItinerary) {
+        DB::transaction(function () use ($katalog, $baru, $rapiLama, &$diHarga, &$diItinerary) {
             $katalog->update(['nama' => $baru]);
 
             // Destinasi utama.
@@ -248,7 +248,7 @@ class ProvinsiController extends ApiController
              | jumlahnya puluhan, bukan ribuan.
              */
             MasterHarga::query()->whereNotNull('destinasi_lain')->get()
-                ->each(function (MasterHarga $m) use ($lama, $rapiLama, $baru, &$diHarga) {
+                ->each(function (MasterHarga $m) use ($rapiLama, $baru, &$diHarga) {
                     $daftar = (array) ($m->destinasi_lain ?? []);
                     $ubah = false;
 
