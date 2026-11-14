@@ -1578,6 +1578,26 @@ test('foto galeri disimpan sebagai webp, aslinya tidak ikut tersimpan', function
         ->and($berkas[0])->toEndWith('.webp');
 });
 
+test('foto galeri berukuran besar diterima, bukan ditolak validasi', function () {
+    Storage::fake('public');
+
+    /*
+     | Dulu dibatasi 4 MB. Batas itu dicabut karena apa pun yang masuk ke sini
+     | diubah jadi WebP dengan sisi terpanjang 1920px — foto kamera ponsel
+     | belasan MB mendarat sebagai beberapa ratus KB, jadi menolaknya lebih
+     | dulu hanya memindahkan pekerjaan mengecilkan foto ke admin untuk hasil
+     | yang sama. Batas nyatanya kini upload_max_filesize server.
+     */
+    $this->post('/api/v1/galeri', [
+        'gambar' => UploadedFile::fake()->image('rombongan.jpg', 4000, 3000)->size(12288),
+    ], kirim())->assertStatus(201);
+
+    $berkas = Storage::disk('public')->allFiles('galeri');
+
+    expect($berkas)->toHaveCount(1)
+        ->and($berkas[0])->toEndWith('.webp');
+});
+
 test('galeri hanya menampilkan yang ditandai tampil, mengikuti urutannya', function () {
     Galeri::create(['foto' => '/storage/galeri/c.webp', 'urutan' => 3]);
     Galeri::create(['foto' => '/storage/galeri/a.webp', 'urutan' => 1]);

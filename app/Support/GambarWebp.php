@@ -25,6 +25,9 @@ class GambarWebp
 
     private const MUTU = 82;
 
+    /** Cukup untuk foto kamera ponsel kelas atas (±50 MP) di GD. */
+    private const MEMORI_MINIMUM = 512 * 1024 * 1024;
+
     /**
      * Simpan sebagai WebP dan kembalikan jalur publiknya (/storage/...).
      *
@@ -34,6 +37,8 @@ class GambarWebp
      */
     public static function simpan(UploadedFile $berkas, string $folder): string
     {
+        self::sediakanMemori();
+
         $nama = Str::uuid().'.webp';
         $tujuan = trim($folder, '/').'/'.$nama;
 
@@ -66,6 +71,52 @@ class GambarWebp
         Storage::disk($disk)->put($tujuan, $isi);
 
         return '/storage/'.$tujuan;
+    }
+
+    /**
+     * Menaikkan batas memori bila yang berlaku terlalu kecil untuk GD.
+     *
+     * GD membongkar gambar jadi piksel mentah: satu foto 50 MP memakan sekitar
+     * 200 MB, berapa pun kecilnya berkas JPG-nya. Selama unggahan dibatasi
+     * 4 MB hal ini tidak pernah terjadi; sejak batas itu dicabut — karena
+     * toh semuanya dikecilkan jadi WebP 1920px di sini — ia jadi mungkin, dan
+     * kehabisan memori di GD bukan galat yang bisa ditangkap: prosesnya mati,
+     * dan yang dilihat admin hanya "server tidak bisa dihubungi".
+     *
+     * HANYA menaikkan, tidak pernah menurunkan: server yang sudah diberi
+     * batas lebih longgar oleh pengelolanya tidak ikut dikecilkan.
+     */
+    private static function sediakanMemori(): void
+    {
+        $kini = self::bita((string) ini_get('memory_limit'));
+
+        // -1 berarti tak terbatas; tidak ada yang perlu ditambah.
+        if ($kini < 0) {
+            return;
+        }
+
+        if ($kini < self::MEMORI_MINIMUM) {
+            @ini_set('memory_limit', self::MEMORI_MINIMUM);
+        }
+    }
+
+    /** Mengubah "256M" / "1G" jadi bita. */
+    private static function bita(string $nilai): int
+    {
+        $nilai = trim($nilai);
+
+        if ($nilai === '') {
+            return 0;
+        }
+
+        $angka = (int) $nilai;
+
+        return match (strtolower(substr($nilai, -1))) {
+            'g' => $angka * 1024 * 1024 * 1024,
+            'm' => $angka * 1024 * 1024,
+            'k' => $angka * 1024,
+            default => $angka,
+        };
     }
 
     /**

@@ -490,7 +490,19 @@ class EtalaseController extends ApiController
             // Fotonya yang wajib, keterangannya tidak. Admin yang diminta
             // mengarang judul untuk dua puluh foto rombongan akan berhenti
             // mengunggah di foto kelima.
-            'gambar' => ($wajibGambar ? 'required' : 'nullable').'|image|max:4096',
+            /*
+             | TANPA batas ukuran, dan itu disengaja.
+             |
+             | Apa pun yang masuk ke sini diubah GambarWebp jadi WebP dengan
+             | sisi terpanjang 1920px, jadi foto kamera ponsel belasan MB
+             | tersimpan sebagai beberapa ratus KB. Menolaknya lebih dulu
+             | karena "terlalu besar" hanya memindahkan pekerjaan mengecilkan
+             | foto ke admin, untuk hasil yang sama persis.
+             |
+             | Batas nyatanya tetap ada di upload_max_filesize/post_max_size
+             | server — tempat yang memang berwenang menolak berkas raksasa.
+             */
+            'gambar' => ($wajibGambar ? 'required' : 'nullable').'|image',
             'keterangan' => 'nullable|string|max:191',
             'urutan' => 'nullable|integer|min:0|max:9999',
             'tampil' => 'nullable|boolean',
