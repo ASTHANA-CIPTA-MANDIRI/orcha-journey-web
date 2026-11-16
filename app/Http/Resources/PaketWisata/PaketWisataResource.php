@@ -120,6 +120,21 @@ class PaketWisataResource extends JsonResource
              */
             'jumlah_keberangkatan' => $this->whenCounted('keberangkatan'),
             'tautan_publik' => url('/paket/'.$this->uuid),
+
+            /*
+             | Tautan pratinjau: bertanda tangan dan kedaluwarsa 7 hari.
+             |
+             | Dipakai dashboard admin untuk melihat rupa paket yang BELUM
+             | tayang. Tanpa ini satu-satunya cara adalah menerbitkannya
+             | dulu — menaruhnya di katalog untuk semua orang justru pada
+             | saat isinya belum siap dilihat siapa pun.
+             |
+             | Tetap dikirim untuk paket yang sudah tayang: tautannya tetap
+             | sah, dan yang memakainya tidak perlu memilih antara dua alamat.
+             */
+            'tautan_pratinjau' => \Illuminate\Support\Facades\URL::temporarySignedRoute(
+                'paket-detail', now()->addDays(7), ['paket' => $this->uuid]
+            ),
         ];
     }
 }

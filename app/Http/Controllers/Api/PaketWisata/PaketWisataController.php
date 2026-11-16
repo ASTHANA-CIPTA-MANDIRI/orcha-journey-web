@@ -30,7 +30,13 @@ class PaketWisataController extends ApiController
             ->withCount(['pendaftaran', 'keberangkatan'])
             ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where('name', 'like', "%{$cari}%"))
             ->ofCategory($request->string('kategori')->toString() ?: null)
-            ->latest('id')
+
+            // Saringan keadaan penayangan & pengurutan: keduanya milik layar
+            // admin, dan keduanya dihitung di SQL supaya penomoran halamannya
+            // tetap benar. Menyaring sesudah paginate berarti halaman kedua
+            // bisa kosong padahal datanya ada.
+            ->statusTayang($request->string('tampil')->toString() ?: null)
+            ->urutkanDaftar($request->string('urut')->toString() ?: null)
             ->paginate($this->perHalaman($request));
 
         return $this->halaman($daftar, PaketWisataResource::class);
@@ -491,6 +497,14 @@ class PaketWisataController extends ApiController
     {
         SaranPaket::catat('destinasi', $data['destinasi'] ?? []);
         SaranPaket::catat('fasilitas', $data['fasilitas'] ?? []);
+        SaranPaket::catat('tidak_termasuk', $data['tidak_termasuk'] ?? []);
+
+        // Titik jemput datang sebagai satu kalimat berkoma, bukan senarai —
+        // bentuknya dipertahankan karena belasan tempat lain membacanya
+        // begitu. Yang dicatat potongannya.
+        SaranPaket::catat('titik_jemput', array_filter(array_map(
+            'trim', explode(',', (string) ($data['titik_jemput'] ?? ''))
+        )));
     }
 
     /* ------------------------- SARAN ISIAN PAKET ------------------------- */

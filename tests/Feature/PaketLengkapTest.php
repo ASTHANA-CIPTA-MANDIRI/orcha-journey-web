@@ -219,3 +219,125 @@ test('daftar paket menyebut berapa tanggal yang dijual', function () {
         ->assertOk()
         ->assertJsonPath('data.0.jumlah_keberangkatan', 3);
 });
+
+/* ==================== SARING & URUT DAFTAR PAKET ==================== */
+
+test('saringan keadaan penayangan sepakat dengan lencana yang tergambar', function () {
+    /*
+     | scopeStatusTayang menyalin aturan getStatusTayangAttribute, dan dua
+     | tempat yang memutuskan hal sama bisa berbeda jawabannya suatu saat.
+     | Yang dijaga di sini: untuk tiap keadaan, saringan SQL memulangkan
+     | persis paket yang lencananya menyebut keadaan itu.
+     */
+    $buat = fn (array $u) => paketUji(array_merge(['name' => 'Paket '.\Illuminate\Support\Str::random(6)], $u));
+
+    $buat(['status' => 'draf']);
+    $buat(['status' => 'arsip']);
+    $buat(['status' => 'terbit', 'tayang_mulai' => now()->addWeek()]);
+    $buat(['status' => 'terbit', 'tayang_sampai' => now()->subDay()]);
+    $buat(['status' => 'terbit', 'tanggal_berangkat' => now()->subWeek()->toDateString(), 'berakhir_otomatis' => true]);
+    $buat(['status' => 'terbit', 'tanggal_berangkat' => now()->addMonth()->toDateString()]);
+
+    foreach (['tayang', 'terjadwal', 'berakhir', 'draf', 'arsip'] as $keadaan) {
+        $lewatSql = TravelPackage::statusTayang($keadaan)->pluck('id')->sort()->values();
+        $lewatLencana = TravelPackage::all()
+            ->filter(fn ($p) => $p->status_tayang === $keadaan)
+            ->pluck('id')->sort()->values();
+
+        expect($lewatSql->all())->toBe($lewatLencana->all(), "Saringan '$keadaan' tidak sepakat dengan lencananya.");
+    }
+});
+
+test('saringan yang tidak dikenal memulangkan kosong, bukan semuanya', function () {
+    // Saringan yang gagal tanpa suara terbaca sebagai data yang hilang —
+    // dan "semuanya" justru terbaca sebagai saringan yang tidak bekerja.
+    paketUji();
+
+    expect(TravelPackage::statusTayang('entah-apa')->count())->toBe(0)
+        ->and(TravelPackage::statusTayang('')->count())->toBe(1);
+});
+
+test('pengurutan selalu punya pemecah seri', function () {
+    /*
+     | Dua paket berharga sama tanpa pemecah seri bisa bertukar tempat antar
+     | halaman: satu baris terbit dua kali dan baris lain tidak pernah
+     | terlihat. SQLite kebetulan stabil, jadi yang diperiksa SQL-nya.
+     */
+    $sql = [];
+    \Illuminate\Support\Facades\DB::listen(function ($q) use (&$sql) { $sql[] = $q->sql; });
+
+    foreach (['nama', 'harga-termurah', 'harga-termahal', 'berangkat', null] as $urut) {
+        TravelPackage::urutkanDaftar($urut)->get();
+    }
+
+    foreach ($sql as $satu) {
+        expect($satu)->toContain('order by');
+        expect(str_contains($satu, '"id"') || str_contains($satu, '`id`'))
+            ->toBeTrue("Pengurutan tanpa pemecah seri: {$satu}");
+    }
+});
+
+test('daftar bisa disaring dan diurutkan lewat api', function () {
+    paketUji(['name' => 'Zeta Trip', 'status' => 'terbit', 'price' => 900_000,
+        'tanggal_berangkat' => now()->addMonth()->toDateString()]);
+    paketUji(['name' => 'Alfa Trip', 'status' => 'draf', 'price' => 100_000]);
+
+    $this->getJson('/api/v1/paket-wisata?tampil=draf', kirimPaket())
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.nama', 'Alfa Trip');
+
+    $this->getJson('/api/v1/paket-wisata?urut=nama', kirimPaket())
+        ->assertOk()
+        ->assertJsonPath('data.0.nama', 'Alfa Trip');
+
+    $this->getJson('/api/v1/paket-wisata?urut=harga-termahal', kirimPaket())
+        ->assertOk()
+        ->assertJsonPath('data.0.nama', 'Zeta Trip');
+});
+
+/* ===================== PRATINJAU SEBELUM TERBIT ===================== */
+
+test('paket draf tetap 404 untuk pengunjung biasa', function () {
+    // Pengecualian pratinjau TIDAK boleh membuka paket draf untuk siapa saja
+    // yang kebetulan tahu alamatnya.
+    $paket = paketUji(['status' => 'draf']);
+
+    $this->get(route('paket-detail', $paket->uuid))->assertNotFound();
+});
+
+test('tautan pratinjau bertanda tangan membuka paket yang belum tayang', function () {
+    $paket = paketUji(['status' => 'draf']);
+
+    $tautan = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+        'paket-detail', now()->addDays(7), ['paket' => $paket->uuid]
+    );
+
+    $this->get($tautan)
+        ->assertOk()
+        // Pita wajib ada: halaman pratinjau yang terlihat persis seperti
+        // halaman terbit membuat admin mengira paketnya sudah tayang.
+        ->assertSee('PRATINJAU')
+        ->assertSee('belum tampil');
+});
+
+test('tautan pratinjau yang kedaluwarsa berhenti bekerja', function () {
+    $paket = paketUji(['status' => 'draf']);
+
+    $tautan = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+        'paket-detail', now()->addDay(), ['paket' => $paket->uuid]
+    );
+
+    // Tautan yang terlanjur tersebar berhenti bekerja tanpa perlu dicabut.
+    $this->travel(8)->days();
+
+    $this->get($tautan)->assertNotFound();
+});
+
+test('paket yang sudah tayang tidak memasang pita pratinjau', function () {
+    $paket = paketUji(['status' => 'terbit', 'tanggal_berangkat' => now()->addMonth()->toDateString()]);
+
+    $this->get(route('paket-detail', $paket->uuid))
+        ->assertOk()
+        ->assertDontSee('PRATINJAU');
+});

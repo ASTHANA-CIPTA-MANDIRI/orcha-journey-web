@@ -20,7 +20,14 @@ class SaranPaket extends Model
 
     protected $fillable = ['jenis', 'nama'];
 
-    public const JENIS = ['destinasi', 'fasilitas'];
+    /*
+     | 'tidak_termasuk' dan 'titik_jemput' menyusul belakangan, dan keduanya
+     | ikut di sini karena alasan yang sama dengan dua yang pertama: isiannya
+     | berulang antar paket, dan yang diketik ulang tiap kali pasti suatu saat
+     | berbeda ejaannya. "Jogja" dan "Yogyakarta" yang bermaksud sama lalu jadi
+     | dua titik jemput yang berbeda di daftar peserta.
+     */
+    public const JENIS = ['destinasi', 'fasilitas', 'tidak_termasuk', 'titik_jemput'];
 
     /**
      * Catat nama-nama baru, abaikan yang sudah ada.

@@ -12,11 +12,28 @@ new #[Layout('components.layouts.guest')] class extends Component
 {
     public TravelPackage $paket;
 
+    /** Halaman ini sedang dibuka sebagai pratinjau admin, bukan oleh pengunjung. */
+    public bool $pratinjau = false;
+
     public function mount(TravelPackage $paket): void
     {
-        // Paket draf, terjadwal, atau yang sudah berakhir tidak boleh terbuka
-        // meski alamatnya diketahui — halamannya diperlakukan seperti tidak ada.
-        abort_unless($paket->sedang_tayang, 404);
+        /*
+         | Paket draf, terjadwal, atau yang sudah berakhir tidak boleh terbuka
+         | meski alamatnya diketahui — halamannya diperlakukan seperti tidak ada.
+         |
+         | SATU pengecualian: tautan bertanda tangan dari dashboard admin.
+         | Tanpa itu, satu-satunya cara melihat rupa sebuah paket adalah
+         | menerbitkannya dulu — menaruhnya di katalog untuk semua orang
+         | justru pada saat isinya belum siap dilihat siapa pun.
+         |
+         | Bertanda tangan dan kedaluwarsa, bukan sekadar parameter rahasia:
+         | tanda tangannya diperiksa aplikasi, tidak bisa ditebak, dan mati
+         | sendiri. Tautan yang terlanjur tersebar berhenti bekerja tanpa
+         | perlu ada yang mencabutnya.
+         */
+        $this->pratinjau = ! $paket->sedang_tayang && request()->hasValidSignature();
+
+        abort_unless($paket->sedang_tayang || $this->pratinjau, 404);
 
         $this->paket = $paket;
     }
@@ -225,6 +242,19 @@ new #[Layout('components.layouts.guest')] class extends Component
 @endphp
 
 <div>
+    {{-- Pita pratinjau.
+
+         Tanpa penanda apa pun, halaman pratinjau terlihat persis seperti
+         halaman yang sudah terbit — dan admin yang mengiranya sudah tayang
+         tidak akan pernah menekan Terbitkan. Ditaruh paling atas, sebelum
+         apa pun yang lain, supaya tidak bisa terlewat. --}}
+    @if ($pratinjau)
+        <div class="px-4 py-3 text-sm font-semibold text-center text-white bg-amber-600">
+            PRATINJAU — paket ini <strong>belum tampil</strong> di website.
+            Hanya yang memegang tautan ini yang bisa membukanya.
+        </div>
+    @endif
+
     <script type="application/ld+json">{!! \App\Support\SkemaJson::tag($skemaPaket) !!}</script>
 
     <x-page-hero :title="$paket->name" :eyebrow="$paket->category_label"

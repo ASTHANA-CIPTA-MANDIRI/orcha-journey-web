@@ -348,6 +348,75 @@ class TravelPackage extends Model
                 ->orWhere('tanggal_berangkat', '>=', $sekarang->copy()->addDay()->toDateString()));
     }
 
+    /**
+     * Menyaring menurut KEADAAN PENAYANGAN, bukan kolom `status`.
+     *
+     * Keadaan itu hasil hitungan dari tiga hal — kolom status, jendela
+     * tayang, dan tanggal berangkat — sehingga tidak bisa disaring dengan
+     * `where('status', ...)` begitu saja. Dulu layar admin hanya bisa
+     * menyaring kategori: kepala halamannya menulis "2 tampil di website"
+     * tetapi angka itu tidak bisa diklik, dan menemukan paket yang sudah
+     * berhenti tampil berarti membaca lencananya satu per satu.
+     *
+     * Aturannya menyalin getStatusTayangAttribute(), dan penyalinan itu
+     * memang risiko. Karena itu ada uji yang menjalankan keduanya atas data
+     * yang sama dan membandingkan hasilnya.
+     */
+    public function scopeStatusTayang($query, ?string $nilai)
+    {
+        if (blank($nilai)) {
+            return $query;
+        }
+
+        $sekarang = now();
+        $besok = $sekarang->copy()->addDay()->toDateString();
+
+        return match ($nilai) {
+            'draf' => $query->where('status', 'draf'),
+            'arsip' => $query->where('status', 'arsip'),
+
+            // Sudah terbit, tetapi jendelanya belum dibuka.
+            'terjadwal' => $query->where('status', 'terbit')
+                ->whereNotNull('tayang_mulai')
+                ->where('tayang_mulai', '>', $sekarang),
+
+            // Terbit, jendelanya sudah dibuka, tetapi sudah lewat batasnya —
+            // entah oleh tayang_sampai atau oleh hari keberangkatan.
+            'berakhir' => $query->where('status', 'terbit')
+                ->where(fn ($q) => $q->whereNull('tayang_mulai')->orWhere('tayang_mulai', '<=', $sekarang))
+                ->where(fn ($q) => $q
+                    ->where(fn ($r) => $r->whereNotNull('tayang_sampai')->where('tayang_sampai', '<', $sekarang))
+                    ->orWhere(fn ($r) => $r->where('berakhir_otomatis', true)
+                        ->whereNotNull('tanggal_berangkat')
+                        ->where('tanggal_berangkat', '<', $besok))),
+
+            'tayang' => $query->tayang(),
+
+            // Nilai yang tidak dikenal TIDAK diam-diam memulangkan semuanya:
+            // saringan yang gagal tanpa suara terbaca sebagai data yang hilang.
+            default => $query->whereRaw('1 = 0'),
+        };
+    }
+
+    /**
+     * Pengurutan daftar admin.
+     *
+     * `id` ikut jadi pemecah seri di setiap pilihan. Tanpa itu, dua paket
+     * yang nilainya sama bisa bertukar tempat antar halaman — satu baris
+     * terbit dua kali dan baris lain tidak pernah terlihat sama sekali.
+     */
+    public function scopeUrutkanDaftar($query, ?string $urut)
+    {
+        return match ($urut) {
+            'nama' => $query->orderBy('name')->orderBy('id'),
+            'harga-termurah' => $query->orderBy('price')->orderBy('id'),
+            'harga-termahal' => $query->orderByDesc('price')->orderBy('id'),
+            'berangkat' => $query->orderByRaw('tanggal_berangkat IS NULL')
+                ->orderBy('tanggal_berangkat')->orderBy('id'),
+            default => $query->orderByDesc('id'),
+        };
+    }
+
     /** Apakah paket ini sedang tampil di website sekarang. */
     public function getSedangTayangAttribute(): bool
     {
