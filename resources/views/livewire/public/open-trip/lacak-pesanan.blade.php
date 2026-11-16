@@ -175,7 +175,13 @@ new #[Layout('components.layouts.guest')] #[Title('Lacak Pesanan — Orcha Journ
                                 @if ($sewa)
                                     {{ $pesanan->jadwal_mulai?->translatedFormat('j F Y, H:i') ?: 'Menyusul' }}
                                 @else
-                                    {{ $pesanan->paket?->jadwal_label ?: ($pesanan->tanggal_berangkat?->translatedFormat('j F Y') ?: 'Menyusul') }}
+                                    {{-- Rombongan yang DIPESAN orang ini lebih dulu.
+                                         jadwal_label milik paket memulangkan rombongan
+                                         terdekat, yang pada paket bertanggal banyak
+                                         bukan tanggal pesanan ini. --}}
+                                    {{ $pesanan->keberangkatan?->rentang_tanggal
+                                        ?: ($pesanan->tanggal_berangkat?->translatedFormat('j F Y')
+                                            ?: ($pesanan->paket?->jadwal_label ?: 'Menyusul')) }}
                                 @endif
                             </dd>
                         </div>

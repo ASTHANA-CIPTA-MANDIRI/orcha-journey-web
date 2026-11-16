@@ -104,6 +104,24 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
     }
 
     /** Tanggal yang masih dibuka pada paket terpilih. */
+    /**
+     * Keberangkatan yang SEDANG dipilih di layar — bukan yang terdekat.
+     *
+     * Dipakai seluruh ringkasan di halaman ini. Tanpa penolong ini tiap
+     * tempat membaca $paket->jadwal_label, yang memulangkan rombongan
+     * TERDEKAT milik paket: pemesan yang memilih 11–13 Desember membaca
+     * kotak ringkasan bertuliskan 4–6 Desember, lalu menekan Daftar dengan
+     * yakin ia sudah memesan tanggal yang benar.
+     */
+    public function keberangkatanTerpilih(): ?\App\Models\PaketWisata\Keberangkatan
+    {
+        if ($this->keberangkatanId === '') {
+            return null;
+        }
+
+        return $this->keberangkatanTersedia()->firstWhere('id', (int) $this->keberangkatanId);
+    }
+
     public function keberangkatanTersedia(): \Illuminate\Support\Collection
     {
         $paket = $this->paketId === ''
@@ -417,7 +435,11 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
 
         $rincian = [
             'Paket' => $paket->name,
-            'Keberangkatan' => $paket->jadwal_label ?: '—',
+            // Tanggal yang DIPESAN orang ini. Surat konfirmasi yang menyebut
+            // rombongan lain adalah kesalahan yang baru ketahuan di hari
+            // keberangkatan, saat orangnya datang pada tanggal yang salah.
+            'Keberangkatan' => $pendaftaran->keberangkatan?->rentang_tanggal
+                ?: ($pendaftaran->tanggal_berangkat?->translatedFormat('j F Y') ?: ($paket->jadwal_label ?: '—')),
             'Pemesan' => $pendaftaran->nama,
             'WhatsApp' => $pendaftaran->whatsapp,
             'Email' => $pendaftaran->email,
@@ -521,7 +543,22 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
     private function paketTersedia()
     {
         return TravelPackage::tayang()->where('category', 'open_trip')
-            ->where(fn ($q) => $q->whereNull('tanggal_berangkat')->orWhereDate('tanggal_berangkat', '>=', today()))
+
+            /*
+             | "Jangan tawarkan trip yang tanggalnya sudah lewat" — tetapi
+             | tanggalnya dibaca dari KEBERANGKATAN bila paket punya.
+             |
+             | Kolom tanggal_berangkat milik paket adalah peninggalan; paket
+             | yang kolomnya tertinggal di masa lalu akan hilang dari kotak
+             | pilih ini meski rombongannya masih dibuka, dan calon pendaftar
+             | melihatnya sebagai trip yang sudah tidak dijual.
+             */
+            ->where(fn ($q) => $q
+                ->whereHas('keberangkatan', fn ($k) => $k
+                    ->where('aktif', true)->whereDate('tanggal_berangkat', '>=', today()))
+                ->orWhere(fn ($r) => $r->whereDoesntHave('keberangkatan')
+                    ->where(fn ($s) => $s->whereNull('tanggal_berangkat')
+                        ->orWhereDate('tanggal_berangkat', '>=', today()))))
             ->orderByRaw('tanggal_berangkat is null')
             ->orderBy('tanggal_berangkat')
             ->get();
@@ -731,7 +768,16 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                     <option value="">— Pilih trip —</option>
                                     @foreach ($paketOpenTrip as $paket)
                                         <option value="{{ $paket->uuid }}">
-                                            {{ $paket->name }}{{ $paket->jadwal_label ? ' · ' . $paket->jadwal_label : '' }}
+                                            {{-- Paket dengan beberapa rombongan TIDAK menyebut satu
+                                                 tanggal di sini: tanggalnya dipilih di kotak
+                                                 berikutnya, dan menyebut salah satunya membuat dua
+                                                 isian terbaca saling bertentangan. --}}
+                                            @php
+                                                $tanggalPaket = 0 < $paket->jumlah_tanggal_lain
+                                                    ? ($paket->jumlah_tanggal_lain + 1).' pilihan tanggal'
+                                                    : $paket->jadwal_label;
+                                            @endphp
+                                            {{ $paket->name }}{{ $tanggalPaket ? ' · ' . $tanggalPaket : '' }}
                                             — {{ $rupiah($paket->price) }}/orang
                                         </option>
                                     @endforeach
@@ -785,8 +831,14 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                         <div>
                                             <dt class="text-xs font-semibold tracking-wider uppercase text-slate-500">
                                                 Tanggal berangkat</dt>
+                                            {{-- Tanggal yang DIPILIH, bukan jadwal_label milik paket.
+
+                                                 jadwal_label memulangkan rombongan terdekat; pada
+                                                 paket dengan beberapa tanggal, itu bukan tanggal
+                                                 yang sedang dipesan orang ini. --}}
                                             <dd class="font-bold text-orcha-navy">
-                                                {{ $paketTerpilih->jadwal_label ?? 'Menyusul, akan kami kabari' }}</dd>
+                                                {{ $this->keberangkatanTerpilih()?->rentang_tanggal
+                                                    ?? ($paketTerpilih->jadwal_label ?? 'Menyusul, akan kami kabari') }}</dd>
                                         </div>
                                         <div>
                                             <dt class="text-xs font-semibold tracking-wider uppercase text-slate-500">

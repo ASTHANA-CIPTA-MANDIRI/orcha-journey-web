@@ -522,3 +522,75 @@ test('menghapus keberangkatan terakhir tidak mengosongkan kolomnya', function ()
 
     expect($paket->fresh()->tanggal_berangkat?->toDateString())->toBe('2026-12-04');
 });
+
+/* ====== RINGKASAN PENDAFTARAN IKUT TANGGAL YANG DIPILIH ====== */
+
+test('ringkasan pendaftaran menyebut tanggal yang dipilih, bukan yang terdekat', function () {
+    /*
+     | Pemesan memilih 11–13 Desember, tetapi kotak "Sudah ditetapkan oleh
+     | Orcha Journey" menulis 4–6 Desember — rombongan TERDEKAT milik paket.
+     | Ia lalu menekan Daftar dengan yakin sudah memesan tanggal yang benar,
+     | dan salahnya baru ketahuan di hari keberangkatan saat orangnya datang
+     | pada tanggal yang lain.
+     */
+    $paket = paketUji([
+        'status' => 'terbit', 'category' => 'open_trip',
+        'minimal_peserta' => 1, 'kuota' => 20, 'titik_jemput' => 'Jogja',
+    ]);
+
+    $this->travelTo('2026-11-20');
+
+    $dekat = Keberangkatan::create([
+        'travel_package_id' => $paket->id,
+        'tanggal_berangkat' => '2026-12-04', 'tanggal_pulang' => '2026-12-06',
+    ]);
+
+    $jauh = Keberangkatan::create([
+        'travel_package_id' => $paket->id,
+        'tanggal_berangkat' => '2026-12-11', 'tanggal_pulang' => '2026-12-13',
+    ]);
+
+    $halaman = \Livewire\Volt\Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $paket->uuid)
+        ->set('keberangkatanId', (string) $jauh->id);
+
+    // Yang dipilih tampil; yang terdekat TIDAK ikut muncul sebagai tanggal
+    // berangkat.
+    $halaman->assertSee('11 – 13 Desember 2026');
+
+    expect($halaman->instance()->keberangkatanTerpilih()?->id)->toBe($jauh->id)
+        ->and($paket->fresh()->jadwal_label)->toBe('4 – 6 Desember 2026');
+});
+
+test('pilihan paket tidak menyebut satu tanggal bila rombongannya banyak', function () {
+    // Menyebut salah satunya membuat dua isian terbaca saling bertentangan:
+    // kotak paket bilang 4 Desember, kotak tanggal menawarkan 11 Desember.
+    $paket = paketUji(['status' => 'terbit', 'category' => 'open_trip', 'minimal_peserta' => 1]);
+
+    $this->travelTo('2026-11-20');
+
+    foreach (['2026-12-04', '2026-12-11'] as $tgl) {
+        Keberangkatan::create(['travel_package_id' => $paket->id, 'tanggal_berangkat' => $tgl]);
+    }
+
+    \Livewire\Volt\Volt::test('public.open-trip.pendaftaran')
+        ->assertSee('2 pilihan tanggal')
+        ->assertDontSee($paket->name.' · 4 Desember 2026');
+});
+
+test('paket bertanggal satu tetap menyebut tanggalnya', function () {
+    // Jangan sampai perbaikannya menghilangkan keterangan yang memang
+    // berguna pada paket yang cuma punya satu rombongan.
+    $paket = paketUji(['status' => 'terbit', 'category' => 'open_trip', 'minimal_peserta' => 1]);
+
+    $this->travelTo('2026-11-20');
+
+    Keberangkatan::create([
+        'travel_package_id' => $paket->id,
+        'tanggal_berangkat' => '2026-12-04', 'tanggal_pulang' => '2026-12-06',
+    ]);
+
+    \Livewire\Volt\Volt::test('public.open-trip.pendaftaran')
+        ->assertSee('4 – 6 Desember 2026')
+        ->assertDontSee('pilihan tanggal');
+});

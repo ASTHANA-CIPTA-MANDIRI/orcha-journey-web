@@ -254,8 +254,9 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
             default => [
                 ['Pemesan', $pesanan->nama],
                 ['Trip', $pesanan->nama_paket ?: 'Belum ditentukan'],
-                ['Tanggal berangkat', $pesanan->paket?->jadwal_label
-                    ?: $pesanan->tanggal_berangkat?->translatedFormat('j F Y') ?: 'Menyusul'],
+                // Rombongan yang dipesan orang ini, bukan yang terdekat milik paket.
+                ['Tanggal berangkat', $pesanan->keberangkatan?->rentang_tanggal
+                    ?: ($pesanan->tanggal_berangkat?->translatedFormat('j F Y') ?: 'Menyusul')],
                 ['Jumlah peserta', $pesanan->jumlah_peserta.' orang'],
             ],
         };

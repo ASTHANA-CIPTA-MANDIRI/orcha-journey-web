@@ -503,7 +503,7 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                                         </p>
 
                                         <dl class="grid gap-4 mt-4 sm:grid-cols-2">
-                                            @foreach ([['Pemesan', $pendaftaran->nama], ['Trip', $pendaftaran->nama_paket ?: 'Belum ditentukan'], ['Tanggal berangkat', $pendaftaran->paket?->jadwal_label ?: $pendaftaran->tanggal_berangkat?->translatedFormat('j F Y') ?: 'Menyusul'], ['Titik jemput', $pendaftaran->titik_jemput ?: 'Dikonfirmasi tim kami'], ['Jumlah peserta', $pendaftaran->jumlah_peserta . ' orang'], ['Formulir kesehatan terisi', $jumlahTerisi . ' dari ' . $pendaftaran->jumlah_peserta]] as [$label, $nilai])
+                                            @foreach ([['Pemesan', $pendaftaran->nama], ['Trip', $pendaftaran->nama_paket ?: 'Belum ditentukan'], ['Tanggal berangkat', $pendaftaran->keberangkatan?->rentang_tanggal ?: ($pendaftaran->tanggal_berangkat?->translatedFormat('j F Y') ?: 'Menyusul')], ['Titik jemput', $pendaftaran->titik_jemput ?: 'Dikonfirmasi tim kami'], ['Jumlah peserta', $pendaftaran->jumlah_peserta . ' orang'], ['Formulir kesehatan terisi', $jumlahTerisi . ' dari ' . $pendaftaran->jumlah_peserta]] as [$label, $nilai])
                                                 <div>
                                                     <dt class="text-xs font-semibold tracking-wider uppercase text-slate-500">
                                                         {{ $label }}</dt>

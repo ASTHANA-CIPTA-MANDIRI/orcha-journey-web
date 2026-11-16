@@ -274,7 +274,11 @@ new #[Layout('components.layouts.guest')] class extends Component
                         <dl class="grid gap-5 mt-5 sm:grid-cols-2">
                             @php
                                 $ringkasan = array_filter([
-                                    ['o-calendar-days', 'Keberangkatan', $paket->jadwal_label],
+                                    // Menyebut berapa tanggal lain yang dibuka: satu tanggal
+                                    // saja membuat pembaca yang tidak bisa di tanggal itu
+                                    // berhenti membaca, padahal daftarnya ada di bawah.
+                                    ['o-calendar-days', 'Keberangkatan', $paket->jadwal_label
+                                        . (0 < $paket->jumlah_tanggal_lain ? ' (+'.$paket->jumlah_tanggal_lain.' tanggal lain)' : '')],
                                     ['o-clock', 'Durasi', $paket->duration],
                                     ['o-map-pin', 'Titik jemput', $paket->titik_jemput],
                                     ['o-user-group', 'Minimal peserta', $paket->minimal_peserta > 1 ? $paket->minimal_peserta . ' orang' : null],
