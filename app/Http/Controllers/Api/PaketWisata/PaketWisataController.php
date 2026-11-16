@@ -407,6 +407,7 @@ class PaketWisataController extends ApiController
              | seluruh galeri — dan permintaan yang tidak membawa berkas sama
              | sekali akan terbaca sebagai "kosongkan galerinya".
              */
+            'galeri_disentuh' => 'nullable|boolean',
             'galeri_tetap' => 'nullable|array',
             'galeri_tetap.*' => 'string|max:255',
             'galeri_baru' => 'nullable|array|max:12',
@@ -434,7 +435,19 @@ class PaketWisataController extends ApiController
      */
     private function simpanGaleri(Request $request, ?array $lama): ?array
     {
-        $menyinggung = $request->has('galeri_tetap') || $request->hasFile('galeri_baru');
+        /*
+         | Penanda EKSPLISIT, bukan sekadar "apakah galeri_tetap ada".
+         |
+         | Perataan multipart membuang senarai kosong: admin yang menghapus
+         | SELURUH foto galeri mengirim galeri_tetap yang kosong, kuncinya
+         | lenyap dari muatan, dan permintaan itu terbaca persis seperti
+         | permintaan yang tidak menyinggung galeri sama sekali. Akibatnya
+         | foto yang baru saja dihapus tetap tampil, dan tidak ada satu pun
+         | galat yang menyebutkannya.
+         */
+        $menyinggung = $request->boolean('galeri_disentuh')
+            || $request->has('galeri_tetap')
+            || $request->hasFile('galeri_baru');
 
         if (! $menyinggung) {
             return $lama;

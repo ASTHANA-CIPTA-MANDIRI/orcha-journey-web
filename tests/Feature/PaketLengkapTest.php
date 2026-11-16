@@ -341,3 +341,41 @@ test('paket yang sudah tayang tidak memasang pita pratinjau', function () {
         ->assertOk()
         ->assertDontSee('PRATINJAU');
 });
+
+test('menghapus seluruh foto galeri benar-benar mengosongkannya', function () {
+    /*
+     | Perataan multipart membuang senarai kosong, jadi borang yang
+     | menghapus SEMUA foto mengirim muatan yang terbaca persis seperti
+     | muatan yang tidak menyinggung galeri sama sekali. Tanpa penanda
+     | eksplisit, foto yang baru dihapus tetap tampil tanpa satu pun galat.
+     */
+    $paket = paketUji([
+        'foto_galeri' => ['/storage/paket/a.webp', '/storage/paket/b.webp'],
+    ]);
+
+    $this->postJson("/api/v1/paket-wisata/{$paket->id}", [
+        'nama' => $paket->name,
+        'kategori' => 'open_trip',
+        'minimal_peserta' => 4,
+        'harga' => 1_000_000,
+        'galeri_disentuh' => 1,
+        // galeri_tetap sengaja TIDAK dikirim — persis seperti yang terjadi
+        // saat seluruh fotonya dihapus.
+    ], kirimPaket())->assertOk();
+
+    expect($paket->fresh()->foto_galeri)->toBeNull();
+});
+
+test('permintaan yang tidak menyinggung galeri tidak menghapusnya', function () {
+    // Menyimpan perubahan harga saja tidak boleh menghilangkan dua belas foto.
+    $paket = paketUji(['foto_galeri' => ['/storage/paket/a.webp']]);
+
+    $this->postJson("/api/v1/paket-wisata/{$paket->id}", [
+        'nama' => $paket->name,
+        'kategori' => 'open_trip',
+        'minimal_peserta' => 4,
+        'harga' => 2_000_000,
+    ], kirimPaket())->assertOk();
+
+    expect($paket->fresh()->foto_galeri)->toBe(['/storage/paket/a.webp']);
+});
