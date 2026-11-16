@@ -594,3 +594,47 @@ test('paket bertanggal satu tetap menyebut tanggalnya', function () {
         ->assertSee('4 – 6 Desember 2026')
         ->assertDontSee('pilihan tanggal');
 });
+
+test('pilihan tanggal ganjil tidak menyisakan lubang di barisnya', function () {
+    /*
+     | Tiga tanggal di kisi dua kolom menyisakan satu kotak kosong di sebelah
+     | yang terakhir. Kotak itu bertepi — sama seperti tetangganya — sehingga
+     | terbaca sebagai tanggal keempat yang gagal dimuat, bukan sebagai ruang
+     | kosong. Yang ganjil di baris terakhir karena itu dilebarkan.
+     */
+    $paket = paketUji(['status' => 'terbit', 'category' => 'open_trip']);
+
+    $this->travelTo('2026-11-16');
+
+    foreach (['2026-11-27', '2026-12-04', '2026-12-11'] as $tgl) {
+        Keberangkatan::create(['travel_package_id' => $paket->id, 'tanggal_berangkat' => $tgl]);
+    }
+
+    $isi = $this->get(route('paket-detail', $paket->uuid))->assertOk()->getContent();
+
+    $mulai = strpos($isi, 'Pilihan tanggal keberangkatan');
+    $kotak = substr($isi, $mulai, strpos($isi, '</ul>', $mulai) - $mulai);
+
+    // Tepat SATU yang dilebarkan, dan itu yang terakhir.
+    expect(substr_count($kotak, 'sm:col-span-2'))->toBe(1)
+        ->and(strrpos($kotak, 'sm:col-span-2'))->toBeGreaterThan(strrpos($kotak, '11 – 13') - 400);
+});
+
+test('pilihan tanggal genap tidak ada yang dilebarkan', function () {
+    // Barisnya sudah penuh sendiri; melebarkan salah satunya justru membuat
+    // satu tanggal terlihat berbeda derajat dari yang lain.
+    $paket = paketUji(['status' => 'terbit', 'category' => 'open_trip']);
+
+    $this->travelTo('2026-11-16');
+
+    foreach (['2026-12-04', '2026-12-11'] as $tgl) {
+        Keberangkatan::create(['travel_package_id' => $paket->id, 'tanggal_berangkat' => $tgl]);
+    }
+
+    $isi = $this->get(route('paket-detail', $paket->uuid))->assertOk()->getContent();
+
+    $mulai = strpos($isi, 'Pilihan tanggal keberangkatan');
+    $kotak = substr($isi, $mulai, strpos($isi, '</ul>', $mulai) - $mulai);
+
+    expect($kotak)->not->toContain('sm:col-span-2');
+});

@@ -318,9 +318,16 @@ new #[Layout('components.layouts.guest')] class extends Component
                                     Pilihan tanggal keberangkatan
                                 </h3>
 
+                                {{-- Kisinya mengisi barisnya sampai habis.
+
+                                     Tiga tanggal di kisi dua kolom menyisakan satu
+                                     lubang kosong di sebelah yang terakhir — dan lubang
+                                     itu terbaca sebagai tanggal keempat yang gagal
+                                     dimuat, bukan sebagai ruang. Yang ganjil di baris
+                                     terakhir karena itu dilebarkan memenuhi barisnya. --}}
                                 <ul class="grid gap-3 mt-3 sm:grid-cols-2">
                                     @foreach ($pilihanTanggal as $kb)
-                                        <li>
+                                        <li @class(['sm:col-span-2' => $loop->last && $loop->count % 2 === 1])>
                                             <a href="{{ route('pendaftaran-open-trip', ['paket' => $paket->uuid, 'keberangkatan' => $kb->id]) }}"
                                                 @class([
                                                     'flex items-center justify-between gap-3 p-4 border rounded-2xl transition',
