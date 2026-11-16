@@ -379,3 +379,146 @@ test('permintaan yang tidak menyinggung galeri tidak menghapusnya', function () 
 
     expect($paket->fresh()->foto_galeri)->toBe(['/storage/paket/a.webp']);
 });
+
+/* ============ TANGGAL PAKET vs TANGGAL KEBERANGKATAN ============ */
+
+test('kartu menyebut keberangkatan terdekat, bukan kolom lama paket', function () {
+    /*
+     | Keadaan nyata paket 7 di produksi: kolom tanggal_berangkat miliknya
+     | tertinggal di 27 November, sementara rombongan yang benar-benar dijual
+     | 4–6 dan 11–13 Desember. Kartu katalog memajang tanggal yang tidak bisa
+     | dipesan siapa pun, dan tidak ada galat yang menyebutkannya.
+     */
+    $paket = paketUji([
+        'status' => 'terbit',
+        'tanggal_berangkat' => '2026-11-27',
+        'tanggal_pulang' => '2026-11-29',
+    ]);
+
+    // Dibuat lewat query builder supaya kait penyelarasnya TIDAK ikut jalan —
+    // inilah bentuk data yang sudah telanjur ada di produksi.
+    foreach ([['2026-12-04', '2026-12-06'], ['2026-12-11', '2026-12-13']] as [$b, $p]) {
+        \Illuminate\Support\Facades\DB::table('tbl_paket_keberangkatan')->insert([
+            'travel_package_id' => $paket->id, 'tanggal_berangkat' => $b,
+            'tanggal_pulang' => $p, 'aktif' => true,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    $this->travelTo('2026-11-20');
+
+    expect($paket->fresh()->jadwal_label)->toBe('4 – 6 Desember 2026')
+        ->and($paket->fresh()->jumlah_tanggal_lain)->toBe(1);
+});
+
+test('paket tidak hilang dari katalog saat kolom lamanya lewat', function () {
+    /*
+     | Ini akibat yang jauh lebih mahal daripada tanggal yang salah tulis.
+     | Dengan berakhir_otomatis, kolom 27 November membuat paketnya berhenti
+     | tampil pada 28 November — sepuluh hari sebelum trip pertamanya, dengan
+     | dua rombongan yang masih menerima pendaftar.
+     */
+    $paket = paketUji([
+        'status' => 'terbit', 'berakhir_otomatis' => true,
+        'tanggal_berangkat' => '2026-11-27', 'tanggal_pulang' => '2026-11-29',
+    ]);
+
+    \Illuminate\Support\Facades\DB::table('tbl_paket_keberangkatan')->insert([
+        'travel_package_id' => $paket->id, 'tanggal_berangkat' => '2026-12-11',
+        'tanggal_pulang' => '2026-12-13', 'aktif' => true,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $this->travelTo('2026-11-28');
+
+    expect(TravelPackage::tayang()->whereKey($paket->id)->exists())->toBeTrue()
+        ->and($paket->fresh()->sedang_tayang)->toBeTrue();
+});
+
+test('paket benar-benar berhenti tampil saat SEMUA tanggalnya lewat', function () {
+    // Jangan sampai perbaikannya berubah jadi "tidak pernah berakhir".
+    $paket = paketUji([
+        'status' => 'terbit', 'berakhir_otomatis' => true,
+        'tanggal_berangkat' => '2026-11-27',
+    ]);
+
+    Keberangkatan::create([
+        'travel_package_id' => $paket->id,
+        'tanggal_berangkat' => '2026-12-11', 'tanggal_pulang' => '2026-12-13',
+    ]);
+
+    $this->travelTo('2026-12-14');
+
+    expect(TravelPackage::tayang()->whereKey($paket->id)->exists())->toBeFalse()
+        ->and($paket->fresh()->sedang_tayang)->toBeFalse();
+});
+
+test('keberangkatan yang ditutup tidak menahan paket tetap tampil', function () {
+    $paket = paketUji([
+        'status' => 'terbit', 'berakhir_otomatis' => true,
+        'tanggal_berangkat' => '2026-11-27',
+    ]);
+
+    Keberangkatan::create([
+        'travel_package_id' => $paket->id,
+        'tanggal_berangkat' => '2026-12-11', 'aktif' => false,
+    ]);
+
+    $this->travelTo('2026-11-28');
+
+    expect(TravelPackage::tayang()->whereKey($paket->id)->exists())->toBeFalse();
+});
+
+test('menyimpan keberangkatan ikut menyelaraskan kolom tanggal paketnya', function () {
+    // Supaya kolom peninggalan itu tidak pernah lagi tertinggal diam-diam di
+    // belasan tempat yang masih membacanya: PDF, pengingat, kartu katalog.
+    $paket = paketUji(['tanggal_berangkat' => '2026-11-27', 'tanggal_pulang' => '2026-11-29']);
+
+    $this->travelTo('2026-11-20');
+
+    Keberangkatan::create([
+        'travel_package_id' => $paket->id,
+        'tanggal_berangkat' => '2026-12-04', 'tanggal_pulang' => '2026-12-06',
+    ]);
+
+    expect($paket->fresh()->tanggal_berangkat->toDateString())->toBe('2026-12-04')
+        ->and($paket->fresh()->tanggal_pulang->toDateString())->toBe('2026-12-06');
+});
+
+test('menghapus keberangkatan terdekat memundurkan kolomnya ke yang berikutnya', function () {
+    $paket = paketUji();
+
+    $this->travelTo('2026-11-20');
+
+    $dekat = Keberangkatan::create([
+        'travel_package_id' => $paket->id,
+        'tanggal_berangkat' => '2026-12-04', 'tanggal_pulang' => '2026-12-06',
+    ]);
+
+    Keberangkatan::create([
+        'travel_package_id' => $paket->id,
+        'tanggal_berangkat' => '2026-12-11', 'tanggal_pulang' => '2026-12-13',
+    ]);
+
+    expect($paket->fresh()->tanggal_berangkat->toDateString())->toBe('2026-12-04');
+
+    $dekat->delete();
+
+    expect($paket->fresh()->tanggal_berangkat->toDateString())->toBe('2026-12-11');
+});
+
+test('menghapus keberangkatan terakhir tidak mengosongkan kolomnya', function () {
+    // Mengosongkannya membuat paket kehilangan satu-satunya tanggal yang
+    // pernah dimilikinya, dan aturan berakhir-otomatis kehilangan acuan.
+    $paket = paketUji(['tanggal_berangkat' => '2026-12-04']);
+
+    $this->travelTo('2026-11-20');
+
+    $satu = Keberangkatan::create([
+        'travel_package_id' => $paket->id, 'tanggal_berangkat' => '2026-12-04',
+    ]);
+
+    $satu->delete();
+
+    expect($paket->fresh()->tanggal_berangkat?->toDateString())->toBe('2026-12-04');
+});

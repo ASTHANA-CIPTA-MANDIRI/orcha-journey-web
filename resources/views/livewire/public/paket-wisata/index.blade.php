@@ -38,6 +38,10 @@ new #[Layout('components.layouts.guest')] #[Title('Paket Wisata — Open Trip, P
             'kategoriPaket' => config('orcha.kategori_paket'),
             'packages' => TravelPackage::query()
                 ->tayang()
+                // Dimuat di muka: kartunya membaca keberangkatan terdekat dan
+                // jumlah tanggal lainnya, dan tanpa ini tiap kartu menembak
+                // query sendiri.
+                ->with('keberangkatan')
                 ->when($this->kategori, fn ($q) => $q->where('category', $this->kategori))
                 ->orderByDesc('is_best_choice')
                 ->orderBy('price')

@@ -47,6 +47,23 @@ class Keberangkatan extends Model
 
     protected $attributes = ['aktif' => true];
 
+    /**
+     * Setiap perubahan tanggal menarik kolom milik paketnya ikut berubah.
+     *
+     * Tanpa ini, kolom peninggalan di tbl_travel_package tertinggal diam-diam
+     * — dan karena belasan tempat masih membacanya, yang terbaca pengunjung
+     * adalah tanggal yang tidak bisa dipesan siapa pun. Lihat
+     * TravelPackage::selaraskanTanggal().
+     *
+     * saveQuietly di sana: penyelarasan ini bukan perubahan yang dilakukan
+     * admin, jadi ia tidak boleh muncul sebagai baris jejak audit sendiri.
+     */
+    protected static function booted(): void
+    {
+        static::saved(fn (self $k) => $k->paket?->selaraskanTanggal());
+        static::deleted(fn (self $k) => $k->paket?->selaraskanTanggal());
+    }
+
     public function paket(): BelongsTo
     {
         return $this->belongsTo(TravelPackage::class, 'travel_package_id');

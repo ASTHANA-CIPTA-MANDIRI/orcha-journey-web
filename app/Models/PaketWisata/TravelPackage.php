@@ -136,8 +136,105 @@ class TravelPackage extends Model
      * "19 – 21 Oktober 2026" bila tanggal pulangnya ada, "19 Oktober 2026"
      * bila hanya sehari, dan null bila tanggalnya belum ditetapkan.
      */
+    /**
+     * Keberangkatan terdekat yang masih bisa dipilih pendaftar.
+     *
+     * Inilah tanggal yang benar untuk kartu katalog. Kolom tanggal_berangkat
+     * milik paket adalah peninggalan dan tidak pernah diselaraskan: paket 7
+     * di produksi memajang "27 – 29 November 2026" di kartunya sementara
+     * rombongan yang dijual 4–6 dan 11–13 Desember — tanggal yang tidak bisa
+     * dipesan siapa pun, dan tidak ada galat yang menyebutkannya.
+     */
+    public function getKeberangkatanTerdekatAttribute(): ?Keberangkatan
+    {
+        if ($this->relationLoaded('keberangkatan')) {
+            return $this->keberangkatan
+                ->where('aktif', true)
+                ->filter(fn ($k) => $k->tanggal_berangkat?->gte(today()))
+                ->sortBy('tanggal_berangkat')
+                ->first();
+        }
+
+        return $this->keberangkatanTersedia()->orderBy('tanggal_berangkat')->first();
+    }
+
+    /**
+     * Menyelaraskan kolom tanggal milik paket dengan keberangkatannya.
+     *
+     * Kolom `tanggal_berangkat` / `tanggal_pulang` adalah peninggalan dari
+     * masa satu paket cuma punya satu tanggal, dan belasan tempat masih
+     * membacanya: kartu katalog, PDF penawaran, pengingat, dan aturan
+     * berakhir-otomatis. Sampai 16 Nov 2026 tidak ada apa pun yang
+     * menyelaraskannya — komentar di $fillable yang menyebut "penyelaras"
+     * menggambarkan sesuatu yang tidak pernah ada.
+     *
+     * Akibatnya terlihat di paket 7 produksi: kolomnya tertinggal di 27
+     * November sementara rombongan yang dijual 4–6 dan 11–13 Desember.
+     * Kartunya memajang tanggal yang tidak bisa dipesan siapa pun.
+     *
+     * Yang disalin adalah keberangkatan TERDEKAT yang masih dibuka — itu
+     * yang dimaksud orang saat bertanya "paket ini berangkat kapan". Kalau
+     * semuanya sudah lewat, yang terakhir, supaya kolomnya tidak pernah
+     * kembali kosong dan aturan berakhir-otomatis tetap punya tanggal.
+     */
+    public function selaraskanTanggal(): void
+    {
+        $acuan = $this->keberangkatan()
+            ->where('aktif', true)
+            ->whereDate('tanggal_berangkat', '>=', today())
+            ->orderBy('tanggal_berangkat')
+            ->first()
+            ?? $this->keberangkatan()->orderByDesc('tanggal_berangkat')->first();
+
+        if (! $acuan) {
+            // Keberangkatan terakhir baru saja dihapus: kolomnya dibiarkan
+            // apa adanya, bukan dikosongkan. Mengosongkannya membuat paket
+            // lama kehilangan satu-satunya tanggal yang pernah dimilikinya.
+            return;
+        }
+
+        $baru = [
+            'tanggal_berangkat' => $acuan->tanggal_berangkat?->toDateString(),
+            'tanggal_pulang' => $acuan->tanggal_pulang?->toDateString(),
+        ];
+
+        // Dibandingkan dulu: simpan tanpa perubahan tetap menggeser
+        // updated_at, dan jejak audit lalu penuh baris yang tidak mengubah
+        // apa pun.
+        $kini = [
+            'tanggal_berangkat' => $this->tanggal_berangkat?->toDateString(),
+            'tanggal_pulang' => $this->tanggal_pulang?->toDateString(),
+        ];
+
+        if ($baru !== $kini) {
+            $this->forceFill($baru)->saveQuietly();
+        }
+    }
+
+    /** Berapa tanggal lain yang masih dibuka selain yang terdekat. */
+    public function getJumlahTanggalLainAttribute(): int
+    {
+        $jumlah = $this->relationLoaded('keberangkatan')
+            ? $this->keberangkatan->where('aktif', true)
+                ->filter(fn ($k) => $k->tanggal_berangkat?->gte(today()))->count()
+            : $this->keberangkatanTersedia()->count();
+
+        return max(0, $jumlah - 1);
+    }
+
     public function getJadwalLabelAttribute(): ?string
     {
+        /*
+         | Keberangkatan dulu, kolom paket belakangan.
+         |
+         | Yang dibaca pengunjung harus tanggal yang benar-benar bisa
+         | dipesannya. Paket tanpa keberangkatan sama sekali — masih banyak
+         | yang begitu — tetap memakai kolom lamanya.
+         */
+        if ($terdekat = $this->keberangkatan_terdekat) {
+            return $terdekat->rentang_tanggal;
+        }
+
         if (! $this->tanggal_berangkat) {
             return null;
         }
@@ -338,14 +435,34 @@ class TravelPackage extends Model
             ->where(fn ($q) => $q->whereNull('tayang_mulai')->orWhere('tayang_mulai', '<=', $sekarang))
             ->where(fn ($q) => $q->whereNull('tayang_sampai')->orWhere('tayang_sampai', '>=', $sekarang))
             ->where(fn ($q) => $q->where('berakhir_otomatis', false)
-                ->orWhereNull('tanggal_berangkat')
-                // Dibandingkan dengan tanggal BESOK, bukan "> hari ini".
-                // MySQL menyimpan kolom ini sebagai DATE, sementara SQLite
-                // menyimpannya sebagai teks '2026-08-15 00:00:00' — dan teks
-                // itu terhitung lebih besar dari '2026-08-15', sehingga paket
-                // yang berangkat hari ini sempat lolos di SQLite tapi tidak di
-                // MySQL. Memakai '>= besok' hasilnya sama di keduanya.
-                ->orWhere('tanggal_berangkat', '>=', $sekarang->copy()->addDay()->toDateString()));
+
+                /*
+                 | KEBERANGKATAN yang menentukan, bila paket ini punya.
+                 |
+                 | Kolom tanggal_berangkat milik paket adalah peninggalan dari
+                 | masa satu paket cuma punya satu tanggal, dan tidak ada apa
+                 | pun yang menyelaraskannya. Paket 7 di produksi menunjukkan
+                 | akibatnya: kolomnya tertinggal di 27 November sementara
+                 | rombongan yang benar-benar dijual 4–6 dan 11–13 Desember.
+                 | Tanpa syarat ini, paket itu HILANG dari katalog pada 28
+                 | November — sepuluh hari sebelum trip pertamanya, dengan dua
+                 | rombongan yang masih menerima pendaftar.
+                 */
+                ->orWhereHas('keberangkatan', fn ($k) => $k
+                    ->where('aktif', true)
+                    ->whereDate('tanggal_berangkat', '>=', $sekarang->toDateString()))
+
+                // Paket tanpa keberangkatan sama sekali tetap memakai aturan
+                // lama: masih banyak paket lama yang begitu.
+                ->orWhere(fn ($r) => $r->whereDoesntHave('keberangkatan')
+                    ->where(fn ($s) => $s->whereNull('tanggal_berangkat')
+                        // Dibandingkan dengan tanggal BESOK, bukan "> hari ini".
+                        // MySQL menyimpan kolom ini sebagai DATE, sementara SQLite
+                        // menyimpannya sebagai teks '2026-08-15 00:00:00' — dan teks
+                        // itu terhitung lebih besar dari '2026-08-15', sehingga paket
+                        // yang berangkat hari ini sempat lolos di SQLite tapi tidak di
+                        // MySQL. Memakai '>= besok' hasilnya sama di keduanya.
+                        ->orWhere('tanggal_berangkat', '>=', $sekarang->copy()->addDay()->toDateString()))));
     }
 
     /**
@@ -468,14 +585,45 @@ class TravelPackage extends Model
             return false;
         }
 
-        if (! $this->berakhir_otomatis || ! $this->tanggal_berangkat) {
+        if (! $this->berakhir_otomatis) {
+            return true;
+        }
+
+        /*
+         | Urutannya disusun supaya yang MURAH dijawab lebih dulu.
+         |
+         | Daftar katalog membaca ini untuk tiap baris, dan satu query per
+         | baris di sini pernah jadi N+1 yang dijaga ujinya sendiri. Jadi:
+         | relasi yang sudah dimuat dipakai apa adanya, kolomnya dipercaya
+         | selama belum lewat, dan basis data baru ditanya pada satu-satunya
+         | keadaan yang memang tidak bisa dijawab tanpa bertanya.
+         */
+        if ($this->relationLoaded('keberangkatan') && $this->keberangkatan->isNotEmpty()) {
+            return $this->keberangkatan
+                ->where('aktif', true)
+                ->contains(fn ($k) => $k->tanggal_berangkat?->gte(today()));
+        }
+
+        // Kosong berarti paket ini memang belum punya tanggal di mana pun —
+        // penyelaras menjamin kolom ini terisi begitu ada keberangkatan.
+        if (! $this->tanggal_berangkat) {
             return true;
         }
 
         // Dibandingkan dengan awal hari besok — alasan yang sama dengan yang
         // ditulis di scopeTayang(): paket yang berangkat HARI INI tidak lagi
         // tayang.
-        return $this->tanggal_berangkat->gte($sekarang->copy()->addDay()->startOfDay());
+        if ($this->tanggal_berangkat->gte($sekarang->copy()->addDay()->startOfDay())) {
+            return true;
+        }
+
+        /*
+         | Kolomnya sudah lewat — tetapi rombongan berikutnya bisa saja masih
+         | dibuka. Inilah keadaan paket 7: kolomnya 27 November, rombongannya
+         | 4–6 dan 11–13 Desember. Tanpa pertanyaan terakhir ini, paket itu
+         | menghilang dari katalog sepuluh hari sebelum trip pertamanya.
+         */
+        return $this->keberangkatanTersedia()->exists();
     }
 
     /**

@@ -83,9 +83,22 @@
             </h3>
 
             @if ($paket->jadwal_label)
-                <p class="flex items-center gap-1.5 mt-1.5 text-sm font-semibold text-orcha-sun">
+                <p class="flex flex-wrap items-center gap-1.5 mt-1.5 text-sm font-semibold text-orcha-sun">
                     <x-heroicon-s-calendar-days class="w-4 h-4 shrink-0" />
                     {{ $paket->jadwal_label }}
+
+                    {{-- Tanggal di atas cuma yang TERDEKAT.
+
+                         Satu paket kerap dijual untuk beberapa rombongan, dan
+                         kartu yang menyebut satu tanggal saja membuat
+                         pengunjung yang tidak bisa di tanggal itu menutup
+                         halamannya — padahal ada dua tanggal lain yang masih
+                         terbuka. --}}
+                    @if (0 < $paket->jumlah_tanggal_lain)
+                        <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-white/20 text-white">
+                            +{{ $paket->jumlah_tanggal_lain }} tanggal lain
+                        </span>
+                    @endif
                 </p>
             @endif
         </div>
