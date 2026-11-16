@@ -808,14 +808,32 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                         </div>
                                     </dl>
 
-                                    @if ($paketTerpilih->batas_pelunasan)
-                                        <p class="pt-4 mt-4 text-xs border-t border-white/70 text-slate-600">
-                                            Uang muka {{ $dp }}% saat pemesanan, pelunasan paling lambat
+                                    {{-- Batas pelunasan mengikuti TANGGAL YANG DIPILIH.
+
+                                         Batas milik paket dihitung dari tanggal berangkat
+                                         paket, yang hanya benar untuk rombongan pertama.
+                                         Pemesan trip 11-13 Desember yang membaca batas
+                                         milik rombongan 27-29 November akan mengira
+                                         pelunasannya sudah lewat sebelum ia sempat
+                                         membayar. --}}
+                                    @php
+                                        $kbTerpilih = $this->keberangkatanTersedia()
+                                            ->firstWhere('id', (int) $keberangkatanId);
+                                        $batasBayar = $kbTerpilih?->batas_pelunasan
+                                            ?? ($keberangkatanId === '' ? null : $paketTerpilih->batas_pelunasan);
+                                    @endphp
+
+                                    <p class="pt-4 mt-4 text-xs border-t border-white/70 text-slate-600">
+                                        Uang muka {{ $dp }}% saat pemesanan, pelunasan paling lambat
+                                        @if ($batasBayar)
                                             <strong class="text-orcha-navy">
-                                                {{ $paketTerpilih->batas_pelunasan->translatedFormat('j F Y') }}
+                                                {{ $batasBayar->translatedFormat('j F Y') }}
                                             </strong> (H-{{ $pelunasan }}).
-                                        </p>
-                                    @endif
+                                        @else
+                                            <strong class="text-orcha-navy">H-{{ $pelunasan }}</strong>
+                                            sebelum tanggal keberangkatan yang Anda pilih.
+                                        @endif
+                                    </p>
 
                                     <a href="{{ route('paket-detail', $paketTerpilih->uuid) }}"
                                         class="inline-block mt-3 text-sm font-semibold text-orcha-ocean hover:underline">

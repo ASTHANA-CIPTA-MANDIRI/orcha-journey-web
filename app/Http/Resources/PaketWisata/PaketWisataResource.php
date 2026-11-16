@@ -68,6 +68,9 @@ class PaketWisataResource extends JsonResource
                     'penuh' => $k->penuh,
                     'aktif' => $k->aktif,
                     'catatan' => $k->catatan,
+                    // Batas pelunasan TANGGAL INI, bukan tanggal paket —
+                    // lihat alasannya di Keberangkatan::getBatasPelunasan.
+                    'batas_pelunasan' => $k->batas_pelunasan?->toDateString(),
                 ])->values()->all()),
 
             'kuota' => $this->kuota,
@@ -93,13 +96,29 @@ class PaketWisataResource extends JsonResource
             'promo_rombongan' => (bool) $this->promo_rombongan,
             'destinasi' => $this->destination_list ?? [],
             'fasilitas' => $this->fasilitas ?? [],
+
+            // Lawan dari fasilitas. Dikirim sebagai senarai kosong bila belum
+            // diisi, supaya yang memakainya tidak perlu membedakan null.
+            'tidak_termasuk' => $this->tidak_termasuk ?? [],
             'itinerary' => $this->itinerary ?? [],
 
             // Bentuk teks siap sunting, supaya dashboard lemon tidak perlu
             // menulis ulang aturan formatnya sendiri.
             'itinerary_teks' => ItineraryTeks::keTeks($this->itinerary),
             'sampul' => $this->sampul,
+            'foto_galeri' => $this->foto_galeri ?? [],
             'jumlah_pendaftar' => $this->whenCounted('pendaftaran'),
+
+            /*
+             | Ringkasan tanggal untuk DAFTAR paket.
+             |
+             | Daftar tidak memuat relasi keberangkatan-nya (satu kueri per
+             | baris), jadi tanpa ini layar daftar tidak punya cara menyebut
+             | bahwa satu paket dijual untuk tiga tanggal — ia hanya melihat
+             | tanggal lama milik paket, dan admin membacanya sebagai satu
+             | tanggal saja.
+             */
+            'jumlah_keberangkatan' => $this->whenCounted('keberangkatan'),
             'tautan_publik' => url('/paket/'.$this->uuid),
         ];
     }

@@ -359,6 +359,49 @@ new #[Layout('components.layouts.guest')] class extends Component
                         </div>
                     @endif
 
+                    {{-- Tidak termasuk.
+
+                         Berdiri sebagai daftarnya SENDIRI, bukan diselipkan
+                         sebagai catatan kecil di bawah fasilitas: yang
+                         membacanya sedang memutuskan membayar, dan tiket
+                         masuk atau pengeluaran pribadi yang baru ketahuan di
+                         lokasi selalu berakhir jadi keluhan — bukan karena
+                         harganya, melainkan karena tidak pernah disebut. --}}
+                    @if (!empty($paket->tidak_termasuk))
+                        <div class="p-6 card-orcha sm:p-8">
+                            <h2 class="text-xl font-bold font-heading text-orcha-navy">Tidak Termasuk</h2>
+                            <p class="mt-1 text-sm text-slate-500">
+                                Yang ini disiapkan sendiri oleh peserta.
+                            </p>
+                            <ul class="grid gap-3 mt-5 sm:grid-cols-2">
+                                @foreach ($paket->tidak_termasuk as $luar)
+                                    <li class="flex items-start gap-2 text-sm text-slate-600">
+                                        <x-heroicon-s-x-circle class="w-5 h-5 shrink-0 text-slate-400" />
+                                        <span>{{ $luar }}</span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+                    {{-- Galeri foto paket --}}
+                    @if (!empty($paket->foto_galeri))
+                        <div class="p-6 card-orcha sm:p-8">
+                            <h2 class="text-xl font-bold font-heading text-orcha-navy">Galeri Perjalanan</h2>
+                            <div class="grid gap-3 mt-5 sm:grid-cols-3">
+                                @foreach ($paket->foto_galeri as $urutan => $foto)
+                                    <a href="{{ $foto }}" target="_blank" rel="noopener"
+                                        class="block overflow-hidden rounded-2xl bg-orcha-foam">
+                                        {{-- Perbandingan dipatok supaya barisnya tidak bergerigi
+                                             saat fotonya campur tegak dan mendatar. --}}
+                                        <img src="{{ $foto }}" alt="Foto {{ $paket->name }} {{ $urutan + 1 }}"
+                                            loading="lazy" class="object-cover w-full aspect-[4/3]">
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
                     {{-- Itinerary --}}
                     @if (!empty($paket->itinerary))
                         <div class="p-6 card-orcha sm:p-8">
@@ -703,10 +746,24 @@ new #[Layout('components.layouts.guest')] class extends Component
                                     <p>Uang muka <strong class="text-orcha-navy">{{ $dp }}%</strong> saat pemesanan.
                                         Pelunasan paling lambat
                                         <strong class="text-orcha-navy">H-{{ $pelunasan }}</strong>
-                                        @if ($paket->batas_pelunasan)
-                                            ({{ $paket->batas_pelunasan->translatedFormat('j F Y') }})
+                                        {{-- Tanggalnya disebut HANYA bila paket ini memang
+                                             cuma punya satu keberangkatan.
+
+                                             Paket yang dijual untuk tiga tanggal punya tiga
+                                             batas pelunasan, dan yang tertulis di sini dulu
+                                             dihitung dari tanggal berangkat paket — benar
+                                             untuk satu rombongan, dan terlalu awal untuk dua
+                                             lainnya. Angka yang salah lebih buruk daripada
+                                             tidak ada angka: pembacanya tidak punya alasan
+                                             meragukannya. --}}
+                                        @php
+                                            $kbSatu = $pilihanTanggal->count() === 1 ? $pilihanTanggal->first() : null;
+                                            $batasTampil = $kbSatu?->batas_pelunasan ?? ($pilihanTanggal->isEmpty() ? $paket->batas_pelunasan : null);
+                                        @endphp
+                                        @if ($batasTampil)
+                                            ({{ $batasTampil->translatedFormat('j F Y') }})
                                         @endif
-                                        sebelum keberangkatan.
+                                        sebelum tanggal keberangkatan yang Anda pilih.
                                     </p>
                                     <a href="{{ route('ketentuan-pembayaran') }}"
                                         class="inline-block mt-2 font-semibold text-orcha-ocean hover:underline">

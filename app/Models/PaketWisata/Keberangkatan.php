@@ -4,6 +4,7 @@ namespace App\Models\PaketWisata;
 
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -127,6 +128,26 @@ class Keberangkatan extends Model
     public function getPenuhAttribute(): bool
     {
         return $this->sisa_kursi !== null && $this->sisa_kursi <= 0;
+    }
+
+    /**
+     * Batas pelunasan untuk TANGGAL INI, bukan untuk paketnya.
+     *
+     * Sebelumnya hanya paket yang punya batas pelunasan, dihitung dari
+     * `tanggal_berangkat` miliknya. Begitu satu paket dijual untuk tiga
+     * tanggal, angka itu salah untuk dua di antaranya: pendaftar trip 11–13
+     * Desember menerima surat yang menulis "Berangkat: 11 Desember" dan
+     * "Batas pelunasan: 22 November" — tanggal yang bisa saja sudah lewat
+     * saat suratnya terkirim.
+     *
+     * Jaraknya tetap satu angka milik perusahaan (orcha.pembayaran), bukan
+     * per paket: yang berubah titik hitungnya, bukan kebijakannya.
+     */
+    public function getBatasPelunasanAttribute(): ?Carbon
+    {
+        return $this->tanggal_berangkat
+            ?->copy()
+            ->subDays((int) config('orcha.pembayaran.pelunasan_hari_sebelum'));
     }
 
     /**

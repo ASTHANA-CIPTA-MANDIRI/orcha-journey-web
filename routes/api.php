@@ -308,6 +308,12 @@ Route::prefix('v1')
         Route::match(['put', 'post'], '/paket-wisata/{paket}', [PaketWisataController::class, 'update']);
         Route::delete('/paket-wisata/{paket}', [PaketWisataController::class, 'destroy']);
 
+        // Duplikat seluruh paket. Didaftarkan SEBELUM rute {paket} yang
+        // berpola bebas tidak akan menelannya — '/salin' di ujung membuatnya
+        // tidak ambigu — tetapi tetap ditaruh dekat saudaranya supaya
+        // terbaca sebagai satu kelompok.
+        Route::post('/paket-wisata/{paket}/salin', [PaketWisataController::class, 'salin']);
+
         /*
          | Tanggal keberangkatan: satu paket boleh dijual untuk beberapa
          | tanggal dengan isi yang sama. Bersarang di bawah paketnya supaya

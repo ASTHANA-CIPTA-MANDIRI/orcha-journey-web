@@ -83,7 +83,9 @@ class PengingatPesanan
             ->whereDate('tanggal_berangkat', '<=', now()->addDays($jarak)->toDateString())
             ->whereDate('tanggal_berangkat', '>=', now()->toDateString())
 
-            ->with('paket')
+            // keberangkatan ikut dimuat: batas pelunasannya dibaca per surat,
+            // dan tanpa ini tiap pendaftaran menambah satu kueri sendiri.
+            ->with(['paket', 'keberangkatan'])
             ->get();
 
         $terkirim = [];
@@ -284,7 +286,9 @@ class PengingatPesanan
             ->whereIn('status', ['dp_masuk', 'lunas', 'berjalan'])
             ->whereNull('briefing_pada')
             ->whereDate('tanggal_berangkat', now()->addDays($hari)->toDateString())
-            ->with('paket')
+            // keberangkatan ikut dimuat: batas pelunasannya dibaca per surat,
+            // dan tanpa ini tiap pendaftaran menambah satu kueri sendiri.
+            ->with(['paket', 'keberangkatan'])
             ->get();
 
         $terkirim = [];
@@ -306,7 +310,22 @@ class PengingatPesanan
     {
         $tagihan = TagihanPesanan::untuk($daftar, hanyaDiterima: true);
         $sisa = (int) ($tagihan['sisa'] ?? 0);
-        $batas = $daftar->paket?->batas_pelunasan;
+        /*
+         | Batas pelunasan diambil dari KEBERANGKATAN yang dipilih pendaftar
+         | ini, baru jatuh ke paketnya.
+         |
+         | Satu paket kini dijual untuk beberapa tanggal, dan batas milik
+         | paket dihitung dari tanggal berangkat pertamanya saja. Tanpa jalur
+         | ini, pendaftar trip 11-13 Desember menerima surat yang menulis
+         | "Berangkat: 11 Desember" dan "Batas pelunasan: 22 November" —
+         | tanggal yang bisa saja sudah lewat saat suratnya terkirim, dan
+         | yang membacanya akan mengira pembayarannya sudah hangus.
+         |
+         | Jalur mundurnya tetap ada: pendaftaran lama masuk sebelum tabel
+         | keberangkatan ada, jadi keberangkatan_id-nya kosong.
+         */
+        $batas = $daftar->keberangkatan?->batas_pelunasan
+            ?? $daftar->paket?->batas_pelunasan;
 
         $rincian = [
             'Kode pemesanan' => $daftar->kode,

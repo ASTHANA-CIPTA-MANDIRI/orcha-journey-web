@@ -202,6 +202,18 @@ class PendaftaranOpenTrip extends Model
     }
 
     /**
+     * Keberangkatan yang dipilih pendaftar ini.
+     *
+     * Boleh kosong untuk pendaftaran lama yang masuk sebelum satu paket bisa
+     * punya banyak tanggal. Yang membacanya WAJIB menyiapkan jalur mundur ke
+     * paketnya — lihat PengingatPesanan.
+     */
+    public function keberangkatan(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\PaketWisata\Keberangkatan::class, 'keberangkatan_id');
+    }
+
+    /**
      * Pendaftaran yang uangnya belum lengkap sementara tanggalnya sudah dekat.
      *
      * Inilah daftar yang perlu dikejar orang. Pengingat otomatis mengurus yang

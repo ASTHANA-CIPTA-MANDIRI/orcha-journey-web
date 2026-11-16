@@ -42,8 +42,10 @@ class TravelPackage extends Model
         'is_best_choice',
         'destination_list',
         'fasilitas',
+        'tidak_termasuk',
         'itinerary',
         'foto',
+        'foto_galeri',
     ];
 
     /**
@@ -66,7 +68,9 @@ class TravelPackage extends Model
         'harga_modal' => 'integer',
         'destination_list' => 'array',
         'fasilitas' => 'array',
+        'tidak_termasuk' => 'array',
         'itinerary' => 'array',
+        'foto_galeri' => 'array',
         'is_best_choice' => 'boolean',
         'promo_rombongan' => 'boolean',
         'tanggal_berangkat' => 'date',

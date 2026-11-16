@@ -8,6 +8,7 @@ use App\Http\Resources\PaketWisata\PaketWisataResource;
 use App\Models\PaketWisata\Keberangkatan;
 use App\Models\PaketWisata\SaranPaket;
 use App\Models\PaketWisata\TravelPackage;
+use App\Support\GambarWebp;
 use App\Support\PaketWisata\ItineraryTeks;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +27,7 @@ class PaketWisataController extends ApiController
             // Kursi terpakai dihitung sekali untuk seluruh halaman, bukan satu
             // query per baris — lihat scope-nya di model.
             ->denganKursiTerpakai()
-            ->withCount('pendaftaran')
+            ->withCount(['pendaftaran', 'keberangkatan'])
             ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where('name', 'like', "%{$cari}%"))
             ->ofCategory($request->string('kategori')->toString() ?: null)
             ->latest('id')
@@ -61,7 +62,7 @@ class PaketWisataController extends ApiController
     {
         $data = $this->validasi($request);
 
-        $paket->update($this->siapkan($data, $request, $paket->foto));
+        $paket->update($this->siapkan($data, $request, $paket->foto, $paket->foto_galeri));
 
         $this->catatSaran($data);
         $this->catat($request, 'ubah paket wisata', ['nama' => $paket->name]);
@@ -91,6 +92,87 @@ class PaketWisataController extends ApiController
     }
 
     /* ===================== KEBERANGKATAN ===================== */
+
+    /**
+     * Menduplikat seluruh paket sebagai modal paket berikutnya.
+     *
+     * Menyalin TANGGAL saja tidak cukup untuk musim baru: harga naik,
+     * fasilitas berubah, dan itinerary-nya digeser — yang semuanya berarti
+     * paket baru, bukan tanggal baru pada paket lama. Tanpa ini, satu-satunya
+     * cara adalah mengetik ulang itinerary tiga hari beserta destinasi dan
+     * fasilitasnya.
+     *
+     * Yang SENGAJA tidak ikut tersalin:
+     *
+     * - status: salinan selalu lahir sebagai draf. Paket yang menggandakan
+     *   diri langsung tayang berarti dua paket serupa berdiri di katalog
+     *   sampai ada yang menyadarinya.
+     * - keberangkatan & pendaftar: tanggalnya pasti berbeda — itu alasan
+     *   menyalinnya — dan pendaftar jelas milik paket aslinya.
+     * - jadwal penayangan: jendela milik paket lama tidak ada hubungannya
+     *   dengan yang baru, dan menyalinnya bisa membuat salinan itu berakhir
+     *   sebelum sempat disunting.
+     *
+     * Fotonya DIPAKAI BERSAMA, bukan digandakan: keduanya menunjuk berkas
+     * yang sama, dan menghapus salah satu paket tidak boleh membuat foto
+     * paket satunya hilang — karena itu hapusGambar tidak dipanggil di sini.
+     */
+    public function salin(TravelPackage $paket, Request $request): JsonResponse
+    {
+        $salinan = $paket->replicate([
+            'uuid',
+            'status',
+            'tayang_mulai',
+            'tayang_sampai',
+            'tanggal_berangkat',
+            'tanggal_pulang',
+        ]);
+
+        $salinan->name = $this->namaSalinan($paket->name);
+        $salinan->status = 'draf';
+        $salinan->tayang_mulai = null;
+        $salinan->tayang_sampai = null;
+        $salinan->tanggal_berangkat = null;
+        $salinan->tanggal_pulang = null;
+        $salinan->save();
+
+        $this->catat($request, 'duplikat paket wisata', [
+            'dari' => $paket->name,
+            'jadi' => $salinan->name,
+        ]);
+
+        return response()->json([
+            'data' => (new PaketWisataResource($salinan))->resolve(),
+            'pesan' => 'Paket disalin jadi draf "'.$salinan->name.'". Ganti tanggal & harganya, lalu terbitkan.',
+        ], 201);
+    }
+
+    /**
+     * "Open Trip Ijen" -> "Open Trip Ijen (salinan)" -> "... (salinan 2)".
+     *
+     * Dinomori, bukan dibiarkan kembar: dua baris bernama persis sama di
+     * katalog admin hanya bisa dibedakan dengan membuka keduanya.
+     */
+    private function namaSalinan(string $asal): string
+    {
+        $dasar = preg_replace('/\s*\(salinan(?:\s+\d+)?\)$/u', '', $asal);
+        $nama = $dasar.' (salinan)';
+
+        $nomor = 2;
+
+        while (TravelPackage::where('name', $nama)->exists()) {
+            $nama = $dasar.' (salinan '.$nomor.')';
+            $nomor++;
+
+            if ($nomor > 50) {
+                $nama = $dasar.' (salinan '.now()->format('dmy-His').')';
+
+                break;
+            }
+        }
+
+        return mb_substr($nama, 0, 255);
+    }
 
     /**
      * Menambah satu tanggal keberangkatan pada paket yang sudah ada.
@@ -307,12 +389,70 @@ class PaketWisataController extends ApiController
             'destinasi.*' => 'string|max:191',
             'fasilitas' => 'nullable|array',
             'fasilitas.*' => 'string|max:191',
+            'tidak_termasuk' => 'nullable|array',
+            'tidak_termasuk.*' => 'string|max:191',
+
+            /*
+             | Galeri dikirim DUA bagian, bukan satu.
+             |
+             | `galeri_tetap` adalah alamat foto lama yang masih dipakai, dan
+             | `galeri_baru` berkas yang baru diunggah. Tanpa bagian pertama,
+             | satu-satunya cara menghapus satu foto adalah mengunggah ulang
+             | seluruh galeri — dan permintaan yang tidak membawa berkas sama
+             | sekali akan terbaca sebagai "kosongkan galerinya".
+             */
+            'galeri_tetap' => 'nullable|array',
+            'galeri_tetap.*' => 'string|max:255',
+            'galeri_baru' => 'nullable|array|max:12',
+            'galeri_baru.*' => 'image|max:8192',
             'itinerary_teks' => 'nullable|string|max:4000',
             'gambar' => 'nullable|image|max:4096',
         ]);
     }
 
-    private function siapkan(array $data, Request $request, ?string $fotoLama = null): array
+    /**
+     * Galeri foto paket: yang dipertahankan + yang baru diunggah.
+     *
+     * Dipanggil SELALU, termasuk saat permintaannya tidak menyinggung galeri
+     * sama sekali — dan justru itu yang harus hati-hati. Borang yang tidak
+     * mengirim `galeri_tetap` maupun `galeri_baru` berarti "jangan sentuh",
+     * bukan "kosongkan": permintaan yang hanya mengubah harga tidak boleh
+     * menghapus dua belas foto.
+     *
+     * Foto lama yang TIDAK disebut lagi di galeri_tetap dihapus dari cakram.
+     * Tanpa itu berkasnya menumpuk selamanya tanpa ada satu pun halaman yang
+     * menunjuknya.
+     *
+     * @param  array<int, string>|null  $lama
+     * @return array<int, string>|null
+     */
+    private function simpanGaleri(Request $request, ?array $lama): ?array
+    {
+        $menyinggung = $request->has('galeri_tetap') || $request->hasFile('galeri_baru');
+
+        if (! $menyinggung) {
+            return $lama;
+        }
+
+        $tetap = array_values(array_filter(
+            (array) $request->input('galeri_tetap', []),
+            fn ($jalur) => is_string($jalur) && $jalur !== ''
+        ));
+
+        foreach ((array) ($lama ?? []) as $jalur) {
+            if (! in_array($jalur, $tetap, true)) {
+                $this->hapusGambar($jalur);
+            }
+        }
+
+        foreach ((array) $request->file('galeri_baru', []) as $berkas) {
+            $tetap[] = GambarWebp::simpan($berkas, 'paket');
+        }
+
+        return $tetap ?: null;
+    }
+
+    private function siapkan(array $data, Request $request, ?string $fotoLama = null, ?array $galeriLama = null): array
     {
         return [
             'name' => $data['nama'],
@@ -336,8 +476,10 @@ class PaketWisataController extends ApiController
             'promo_rombongan' => (bool) ($data['promo_rombongan'] ?? false),
             'destination_list' => $data['destinasi'] ?? null,
             'fasilitas' => $data['fasilitas'] ?? null,
+            'tidak_termasuk' => $data['tidak_termasuk'] ?? null,
             'itinerary' => ItineraryTeks::keArray($data['itinerary_teks'] ?? '') ?: null,
             'foto' => $this->simpanGambar($request, 'paket', $fotoLama),
+            'foto_galeri' => $this->simpanGaleri($request, $galeriLama),
         ];
     }
 
