@@ -65,6 +65,22 @@ class PendaftaranResource extends JsonResource
              */
             'tautan_kesehatan' => route('riwayat-kesehatan', ['kode' => $this->kode]),
             'tanggal_berangkat' => $this->tanggal_berangkat?->toDateString(),
+
+            /*
+             | Rombongan yang diikuti orang ini.
+             |
+             | tanggal_berangkat di atas sudah benar, tetapi tidak memberi
+             | tahu rombongan MANA — dan pada paket yang punya dua tanggal
+             | berdekatan, dua baris bertanggal mirip terbaca seperti salah
+             | satunya salah ketik. Kosong untuk pendaftaran lama yang masuk
+             | sebelum tabel keberangkatan ada.
+             */
+            'keberangkatan_id' => $this->keberangkatan_id,
+            'keberangkatan' => $this->whenLoaded('keberangkatan', fn () => $this->keberangkatan ? [
+                'id' => $this->keberangkatan->id,
+                'rentang_tanggal' => $this->keberangkatan->rentang_tanggal,
+                'aktif' => (bool) $this->keberangkatan->aktif,
+            ] : null),
             // Selisih harinya dihitung di sini, bukan di lemon: keduanya
             // memakai zona waktu server yang sama hanya kalau angkanya datang
             // dari server.

@@ -126,6 +126,7 @@ class MetaController extends ApiController
                 // rujukan — yang sudah disimpan sebentar di sisi sana — bukan
                 // lewat panggilan sendiri tiap kali halaman digambar.
                 'paket_wisata' => TravelPackage::query()
+                    ->with(['keberangkatan' => fn ($k) => $k->orderBy('tanggal_berangkat')])
                     ->orderBy('name')
                     ->get(['id', 'name', 'category', 'tanggal_berangkat'])
                     ->map(fn ($paket) => [
@@ -133,6 +134,29 @@ class MetaController extends ApiController
                         'nama' => $paket->name,
                         'kategori' => $paket->category,
                         'tanggal_berangkat' => $paket->tanggal_berangkat?->toDateString(),
+
+                        /*
+                         | Rombongannya ikut, bukan cuma paketnya.
+                         |
+                         | Saringan di lemon bernama "keberangkatan" tetapi
+                         | isinya paket; pada paket yang dijual untuk tiga
+                         | tanggal, ketiga rombongan tersaring menjadi satu dan
+                         | admin tidak bisa memisahkan siapa ikut yang mana —
+                         | padahal manifes tour leader dibentuk dari daftar
+                         | yang sedang tampil.
+                         |
+                         | Yang sudah DITUTUP tetap dikirim: pendaftarnya masih
+                         | ada, dan daftar yang tidak bisa menyaring mereka
+                         | sama saja dengan tidak ada.
+                         */
+                        'keberangkatan' => $paket->keberangkatan->map(fn ($k) => [
+                            'id' => $k->id,
+                            'rentang_tanggal' => $k->rentang_tanggal,
+                            'tanggal_berangkat' => $k->tanggal_berangkat?->toDateString(),
+                            'aktif' => (bool) $k->aktif,
+                            'penuh' => $k->penuh,
+                            'sisa_kursi' => $k->sisa_kursi,
+                        ])->values()->all(),
                     ])
                     ->all(),
                 'status_tayang' => config('orcha.status_tayang'),

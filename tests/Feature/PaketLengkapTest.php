@@ -638,3 +638,74 @@ test('pilihan tanggal genap tidak ada yang dilebarkan', function () {
 
     expect($kotak)->not->toContain('sm:col-span-2');
 });
+
+/* ========= PENDAFTARAN: ROMBONGAN IKUT SAMPAI KE LEMON ========= */
+
+test('daftar pendaftaran bisa disaring per rombongan, bukan cuma per paket', function () {
+    /*
+     | Sejak satu paket boleh dijual untuk beberapa tanggal, "satu
+     | keberangkatan = satu paket" tidak lagi benar. Manifes tour leader
+     | dibentuk dari daftar yang sedang tampil — saringan per paket membuatnya
+     | memuat tiga rombongan sekaligus, dan kelebihannya baru ketahuan di
+     | parkiran.
+     */
+    $paket = paketUji(['status' => 'terbit', 'category' => 'open_trip']);
+
+    $this->travelTo('2026-11-16');
+
+    $awal = Keberangkatan::create(['travel_package_id' => $paket->id, 'tanggal_berangkat' => '2026-12-04']);
+    $akhir = Keberangkatan::create(['travel_package_id' => $paket->id, 'tanggal_berangkat' => '2026-12-11']);
+
+    daftarPaketUji(['travel_package_id' => $paket->id, 'keberangkatan_id' => $awal->id, 'nama' => 'Rombongan Awal']);
+    daftarPaketUji(['travel_package_id' => $paket->id, 'keberangkatan_id' => $akhir->id, 'nama' => 'Rombongan Akhir']);
+
+    $this->getJson("/api/v1/pendaftaran?keberangkatan_id={$akhir->id}", kirimPaket())
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.nama', 'Rombongan Akhir');
+
+    // Saringan per paket tetap bekerja, dan memang memuat keduanya.
+    $this->getJson("/api/v1/pendaftaran?paket_id={$paket->id}", kirimPaket())
+        ->assertOk()
+        ->assertJsonCount(2, 'data');
+});
+
+test('tiap pendaftaran menyebut rombongan mana yang diikutinya', function () {
+    // tanggal_berangkat saja tidak memberi tahu rombongan MANA; pada paket
+    // dengan dua tanggal berdekatan, dua baris bertanggal mirip terbaca
+    // seperti salah satunya salah ketik.
+    $paket = paketUji(['status' => 'terbit', 'category' => 'open_trip']);
+
+    $this->travelTo('2026-11-16');
+
+    $kb = Keberangkatan::create([
+        'travel_package_id' => $paket->id,
+        'tanggal_berangkat' => '2026-12-11', 'tanggal_pulang' => '2026-12-13',
+    ]);
+
+    daftarPaketUji(['travel_package_id' => $paket->id, 'keberangkatan_id' => $kb->id]);
+
+    $this->getJson('/api/v1/pendaftaran', kirimPaket())
+        ->assertOk()
+        ->assertJsonPath('data.0.keberangkatan_id', $kb->id)
+        ->assertJsonPath('data.0.keberangkatan.rentang_tanggal', '11 – 13 Desember 2026');
+});
+
+test('rujukan paket membawa daftar rombongannya untuk pemilih di lemon', function () {
+    // Tanpa ini lemon tidak punya bahan untuk menawarkan pilihan tanggal,
+    // dan admin terpaksa mendaftarkan rombongan tanpa menyebut tanggalnya.
+    $paket = paketUji(['status' => 'terbit', 'category' => 'open_trip']);
+
+    $this->travelTo('2026-11-16');
+
+    foreach (['2026-12-04', '2026-12-11'] as $tgl) {
+        Keberangkatan::create(['travel_package_id' => $paket->id, 'tanggal_berangkat' => $tgl]);
+    }
+
+    $balasan = $this->getJson('/api/v1/rujukan', kirimPaket())->assertOk();
+
+    $isi = collect($balasan->json('data.paket_wisata'))->firstWhere('id', $paket->id);
+
+    expect($isi['keberangkatan'])->toHaveCount(2)
+        ->and($isi['keberangkatan'][0]['rentang_tanggal'])->toBe('4 Desember 2026');
+});

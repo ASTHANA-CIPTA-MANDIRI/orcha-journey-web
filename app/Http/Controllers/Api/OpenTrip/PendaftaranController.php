@@ -41,7 +41,7 @@ class PendaftaranController extends ApiController
              | yang ditandai lunas oleh unggahan yang belum diperiksa membuat
              | admin berhenti menagih orang yang belum membayar.
              */
-            ->with('angsuranAktif.termin')
+            ->with(['angsuranAktif.termin', 'keberangkatan'])
             ->withSum([
                 'konfirmasiPembayaran as pembayaran_diterima' => fn ($q) => $q->where('status', 'diterima'),
             ], 'nominal')
@@ -57,6 +57,16 @@ class PendaftaranController extends ApiController
             // paket. Tanpa saringan ini admin harus mengetik nama paketnya di
             // kotak cari dan berharap tidak ada paket lain yang namanya mirip.
             ->when($request->integer('paket_id'), fn ($q, $id) => $q->where('travel_package_id', $id))
+
+            /*
+             | Saringan per ROMBONGAN, satu tingkat lebih halus daripada paket.
+             |
+             | Sejak satu paket boleh dijual untuk beberapa tanggal, "satu
+             | keberangkatan = satu paket" tidak lagi benar: manifes yang
+             | dibentuk dari saringan paket akan memuat tiga rombongan
+             | sekaligus, dan kelebihannya baru ketahuan di parkiran.
+             */
+            ->when($request->integer('keberangkatan_id'), fn ($q, $id) => $q->where('keberangkatan_id', $id))
 
             /*
              | Saringan "perlu ditagih": belum lunas, dan tanggalnya sudah dekat.
@@ -145,7 +155,7 @@ class PendaftaranController extends ApiController
     public function show(PendaftaranOpenTrip $pendaftaran): JsonResponse
     {
         $pendaftaran->loadCount('riwayatKesehatan')
-            ->load('angsuranAktif.termin')
+            ->load(['angsuranAktif.termin', 'keberangkatan'])
             ->loadSum([
                 'konfirmasiPembayaran as pembayaran_diterima' => fn ($q) => $q->where('status', 'diterima'),
             ], 'nominal');
