@@ -33,6 +33,8 @@ class Keberangkatan extends Model
         'harga_modal',
         'aktif',
         'catatan',
+        'kendaraan',
+        'kamar',
     ];
 
     protected $casts = [
@@ -43,6 +45,17 @@ class Keberangkatan extends Model
         'original_price' => 'integer',
         'harga_modal' => 'integer',
         'aktif' => 'boolean',
+        /*
+         | Kendaraan & kamar yang disiapkan rombongan ini.
+         |
+         | Keduanya LARIK, bukan objek berkunci — larik tetap urut saat lewat
+         | JSON, sedangkan objek diurutkan ulang MySQL (panjang kunci lalu
+         | abjad). Urutan kendaraan di sini menentukan urutan pengisian kursi,
+         | jadi urutan yang berubah sendiri berarti "Bus 1" dan "Bus 2" bertukar
+         | isi tanpa ada yang menukarnya.
+         */
+        'kendaraan' => 'array',
+        'kamar' => 'array',
     ];
 
     protected $attributes = ['aktif' => true];

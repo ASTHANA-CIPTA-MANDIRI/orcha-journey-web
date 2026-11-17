@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\OpenTrip\PendaftaranController;
 use App\Http\Controllers\Api\PaketWisata\DaftarTungguController;
 use App\Http\Controllers\Api\PaketWisata\KeuntunganController;
 use App\Http\Controllers\Api\PaketWisata\PaketWisataController;
+use App\Http\Controllers\Api\PaketWisata\PembagianController;
 use App\Http\Controllers\Api\PaketWisata\PromoRombonganController;
 use App\Http\Controllers\Api\Pelanggan\PelangganController;
 use App\Http\Controllers\Api\Rab\HariLiburController;
@@ -85,6 +86,26 @@ Route::prefix('v1')
         Route::get('/pendaftaran/{pendaftaran}', [PendaftaranController::class, 'show']);
         Route::get('/pendaftaran/{pendaftaran}/riwayat-kesehatan', [PendaftaranController::class, 'riwayatKesehatan']);
         Route::patch('/pendaftaran/{pendaftaran}/status', [PendaftaranController::class, 'ubahStatus']);
+
+        /*
+         | Membetulkan data pendaftaran, termasuk MEMINDAHKAN rombongannya.
+         |
+         | Sesudah /status dan /peserta dengan sengaja — rute tanpa akhiran
+         | yang didaftarkan lebih dulu tetap aman karena akhirannya lebih
+         | panjang, tetapi urutan ini membuat yang membaca berkas rute melihat
+         | ketiganya berdampingan dan tahu bahwa yang ini mencakup sisanya.
+         */
+        Route::patch('/pendaftaran/{pendaftaran}', [PendaftaranController::class, 'update']);
+
+        /*
+         | Menghapus pendaftaran — hanya untuk kiriman ganda dan salah masuk.
+         |
+         | Yang uangnya sudah pernah masuk ditolak di pengendalinya, bukan di
+         | sini: alasannya perlu disampaikan sebagai kalimat yang bisa dibaca
+         | admin, dan rute yang tidak ada hanya memulangkan 404 yang terbaca
+         | sebagai aplikasi rusak.
+         */
+        Route::delete('/pendaftaran/{pendaftaran}', [PendaftaranController::class, 'destroy']);
         // Melengkapi nama peserta yang belum didata — dari sisi admin, karena
         // pemesan tidak selalu bisa diminta mengisi ulang lewat website.
         Route::patch('/pendaftaran/{pendaftaran}/peserta', [PendaftaranController::class, 'ubahPeserta']);
@@ -397,6 +418,20 @@ Route::prefix('v1')
          | mencantumkan surel — nomor WhatsApp yang wajib di formulir, bukan
          | surelnya.
          */
+        /*
+         | Pembagian kursi kendaraan & kamar, per ROMBONGAN.
+         |
+         | Bukan di bawah /paket-wisata/{paket}/keberangkatan/{keberangkatan}
+         | seperti rute penyuntingan tanggalnya. Yang membuka layar ini datang
+         | dari sebuah pendaftaran ("rombongan 4–6 Des"), dan hanya tahu nomor
+         | keberangkatannya — memaksa nomor paketnya ikut berarti lemon
+         | memanggil satu jalur tambahan hanya untuk merakit alamat.
+         */
+        Route::get('/keberangkatan/{keberangkatan:id}/pembagian', [PembagianController::class, 'index']);
+        Route::patch('/keberangkatan/{keberangkatan:id}/pembagian', [PembagianController::class, 'simpan']);
+        Route::post('/keberangkatan/{keberangkatan:id}/pembagian/otomatis', [PembagianController::class, 'otomatis']);
+        Route::patch('/keberangkatan/{keberangkatan:id}/fasilitas', [PembagianController::class, 'fasilitas']);
+
         Route::get('/daftar-tunggu', [DaftarTungguController::class, 'index']);
         // Hitungan untuk penanda di bilah samping lemon.
         Route::get('/daftar-tunggu/perhatian', [DaftarTungguController::class, 'perhatian']);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\OpenTrip;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\OpenTrip\PendaftaranResource;
+use App\Models\OpenTrip\Angsuran;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\Pembatalan;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
@@ -22,6 +23,27 @@ use Illuminate\Support\Facades\Storage;
 
 class PendaftaranController extends ApiController
 {
+    /**
+     * Urutan daftar yang boleh diminta: kunci => [kolom, arah].
+     *
+     * Daftar tertutup, bukan nama kolom yang dioper apa adanya dari
+     * permintaan — kolom bebas berarti siapa pun yang bisa memanggil API ini
+     * bisa mengurut menurut kolom yang tidak dimaksudkan terbaca, dan galat
+     * SQL-nya membocorkan nama kolom yang ada.
+     */
+    private const URUT = [
+        'terbaru' => ['id', 'desc'],
+        'terlama' => ['id', 'asc'],
+        'berangkat_dekat' => ['tanggal_berangkat', 'asc'],
+        'berangkat_jauh' => ['tanggal_berangkat', 'desc'],
+        'nama' => ['nama', 'asc'],
+        'nama_z' => ['nama', 'desc'],
+        'peserta_banyak' => ['jumlah_peserta', 'desc'],
+        'peserta_sedikit' => ['jumlah_peserta', 'asc'],
+        'uang_masuk_kecil' => ['pembayaran_diterima', 'asc'],
+        'uang_masuk_besar' => ['pembayaran_diterima', 'desc'],
+    ];
+
     public function index(Request $request): JsonResponse
     {
         $daftar = PendaftaranOpenTrip::query()
@@ -78,6 +100,33 @@ class PendaftaranController extends ApiController
             ->when($request->boolean('perlu_ditagih'), fn ($q) => $q
                 ->perluDitagih()
                 ->orderBy('tanggal_berangkat'))
+
+            /*
+             | Urutan yang dipilih admin.
+             |
+             | Menyusul saringan tagihan di atas dengan sengaja: saat tab
+             | "Perlu ditelepon" menyala, yang paling mepet tetap di atas apa
+             | pun yang dipilih di pemilih urutan — daftar pekerjaan yang
+             | urutannya bisa diacak admin berhenti jadi daftar pekerjaan.
+             |
+             | Sisa tagihan TIDAK ada di daftar ini. Totalnya dihitung PHP
+             | (lihat TagihanPesanan) karena ikut memperhitungkan campuran tipe
+             | kamar dan potongan rujukan; menulis ulang hitungan itu sebagai
+             | SQL hanya supaya bisa diurut berarti dua hitungan yang cepat
+             | atau lambat berbeda jawabannya — dan yang berbeda di sini adalah
+             | angka uang.
+             */
+            ->when(
+                array_key_exists($request->string('urut')->toString(), self::URUT),
+                function ($q) use ($request) {
+                    [$kolom, $arah] = self::URUT[$request->string('urut')->toString()];
+
+                    // NULL didorong ke belakang: pendaftaran lama tanpa tanggal
+                    // berangkat yang menumpuk di puncak "paling dekat" membuat
+                    // daftarnya terbaca seperti salah urut.
+                    return $q->orderByRaw("{$kolom} IS NULL")->orderBy($kolom, $arah);
+                },
+            )
 
             // Urutan ini menyusul yang di atas, jadi ia jadi pemutus seri —
             // bukan penentu utama saat saringan tagihan menyala.
@@ -209,6 +258,26 @@ class PendaftaranController extends ApiController
                 'kode' => $pendaftaran->kode,
                 'peserta' => $nama,
             ])])
+            ->all();
+
+        /*
+         | Jenis kelamin yang SUDAH diketahui dari riwayat kesehatan.
+         |
+         | Bukan sumber kebenarannya — yang dipakai membagi kamar adalah nilai
+         | yang tersimpan di baris pesertanya. Ini hanya bahan untuk MENGISI
+         | AWAL layar peserta, supaya rombongan yang pesertanya sudah mengisi
+         | borang kesehatan tidak perlu diketik ulang satu per satu.
+         |
+         | Dikirim hanya di show(), tidak di daftar: ia butuh satu kueri
+         | tambahan, dan daftar dua puluh baris tidak boleh membayar dua puluh
+         | kueri untuk keterangan yang tidak tampil di sana.
+         */
+        $data['kelamin_kesehatan'] = $pendaftaran->riwayatKesehatan()
+            ->get(['nama_peserta', 'jenis_kelamin'])
+            ->filter(fn ($satu) => filled($satu->jenis_kelamin))
+            ->mapWithKeys(fn ($satu) => [
+                mb_strtolower(trim((string) $satu->nama_peserta)) => $satu->jenis_kelamin,
+            ])
             ->all();
 
         // Null bila belum pernah ada penggantian: suratnya memang tidak bisa
@@ -611,6 +680,11 @@ class PendaftaranController extends ApiController
             'peserta.*.titik_jemput' => ['nullable', 'string', 'max:191'],
             'peserta.*.bus' => ['nullable', 'string', 'max:60'],
             'peserta.*.kamar' => ['nullable', 'string', 'max:60'],
+            'peserta.*.kursi' => ['nullable', 'string', 'max:10'],
+            // Ejaannya SAMA PERSIS dengan borang riwayat kesehatan. Dua ejaan
+            // untuk hal yang sama membuat pembagian kamar otomatis membaca
+            // separuh rombongan sebagai belum diisi.
+            'peserta.*.jenis_kelamin' => ['nullable', 'in:Laki-laki,Perempuan'],
             'titik_jemput' => ['nullable', 'string', 'max:191'],
             'catatan' => ['nullable', 'string', 'max:2000'],
             /*
@@ -699,6 +773,8 @@ class PendaftaranController extends ApiController
                 'titik_jemput' => trim($baris['titik_jemput'] ?? '') ?: null,
                 'bus' => trim($baris['bus'] ?? '') ?: null,
                 'kamar' => trim($baris['kamar'] ?? '') ?: null,
+                'kursi' => trim((string) ($baris['kursi'] ?? '')) ?: null,
+                'jenis_kelamin' => trim((string) ($baris['jenis_kelamin'] ?? '')) ?: null,
             ])
             ->filter(fn ($baris) => $baris['nama'] !== '')
             ->values()
@@ -794,6 +870,10 @@ class PendaftaranController extends ApiController
              */
             'peserta.*.bus' => 'nullable|string|max:60',
             'peserta.*.kamar' => 'nullable|string|max:60',
+            // Nomor kursi, terpisah dari nama busnya — lihat alasannya di
+            // PendaftaranOpenTrip::getPesertaAttribute().
+            'peserta.*.kursi' => 'nullable|string|max:10',
+            'peserta.*.jenis_kelamin' => 'nullable|in:Laki-laki,Perempuan',
             // Nama yang digantikan baris ini. Diisi HANYA saat admin memang
             // mengganti orang — pembetulan salah ketik tidak mengisinya.
             'peserta.*.gantikan' => 'nullable|string|max:120',
@@ -811,6 +891,8 @@ class PendaftaranController extends ApiController
                 'titik_jemput' => trim($baris['titik_jemput'] ?? '') ?: null,
                 'bus' => trim($baris['bus'] ?? '') ?: null,
                 'kamar' => trim($baris['kamar'] ?? '') ?: null,
+                'kursi' => trim((string) ($baris['kursi'] ?? '')) ?: null,
+                'jenis_kelamin' => trim((string) ($baris['jenis_kelamin'] ?? '')) ?: null,
             ])
             ->filter(fn ($baris) => $baris['nama'] !== '')
             ->values()
@@ -1008,6 +1090,293 @@ class PendaftaranController extends ApiController
         return response()->json([
             'data' => (new PendaftaranResource($pendaftaran->fresh()))->resolve(),
             'pesan' => 'Status pendaftaran diperbarui.',
+        ]);
+    }
+
+    /**
+     * Membetulkan data pendaftaran yang sudah masuk — termasuk MEMINDAHKANNYA
+     * ke rombongan lain.
+     *
+     * Sebelum ini tidak ada jalur sama sekali: salah ketik nomor WhatsApp,
+     * jumlah peserta yang bertambah, atau pelanggan yang minta pindah dari
+     * tanggal 4 ke tanggal 11 semuanya hanya bisa diselesaikan dengan
+     * membatalkan lalu mendaftar ulang. Cara itu membuang kode pemesanan,
+     * riwayat pembayaran, angsuran, dan riwayat kesehatan yang sudah diisi
+     * peserta — empat hal yang tidak bisa dibuat ulang.
+     *
+     * Semua medan bersifat `sometimes`: lemon mengirim yang diubah saja, dan
+     * borang yang hanya memperbaiki nomor WhatsApp tidak boleh ikut
+     * mengosongkan catatan.
+     */
+    public function update(PendaftaranOpenTrip $pendaftaran, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'nama' => 'sometimes|required|string|max:120',
+            'whatsapp' => 'sometimes|required|string|max:30',
+            'email' => 'sometimes|nullable|email|max:191',
+            'jumlah_peserta' => 'sometimes|required|integer|min:1|max:200',
+            'pendamping_gratis' => 'sometimes|nullable|integer|min:0|max:200',
+            'titik_jemput' => 'sometimes|nullable|string|max:191',
+            'catatan' => 'sometimes|nullable|string|max:2000',
+            'catatan_internal' => 'sometimes|nullable|string|max:2000',
+            'keberangkatan_id' => 'sometimes|nullable|integer|exists:tbl_paket_keberangkatan,id',
+            // Menembus penolakan kuota. Lihat alasannya di bawah.
+            'paksa' => 'sometimes|boolean',
+        ], [], [
+            'jumlah_peserta' => 'jumlah peserta',
+            'pendamping_gratis' => 'pendamping gratis',
+            'titik_jemput' => 'titik jemput',
+            'catatan_internal' => 'catatan internal',
+            'keberangkatan_id' => 'rombongan',
+        ]);
+
+        $paksa = (bool) ($data['paksa'] ?? false);
+        unset($data['paksa']);
+
+        $perubahan = [];
+        $pindah = null;
+
+        /*
+         | Perpindahan rombongan diperiksa lebih dulu, dan bisa MENOLAK seluruh
+         | permintaan.
+         |
+         | Diperiksa sebelum apa pun disimpan supaya borang yang sekaligus
+         | membetulkan nama dan memindahkan rombongan tidak separuh tersimpan:
+         | nama berubah, rombongannya tidak, dan tidak ada yang memberi tahu
+         | bahwa yang kedua gagal.
+         */
+        if (array_key_exists('keberangkatan_id', $data)
+            && (int) $data['keberangkatan_id'] !== (int) $pendaftaran->keberangkatan_id) {
+
+            if ($data['keberangkatan_id'] === null) {
+                /*
+                 | Mengosongkan rombongan TIDAK diizinkan.
+                 |
+                 | Pendaftaran tanpa rombongan adalah bentuk peninggalan dari
+                 | masa sebelum tabel keberangkatan ada; batas pelunasannya
+                 | dihitung lewat jalur mundur yang berbeda. Membuat yang baru
+                 | berarti menambah data yang hanya ditoleransi, bukan
+                 | didukung — dan tidak ada alasan sah untuk memerlukannya.
+                 */
+                return response()->json([
+                    'pesan' => 'Rombongan tidak boleh dikosongkan. Pilih salah satu tanggal keberangkatan.',
+                ], 422);
+            }
+
+            $tujuan = Keberangkatan::find($data['keberangkatan_id']);
+
+            if (! $tujuan || $tujuan->travel_package_id !== (int) $pendaftaran->travel_package_id) {
+                return response()->json([
+                    'pesan' => 'Tanggal itu bukan milik paket '.$pendaftaran->nama_paket
+                        .'. Pindah paket tidak bisa lewat sini — pemesanannya memang berbeda harga dan isi.',
+                ], 422);
+            }
+
+            /*
+             | Kuota diperiksa, tetapi bisa ditembus dengan sengaja.
+             |
+             | Menolak mati-matian salah: rombongan penuh yang kelebihan satu
+             | kursi adalah keputusan bisnis yang memang kadang diambil (bus
+             | masih ada bangku tambahan, atau satu orang lain baru saja
+             | membatalkan tetapi belum tercatat). Yang tidak boleh adalah
+             | kelebihannya terjadi tanpa ada yang MEMILIHNYA — karena itu
+             | tolakan pertama memulangkan 422 dengan angkanya disebut, dan
+             | pengirim yang tetap ingin melanjutkan mengirim paksa=1.
+             */
+            $sisa = $tujuan->sisa_kursi;
+
+            if (! $paksa && $sisa !== null && $sisa < (int) $pendaftaran->jumlah_peserta) {
+                return response()->json([
+                    'pesan' => 'Tanggal '.$tujuan->rentang_tanggal.' tinggal '
+                        .max(0, $sisa).' kursi, sedangkan rombongan ini '
+                        .$pendaftaran->jumlah_peserta.' orang.',
+                    'butuh_paksa' => true,
+                ], 422);
+            }
+
+            $pindah = [
+                'dari' => $pendaftaran->keberangkatan?->rentang_tanggal
+                    ?? ($pendaftaran->tanggal_berangkat?->toDateString() ?: 'tanpa rombongan'),
+                'ke' => $tujuan->rentang_tanggal,
+            ];
+
+            /*
+             | tanggal_berangkat ikut digeser.
+             |
+             | Kolom itu masih dibaca belasan tempat — pengingat pelunasan,
+             | saringan "perlu ditelepon", manifes. Rombongan yang berpindah
+             | tanpa menggeser kolomnya menghasilkan pendaftaran yang ditagih
+             | menurut tanggal lama, dan tidak ada galat yang menjelaskannya.
+             */
+            $data['tanggal_berangkat'] = $tujuan->tanggal_berangkat;
+        }
+
+        /*
+         | Perubahan yang LAYAK DICATAT dikumpulkan sebelum disimpan.
+         |
+         | Jumlah peserta terutama: angka itulah yang mengalikan harga paket
+         | jadi tagihan. Perubahannya menggeser uang, jadi jejaknya harus
+         | menyebut angka lama dan angka baru — "ubah pendaftaran" saja tidak
+         | bisa dipakai menjawab kenapa tagihannya berbeda dari kwitansi
+         | pertama.
+         */
+        $pantau = [
+            'nama' => 'nama pemesan',
+            'whatsapp' => 'WhatsApp',
+            'email' => 'email',
+            'jumlah_peserta' => 'jumlah peserta',
+            'pendamping_gratis' => 'pendamping gratis',
+            'titik_jemput' => 'titik jemput',
+        ];
+
+        foreach ($pantau as $medan => $sebutan) {
+            if (! array_key_exists($medan, $data)) {
+                continue;
+            }
+
+            $lama = (string) ($pendaftaran->{$medan} ?? '');
+            $baru = (string) ($data[$medan] ?? '');
+
+            if ($lama !== $baru) {
+                $perubahan[] = $sebutan.': '.($lama === '' ? '(kosong)' : $lama)
+                    .' → '.($baru === '' ? '(kosong)' : $baru);
+            }
+        }
+
+        $pendaftaran->update($data);
+
+        $this->catat($request, 'ubah data pendaftaran', array_filter([
+            'kode' => $pendaftaran->kode,
+            'perubahan' => $perubahan,
+            'pindah_rombongan' => $pindah ? $pindah['dari'].' → '.$pindah['ke'] : null,
+            'melebihi_kuota' => $paksa && $pindah ? 'ya' : null,
+        ]));
+
+        /*
+         | Peringatan, bukan penolakan: jumlah peserta yang lebih kecil
+         | daripada nama yang sudah terdaftar.
+         |
+         | Namanya tidak ikut dibuang — yang kelebihan mungkin justru yang
+         | benar, dan membuang nama orang karena satu angka diketik salah tidak
+         | bisa dibatalkan. Yang dikembalikan cuma kalimat supaya admin
+         | merapikannya sendiri di layar peserta.
+         */
+        $pesan = 'Data pendaftaran tersimpan.';
+
+        if ($pindah) {
+            $pesan = 'Dipindahkan ke rombongan '.$pindah['ke'].'.';
+        }
+
+        $jumlahNama = count($pendaftaran->peserta);
+
+        if ($jumlahNama > (int) $pendaftaran->jumlah_peserta) {
+            $pesan .= ' Catatan: ada '.$jumlahNama.' nama peserta terdaftar untuk '
+                .$pendaftaran->jumlah_peserta.' peserta. Rapikan di daftar peserta.';
+        }
+
+        return response()->json([
+            'data' => (new PendaftaranResource(
+                $pendaftaran->fresh()->load('keberangkatan')->loadCount('riwayatKesehatan')
+            ))->resolve(),
+            'pesan' => $pesan,
+        ]);
+    }
+
+    /**
+     * Menghapus pendaftaran — untuk kiriman ganda dan salah masuk, BUKAN untuk
+     * pembatalan.
+     *
+     * Dua hal itu sengaja dibedakan. Pembatalan adalah peristiwa yang harus
+     * tetap terbaca: uangnya pernah masuk, refundnya pernah dihitung, kursinya
+     * dilepas pada tanggal tertentu. Menghapus barisnya membuat semua itu
+     * lenyap dari laporan, dan laporan yang kehilangan baris tidak memberi
+     * tanda apa pun — angkanya cuma berbeda.
+     *
+     * Karena itu pendaftaran yang UANGNYA SUDAH MASUK tidak bisa dihapus sama
+     * sekali, sekeras apa pun yang meminta. Yang bisa dihapus hanya yang belum
+     * pernah menyentuh uang: borang yang terkirim dua kali, atau yang
+     * dimasukkan admin ke pelanggan yang salah.
+     */
+    public function destroy(PendaftaranOpenTrip $pendaftaran, Request $request): JsonResponse
+    {
+        $uangMasuk = (int) KonfirmasiPembayaran::where('kode', $pendaftaran->kode)
+            ->where('status', 'diterima')
+            ->sum('nominal');
+
+        if ($uangMasuk > 0) {
+            return response()->json([
+                'pesan' => 'Pendaftaran ini sudah menerima uang Rp '
+                    .number_format($uangMasuk, 0, ',', '.')
+                    .', jadi tidak bisa dihapus. Pakai pembatalan supaya refundnya terhitung '
+                    .'dan jejaknya tetap terbaca di laporan.',
+            ], 422);
+        }
+
+        /*
+         | Bukti yang masih MENUNGGU dicek juga menahan penghapusan.
+         |
+         | Nominalnya belum jadi uang, tetapi buktinya ada — gambar transfer
+         | yang dikirim seseorang. Menghapus pendaftarannya membuang bukti itu
+         | bersama pengirimnya, dan yang mengirim tetap merasa sudah membayar.
+         */
+        $buktiMenunggu = KonfirmasiPembayaran::where('kode', $pendaftaran->kode)
+            ->where('status', 'menunggu')
+            ->count();
+
+        if ($buktiMenunggu > 0) {
+            return response()->json([
+                'pesan' => 'Masih ada '.$buktiMenunggu.' bukti pembayaran yang belum dicek. '
+                    .'Periksa atau tolak dulu buktinya, baru pendaftarannya bisa dihapus.',
+            ], 422);
+        }
+
+        if (Pembatalan::where('kode_pendaftaran', $pendaftaran->kode)->exists()) {
+            return response()->json([
+                'pesan' => 'Pendaftaran ini punya pengajuan pembatalan. '
+                    .'Selesaikan pembatalannya — jejaknya harus tetap terbaca.',
+            ], 422);
+        }
+
+        $kode = $pendaftaran->kode;
+        $nama = $pendaftaran->nama;
+
+        /*
+         | Riwayat kesehatan ikut dihapus, dan itu disebut di jawabannya.
+         |
+         | Kaitannya lewat kode pendaftaran, bukan kunci asing — jadi tanpa
+         | baris ini ia tertinggal sebagai data kesehatan yatim yang tidak bisa
+         | dibuka dari mana pun, tidak bisa dihapus dari mana pun, dan tetap
+         | terhitung di laporan jumlah pengisi.
+         */
+        $jumlahKesehatan = $pendaftaran->riwayatKesehatan()->count();
+        $pendaftaran->riwayatKesehatan()->delete();
+
+        /*
+         | Rencana angsuran ikut dihapus, dengan alasan yang sama.
+         |
+         | Ia dikaitkan lewat kode pendaftaran juga, jadi yang tertinggal
+         | muncul di daftar angsuran sebagai rencana milik pesanan yang tidak
+         | ada — baris yang tidak bisa dibuka dan tidak bisa ditutup.
+         |
+         | Hanya sampai di sini karena penjaga di atas sudah memastikan belum
+         | ada uang yang masuk: rencana angsuran tanpa satu pun pembayaran
+         | tidak menyimpan apa pun yang perlu diingat.
+         */
+        Angsuran::where('kode', $pendaftaran->kode)->delete();
+
+        $pendaftaran->delete();
+
+        $this->catat($request, 'hapus pendaftaran', [
+            'kode' => $kode,
+            'nama' => $nama,
+            'riwayat_kesehatan_terhapus' => $jumlahKesehatan,
+        ]);
+
+        return response()->json([
+            'pesan' => 'Pendaftaran '.$kode.' dihapus.'
+                .($jumlahKesehatan > 0
+                    ? ' '.$jumlahKesehatan.' data riwayat kesehatan ikut terhapus.'
+                    : ''),
         ]);
     }
 }

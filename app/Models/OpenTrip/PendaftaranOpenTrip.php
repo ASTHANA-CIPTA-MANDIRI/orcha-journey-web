@@ -36,6 +36,7 @@ class PendaftaranOpenTrip extends Model
         'tanggal_berangkat',
         'titik_jemput',
         'catatan',
+        'catatan_internal',
         'status',
         'pengingat_pelunasan_pada',
         'briefing_pada',
@@ -291,6 +292,27 @@ class PendaftaranOpenTrip extends Model
                          */
                         'bus' => trim($baris['bus'] ?? '') ?: null,
                         'kamar' => trim($baris['kamar'] ?? '') ?: null,
+                        /*
+                         | Nomor kursi, terpisah dari bus.
+                         |
+                         | Keduanya tidak boleh digabung jadi satu teks
+                         | ("Bus 1 kursi 12"): yang pertama dipakai memanggil
+                         | kelompok di parkiran, yang kedua menggambar petak
+                         | tempat duduk — dan teks gabungan tidak bisa dipakai
+                         | untuk keduanya tanpa diurai ulang dengan tebakan.
+                         */
+                        'kursi' => trim((string) ($baris['kursi'] ?? '')) ?: null,
+                        /*
+                         | Jenis kelamin, dipakai membagi kamar.
+                         |
+                         | Disimpan di baris pesertanya, bukan dibaca dari
+                         | riwayat kesehatan setiap kali dibutuhkan. Riwayat
+                         | kesehatan dikaitkan lewat NAMA dan tidak selalu
+                         | ada — membagi kamar dengan sumber yang bisa hilang
+                         | begitu nama diperbaiki ejaannya berarti pembagian
+                         | yang berubah sendiri tanpa ada yang mengubahnya.
+                         */
+                        'jenis_kelamin' => trim((string) ($baris['jenis_kelamin'] ?? '')) ?: null,
                     ];
                 }
 
@@ -299,6 +321,8 @@ class PendaftaranOpenTrip extends Model
                     'titik_jemput' => $this->titik_jemput,
                     'bus' => null,
                     'kamar' => null,
+                    'kursi' => null,
+                    'jenis_kelamin' => null,
                 ];
             })
             ->filter(fn ($baris) => $baris['nama'] !== '')

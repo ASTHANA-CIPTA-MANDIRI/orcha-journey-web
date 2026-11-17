@@ -413,12 +413,22 @@ test('data lama yang hanya berisi nama tetap terbaca', function () {
         'titik_jemput' => 'Jogja',
     ]);
 
-    // Bus dan kamar ikut sejak pembagian rombongan ada. Kosongnya berarti
-    // "belum dibagi", bukan "tidak ikut" — dan data lama memang belum pernah
-    // dibagi.
+    /*
+     | Bus, kursi, kamar, dan jenis kelamin ikut sejak pembagian rombongan ada.
+     | Kosongnya berarti "belum dibagi", bukan "tidak ikut" — dan data lama
+     | memang belum pernah dibagi.
+     |
+     | Bentuknya dipaku UTUH, bukan diperiksa sebagian. Aksesor ini dibaca
+     | belasan tempat, dan medan yang diam-diam hilang darinya tidak
+     | menghasilkan galat di mana pun: ia muncul sebagai kolom yang selalu
+     | kosong di manifes dan sebagai pembagian kamar yang menganggap seluruh
+     | rombongan belum diisi jenis kelaminnya.
+     */
     expect($pendaftaran->peserta)->toBe([
-        ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'bus' => null, 'kamar' => null],
-        ['nama' => 'Budi Santoso', 'titik_jemput' => 'Jogja', 'bus' => null, 'kamar' => null],
+        ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'bus' => null, 'kamar' => null,
+            'kursi' => null, 'jenis_kelamin' => null],
+        ['nama' => 'Budi Santoso', 'titik_jemput' => 'Jogja', 'bus' => null, 'kamar' => null,
+            'kursi' => null, 'jenis_kelamin' => null],
     ]);
 });
 

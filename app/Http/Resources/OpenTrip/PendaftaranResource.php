@@ -92,6 +92,15 @@ class PendaftaranResource extends JsonResource
             'pengingat_pelunasan_pada' => $this->pengingat_pelunasan_pada?->toIso8601String(),
             'titik_jemput' => $this->titik_jemput,
             'catatan' => $this->catatan,
+            /*
+             | Catatan internal admin — TIDAK PERNAH terbaca pelanggan.
+             |
+             | Dipisahkan dari `catatan` di atas, yang milik pemesan dan ikut
+             | tercetak di kwitansi. Satu kolom untuk keduanya berarti "belum
+             | bisa dihubungi, nomornya tidak aktif" berpeluang tercetak di
+             | dokumen yang diserahkan ke orangnya sendiri.
+             */
+            'catatan_internal' => $this->catatan_internal,
             'status' => $this->status,
             'status_label' => $this->status_label,
             'jumlah_riwayat_kesehatan' => $this->whenCounted('riwayatKesehatan'),
