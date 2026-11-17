@@ -633,20 +633,55 @@ test('gabung ditolak kalau paket atau rombongannya berbeda', function () {
         ->assertJsonPath('pesan', fn ($p) => str_contains($p, 'bukan rombongan yang sama'));
 });
 
-test('gabung ditolak selama sumbernya punya rencana angsuran berjalan', function () {
+test('gabung membatalkan rencana angsuran, dan menyebutkannya', function () {
+    /*
+     | Menolak itu benar secara aturan — termin lama dihitung dari tagihan
+     | lama — tetapi membuat admin buntu: ia harus membatalkan rencana lewat
+     | layar lain, kembali ke sini, lalu menyusun ulang. Tiga langkah di tiga
+     | tempat untuk satu pekerjaan, dan yang berhenti di tengahnya
+     | meninggalkan dua pendaftaran yang tetap terpisah.
+     |
+     | Sekarang pembatalannya dikerjakan sekalian DAN disebut di jawabannya,
+     | supaya admin tahu jadwalnya harus disusun ulang — bukan mengira
+     | terminnya ikut berpindah.
+     */
     $paket = pbgApiPaket();
     $rombongan = pbgApiRombongan($paket);
     $tujuan = pbgApiDaftar($paket, $rombongan, [['nama' => 'A']]);
     $sumber = pbgApiDaftar($paket, $rombongan, [['nama' => 'B']]);
 
-    Angsuran::create([
-        'kode' => $sumber->kode, 'jumlah_termin' => 3, 'total' => 1_000_000,
-    ]);
+    Angsuran::create(['kode' => $sumber->kode, 'jumlah_termin' => 3, 'total' => 1_000_000]);
 
     $this->withHeaders(pbgApiKepala())
         ->postJson("/api/v1/pendaftaran/{$sumber->id}/gabungkan", ['ke' => $tujuan->id])
-        ->assertStatus(422)
-        ->assertJsonPath('pesan', fn ($p) => str_contains($p, 'angsuran'));
+        ->assertOk()
+        ->assertJsonPath('pesan', fn ($p) => str_contains($p, 'susun ulang terminnya'));
+
+    expect(PendaftaranOpenTrip::find($sumber->id))->toBeNull();
+    expect(Angsuran::where('kode', $sumber->kode)->count())->toBe(0);
+});
+
+test('rencana angsuran TUJUAN ikut gugur karena tagihannya bertambah', function () {
+    /*
+     | Dibatalkan, bukan dihapus: ia pernah berlaku dan termin-terminnya
+     | mungkin sudah dibayar sebagian. Menghapusnya membuang jejak kesepakatan
+     | yang pernah ada.
+     */
+    $paket = pbgApiPaket();
+    $rombongan = pbgApiRombongan($paket);
+    $tujuan = pbgApiDaftar($paket, $rombongan, [['nama' => 'A']]);
+    $sumber = pbgApiDaftar($paket, $rombongan, [['nama' => 'B']]);
+
+    Angsuran::create(['kode' => $tujuan->kode, 'jumlah_termin' => 3, 'total' => 1_000_000]);
+
+    $this->withHeaders(pbgApiKepala())
+        ->postJson("/api/v1/pendaftaran/{$sumber->id}/gabungkan", ['ke' => $tujuan->id])
+        ->assertOk();
+
+    $rencana = Angsuran::where('kode', $tujuan->kode)->first();
+
+    expect($rencana)->not->toBeNull();
+    expect($rencana->dibatalkan_pada)->not->toBeNull();
 });
 
 /*

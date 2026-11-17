@@ -21,12 +21,15 @@ class DaftarTunggu extends Model
     protected $fillable = [
         'travel_package_id', 'nama', 'whatsapp', 'email', 'jumlah_peserta',
         'dikabari_pada', 'dihubungi_pada', 'dihubungi_oleh',
+        'keberangkatan_id', 'ditawarkan_pada', 'ditahan_sampai',
     ];
 
     protected $casts = [
         'jumlah_peserta' => 'integer',
         'dikabari_pada' => 'datetime',
         'dihubungi_pada' => 'datetime',
+        'ditawarkan_pada' => 'datetime',
+        'ditahan_sampai' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -48,6 +51,32 @@ class DaftarTunggu extends Model
     }
 
     /** Yang belum pernah dikabari, urut dari yang paling lama menunggu. */
+    /**
+     * Kursi yang sedang DITAHAN untuk orang ini, dan belum lewat waktunya.
+     *
+     * Dibaca sebagai tiga keadaan, bukan dua: belum pernah ditawari, sedang
+     * ditahan, dan tahanannya sudah lewat. Yang ketiga itu yang paling penting
+     * — kursinya boleh ditawarkan ke orang berikutnya, dan tanpa keadaan itu
+     * ia menggantung selamanya atas nama orang yang tidak membalas.
+     */
+    public function getKeadaanTawaranAttribute(): string
+    {
+        if ($this->ditawarkan_pada === null) {
+            return 'belum';
+        }
+
+        if ($this->ditahan_sampai === null || $this->ditahan_sampai->isFuture()) {
+            return 'ditahan';
+        }
+
+        return 'lewat';
+    }
+
+    public function keberangkatan(): BelongsTo
+    {
+        return $this->belongsTo(Keberangkatan::class, 'keberangkatan_id');
+    }
+
     public function scopeBelumDikabari($query)
     {
         return $query->whereNull('dikabari_pada')->orderBy('created_at');

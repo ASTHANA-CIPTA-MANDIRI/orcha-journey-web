@@ -469,6 +469,16 @@ Route::prefix('v1')
          | langkah yang akhirnya terlewat.
          */
         Route::post('/daftar-tunggu/{tunggu:id}/dihubungi', [DaftarTungguController::class, 'dihubungi']);
+
+        /*
+         | Menahan kursi satu rombongan untuk orang yang mengantre.
+         |
+         | Dicatat sesaat SEBELUM admin membuka WhatsApp: yang menahan admin
+         | kedua menawarkan kursi yang sama adalah catatan niatnya, bukan
+         | balasan yang belum tentu datang.
+         */
+        Route::post('/daftar-tunggu/{tunggu:id}/tawarkan', [DaftarTungguController::class, 'tawarkan']);
+        Route::delete('/daftar-tunggu/{tunggu:id}/tawarkan', [DaftarTungguController::class, 'lepasTawaran']);
         Route::delete('/daftar-tunggu/{tunggu:id}', [DaftarTungguController::class, 'destroy']);
 
         Route::get('/promo-rombongan', [PromoRombonganController::class, 'index']);

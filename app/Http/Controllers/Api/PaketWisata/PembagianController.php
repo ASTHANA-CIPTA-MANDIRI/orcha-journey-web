@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\PaketWisata;
 
 use App\Http\Controllers\Api\ApiController;
+use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\OpenTrip\RiwayatKesehatan;
 use App\Models\PaketWisata\Keberangkatan;
 use App\Support\PembagianKelompok;
@@ -479,6 +480,46 @@ class PembagianController extends ApiController
             ->orderBy('id')
             ->get();
 
+        /*
+         | Nama yang JUGA terdaftar di rombongan lain yang belum berangkat.
+         |
+         | Terjadi saat seseorang mendaftar dua kali — untuk dirinya dan untuk
+         | keluarganya — lalu salah satunya dipindahkan tanggal, atau saat
+         | panitia menempelkan daftar nama yang sama ke dua keberangkatan.
+         | Keduanya terhitung di kuota, keduanya dapat kursi, dan yang satu
+         | pasti tidak datang.
+         |
+         | Dihitung sekali untuk seluruh rombongan, bukan per nama: tiga puluh
+         | nama berarti tiga puluh kueri kalau dicari satu-satu.
+         */
+        $namaRombonganIni = collect($pendaftaran)
+            ->flatMap(fn ($satu) => collect($satu->peserta)->pluck('nama'))
+            ->map(fn ($nama) => mb_strtolower(trim((string) $nama)))
+            ->filter()
+            ->unique();
+
+        $kembarDiRombonganLain = [];
+
+        if ($namaRombonganIni->isNotEmpty()) {
+            $lain = PendaftaranOpenTrip::query()
+                ->where('travel_package_id', $keberangkatan->travel_package_id)
+                ->where('keberangkatan_id', '!=', $keberangkatan->id)
+                ->where('status', '!=', 'batal')
+                ->whereHas('keberangkatan', fn ($q) => $q->whereDate('tanggal_berangkat', '>=', now()->toDateString()))
+                ->with('keberangkatan')
+                ->get(['id', 'keberangkatan_id', 'daftar_peserta', 'titik_jemput']);
+
+            foreach ($lain as $satu) {
+                foreach ($satu->peserta as $orang) {
+                    $kunciNama = mb_strtolower(trim((string) $orang['nama']));
+
+                    if ($kunciNama !== '' && $namaRombonganIni->contains($kunciNama)) {
+                        $kembarDiRombonganLain[$kunciNama] = $satu->keberangkatan?->rentang_tanggal;
+                    }
+                }
+            }
+        }
+
         // Satu kueri untuk seluruh rombongan, bukan satu per pendaftaran.
         $kelaminKesehatan = RiwayatKesehatan::whereIn('kode_pendaftaran', $pendaftaran->pluck('kode'))
             ->whereNotNull('jenis_kelamin')
@@ -515,6 +556,10 @@ class PembagianController extends ApiController
                     // true bila isinya datang dari borang kesehatan, bukan
                     // diketik admin di layar ini.
                     'kelamin_dari_kesehatan' => blank($orang['jenis_kelamin'] ?? null) && filled($dariKesehatan),
+
+                    // Rentang tanggal rombongan LAIN yang memuat nama ini,
+                    // bila ada. null = tidak terdaftar di tempat lain.
+                    'juga_di' => $kembarDiRombonganLain[mb_strtolower(trim((string) $orang['nama']))] ?? null,
                 ];
             }
         }

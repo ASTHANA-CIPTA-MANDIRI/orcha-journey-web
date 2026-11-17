@@ -19,6 +19,7 @@ use App\Support\SuratPenggantian;
 use App\Support\TagihanPesanan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class PendaftaranController extends ApiController
@@ -154,7 +155,7 @@ class PendaftaranController extends ApiController
                         ->orderByRaw(
                             '(COALESCE(total_tagihan, 0) - ('
                             .'select COALESCE(SUM(nominal), 0) from tbl_konfirmasi_pembayaran '
-                            ."where tbl_konfirmasi_pembayaran.kode = tbl_pendaftaran_open_trip.kode "
+                            .'where tbl_konfirmasi_pembayaran.kode = tbl_pendaftaran_open_trip.kode '
                             .'and tbl_konfirmasi_pembayaran.status = ?'
                             .')) '.($arah === 'desc' ? 'desc' : 'asc'),
                             ['diterima'],
@@ -182,8 +183,67 @@ class PendaftaranController extends ApiController
         return $this->halamanDipeta(
             $daftar,
             fn () => PendaftaranResource::collection($daftar->getCollection())->resolve(),
-            ['jumlah_tab' => $this->jumlahTab($request)],
+            array_filter([
+                'jumlah_tab' => $this->jumlahTab($request),
+                'rombongan' => $this->ringkasanRombongan($request),
+            ], fn ($nilai) => $nilai !== null),
         );
+    }
+
+    /**
+     * Ringkasan satu rombongan: kursi terjual, uang masuk, sisa tagihan.
+     *
+     * Hanya ikut saat daftar DISARING per rombongan — di luar itu angkanya
+     * tidak menjawab apa pun, karena menjumlahkan tiga keberangkatan yang
+     * berbeda tanggal dan berbeda harga.
+     *
+     * Pertanyaan yang dijawabnya ditanyakan setiap kali rombongan diputuskan
+     * jadi berangkat atau tidak: "sudah berapa kursi, dan uangnya sudah
+     * masuk berapa". Sebelum ini jawabannya dirakit admin sendiri dari
+     * daftar, satu baris demi satu baris.
+     *
+     * Yang BATAL tidak ikut dihitung — kursinya sudah dilepas, dan uangnya
+     * (kalau ada) masuk ke urusan pengembalian, bukan ke pemasukan rombongan.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function ringkasanRombongan(Request $request): ?array
+    {
+        $id = $request->integer('keberangkatan_id');
+
+        if (! $id) {
+            return null;
+        }
+
+        $keberangkatan = Keberangkatan::find($id);
+
+        if (! $keberangkatan) {
+            return null;
+        }
+
+        $baris = PendaftaranOpenTrip::where('keberangkatan_id', $id)
+            ->where('status', '!=', 'batal')
+            ->get(['id', 'kode', 'jumlah_peserta', 'total_tagihan']);
+
+        $masuk = (int) KonfirmasiPembayaran::whereIn('kode', $baris->pluck('kode'))
+            ->where('status', 'diterima')
+            ->sum('nominal');
+
+        $tagihan = (int) $baris->sum('total_tagihan');
+        $kuota = $keberangkatan->kuota_dipakai;
+        $peserta = (int) $baris->sum('jumlah_peserta');
+
+        return [
+            'rentang_tanggal' => $keberangkatan->rentang_tanggal,
+            'pendaftaran' => $baris->count(),
+            'peserta' => $peserta,
+            'kuota' => $kuota,
+            // null berarti "paket ini memang tanpa kuota", bukan nol kursi.
+            'sisa_kursi' => $kuota ? max(0, $kuota - $peserta) : null,
+            'tagihan' => $tagihan,
+            'masuk' => $masuk,
+            'kurang' => max(0, $tagihan - $masuk),
+        ];
     }
 
     /**
@@ -1482,12 +1542,22 @@ class PendaftaranController extends ApiController
          | dengan angka yang tidak ia kenali. Dibatalkan dulu, lalu disusun
          | ulang setelah digabung.
          */
-        if (Angsuran::where('kode', $pendaftaran->kode)->whereNull('dibatalkan_pada')->exists()) {
-            return response()->json([
-                'pesan' => 'Pendaftaran ini punya rencana angsuran yang masih berjalan. '
-                    .'Batalkan dulu rencananya, gabungkan, lalu susun ulang terminnya.',
-            ], 422);
-        }
+        /*
+         | Rencana angsuran pada SUMBER dibatalkan, bukan menolak penggabungan.
+         |
+         | Menolak itu benar secara aturan — termin lama dihitung dari tagihan
+         | lama — tetapi membuat admin buntu: ia harus membatalkan rencana
+         | lewat layar lain, kembali ke sini, lalu menyusun ulang. Tiga langkah
+         | di tiga tempat untuk satu pekerjaan, dan yang berhenti di tengahnya
+         | meninggalkan dua pendaftaran yang tetap terpisah.
+         |
+         | Sekarang pembatalannya dikerjakan di sini dan DISEBUT di jawabannya,
+         | supaya admin tahu jadwalnya harus disusun ulang — bukan mengira
+         | terminnya ikut berpindah.
+         */
+        $angsuranDibatalkan = Angsuran::where('kode', $pendaftaran->kode)
+            ->whereNull('dibatalkan_pada')
+            ->exists();
 
         if (Pembatalan::where('kode_pendaftaran', $pendaftaran->kode)->exists()) {
             return response()->json([
@@ -1499,7 +1569,13 @@ class PendaftaranController extends ApiController
         $kodeAsal = $pendaftaran->kode;
         $uangPindah = 0;
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($pendaftaran, $tujuan, $kodeAsal, &$uangPindah, $request) {
+        // Rencana angsuran TUJUAN juga ikut gugur bila ada: tagihannya baru
+        // saja bertambah, jadi terminnya tidak lagi menutup totalnya.
+        $angsuranTujuanGugur = Angsuran::where('kode', $tujuan->kode)
+            ->whereNull('dibatalkan_pada')
+            ->exists();
+
+        DB::transaction(function () use ($pendaftaran, $tujuan, $kodeAsal, &$uangPindah) {
             $uangPindah = (int) KonfirmasiPembayaran::where('kode', $kodeAsal)->sum('nominal');
 
             // Pembayaran dan riwayat kesehatan dikaitkan lewat KODE, bukan
@@ -1547,6 +1623,19 @@ class PendaftaranController extends ApiController
             ]);
 
             Angsuran::where('kode', $kodeAsal)->delete();
+
+            /*
+             | Rencana angsuran tujuan DIBATALKAN, bukan dihapus.
+             |
+             | Ia pernah berlaku dan termin-terminnya mungkin sudah dibayar
+             | sebagian; menghapusnya membuang jejak kesepakatan yang pernah
+             | ada. Dibatalkan, jadi tetap terbaca sebagai rencana yang pernah
+             | disetujui lalu gugur karena tagihannya berubah.
+             */
+            Angsuran::where('kode', $tujuan->kode)
+                ->whereNull('dibatalkan_pada')
+                ->update(['dibatalkan_pada' => now()]);
+
             $pendaftaran->delete();
         });
 
@@ -1564,6 +1653,9 @@ class PendaftaranController extends ApiController
             'pesan' => 'Pendaftaran '.$kodeAsal.' digabungkan ke '.$tujuan->kode.'.'
                 .($uangPindah > 0
                     ? ' Pembayaran Rp '.number_format($uangPindah, 0, ',', '.').' ikut dipindahkan.'
+                    : '')
+                .($angsuranDibatalkan || $angsuranTujuanGugur
+                    ? ' Rencana angsurannya dibatalkan karena tagihannya berubah — susun ulang terminnya.'
                     : ''),
         ]);
     }
