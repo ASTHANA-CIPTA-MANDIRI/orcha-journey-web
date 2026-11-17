@@ -34,7 +34,7 @@ test('isian whatsapp dirapikan saat kursor meninggalkan kolom', function () {
         ->set('whatsapp', '+62 812 3456 7890')
         ->assertSet('whatsapp', '0812-3456-7890')
         ->set('jumlahPeserta', 1)
-        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja']])
+        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'jenis_kelamin' => 'Perempuan']])
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors();

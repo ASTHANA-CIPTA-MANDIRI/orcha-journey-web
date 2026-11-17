@@ -80,8 +80,8 @@ test('pendaftaran mengirim surat beserta bukti pendaftaran pdf', function () {
         ->set('whatsapp', '081298765432')
         ->set('jumlahPeserta', 2)
         ->set('peserta', [
-            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja'],
-            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Surakarta'],
+            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'jenis_kelamin' => 'Laki-laki'],
+            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Surakarta', 'jenis_kelamin' => 'Perempuan'],
         ])
         ->set('setuju', true)
         ->call('daftar')
@@ -220,8 +220,8 @@ test('lampiran pendaftaran berisi tagihan, bukan kwitansi', function () {
         ->set('email', 'siti@contoh.test')
         ->set('jumlahPeserta', 2)
         ->set('peserta', [
-            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja'],
-            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Surakarta'],
+            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'jenis_kelamin' => 'Laki-laki'],
+            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Surakarta', 'jenis_kelamin' => 'Perempuan'],
         ])
         ->set('setuju', true)
         ->call('daftar')
@@ -343,7 +343,7 @@ test('pendaftar ikut menerima salinan suratnya sendiri', function () {
         ->set('whatsapp', '081298765432')
         ->set('email', 'siti@contoh.test')
         ->set('jumlahPeserta', 1)
-        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja']])
+        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'jenis_kelamin' => 'Laki-laki']])
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors();
@@ -381,8 +381,8 @@ test('surat pendaftaran menyebut lampirannya sebagai tagihan, bukan kwitansi', f
         ->set('email', 'siti@contoh.test')
         ->set('jumlahPeserta', 2)
         ->set('peserta', [
-            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja'],
-            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Surakarta'],
+            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'jenis_kelamin' => 'Perempuan'],
+            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Surakarta', 'jenis_kelamin' => 'Laki-laki'],
         ])
         ->set('setuju', true)
         ->call('daftar')
@@ -492,7 +492,7 @@ test('alamat pelanggan yang salah ketik tidak menggagalkan apa pun', function ()
         // Lolos validasi peramban, tetapi bukan alamat yang bisa dikirimi
         ->set('email', null)
         ->set('jumlahPeserta', 1)
-        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja']])
+        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'jenis_kelamin' => 'Perempuan']])
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors();
@@ -510,7 +510,7 @@ test('salinan pelanggan bisa dimatikan lewat setelan', function () {
         ->set('whatsapp', '081298765432')
         ->set('email', 'siti@contoh.test')
         ->set('jumlahPeserta', 1)
-        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja']])
+        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'jenis_kelamin' => 'Laki-laki']])
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors();
@@ -551,7 +551,7 @@ test('server surat yang mati tidak membatalkan pendaftaran', function () {
         ->set('nama', 'Siti Aminah')
         ->set('whatsapp', '081298765432')
         ->set('jumlahPeserta', 1)
-        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja']])
+        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'jenis_kelamin' => 'Perempuan']])
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors();

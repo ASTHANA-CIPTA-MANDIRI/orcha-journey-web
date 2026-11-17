@@ -27,6 +27,7 @@ class PendaftaranOpenTrip extends Model
         'biaya_tetap',
         'harga_jual',
         'harga_modal',
+        'total_tagihan',
         'potongan_promo',
         'daftar_peserta',
         'riwayat_penggantian',
@@ -54,6 +55,7 @@ class PendaftaranOpenTrip extends Model
         'harga_jual' => 'integer',
         'potongan_promo' => 'integer',
         'harga_modal' => 'integer',
+        'total_tagihan' => 'integer',
         'daftar_peserta' => 'array',
         'riwayat_penggantian' => 'array',
         'surat_penggantian_pada' => 'datetime',
@@ -84,6 +86,37 @@ class PendaftaranOpenTrip extends Model
      */
     protected static function booted(): void
     {
+        /*
+         | total_tagihan DITULISKAN ULANG sesudah tiap penyimpanan.
+         |
+         | Ia salinan omzet, bukan angka yang berdiri sendiri — aturannya tetap
+         | hidup di satu tempat (getOmzetAttribute), dan kolom ini hanya
+         | membuatnya bisa DIURUT di basis data. Disalin di sini, bukan di
+         | pemanggil, supaya tidak ada jalan masuk yang bisa lupa: jumlah
+         | peserta yang diubah admin, potongan rujukan yang baru terpakai, dan
+         | harga yang dibekukan saat pendaftaran dibuat semuanya lewat sini.
+         |
+         | saved, BUKAN saving. Urutan kait Eloquent adalah saving → creating →
+         | tulis; harga jual dan potongan promo baru dibekukan di creating di
+         | bawah, jadi di saving angkanya dihitung dari medan yang masih kosong
+         | dan tiap baris baru lahir dengan tagihan nol. Tidak ada galat —
+         | hanya kolom yang salah, pada baris yang paling baru.
+         |
+         | saveQuietly: ia tidak membangkitkan kait apa pun, jadi tidak ada
+         | jalan memanggil dirinya sendiri. Penjaga di depannya membuat
+         | penyimpanan kedua hanya terjadi saat angkanya memang berubah.
+         */
+        static::saved(function (self $pendaftaran) {
+            $segar = $pendaftaran->omzet;
+
+            if ((int) $pendaftaran->total_tagihan === $segar) {
+                return;
+            }
+
+            $pendaftaran->total_tagihan = $segar;
+            $pendaftaran->saveQuietly();
+        });
+
         static::creating(function (self $pendaftaran) {
             if (blank($pendaftaran->kode)) {
                 do {

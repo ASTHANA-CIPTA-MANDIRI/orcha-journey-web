@@ -175,7 +175,7 @@ test('pendaftaran melebihi sisa kursi ditolak di server', function () {
         ->set('jumlahPeserta', 3)
         ->set('nama', 'Budi Santoso')
         ->set('whatsapp', '081234567890')
-        ->set('peserta', [['nama' => 'Budi Santoso'], ['nama' => 'Siti Aminah'], ['nama' => 'Joko Susilo']])
+        ->set('peserta', [['nama' => 'Budi Santoso', 'jenis_kelamin' => 'Laki-laki'], ['nama' => 'Siti Aminah', 'jenis_kelamin' => 'Perempuan'], ['nama' => 'Joko Susilo', 'jenis_kelamin' => 'Laki-laki']])
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasErrors('jumlahPeserta');
@@ -186,7 +186,7 @@ test('pendaftaran melebihi sisa kursi ditolak di server', function () {
         ->set('jumlahPeserta', 3)
         ->set('nama', 'Budi Santoso')
         ->set('whatsapp', '081234567890')
-        ->set('peserta', [['nama' => 'Budi Santoso'], ['nama' => 'Siti Aminah'], ['nama' => 'Joko Susilo']])
+        ->set('peserta', [['nama' => 'Budi Santoso', 'jenis_kelamin' => 'Perempuan'], ['nama' => 'Siti Aminah', 'jenis_kelamin' => 'Laki-laki'], ['nama' => 'Joko Susilo', 'jenis_kelamin' => 'Perempuan']])
         ->set('setuju', true)
         ->call('daftar')
         ->errors()->get('jumlahPeserta')[0];
@@ -199,7 +199,7 @@ test('pendaftaran melebihi sisa kursi ditolak di server', function () {
         ->set('jumlahPeserta', 2)
         ->set('nama', 'Budi Santoso')
         ->set('whatsapp', '081234567890')
-        ->set('peserta', [['nama' => 'Budi Santoso'], ['nama' => 'Siti Aminah']])
+        ->set('peserta', [['nama' => 'Budi Santoso', 'jenis_kelamin' => 'Laki-laki'], ['nama' => 'Siti Aminah', 'jenis_kelamin' => 'Perempuan']])
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors('jumlahPeserta');
@@ -309,7 +309,10 @@ test('paket tanpa kuota tidak ikut dikunci', function () {
         ->set('jumlahPeserta', 40)
         ->set('nama', 'Budi Santoso')
         ->set('whatsapp', '081234567890')
-        ->set('peserta', collect(range(1, 40))->map(fn ($i) => ['nama' => "Peserta $i"])->all())
+        ->set('peserta', collect(range(1, 40))->map(fn ($i) => [
+            'nama' => "Peserta $i",
+            'jenis_kelamin' => $i % 2 ? 'Laki-laki' : 'Perempuan',
+        ])->all())
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors();

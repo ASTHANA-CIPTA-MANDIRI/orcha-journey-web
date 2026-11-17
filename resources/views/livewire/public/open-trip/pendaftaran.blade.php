@@ -50,7 +50,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
      * Nama tiap peserta. Peserta pertama adalah pemesan itu sendiri, jadi
      * namanya ikut terisi otomatis — pemesan tidak perlu mengetik dua kali.
      */
-    public array $peserta = [['nama' => '', 'titik_jemput' => '']];
+    public array $peserta = [['nama' => '', 'titik_jemput' => '', 'jenis_kelamin' => '']];
 
     public string $catatan = '';
 
@@ -230,6 +230,22 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             // Titik jemput hanya ditanya bila paketnya memang menawarkan
             // lebih dari satu; nilainya wajib salah satu dari yang ditawarkan.
             'peserta.*.titik_jemput' => $this->aturanTitikJemput(),
+            /*
+             | Jenis kelamin WAJIB, dan ditanyakan di sini — bukan nanti.
+             |
+             | Pembagian kamar seluruhnya bergantung medan ini, dan ia tidak
+             | pernah ditebak dari nama: "Sri", "Nur", dan "Adi" dipakai
+             | keduanya, dan tebakan yang salah berarti satu orang tidur di
+             | kamar yang salah. Sebelum medan ini ada, satu-satunya sumbernya
+             | borang riwayat kesehatan — yang diisi belakangan dan tidak
+             | selalu diisi semua orang, sehingga admin mengetiknya sendiri
+             | satu per satu untuk rombongan enam puluh orang.
+             |
+             | Ejaannya sama persis dengan borang riwayat kesehatan dan dengan
+             | yang diterima API; dua ejaan untuk hal yang sama membuat
+             | separuh rombongan terbaca "belum diisi".
+             */
+            'peserta.*.jenis_kelamin' => 'required|in:Laki-laki,Perempuan',
             'catatan' => 'nullable|string|max:1000',
             /*
              | Kode yang salah ketik DITEGUR di sini, bukan dibuang diam-diam
@@ -261,6 +277,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             'kodeRujukan' => 'kode rujukan',
             'peserta.*.nama' => 'nama peserta',
             'peserta.*.titik_jemput' => 'titik jemput peserta',
+            'peserta.*.jenis_kelamin' => 'jenis kelamin peserta',
             'setuju' => 'persetujuan syarat & ketentuan',
         ];
     }
@@ -349,6 +366,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
             $peserta[] = [
                 'nama' => is_array($lama) ? ($lama['nama'] ?? '') : (string) $lama,
                 'titik_jemput' => (is_array($lama) ? ($lama['titik_jemput'] ?? '') : '') ?: $bawaan,
+                'jenis_kelamin' => is_array($lama) ? ($lama['jenis_kelamin'] ?? '') : '',
             ];
         }
 
@@ -418,6 +436,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                 'daftar_peserta' => collect($this->peserta)->map(fn ($satu) => [
                     'nama' => trim($satu['nama']),
                     'titik_jemput' => trim($satu['titik_jemput'] ?? ''),
+                    'jenis_kelamin' => trim($satu['jenis_kelamin'] ?? ''),
                 ])->all(),
                 // Tanggal yang BENAR-BENAR dipilih, bukan tanggal paket:
                 // paket kini boleh punya beberapa, dan yang dibaca surat,
@@ -1041,7 +1060,8 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                 </label>
                                 <p class="mb-3 text-sm text-slate-500">
                                     Tulis nama tiap orang sesuai kartu identitas. Peserta pertama adalah
-                                    Anda sebagai pemesan.
+                                    Anda sebagai pemesan. Jenis kelamin kami perlukan untuk membagi kamar —
+                                    laki-laki dengan laki-laki, perempuan dengan perempuan.
                                 </p>
 
                                 <div class="space-y-3">
@@ -1052,13 +1072,34 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                                 {{ $urutan + 1 }}
                                             </span>
 
-                                            <div class="flex-1 grid gap-2 {{ count($titikJemputPilihan) > 1 ? 'sm:grid-cols-2' : '' }}">
-                                                <div>
+                                            <div class="flex-1 grid gap-2 sm:grid-cols-{{ count($titikJemputPilihan) > 1 ? '3' : '2' }}">
+                                                <div class="{{ count($titikJemputPilihan) > 1 ? '' : 'sm:col-span-1' }}">
                                                     <input type="text" maxlength="120" required
                                                         wire:model="peserta.{{ $urutan }}.nama"
                                                         placeholder="{{ $urutan === 0 ? 'Nama Anda (pemesan)' : 'Nama peserta ke-' . ($urutan + 1) }}"
                                                         class="isian-orcha @error('peserta.' . $urutan . '.nama') isian-galat @enderror">
                                                     @error('peserta.' . $urutan . '.nama')
+                                                        <p class="galat-orcha">{{ $message }}</p>
+                                                    @enderror
+                                                </div>
+
+                                                {{-- Jenis kelamin ditanya DI SINI, bukan di formulir
+                                                     kesehatan yang diisi belakangan.
+
+                                                     Kamar hotel dibagi laki-laki dengan laki-laki dan
+                                                     perempuan dengan perempuan, dan pembagian itu
+                                                     dikerjakan jauh sebelum formulir kesehatan masuk.
+                                                     Tanpa medan ini, admin mengetiknya sendiri untuk
+                                                     seluruh rombongan — enam puluh kali untuk satu
+                                                     study tour. --}}
+                                                <div>
+                                                    <select required wire:model="peserta.{{ $urutan }}.jenis_kelamin"
+                                                        class="isian-orcha @error('peserta.' . $urutan . '.jenis_kelamin') isian-galat @enderror">
+                                                        <option value="">— L / P —</option>
+                                                        <option value="Laki-laki">Laki-laki</option>
+                                                        <option value="Perempuan">Perempuan</option>
+                                                    </select>
+                                                    @error('peserta.' . $urutan . '.jenis_kelamin')
                                                         <p class="galat-orcha">{{ $message }}</p>
                                                     @enderror
                                                 </div>

@@ -65,8 +65,8 @@ test('formulir pendaftaran memakai tanggal dan titik jemput dari paket', functio
         ->set('whatsapp', '081234567890')
         ->set('jumlahPeserta', 2)
         ->set('peserta', [
-            ['nama' => 'Peserta Uji', 'titik_jemput' => 'Jogja'],
-            ['nama' => 'Peserta Kedua', 'titik_jemput' => 'Surakarta'],
+            ['nama' => 'Peserta Uji', 'titik_jemput' => 'Jogja', 'jenis_kelamin' => 'Laki-laki'],
+            ['nama' => 'Peserta Kedua', 'titik_jemput' => 'Surakarta', 'jenis_kelamin' => 'Perempuan'],
         ])
         ->set('setuju', true)
         ->call('daftar')

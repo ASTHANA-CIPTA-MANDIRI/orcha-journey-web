@@ -56,6 +56,15 @@ class Keberangkatan extends Model
          */
         'kendaraan' => 'array',
         'kamar' => 'array',
+        /*
+         | Potret pembagian sebelum tiap perubahan.
+         |
+         | SENGAJA tidak ada di $fillable. Ia catatan yang dibuat sistem, bukan
+         | isian; medan yang bisa diisi dari permintaan API berarti pemanggil
+         | bisa menulis ulang riwayatnya sendiri — dan riwayat yang bisa
+         | disunting tidak berguna sebagai jalan pulang.
+         */
+        'pembagian_riwayat' => 'array',
     ];
 
     protected $attributes = ['aktif' => true];

@@ -44,6 +44,23 @@ class PendaftaranController extends ApiController
         'uang_masuk_besar' => ['pembayaran_diterima', 'desc'],
     ];
 
+    /**
+     * Urutan sisa tagihan, yang tidak bisa dinyatakan sebagai satu kolom.
+     *
+     * Sisa = total_tagihan − uang yang sudah DITERIMA. Kolom pertama adalah
+     * salinan omzet yang dihitung PHP lalu dituliskan oleh kait saved pada
+     * modelnya; yang kedua dijumlahkan di sini lewat subkueri. Aturannya tetap
+     * hidup di satu tempat — yang ada di SQL cuma pengurangannya.
+     *
+     * Hanya yang berstatus diterima yang dijumlahkan, sama seperti
+     * TagihanPesanan: bukti yang belum dicek belum uang, dan menghitungnya
+     * membuat orang yang baru mengunggah gambar tampak sudah melunasi.
+     */
+    private const URUT_SISA = [
+        'sisa_besar' => 'desc',
+        'sisa_kecil' => 'asc',
+    ];
+
     public function index(Request $request): JsonResponse
     {
         $daftar = PendaftaranOpenTrip::query()
@@ -116,6 +133,35 @@ class PendaftaranController extends ApiController
              | atau lambat berbeda jawabannya — dan yang berbeda di sini adalah
              | angka uang.
              */
+            /*
+             | Sisa tagihan: total_tagihan − uang diterima.
+             |
+             | Pendaftaran yang total_tagihan-nya masih null (data lama sebelum
+             | kolomnya ada, atau yang belum disentuh perintah
+             | pendaftaran:hitung-tagihan) didorong ke BELAKANG, bukan dibaca
+             | sebagai nol — "belum pernah dihitung" dan "tidak punya tagihan"
+             | adalah dua keadaan yang berbeda, dan yang pertama menumpuk di
+             | puncak daftar akan terbaca seperti rombongan yang sudah lunas
+             | semua.
+             */
+            ->when(
+                array_key_exists($request->string('urut')->toString(), self::URUT_SISA),
+                function ($q) use ($request) {
+                    $arah = self::URUT_SISA[$request->string('urut')->toString()];
+
+                    return $q
+                        ->orderByRaw('total_tagihan IS NULL')
+                        ->orderByRaw(
+                            '(COALESCE(total_tagihan, 0) - ('
+                            .'select COALESCE(SUM(nominal), 0) from tbl_konfirmasi_pembayaran '
+                            ."where tbl_konfirmasi_pembayaran.kode = tbl_pendaftaran_open_trip.kode "
+                            .'and tbl_konfirmasi_pembayaran.status = ?'
+                            .')) '.($arah === 'desc' ? 'desc' : 'asc'),
+                            ['diterima'],
+                        );
+                },
+            )
+
             ->when(
                 array_key_exists($request->string('urut')->toString(), self::URUT),
                 function ($q) use ($request) {
@@ -1377,6 +1423,200 @@ class PendaftaranController extends ApiController
                 .($jumlahKesehatan > 0
                     ? ' '.$jumlahKesehatan.' data riwayat kesehatan ikut terhapus.'
                     : ''),
+        ]);
+    }
+
+    /**
+     * Menggabungkan dua pendaftaran yang sebenarnya satu rombongan.
+     *
+     * Terjadi setiap kali pemesan mengisi borang dua kali — sekali untuk
+     * dirinya, sekali untuk sisa keluarganya — atau saat admin terlanjur
+     * mendaftarkan rombongan yang sama dari WhatsApp. Sebelum ini keduanya
+     * tetap berdiri sendiri: dua kode pemesanan, dua kwitansi, dua kursi yang
+     * terhitung di kuota, dan dua tagihan yang harus ditagih terpisah ke orang
+     * yang sama.
+     *
+     * Menghapus salah satunya BUKAN jalan keluarnya begitu uangnya sudah
+     * masuk — dan di situlah masalahnya, karena biasanya memang sudah.
+     *
+     * Yang dipindahkan: pembayaran, riwayat kesehatan, nama peserta, jumlah
+     * peserta, dan pendamping gratis. Yang TIDAK dipindahkan: kode pemesanan.
+     * Kwitansi yang sudah dipegang pemesan menyebut kode asalnya, dan kode itu
+     * harus tetap bisa ditemukan — karena itu penggabungannya dicatat di
+     * catatan internal tujuan beserta kode yang hilang.
+     */
+    public function gabungkan(PendaftaranOpenTrip $pendaftaran, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ke' => 'required|integer|exists:tbl_pendaftaran_open_trip,id',
+        ], [], ['ke' => 'pendaftaran tujuan']);
+
+        $tujuan = PendaftaranOpenTrip::find($data['ke']);
+
+        if (! $tujuan || $tujuan->id === $pendaftaran->id) {
+            return response()->json([
+                'pesan' => 'Pilih pendaftaran lain sebagai tujuannya.',
+            ], 422);
+        }
+
+        if ((int) $tujuan->travel_package_id !== (int) $pendaftaran->travel_package_id) {
+            return response()->json([
+                'pesan' => 'Keduanya bukan paket yang sama. Harga dan isi perjalanannya berbeda, '
+                    .'jadi tagihannya tidak bisa dijadikan satu.',
+            ], 422);
+        }
+
+        if ((int) $tujuan->keberangkatan_id !== (int) $pendaftaran->keberangkatan_id) {
+            return response()->json([
+                'pesan' => 'Keduanya bukan rombongan yang sama. Pindahkan dulu salah satunya '
+                    .'ke tanggal yang sama, baru digabungkan.',
+            ], 422);
+        }
+
+        /*
+         | Rencana angsuran pada SUMBER menghalangi penggabungan.
+         |
+         | Termin yang sudah disepakati dihitung dari total tagihan yang
+         | lama; menempelkannya ke tagihan gabungan menghasilkan jadwal yang
+         | tidak pernah disetujui siapa pun, dan pelanggan menerima tagihan
+         | dengan angka yang tidak ia kenali. Dibatalkan dulu, lalu disusun
+         | ulang setelah digabung.
+         */
+        if (Angsuran::where('kode', $pendaftaran->kode)->whereNull('dibatalkan_pada')->exists()) {
+            return response()->json([
+                'pesan' => 'Pendaftaran ini punya rencana angsuran yang masih berjalan. '
+                    .'Batalkan dulu rencananya, gabungkan, lalu susun ulang terminnya.',
+            ], 422);
+        }
+
+        if (Pembatalan::where('kode_pendaftaran', $pendaftaran->kode)->exists()) {
+            return response()->json([
+                'pesan' => 'Pendaftaran ini punya pengajuan pembatalan. Selesaikan dulu '
+                    .'pembatalannya — jejaknya harus tetap terbaca.',
+            ], 422);
+        }
+
+        $kodeAsal = $pendaftaran->kode;
+        $uangPindah = 0;
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($pendaftaran, $tujuan, $kodeAsal, &$uangPindah, $request) {
+            $uangPindah = (int) KonfirmasiPembayaran::where('kode', $kodeAsal)->sum('nominal');
+
+            // Pembayaran dan riwayat kesehatan dikaitkan lewat KODE, bukan
+            // kunci asing — jadi memindahkannya berarti menulis ulang kodenya.
+            KonfirmasiPembayaran::where('kode', $kodeAsal)->update(['kode' => $tujuan->kode]);
+
+            $pendaftaran->riwayatKesehatan()->update(['kode_pendaftaran' => $tujuan->kode]);
+
+            /*
+             | Nama peserta digabung, yang kembar dibuang.
+             |
+             | Pemesan yang mengisi dua kali hampir selalu menuliskan dirinya
+             | sendiri di kedua borang. Tanpa pembuangan ini, rombongan
+             | gabungan berisi satu orang dua kali — dan jumlah pesertanya,
+             | yang dijumlahkan di bawah, sudah terlanjur menghitungnya dua
+             | kali juga.
+             */
+            $gabungan = collect($tujuan->peserta)
+                ->concat($pendaftaran->peserta)
+                ->unique(fn ($satu) => mb_strtolower(trim((string) $satu['nama'])))
+                ->values()
+                ->all();
+
+            $catatan = trim((string) $tujuan->catatan_internal)."\n"
+                .'Digabung dari pendaftaran '.$kodeAsal.' ('.$pendaftaran->nama.') pada '
+                .now()->locale('id')->translatedFormat('d F Y, H:i').' WIB'
+                .($uangPindah > 0 ? ', beserta pembayaran Rp '.number_format($uangPindah, 0, ',', '.') : '')
+                .'.';
+
+            $tujuan->update([
+                'daftar_peserta' => $gabungan ?: null,
+                /*
+                 | Jumlah peserta dijumlahkan, lalu DIBATASI jumlah nama yang
+                 | tersisa sesudah yang kembar dibuang.
+                 |
+                 | Angka inilah yang mengalikan harga jadi tagihan. Menjumlah
+                 | begitu saja menagih pemesan untuk dirinya sendiri dua kali.
+                 */
+                'jumlah_peserta' => min(
+                    (int) $tujuan->jumlah_peserta + (int) $pendaftaran->jumlah_peserta,
+                    max(count($gabungan), (int) $tujuan->jumlah_peserta),
+                ),
+                'pendamping_gratis' => (int) $tujuan->pendamping_gratis + (int) $pendaftaran->pendamping_gratis,
+                'catatan_internal' => trim($catatan),
+            ]);
+
+            Angsuran::where('kode', $kodeAsal)->delete();
+            $pendaftaran->delete();
+        });
+
+        $this->catat($request, 'gabungkan pendaftaran', [
+            'kode' => $tujuan->kode,
+            'dari' => $kodeAsal,
+            'ke' => $tujuan->kode,
+            'pembayaran_dipindahkan' => $uangPindah,
+        ]);
+
+        return response()->json([
+            'data' => (new PendaftaranResource(
+                $tujuan->fresh()->load('keberangkatan')->loadCount('riwayatKesehatan')
+            ))->resolve(),
+            'pesan' => 'Pendaftaran '.$kodeAsal.' digabungkan ke '.$tujuan->kode.'.'
+                .($uangPindah > 0
+                    ? ' Pembayaran Rp '.number_format($uangPindah, 0, ',', '.').' ikut dipindahkan.'
+                    : ''),
+        ]);
+    }
+
+    /**
+     * Mengubah keadaan beberapa pendaftaran sekaligus.
+     *
+     * Mengabari dua puluh pendaftar lalu menandai semuanya "sudah dihubungi"
+     * sebelumnya berarti membuka dua puluh halaman. Yang dikerjakan di sini
+     * cuma penandaan itu — bukan pembatalan massal.
+     *
+     * "batal" SENGAJA tidak boleh lewat sini. Membatalkan melepas kursi dan
+     * mengabari daftar tunggu; dua puluh pembatalan sekaligus yang dipicu satu
+     * salah klik tidak bisa dibatalkan, dan tidak ada layar yang bisa
+     * menjelaskan apa yang baru saja terjadi.
+     */
+    public function statusMassal(Request $request): JsonResponse
+    {
+        $dibolehkan = collect(array_keys(config('orcha.status_pendaftaran', [])))
+            ->reject(fn ($satu) => $satu === 'batal')
+            ->values();
+
+        $data = $request->validate([
+            'id' => 'required|array|min:1|max:200',
+            'id.*' => 'integer',
+            'status' => 'required|in:'.$dibolehkan->implode(','),
+        ], [
+            'status.in' => 'Keadaan itu tidak bisa diberikan ke banyak pendaftaran sekaligus. '
+                .'Pembatalan melepas kursi dan mengabari daftar tunggu, jadi harus satu per satu.',
+        ], ['id' => 'daftar pendaftaran']);
+
+        $baris = PendaftaranOpenTrip::whereIn('id', $data['id'])->get();
+
+        // Yang sudah batal TIDAK ikut diubah: menghidupkannya kembali lewat
+        // tindakan massal berarti kursinya diambil lagi tanpa ada yang
+        // memeriksa apakah kuotanya masih ada.
+        $bisa = $baris->reject(fn ($satu) => $satu->status === 'batal');
+
+        foreach ($bisa as $satu) {
+            $satu->update(['status' => $data['status']]);
+        }
+
+        $this->catat($request, 'ubah keadaan beberapa pendaftaran', [
+            'ke' => $data['status'],
+            'jumlah' => $bisa->count(),
+            'kode' => $bisa->pluck('kode')->implode(', '),
+        ]);
+
+        $dilewati = $baris->count() - $bisa->count();
+
+        return response()->json([
+            'pesan' => $bisa->count().' pendaftaran diperbarui.'
+                .($dilewati > 0 ? ' '.$dilewati.' yang sudah batal dilewati.' : ''),
         ]);
     }
 }

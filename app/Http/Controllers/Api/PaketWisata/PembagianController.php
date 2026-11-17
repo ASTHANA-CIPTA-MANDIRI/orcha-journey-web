@@ -7,6 +7,7 @@ use App\Models\OpenTrip\RiwayatKesehatan;
 use App\Models\PaketWisata\Keberangkatan;
 use App\Support\PembagianKelompok;
 use App\Support\TataKursi;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -56,7 +57,136 @@ class PembagianController extends ApiController
                 'peserta' => $peserta,
                 'ringkasan' => $this->ringkasan($peserta, $keberangkatan),
                 'peringatan' => PembagianKelompok::periksa($peserta),
+                'riwayat' => $this->riwayatRingkas($keberangkatan),
             ],
+        ]);
+    }
+
+    /**
+     * Potret pembagian SEBELUM diubah, supaya bisa dikembalikan.
+     *
+     * Satu tekanan "bagi otomatis" dengan centang timpa menghapus satu jam
+     * penyusunan tangan — dan hasilnya tetap berupa pembagian yang rapi,
+     * sehingga tidak ada yang menyadarinya sampai ada yang protes di hari
+     * keberangkatan.
+     *
+     * Disimpan sepuluh terakhir saja. Yang dibutuhkan admin adalah membatalkan
+     * kesalahan yang baru saja ia buat, bukan arsip; dan JSON yang tumbuh tanpa
+     * batas pada rombongan yang dibagi ulang puluhan kali akan ikut terbawa
+     * setiap kali keberangkatannya dibaca.
+     */
+    private function simpanPotret(Keberangkatan $keberangkatan, string $sebab, Request $request): void
+    {
+        $potret = collect($this->pesertaRombongan($keberangkatan))
+            ->map(fn ($satu) => [
+                'kunci' => $satu['kunci'],
+                'nama' => $satu['nama'],
+                'bus' => $satu['bus'],
+                'kursi' => $satu['kursi'],
+                'kamar' => $satu['kamar'],
+                'jenis_kelamin' => $satu['jenis_kelamin'],
+            ])
+            ->values()
+            ->all();
+
+        $riwayat = collect($keberangkatan->pembagian_riwayat ?? [])
+            ->prepend([
+                'pada' => now()->toIso8601String(),
+                'oleh' => $request->attributes->get('admin_pemanggil'),
+                'sebab' => $sebab,
+                'peserta' => $potret,
+            ])
+            ->take(10)
+            ->values()
+            ->all();
+
+        // saveQuietly: potret bukan perubahan yang dilakukan admin, jadi ia
+        // tidak boleh muncul sebagai baris jejak audit tersendiri.
+        $keberangkatan->pembagian_riwayat = $riwayat;
+        $keberangkatan->saveQuietly();
+    }
+
+    /**
+     * Daftar potret tanpa isinya — cukup untuk digambar jadi pilihan.
+     *
+     * Isi tiap potret bisa berisi ratusan baris; mengirimkannya seluruhnya
+     * membuat satu pembukaan halaman membawa sepuluh salinan rombongan yang
+     * sama, dan sembilan di antaranya tidak pernah dilihat siapa pun.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function riwayatRingkas(Keberangkatan $keberangkatan): array
+    {
+        return collect($keberangkatan->pembagian_riwayat ?? [])
+            ->map(fn ($satu, $urutan) => [
+                'urutan' => $urutan,
+                'pada' => $satu['pada'] ?? null,
+                'oleh' => $satu['oleh'] ?? null,
+                'sebab' => $satu['sebab'] ?? 'perubahan',
+                'jumlah_peserta' => count($satu['peserta'] ?? []),
+                'sudah_kursi' => collect($satu['peserta'] ?? [])->filter(fn ($p) => filled($p['kursi'] ?? null))->count(),
+                'sudah_kamar' => collect($satu['peserta'] ?? [])->filter(fn ($p) => filled($p['kamar'] ?? null))->count(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Mengembalikan pembagian ke salah satu potret.
+     *
+     * Peserta yang sudah tidak ada lagi di rombongan (pendaftarannya dibatalkan
+     * atau digabungkan sesudah potret dibuat) dilewati, bukan dihidupkan
+     * kembali — potret adalah catatan penempatan, bukan catatan siapa yang
+     * ikut.
+     */
+    public function kembalikan(Keberangkatan $keberangkatan, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'urutan' => 'required|integer|min:0',
+        ], [], ['urutan' => 'potret']);
+
+        $riwayat = $keberangkatan->pembagian_riwayat ?? [];
+        $potret = $riwayat[$data['urutan']] ?? null;
+
+        if (! $potret) {
+            return response()->json(['pesan' => 'Potret itu sudah tidak ada.'], 422);
+        }
+
+        // Keadaan SEKARANG ikut dipotret dulu, supaya pengembalian yang salah
+        // juga bisa dibatalkan.
+        $this->simpanPotret($keberangkatan, 'sebelum dikembalikan', $request);
+
+        $penempatan = collect($potret['peserta'] ?? [])
+            ->mapWithKeys(fn ($satu) => [(string) $satu['kunci'] => [
+                'bus' => $satu['bus'] ?? null,
+                'kursi' => $satu['kursi'] ?? null,
+                'kamar' => $satu['kamar'] ?? null,
+                'jenis_kelamin' => $satu['jenis_kelamin'] ?? null,
+            ]])
+            ->all();
+
+        $tersentuh = $this->tulisPenempatan($keberangkatan, $penempatan);
+
+        $this->catat($request, 'kembalikan pembagian kursi & kamar', [
+            'kode' => $keberangkatan->rentang_tanggal,
+            'potret_pada' => $potret['pada'] ?? null,
+            'baris_tersentuh' => $tersentuh,
+        ]);
+
+        $segar = $keberangkatan->fresh();
+        $peserta = $this->pesertaRombongan($segar);
+
+        return response()->json([
+            'data' => [
+                'peserta' => $peserta,
+                'ringkasan' => $this->ringkasan($peserta, $segar),
+                'peringatan' => PembagianKelompok::periksa($peserta),
+                'riwayat' => $this->riwayatRingkas($segar),
+            ],
+            'pesan' => 'Pembagian dikembalikan ke potret '
+                .(isset($potret['pada'])
+                    ? Carbon::parse($potret['pada'])->locale('id')->translatedFormat('d M, H:i')
+                    : 'sebelumnya').'.',
         ]);
     }
 
@@ -179,6 +309,8 @@ class PembagianController extends ApiController
             ->keyBy(fn ($satu) => (string) $satu['kunci'])
             ->all();
 
+        $this->simpanPotret($keberangkatan, 'diatur tangan', $request);
+
         $jumlah = $this->tulisPenempatan($keberangkatan, $penempatan);
 
         $this->catat($request, 'ubah pembagian kursi & kamar', [
@@ -193,6 +325,7 @@ class PembagianController extends ApiController
                 'peserta' => $peserta,
                 'ringkasan' => $this->ringkasan($peserta, $keberangkatan),
                 'peringatan' => PembagianKelompok::periksa($peserta),
+                'riwayat' => $this->riwayatRingkas($keberangkatan->fresh()),
             ],
             'pesan' => 'Pembagian tersimpan.',
         ]);
@@ -215,6 +348,12 @@ class PembagianController extends ApiController
         ], [], ['apa' => 'yang dibagi']);
 
         $timpa = (bool) ($data['timpa'] ?? false);
+
+        // Potret diambil SEBELUM apa pun berubah — terutama di sini, karena
+        // inilah satu-satunya tombol yang bisa menimpa seluruh rombongan
+        // sekaligus.
+        $this->simpanPotret($keberangkatan, $timpa ? 'bagi otomatis (menimpa)' : 'bagi otomatis', $request);
+
         $semua = $this->pesertaRombongan($keberangkatan);
 
         $penempatan = [];
@@ -312,6 +451,7 @@ class PembagianController extends ApiController
                 'peringatan' => PembagianKelompok::periksa($peserta),
                 'sisa' => $sisa,
                 'catatan' => array_values(array_unique($catatan)),
+                'riwayat' => $this->riwayatRingkas($keberangkatan->fresh()),
             ],
             'pesan' => $pesan,
         ]);

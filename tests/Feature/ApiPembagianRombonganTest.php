@@ -5,11 +5,13 @@
  * membetulkan serta memindahkan pendaftaran.
  */
 
+use App\Models\OpenTrip\Angsuran;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\OpenTrip\RiwayatKesehatan;
 use App\Models\PaketWisata\Keberangkatan;
 use App\Models\PaketWisata\TravelPackage;
+use Illuminate\Support\Facades\DB;
 
 function pbgApiKepala(): array
 {
@@ -474,4 +476,309 @@ test('kunci urut yang tidak dikenal diabaikan, bukan menjatuhkan daftar', functi
         ->getJson('/api/v1/pendaftaran?urut=nama);DROP+TABLE')
         ->assertOk()
         ->assertJsonCount(1, 'data');
+});
+
+test('total tagihan tersimpan ikut terisi tiap pendaftaran disimpan', function () {
+    /*
+     | Kolomnya salinan omzet, supaya daftar bisa diurut menurut sisa tagihan
+     | tanpa menulis ulang hitungannya sebagai SQL. Diisi kait saved pada
+     | modelnya — bukan oleh pemanggilnya, supaya tidak ada jalan masuk yang
+     | bisa lupa.
+     */
+    $paket = pbgApiPaket();
+    $daftar = pbgApiDaftar($paket, pbgApiRombongan($paket), [['nama' => 'Budi'], ['nama' => 'Siti']]);
+
+    expect($daftar->fresh()->total_tagihan)->toBe(2_000_000);
+
+    // Jumlah peserta berubah → tagihannya ikut, tanpa disentuh siapa pun.
+    $daftar->update(['jumlah_peserta' => 3]);
+
+    expect($daftar->fresh()->total_tagihan)->toBe(3_000_000);
+});
+
+test('daftar bisa diurut menurut sisa tagihan', function () {
+    $paket = pbgApiPaket();
+    $rombongan = pbgApiRombongan($paket);
+
+    // Dua orang, tagihan sama; yang satu sudah membayar separuh.
+    $banyak = pbgApiDaftar($paket, $rombongan, [['nama' => 'a'], ['nama' => 'b']], 'Belum Bayar');
+    $sedikit = pbgApiDaftar($paket, $rombongan, [['nama' => 'c'], ['nama' => 'd']], 'Sudah DP');
+    pbgApiBayar($sedikit->kode, 'diterima', 1_500_000);
+
+    $balasan = $this->withHeaders(pbgApiKepala())
+        ->getJson('/api/v1/pendaftaran?urut=sisa_besar')
+        ->assertOk();
+
+    expect(collect($balasan->json('data'))->pluck('nama')->all())
+        ->toBe(['Belum Bayar', 'Sudah DP']);
+
+    $kecil = $this->withHeaders(pbgApiKepala())
+        ->getJson('/api/v1/pendaftaran?urut=sisa_kecil')
+        ->assertOk();
+
+    expect(collect($kecil->json('data'))->pluck('nama')->all())
+        ->toBe(['Sudah DP', 'Belum Bayar']);
+});
+
+test('bukti yang belum dicek tidak mengurangi sisa tagihan', function () {
+    /*
+     | Bukti yang belum dicek belum uang. Kalau ikut dihitung, orang yang baru
+     | mengunggah gambar langsung turun ke dasar daftar tagihan — dan berhenti
+     | ditelepon.
+     */
+    $paket = pbgApiPaket();
+    $rombongan = pbgApiRombongan($paket);
+
+    $menunggu = pbgApiDaftar($paket, $rombongan, [['nama' => 'a'], ['nama' => 'b']], 'Bukti Menunggu');
+    pbgApiBayar($menunggu->kode, 'menunggu', 1_900_000);
+    $polos = pbgApiDaftar($paket, $rombongan, [['nama' => 'c']], 'Tanpa Bukti');
+
+    $balasan = $this->withHeaders(pbgApiKepala())
+        ->getJson('/api/v1/pendaftaran?urut=sisa_besar')
+        ->assertOk();
+
+    // Tagihan 2 jt yang buktinya belum dicek tetap di atas tagihan 1 jt.
+    expect(collect($balasan->json('data'))->pluck('nama')->all())
+        ->toBe(['Bukti Menunggu', 'Tanpa Bukti']);
+});
+
+test('pendaftaran yang belum dihitung tagihannya didorong ke belakang', function () {
+    $paket = pbgApiPaket();
+    $rombongan = pbgApiRombongan($paket);
+
+    $lama = pbgApiDaftar($paket, $rombongan, [['nama' => 'a']], 'Data Lama');
+    // Meniru baris sebelum kolomnya ada: ditulis langsung, tanpa kait model.
+    DB::table('tbl_pendaftaran_open_trip')
+        ->where('id', $lama->id)->update(['total_tagihan' => null]);
+
+    pbgApiDaftar($paket, $rombongan, [['nama' => 'b']], 'Data Baru');
+
+    $balasan = $this->withHeaders(pbgApiKepala())
+        ->getJson('/api/v1/pendaftaran?urut=sisa_besar')
+        ->assertOk();
+
+    expect(collect($balasan->json('data'))->pluck('nama')->last())->toBe('Data Lama');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Gabung pendaftaran ganda
+|--------------------------------------------------------------------------
+*/
+
+test('dua pendaftaran satu rombongan bisa digabungkan beserta pembayarannya', function () {
+    $paket = pbgApiPaket();
+    $rombongan = pbgApiRombongan($paket);
+
+    $tujuan = pbgApiDaftar($paket, $rombongan, [['nama' => 'Budi']], 'Budi Santoso');
+    $sumber = pbgApiDaftar($paket, $rombongan, [['nama' => 'Siti'], ['nama' => 'Rina']], 'Budi Santoso');
+
+    pbgApiBayar($sumber->kode, 'diterima', 750_000);
+    pbgApiKesehatan($sumber->kode, 'Siti', 'Perempuan');
+
+    $this->withHeaders(pbgApiKepala())
+        ->postJson("/api/v1/pendaftaran/{$sumber->id}/gabungkan", ['ke' => $tujuan->id])
+        ->assertOk()
+        ->assertJsonPath('pesan', fn ($p) => str_contains($p, 'Rp 750.000'));
+
+    $segar = $tujuan->fresh();
+
+    expect(PendaftaranOpenTrip::find($sumber->id))->toBeNull();
+    expect(collect($segar->peserta)->pluck('nama')->all())->toBe(['Budi', 'Siti', 'Rina']);
+    expect($segar->jumlah_peserta)->toBe(3);
+    // Uangnya ikut, dan sekarang terbaca di bawah kode tujuan.
+    expect((int) KonfirmasiPembayaran::where('kode', $segar->kode)->sum('nominal'))->toBe(750_000);
+    expect(RiwayatKesehatan::where('kode_pendaftaran', $segar->kode)->count())->toBe(1);
+    // Kode yang hilang dicatat, karena kwitansi yang dipegang pemesan menyebutnya.
+    expect($segar->catatan_internal)->toContain($sumber->kode);
+});
+
+test('nama yang kembar tidak membuat pesertanya dihitung dua kali', function () {
+    /*
+     | Pemesan yang mengisi borang dua kali hampir selalu menuliskan dirinya
+     | sendiri di keduanya. Tanpa pembuangan, rombongan gabungan menagihnya
+     | untuk dirinya sendiri dua kali.
+     */
+    $paket = pbgApiPaket();
+    $rombongan = pbgApiRombongan($paket);
+
+    $tujuan = pbgApiDaftar($paket, $rombongan, [['nama' => 'Budi Santoso']], 'Budi');
+    $sumber = pbgApiDaftar($paket, $rombongan, [['nama' => 'budi santoso'], ['nama' => 'Siti']], 'Budi');
+
+    $this->withHeaders(pbgApiKepala())
+        ->postJson("/api/v1/pendaftaran/{$sumber->id}/gabungkan", ['ke' => $tujuan->id])
+        ->assertOk();
+
+    $segar = $tujuan->fresh();
+
+    expect(collect($segar->peserta)->pluck('nama')->all())->toBe(['Budi Santoso', 'Siti']);
+    expect($segar->jumlah_peserta)->toBe(2);
+});
+
+test('gabung ditolak kalau paket atau rombongannya berbeda', function () {
+    $paket = pbgApiPaket();
+    $satu = pbgApiRombongan($paket);
+    $dua = Keberangkatan::create([
+        'travel_package_id' => $paket->id,
+        'tanggal_berangkat' => now()->addDays(60)->toDateString(),
+        'kuota' => 40, 'aktif' => true,
+    ]);
+
+    $a = pbgApiDaftar($paket, $satu, [['nama' => 'A']]);
+    $b = pbgApiDaftar($paket, $dua, [['nama' => 'B']]);
+
+    $this->withHeaders(pbgApiKepala())
+        ->postJson("/api/v1/pendaftaran/{$a->id}/gabungkan", ['ke' => $b->id])
+        ->assertStatus(422)
+        ->assertJsonPath('pesan', fn ($p) => str_contains($p, 'bukan rombongan yang sama'));
+});
+
+test('gabung ditolak selama sumbernya punya rencana angsuran berjalan', function () {
+    $paket = pbgApiPaket();
+    $rombongan = pbgApiRombongan($paket);
+    $tujuan = pbgApiDaftar($paket, $rombongan, [['nama' => 'A']]);
+    $sumber = pbgApiDaftar($paket, $rombongan, [['nama' => 'B']]);
+
+    Angsuran::create([
+        'kode' => $sumber->kode, 'jumlah_termin' => 3, 'total' => 1_000_000,
+    ]);
+
+    $this->withHeaders(pbgApiKepala())
+        ->postJson("/api/v1/pendaftaran/{$sumber->id}/gabungkan", ['ke' => $tujuan->id])
+        ->assertStatus(422)
+        ->assertJsonPath('pesan', fn ($p) => str_contains($p, 'angsuran'));
+});
+
+/*
+|--------------------------------------------------------------------------
+| Keadaan massal
+|--------------------------------------------------------------------------
+*/
+
+test('keadaan beberapa pendaftaran bisa diubah sekaligus', function () {
+    $paket = pbgApiPaket();
+    $rombongan = pbgApiRombongan($paket);
+    $a = pbgApiDaftar($paket, $rombongan, [['nama' => 'A']]);
+    $b = pbgApiDaftar($paket, $rombongan, [['nama' => 'B']]);
+
+    $this->withHeaders(pbgApiKepala())
+        ->patchJson('/api/v1/pendaftaran/status-massal', [
+            'id' => [$a->id, $b->id],
+            'status' => 'dihubungi',
+        ])
+        ->assertOk();
+
+    expect($a->fresh()->status)->toBe('dihubungi');
+    expect($b->fresh()->status)->toBe('dihubungi');
+});
+
+test('membatalkan banyak sekaligus TIDAK diizinkan', function () {
+    /*
+     | Membatalkan melepas kursi dan mengabari daftar tunggu. Dua puluh
+     | pembatalan yang dipicu satu salah klik tidak bisa dibatalkan, dan tidak
+     | ada layar yang bisa menjelaskan apa yang baru saja terjadi.
+     */
+    $paket = pbgApiPaket();
+    $a = pbgApiDaftar($paket, pbgApiRombongan($paket), [['nama' => 'A']]);
+
+    $this->withHeaders(pbgApiKepala())
+        ->patchJson('/api/v1/pendaftaran/status-massal', ['id' => [$a->id], 'status' => 'batal'])
+        ->assertStatus(422);
+
+    expect($a->fresh()->status)->not->toBe('batal');
+});
+
+test('yang sudah batal dilewati, bukan dihidupkan lagi', function () {
+    $paket = pbgApiPaket();
+    $rombongan = pbgApiRombongan($paket);
+    $hidup = pbgApiDaftar($paket, $rombongan, [['nama' => 'A']]);
+    $batal = pbgApiDaftar($paket, $rombongan, [['nama' => 'B']]);
+    $batal->update(['status' => 'batal']);
+
+    $this->withHeaders(pbgApiKepala())
+        ->patchJson('/api/v1/pendaftaran/status-massal', [
+            'id' => [$hidup->id, $batal->id],
+            'status' => 'dihubungi',
+        ])
+        ->assertOk()
+        ->assertJsonPath('pesan', fn ($p) => str_contains($p, 'dilewati'));
+
+    expect($batal->fresh()->status)->toBe('batal');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Riwayat pembagian
+|--------------------------------------------------------------------------
+*/
+
+test('pembagian bisa dikembalikan ke keadaan sebelum bagi otomatis', function () {
+    /*
+     | Satu tekanan "bagi otomatis" dengan centang timpa menghapus satu jam
+     | penyusunan tangan, dan hasilnya tetap berupa pembagian yang rapi.
+     */
+    $paket = pbgApiPaket();
+    $rombongan = pbgApiRombongan($paket);
+    $rombongan->update(['kamar' => [
+        ['nama' => '201', 'kapasitas' => 2], ['nama' => '202', 'kapasitas' => 2],
+    ]]);
+
+    $daftar = pbgApiDaftar($paket, $rombongan, [
+        ['nama' => 'Pak Dedi', 'jenis_kelamin' => 'Laki-laki', 'kamar' => '202'],
+        ['nama' => 'Bu Dedi', 'jenis_kelamin' => 'Perempuan', 'kamar' => '202'],
+    ]);
+
+    // Dibagi ulang MENIMPA: pasangan itu terpisah.
+    $this->withHeaders(pbgApiKepala())
+        ->postJson("/api/v1/keberangkatan/{$rombongan->id}/pembagian/otomatis",
+            ['apa' => 'kamar', 'timpa' => true])
+        ->assertOk();
+
+    $sesudah = collect($daftar->fresh()->peserta)->keyBy('nama');
+    expect($sesudah['Pak Dedi']['kamar'])->not->toBe($sesudah['Bu Dedi']['kamar']);
+
+    // Dikembalikan ke potret terakhir.
+    $this->withHeaders(pbgApiKepala())
+        ->postJson("/api/v1/keberangkatan/{$rombongan->id}/pembagian/kembalikan", ['urutan' => 0])
+        ->assertOk();
+
+    $pulih = collect($daftar->fresh()->peserta)->keyBy('nama');
+    expect($pulih['Pak Dedi']['kamar'])->toBe('202');
+    expect($pulih['Bu Dedi']['kamar'])->toBe('202');
+});
+
+test('riwayat ikut dikirim dan menyebut sebab tiap potret', function () {
+    $paket = pbgApiPaket();
+    $rombongan = pbgApiRombongan($paket);
+    $daftar = pbgApiDaftar($paket, $rombongan, [['nama' => 'Budi']]);
+
+    $this->withHeaders(pbgApiKepala())
+        ->patchJson("/api/v1/keberangkatan/{$rombongan->id}/pembagian", [
+            'peserta' => [['kunci' => $daftar->id.':0', 'bus' => 'Bus 1', 'kursi' => '3']],
+        ])->assertOk();
+
+    $balasan = $this->withHeaders(pbgApiKepala())
+        ->getJson("/api/v1/keberangkatan/{$rombongan->id}/pembagian")
+        ->assertOk();
+
+    expect($balasan->json('data.riwayat'))->toHaveCount(1);
+    expect($balasan->json('data.riwayat.0.sebab'))->toBe('diatur tangan');
+    // Isinya TIDAK ikut: sepuluh salinan rombongan yang sama tidak pernah
+    // dilihat siapa pun.
+    expect($balasan->json('data.riwayat.0'))->not->toHaveKey('peserta');
+});
+
+test('riwayat hanya menyimpan sepuluh potret terakhir', function () {
+    $paket = pbgApiPaket();
+    $rombongan = pbgApiRombongan($paket);
+    $daftar = pbgApiDaftar($paket, $rombongan, [['nama' => 'Budi']]);
+
+    foreach (range(1, 12) as $n) {
+        $this->withHeaders(pbgApiKepala())
+            ->patchJson("/api/v1/keberangkatan/{$rombongan->id}/pembagian", [
+                'peserta' => [['kunci' => $daftar->id.':0', 'bus' => 'Bus 1', 'kursi' => (string) $n]],
+            ])->assertOk();
+    }
+
+    expect($rombongan->fresh()->pembagian_riwayat)->toHaveCount(10);
 });

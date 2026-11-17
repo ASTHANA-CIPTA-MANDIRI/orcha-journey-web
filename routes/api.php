@@ -81,6 +81,14 @@ Route::prefix('v1')
          | tidak masuk manifes, dan tidak terhitung di laporan keuntungan.
          */
         Route::post('/pendaftaran', [PendaftaranController::class, 'store']);
+
+        /*
+         | Menandai keadaan beberapa pendaftaran sekaligus.
+         |
+         | SEBELUM /{pendaftaran}: tanpa ini "status-massal" terbaca sebagai
+         | nomor pendaftaran, sama seperti "perhatian" di bawah.
+         */
+        Route::patch('/pendaftaran/status-massal', [PendaftaranController::class, 'statusMassal']);
         // Sebelum /{pendaftaran}: tanpa ini "perhatian" terbaca sebagai nomor.
         Route::get('/pendaftaran/perhatian', [PendaftaranController::class, 'perhatian']);
         Route::get('/pendaftaran/{pendaftaran}', [PendaftaranController::class, 'show']);
@@ -106,6 +114,15 @@ Route::prefix('v1')
          | sebagai aplikasi rusak.
          */
         Route::delete('/pendaftaran/{pendaftaran}', [PendaftaranController::class, 'destroy']);
+
+        /*
+         | Menggabungkan dua pendaftaran yang sebenarnya satu rombongan.
+         |
+         | Terjadi tiap kali pemesan mengisi borang dua kali. Menghapus salah
+         | satunya bukan jalan keluar begitu uangnya sudah masuk — dan biasanya
+         | memang sudah.
+         */
+        Route::post('/pendaftaran/{pendaftaran}/gabungkan', [PendaftaranController::class, 'gabungkan']);
         // Melengkapi nama peserta yang belum didata — dari sisi admin, karena
         // pemesan tidak selalu bisa diminta mengisi ulang lewat website.
         Route::patch('/pendaftaran/{pendaftaran}/peserta', [PendaftaranController::class, 'ubahPeserta']);
@@ -430,6 +447,15 @@ Route::prefix('v1')
         Route::get('/keberangkatan/{keberangkatan:id}/pembagian', [PembagianController::class, 'index']);
         Route::patch('/keberangkatan/{keberangkatan:id}/pembagian', [PembagianController::class, 'simpan']);
         Route::post('/keberangkatan/{keberangkatan:id}/pembagian/otomatis', [PembagianController::class, 'otomatis']);
+
+        /*
+         | Mengembalikan pembagian ke potret sebelumnya.
+         |
+         | Satu tekanan "bagi otomatis" dengan centang timpa menghapus satu jam
+         | penyusunan tangan, dan hasilnya tetap terlihat rapi — jadi tanpa
+         | jalan pulang, kesalahannya baru ketahuan di hari keberangkatan.
+         */
+        Route::post('/keberangkatan/{keberangkatan:id}/pembagian/kembalikan', [PembagianController::class, 'kembalikan']);
         Route::patch('/keberangkatan/{keberangkatan:id}/fasilitas', [PembagianController::class, 'fasilitas']);
 
         Route::get('/daftar-tunggu', [DaftarTungguController::class, 'index']);

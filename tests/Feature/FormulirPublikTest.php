@@ -64,9 +64,9 @@ test('pendaftaran open trip menghasilkan kode dan tersimpan', function () {
         ->set('paketId', $paket->uuid)
         ->set('jumlahPeserta', 3)
         ->set('peserta', [
-            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja'],
-            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Klaten'],
-            ['nama' => 'Rina Wijaya', 'titik_jemput' => 'Surakarta'],
+            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'jenis_kelamin' => 'Perempuan'],
+            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Klaten', 'jenis_kelamin' => 'Laki-laki'],
+            ['nama' => 'Rina Wijaya', 'titik_jemput' => 'Surakarta', 'jenis_kelamin' => 'Perempuan'],
         ])
         ->set('setuju', true)
         ->call('daftar')
@@ -284,8 +284,8 @@ test('nama peserta wajib diisi semuanya', function () {
         ->set('paketId', $paket->uuid)
         ->set('jumlahPeserta', 2)
         ->set('peserta', [
-            ['nama' => 'Siti Aminah', 'titik_jemput' => ''],
-            ['nama' => '', 'titik_jemput' => ''],
+            ['nama' => 'Siti Aminah', 'titik_jemput' => '', 'jenis_kelamin' => 'Laki-laki'],
+            ['nama' => '', 'titik_jemput' => '', 'jenis_kelamin' => 'Perempuan'],
         ])
         ->set('setuju', true)
         ->call('daftar')
@@ -338,8 +338,8 @@ test('paket dengan beberapa titik jemput mewajibkan tiap peserta memilih', funct
         ->set('whatsapp', '081298765432')
         ->set('jumlahPeserta', 2)
         ->set('peserta', [
-            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja'],
-            ['nama' => 'Budi Santoso', 'titik_jemput' => ''],
+            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'jenis_kelamin' => 'Laki-laki'],
+            ['nama' => 'Budi Santoso', 'titik_jemput' => '', 'jenis_kelamin' => 'Perempuan'],
         ])
         ->set('setuju', true)
         ->call('daftar')
@@ -361,7 +361,7 @@ test('titik jemput di luar tawaran paket ditolak', function () {
         ->set('whatsapp', '081298765432')
         ->set('jumlahPeserta', 1)
         // Prambanan tidak ditawarkan paket ini
-        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Prambanan']])
+        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Prambanan', 'jenis_kelamin' => 'Laki-laki']])
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasErrors(['peserta.0.titik_jemput']);
@@ -384,7 +384,11 @@ test('paket dengan satu titik jemput mengisinya sendiri', function () {
     expect(collect($komponen->get('peserta'))->pluck('titik_jemput')->all())
         ->toBe(['Jogja', 'Jogja']);
 
-    $komponen->set('peserta.1.nama', 'Budi Santoso')
+    // Jenis kelamin tetap harus diisi: titik jemput yang terisi sendiri tidak
+    // menjawab pertanyaan yang berbeda sama sekali.
+    $komponen->set('peserta.0.jenis_kelamin', 'Perempuan')
+        ->set('peserta.1.nama', 'Budi Santoso')
+        ->set('peserta.1.jenis_kelamin', 'Laki-laki')
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors();
@@ -448,8 +452,8 @@ test('halaman tetap jalan walau menerima peserta bentuk lama', function () {
         ->set('jumlahPeserta', 2);
 
     expect($komponen->get('peserta'))->toBe([
-        ['nama' => 'Siti Aminah', 'titik_jemput' => ''],
-        ['nama' => 'Budi Santoso', 'titik_jemput' => ''],
+        ['nama' => 'Siti Aminah', 'titik_jemput' => '', 'jenis_kelamin' => ''],
+        ['nama' => 'Budi Santoso', 'titik_jemput' => '', 'jenis_kelamin' => ''],
     ]);
 
     $komponen->assertHasNoErrors();
@@ -646,4 +650,56 @@ test('kode pendaftaran punya tombol salin di sampingnya', function () {
         // Kodenya disuntikkan lewat @js, bukan dirangkai tangan di dalam
         // skrip — string yang dirakit manual adalah tempat kutip lolos.
         ->assertSee('salin()', escape: false);
+});
+
+test('jenis kelamin yang diisi pengunjung sampai ke daftar peserta', function () {
+    /*
+     | Inilah gunanya medan itu ditanyakan di borang, bukan di formulir
+     | kesehatan yang diisi belakangan: pembagian kamar dikerjakan jauh sebelum
+     | formulir kesehatan masuk, dan tanpa medan ini admin mengetiknya sendiri
+     | enam puluh kali untuk satu study tour.
+     */
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Bromo', 'category' => 'open_trip', 'price' => 1000000,
+        'status' => 'terbit', 'tanggal_berangkat' => now()->addMonth()->toDateString(),
+        'titik_jemput' => 'Jogja',
+    ]);
+
+    Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $paket->uuid)
+        ->set('nama', 'Siti Aminah')
+        ->set('whatsapp', '081298765432')
+        ->set('jumlahPeserta', 2)
+        ->set('peserta', [
+            ['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja', 'jenis_kelamin' => 'Perempuan'],
+            ['nama' => 'Budi Santoso', 'titik_jemput' => 'Jogja', 'jenis_kelamin' => 'Laki-laki'],
+        ])
+        ->set('setuju', true)
+        ->call('daftar')
+        ->assertHasNoErrors();
+
+    $peserta = collect(PendaftaranOpenTrip::first()->peserta)->keyBy('nama');
+
+    expect($peserta['Siti Aminah']['jenis_kelamin'])->toBe('Perempuan');
+    expect($peserta['Budi Santoso']['jenis_kelamin'])->toBe('Laki-laki');
+});
+
+test('pendaftaran tanpa jenis kelamin ditolak, bukan ditebak', function () {
+    $paket = TravelPackage::create([
+        'name' => 'Open Trip Bromo', 'category' => 'open_trip', 'price' => 1000000,
+        'status' => 'terbit', 'tanggal_berangkat' => now()->addMonth()->toDateString(),
+        'titik_jemput' => 'Jogja',
+    ]);
+
+    Volt::test('public.open-trip.pendaftaran')
+        ->set('paketId', $paket->uuid)
+        ->set('nama', 'Siti Aminah')
+        ->set('whatsapp', '081298765432')
+        ->set('jumlahPeserta', 1)
+        ->set('peserta', [['nama' => 'Siti Aminah', 'titik_jemput' => 'Jogja']])
+        ->set('setuju', true)
+        ->call('daftar')
+        ->assertHasErrors(['peserta.0.jenis_kelamin']);
+
+    expect(PendaftaranOpenTrip::count())->toBe(0);
 });

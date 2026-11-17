@@ -348,7 +348,7 @@ test('kode salah ketik ditegur di layar, bukan dibuang diam-diam', function () {
         ->set('nama', 'Pendaftar Uji')
         ->set('whatsapp', '081200000000')
         ->set('jumlahPeserta', 1)
-        ->set('peserta', [['nama' => 'Pendaftar Uji', 'titik_jemput' => '']])
+        ->set('peserta', [['nama' => 'Pendaftar Uji', 'titik_jemput' => '', 'jenis_kelamin' => 'Laki-laki']])
         ->set('kodeRujukan', 'NGARANG-9999')
         ->set('setuju', true)
         ->call('daftar')
@@ -365,7 +365,7 @@ test('formulir tanpa kode rujukan tetap bisa dikirim', function () {
         ->set('nama', 'Pendaftar Uji')
         ->set('whatsapp', '081200000000')
         ->set('jumlahPeserta', 1)
-        ->set('peserta', [['nama' => 'Pendaftar Uji', 'titik_jemput' => '']])
+        ->set('peserta', [['nama' => 'Pendaftar Uji', 'titik_jemput' => '', 'jenis_kelamin' => 'Perempuan']])
         ->set('setuju', true)
         ->call('daftar')
         ->assertHasNoErrors();
