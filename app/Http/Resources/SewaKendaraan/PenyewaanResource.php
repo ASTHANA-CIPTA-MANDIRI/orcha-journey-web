@@ -113,6 +113,32 @@ class PenyewaanResource extends JsonResource
             'total_denda' => $this->total_denda,
             'total_tagihan' => $this->total_tagihan,
 
+            /*
+             | Sisi biaya. Sampai sekarang layar sewa hanya memuat sisi
+             | pendapatan, jadi pertanyaan "sewa ini untung berapa" tidak bisa
+             | dijawab sistem sama sekali.
+             |
+             | modal dan untung sengaja boleh null, dan lemon HARUS
+             | membedakannya dari nol: modal nol membuat untungnya terbaca
+             | sebesar seluruh harga sewa, dan angka itu akan dipercaya karena
+             | tampil seperti hasil hitungan.
+             */
+            'vendor' => $this->vendor ? [
+                'id' => $this->vendor->id,
+                'nama' => $this->vendor->nama,
+                'kontak' => $this->vendor->kontak,
+                'jenis' => $this->vendor->jenis,
+            ] : null,
+            'vendor_ditentukan' => $this->vendor_ditentukan,
+            // Unit milik sendiri tidak perlu dicarikan vendornya — dan tanpa
+            // penanda ini lemon akan terus menagih admin mengisi vendor untuk
+            // unit yang memang tidak punya vendor.
+            'milik_sendiri' => (bool) ($this->kendaraan?->milik_sendiri ?? false),
+            'modal' => $this->modal,
+            'rincian_modal' => $this->rincian_modal ?? [],
+            'untung' => $this->untung,
+            'margin_persen' => $this->margin_persen,
+
             // Posisi uangnya. Yang dihitung hanya bukti yang SUDAH DITERIMA —
             // status pesanan tidak boleh maju karena klaim.
             'tagihan' => TagihanPesanan::untuk($this->resource, hanyaDiterima: true),

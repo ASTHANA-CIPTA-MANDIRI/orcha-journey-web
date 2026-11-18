@@ -39,6 +39,25 @@ class PenyewaanController extends ApiController
              */
             ->when($request->boolean('telat'), fn ($q) => $q->whereIn('id', $this->idTerlambat()))
 
+            /*
+             | Saringan "belum ada vendor": pesanan yang unitnya belum
+             | dicarikan ke siapa pun.
+             |
+             | Inilah satu-satunya langkah di alur sewa yang sepenuhnya di
+             | luar kendali kita — vendor bisa menjawab tidak ada unit — dan
+             | sampai sekarang ia tidak terekam di mana pun. Yang sudah
+             | selesai dan yang batal tidak ikut: unitnya tidak perlu
+             | dicarikan lagi.
+             |
+             | Unit milik sendiri juga tidak ikut, karena memang tidak punya
+             | vendor. Tanpa pengecualian itu daftar ini akan terus menagih
+             | admin mengisi vendor untuk unit yang tidak akan pernah punya.
+             */
+            ->when($request->boolean('tanpa_vendor'), fn ($q) => $q
+                ->whereNull('vendor_id')
+                ->whereNotIn('status', ['selesai', 'batal'])
+                ->whereHas('kendaraan', fn ($k) => $k->where('milik_sendiri', false)))
+
             ->latest('id')
             ->paginate($this->perHalaman($request));
 
@@ -108,6 +127,14 @@ class PenyewaanController extends ApiController
         }
 
         $hasil['telat'] = count($this->idTerlambat());
+
+        // Sebagai TAB, bukan sekadar saringan tersembunyi: angkanya menjawab
+        // "ada berapa unit yang belum dicarikan" tanpa perlu ditekan dulu.
+        $hasil['tanpa_vendor'] = (int) $dasar()
+            ->whereNull('vendor_id')
+            ->whereNotIn('status', ['selesai', 'batal'])
+            ->whereHas('kendaraan', fn ($k) => $k->where('milik_sendiri', false))
+            ->count();
 
         return $hasil;
     }
@@ -204,6 +231,73 @@ class PenyewaanController extends ApiController
         return response()->json([
             'data' => (new PenyewaanResource($penyewaan->fresh()))->resolve(),
             'pesan' => 'Status pemesanan sewa diperbarui.',
+        ]);
+    }
+
+    /**
+     * Catat vendor pemasok unit dan modal yang dibayarkan kepadanya.
+     *
+     * Dipisah dari ubahStatus() karena dua pertanyaan yang berbeda: pesanan
+     * bisa sudah DP masuk sementara unitnya belum dicarikan, dan menggabungkan
+     * keduanya memaksa admin memajukan status hanya untuk mencatat vendor.
+     *
+     * Modalnya boleh dikosongkan kembali (dikirim null): angka yang salah
+     * ketik harus bisa dihapus, bukan cuma ditimpa angka lain — dan nol bukan
+     * cara menghapus, karena nol berarti "gratis".
+     */
+    public function vendor(PenyewaanKendaraan $penyewaan, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'vendor_id' => 'nullable|integer|exists:tbl_vendor,id',
+            'modal' => 'nullable|numeric|min:0|max:1000000000',
+            'catatan_modal' => 'nullable|string|max:500',
+        ]);
+
+        /*
+         | Dirangkai jadi kalimat pendek, bukan larik bersarang: catat() hanya
+         | menerima skalar pada 'dari' dan 'ke' — larik di situ melempar
+         | "Array to string conversion" dan seluruh permintaannya jadi 500,
+         | padahal datanya sendiri sudah tersimpan benar.
+         */
+        $ringkas = fn (?int $vendorId, ?int $modal) => trim(
+            'vendor '.($vendorId ? '#'.$vendorId : 'kosong')
+            .', modal '.($modal === null ? 'belum dicatat' : number_format($modal, 0, ',', '.'))
+        );
+
+        $sebelum = $ringkas($penyewaan->vendor_id, $penyewaan->modal);
+
+        $modal = array_key_exists('modal', $data) && $data['modal'] !== null && $data['modal'] !== ''
+            ? (int) $data['modal']
+            : null;
+
+        /*
+         | Perincian modal ditulis ulang sebagai SATU baris buatan tangan,
+         | bukan dihitung ulang dari katalog. Angka yang diketik admin di sini
+         | adalah harga yang benar-benar disepakati dengan vendor untuk
+         | pesanan ini — sering berbeda dari daftar harga, dan daftar harga
+         | yang menimpanya akan menghapus kesepakatan itu diam-diam.
+         */
+        $rincian = $modal === null ? null : [[
+            'label' => 'Modal disepakati',
+            'keterangan' => $data['catatan_modal'] ?? 'Dicatat admin',
+            'jumlah' => $modal,
+        ]];
+
+        $penyewaan->update([
+            'vendor_id' => $data['vendor_id'] ?? null,
+            'modal' => $modal,
+            'rincian_modal' => $rincian,
+        ]);
+
+        $this->catat($request, 'catat vendor & modal sewa', [
+            'kode' => $penyewaan->kode,
+            'dari' => $sebelum,
+            'ke' => $ringkas($penyewaan->vendor_id, $penyewaan->modal),
+        ]);
+
+        return response()->json([
+            'data' => (new PenyewaanResource($penyewaan->fresh()))->resolve(),
+            'pesan' => 'Vendor dan modal sewa disimpan.',
         ]);
     }
 

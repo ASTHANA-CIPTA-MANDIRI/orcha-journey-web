@@ -438,6 +438,22 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
             // tidak lagi sama dengan total yang dipesan lebih membingungkan
             // daripada tidak ada perincian sama sekali.
             'rincian_estimasi' => $mobil->rincianEstimasi($this->satuan, (int) $this->durasi, $this->denganSopir === 'ya', $this->luarKota) ?: null,
+
+            /*
+             | Vendor dan modal ikut disalin, alasannya sama dengan perincian
+             | di atas: harga vendor berubah, dan pesanan yang sudah jalan
+             | tidak boleh ikut berubah untungnya.
+             |
+             | Keduanya boleh kosong. Unit di katalog yang vendornya belum
+             | ditentukan menghasilkan pesanan tanpa vendor — dan itu memang
+             | keadaannya: unitnya belum dicarikan. Admin yang melengkapinya
+             | dari lemon, dan sampai saat itu pesanan ini muncul di tab
+             | "Belum ada vendor".
+             */
+            'vendor_id' => $mobil->milik_sendiri ? null : $mobil->vendor_id,
+            'modal' => $mobil->modalEstimasi($this->satuan, (int) $this->durasi, $this->denganSopir === 'ya', $this->luarKota),
+            'rincian_modal' => $mobil->rincianModal($this->satuan, (int) $this->durasi, $this->denganSopir === 'ya', $this->luarKota) ?: null,
+
             'catatan' => $this->catatan ?: null,
         ]);
 

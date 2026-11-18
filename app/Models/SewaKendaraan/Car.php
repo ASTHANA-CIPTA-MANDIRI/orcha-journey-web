@@ -2,9 +2,11 @@
 
 namespace App\Models\SewaKendaraan;
 
+use App\Models\Rab\Vendor;
 use App\Support\SewaKendaraan\NomorPolisi;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -14,6 +16,13 @@ class Car extends Model
 
     protected $fillable = [
         'uuid',
+        'vendor_id',
+        'milik_sendiri',
+        'modal_per_hari',
+        'modal_per_jam',
+        'modal_12_jam',
+        'modal_sopir',
+        'modal_luar_kota',
         'name',
         'brand',
         'type',
@@ -56,6 +65,12 @@ class Car extends Model
 
     protected $casts = [
         'is_available' => 'boolean',
+        'milik_sendiri' => 'boolean',
+        'modal_per_hari' => 'integer',
+        'modal_per_jam' => 'integer',
+        'modal_12_jam' => 'integer',
+        'modal_sopir' => 'integer',
+        'modal_luar_kota' => 'integer',
         'transmisi_tersedia' => 'array',
         'price_per_day' => 'integer',
         'harga_per_jam' => 'integer',
@@ -231,6 +246,104 @@ class Car extends Model
     private function kali(int $satuanHarga, int $banyak, string $satuanKata): string
     {
         return 'Rp '.number_format($satuanHarga, 0, ',', '.')." × {$banyak} {$satuanKata}";
+    }
+
+    /**
+     * Vendor pemasok unit ini. Kosong berarti belum ditentukan — BUKAN berarti
+     * milik sendiri; itu dijawab oleh milik_sendiri.
+     */
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class, 'vendor_id');
+    }
+
+    /**
+     * Harga modal per satuan waktu — pasangan satu lawan satu dari tarif().
+     *
+     * null berarti BELUM DICATAT. Dibedakan dari nol dengan sengaja: modal nol
+     * membuat untungnya terbaca sebesar seluruh harga jual, dan angka itu akan
+     * dipercaya karena ia tampil seperti hasil hitungan.
+     */
+    public function tarifModal(string $satuan): ?int
+    {
+        return match ($satuan) {
+            'jam' => $this->modal_per_jam,
+            '12jam' => $this->modal_12_jam,
+            default => $this->modal_per_hari,
+        };
+    }
+
+    /**
+     * Perincian modal, mengikuti bentuk rincianEstimasi() baris demi baris.
+     *
+     * Pos operasional (BBM, tol, parkir) TIDAK ikut. Pos itu ditanggung
+     * penyewa atau dibayar di jalan, bukan ditagihkan vendor atas unitnya —
+     * memasukkannya ke modal membuat untungnya terbaca lebih kecil daripada
+     * yang sebenarnya diterima.
+     *
+     * Kosong berarti modalnya belum dicatat untuk satuan ini.
+     *
+     * @return array<int, array{label: string, keterangan: string, jumlah: int}>
+     */
+    public function rincianModal(string $satuan, int $durasi, bool $denganSopir = false, bool $luarKota = false): array
+    {
+        $tarif = $luarKota
+            ? ($this->modal_luar_kota ?? $this->modal_per_hari)
+            : $this->tarifModal($satuan);
+
+        if ($tarif === null || $durasi < 1) {
+            return [];
+        }
+
+        $hari = match ($satuan) {
+            'hari' => $durasi,
+            default => 1,
+        };
+
+        $satuanKata = $luarKota
+            ? 'hari'
+            : (config("orcha.satuan_sewa.{$satuan}.satuan") ?? 'hari');
+
+        $rincian = [[
+            'label' => $luarKota ? 'Modal unit (luar kota)' : 'Modal unit',
+            'keterangan' => $this->kali($tarif, $durasi, $satuanKata),
+            'jumlah' => (int) ($tarif * $durasi),
+        ]];
+
+        // Sopir hanya ditambahkan bila memang dipesan DAN tarif jualnya pun
+        // menambahkannya. Unit yang harganya sudah termasuk sopir berarti
+        // vendornya juga sudah menghitung sopir di harga unit.
+        if ($denganSopir && ! $this->termasukSopir($luarKota) && $this->modal_sopir) {
+            $rincian[] = [
+                'label' => 'Modal sopir',
+                'keterangan' => $this->kali((int) $this->modal_sopir, $hari, 'hari'),
+                'jumlah' => (int) $this->modal_sopir * $hari,
+            ];
+        }
+
+        return $rincian;
+    }
+
+    /**
+     * Total modal. null berarti belum bisa dihitung — belum dicatat.
+     */
+    public function modalEstimasi(string $satuan, int $durasi, bool $denganSopir = false, bool $luarKota = false): ?int
+    {
+        $rincian = $this->rincianModal($satuan, $durasi, $denganSopir, $luarKota);
+
+        return $rincian === [] ? null : (int) array_sum(array_column($rincian, 'jumlah'));
+    }
+
+    /**
+     * Dari mana unit ini: milik sendiri, vendor tertentu, atau belum ditentukan.
+     */
+    public function getAsalUnitAttribute(): string
+    {
+        if ($this->milik_sendiri) {
+            return 'Milik Orcha';
+        }
+
+        return $this->vendor?->nama ?: 'Vendor belum ditentukan';
     }
 
     public function scopeOfType($query, ?string $type)

@@ -194,6 +194,7 @@ Route::prefix('v1')
         Route::delete('/bagian-pemeriksaan/{bagian}', [BagianPemeriksaanController::class, 'destroy']);
         Route::get('/penyewaan/{penyewaan}', [PenyewaanController::class, 'show']);
         Route::patch('/penyewaan/{penyewaan}/status', [PenyewaanController::class, 'ubahStatus']);
+        Route::patch('/penyewaan/{penyewaan}/vendor', [PenyewaanController::class, 'vendor']);
         Route::patch('/penyewaan/{penyewaan}/serah-terima', [PenyewaanController::class, 'serahTerima']);
         Route::get('/penyewaan/{penyewaan}/kwitansi', [PenyewaanController::class, 'kwitansi']);
         Route::post('/penyewaan/{penyewaan}/berkas-jaminan', [PenyewaanController::class, 'berkasJaminan']);

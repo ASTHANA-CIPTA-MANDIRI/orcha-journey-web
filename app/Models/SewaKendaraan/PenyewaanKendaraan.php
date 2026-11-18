@@ -2,6 +2,7 @@
 
 namespace App\Models\SewaKendaraan;
 
+use App\Models\Rab\Vendor;
 use App\Support\KodePesanan;
 use App\Support\Pemeriksaan;
 use Carbon\Carbon;
@@ -18,6 +19,9 @@ class PenyewaanKendaraan extends Model
     protected $fillable = [
         'kode',
         'car_id',
+        'vendor_id',
+        'modal',
+        'rincian_modal',
         'nama_kendaraan',
         'nama',
         'whatsapp',
@@ -67,6 +71,8 @@ class PenyewaanKendaraan extends Model
         'kondisi_akhir' => 'array',
         'rincian_denda' => 'array',
         'rincian_estimasi' => 'array',
+        'modal' => 'integer',
+        'rincian_modal' => 'array',
         'denda_keterlambatan' => 'integer',
         'denda_kerusakan' => 'integer',
         'denda_lain' => 'integer',
@@ -340,6 +346,67 @@ class PenyewaanKendaraan extends Model
     public function getTotalTagihanAttribute(): int
     {
         return (int) $this->estimasi_biaya + $this->total_denda;
+    }
+
+    /**
+     * Vendor pemasok unit untuk pesanan INI.
+     *
+     * Disalin ke pesanan, tidak dibaca ulang dari katalog: unit yang sama bisa
+     * dicarikan ke vendor berbeda pada tanggal berbeda, dan pesanan lama tidak
+     * boleh berubah vendornya ketika katalog disunting.
+     */
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class, 'vendor_id');
+    }
+
+    /**
+     * Sudah dicarikan unitnya?
+     *
+     * Inilah langkah yang paling mungkin gagal di seluruh alur sewa — dan
+     * sampai sekarang ia tidak terekam di mana pun. Sengaja BUKAN status
+     * tersendiri: pesanan bisa sudah DP masuk sementara unitnya belum
+     * dicarikan, jadi keduanya dua pertanyaan yang berbeda dan harus bisa
+     * dijawab terpisah.
+     */
+    public function getVendorDitentukanAttribute(): bool
+    {
+        return $this->vendor_id !== null;
+    }
+
+    /**
+     * Untung kotor: harga sewa dikurangi modal.
+     *
+     * null berarti modalnya belum dicatat — dan itu harus tampil sebagai
+     * "belum dicatat", bukan sebagai untung sebesar seluruh harga sewa.
+     *
+     * DENDA TIDAK IKUT DIHITUNG. Denda kerusakan hampir selalu habis untuk
+     * perbaikan di bengkel vendor, jadi memasukkannya sebagai untung membuat
+     * pesanan yang unitnya rusak terbaca paling menguntungkan — persis
+     * kebalikan dari kenyataannya.
+     */
+    public function getUntungAttribute(): ?int
+    {
+        if ($this->modal === null) {
+            return null;
+        }
+
+        return (int) $this->estimasi_biaya - (int) $this->modal;
+    }
+
+    /**
+     * Untung dalam persen harga sewa. null bila modal belum dicatat atau
+     * harga sewanya nol — bukan 0%, karena keduanya berarti "tidak diketahui".
+     */
+    public function getMarginPersenAttribute(): ?float
+    {
+        $jual = (int) $this->estimasi_biaya;
+
+        if ($this->modal === null || $jual < 1) {
+            return null;
+        }
+
+        return round(($jual - (int) $this->modal) / $jual * 100, 1);
     }
 
     /**

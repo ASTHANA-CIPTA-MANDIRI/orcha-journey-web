@@ -288,6 +288,24 @@ class KendaraanController extends ApiController
             'tarif_jam' => 'nullable|numeric|min:0',
             'tarif_12jam' => 'nullable|numeric|min:0',
             'tarif_sopir' => 'nullable|numeric|min:0',
+
+            /*
+             | Sisi biaya: dari vendor mana unit ini dicarikan, dan berapa yang
+             | dibayarkan kepadanya. Semuanya opsional — unit boleh dicatat
+             | dulu, modalnya menyusul setelah vendornya menjawab.
+             |
+             | Tidak ada aturan "modal harus lebih kecil dari tarif". Sewa yang
+             | rugi memang terjadi (unit pengganti dadakan dengan harga vendor
+             | lebih mahal), dan validator yang menolaknya memaksa admin
+             | mengarang angka supaya borangnya mau tersimpan.
+             */
+            'vendor_id' => 'nullable|integer|exists:tbl_vendor,id',
+            'milik_sendiri' => 'nullable|boolean',
+            'modal_hari' => 'nullable|numeric|min:0|max:1000000000',
+            'modal_luar_kota' => 'nullable|numeric|min:0|max:1000000000',
+            'modal_jam' => 'nullable|numeric|min:0|max:1000000000',
+            'modal_12jam' => 'nullable|numeric|min:0|max:1000000000',
+            'modal_sopir' => 'nullable|numeric|min:0|max:1000000000',
             'termasuk_bbm' => 'nullable|boolean',
             'biaya_bbm' => 'nullable|numeric|min:0|max:100000000',
             'termasuk_tol' => 'nullable|boolean',
@@ -332,6 +350,28 @@ class KendaraanController extends ApiController
             // Bawaannya true supaya mobil biasa tidak perlu disebut satu-satu,
             // dan formulir lemon menandai unit besar sebagai false.
             'lepas_kunci' => (bool) ($data['lepas_kunci'] ?? true),
+            // Unit milik sendiri tidak punya vendor; penandanya dibersihkan
+            // bersamaan supaya tidak ada unit yang sekaligus "milik Orcha" dan
+            // "dari vendor X" — dua jawaban untuk satu pertanyaan.
+            'milik_sendiri' => (bool) ($data['milik_sendiri'] ?? false),
+            'vendor_id' => ($data['milik_sendiri'] ?? false)
+                ? null
+                : (($data['vendor_id'] ?? null) ?: null),
+            'modal_per_hari' => ($data['modal_hari'] ?? null) !== null && $data['modal_hari'] !== ''
+                ? (int) $data['modal_hari'] : null,
+            'modal_luar_kota' => ($data['modal_luar_kota'] ?? null) !== null && $data['modal_luar_kota'] !== ''
+                ? (int) $data['modal_luar_kota'] : null,
+            'modal_per_jam' => ($data['modal_jam'] ?? null) !== null && $data['modal_jam'] !== ''
+                ? (int) $data['modal_jam'] : null,
+            'modal_12_jam' => ($data['modal_12jam'] ?? null) !== null && $data['modal_12jam'] !== ''
+                ? (int) $data['modal_12jam'] : null,
+            // Modal sopir dibuang bila sopirnya sudah termasuk tarif unit,
+            // mengikuti aturan yang sama dengan harga_sopir di bawah.
+            'modal_sopir' => ($data['termasuk_sopir'] ?? false)
+                ? null
+                : ((($data['modal_sopir'] ?? null) !== null && $data['modal_sopir'] !== '')
+                    ? (int) $data['modal_sopir'] : null),
+
             'price_per_day' => $data['tarif_hari'],
             'harga_luar_kota' => ($data['tarif_luar_kota'] ?? null) ?: null,
             // ?? mendahului ?: karena tarif opsional yang TIDAK dikirim sama

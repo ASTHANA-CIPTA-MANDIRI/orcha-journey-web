@@ -4,6 +4,7 @@ use App\Mail\PemberitahuanFormulir;
 use App\Models\OpenTrip\KonfirmasiPembayaran;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
+use App\Models\Rab\Vendor;
 use App\Models\SewaKendaraan\Car;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\NotaSewa;
@@ -18,7 +19,7 @@ use Livewire\Volt\Volt;
  | sebelum tanggal itu supaya pemesanan tidak ditolak sebagai "tanggal lampau"
  | begitu kalender asli melewatinya.
  */
-beforeEach(fn () => $this->travelTo(\Illuminate\Support\Carbon::parse('2026-09-01 09:00')));
+beforeEach(fn () => $this->travelTo(Illuminate\Support\Carbon::parse('2026-09-01 09:00')));
 
 function buatMobil(array $ubah = []): Car
 {
@@ -1141,3 +1142,197 @@ test('satuan sewa tertulis di dalam isian lama sewa', function (string $satuan, 
     ['jam', 'jam', 'isian-satuan'],
     ['12jam', '× 12 jam', 'isian-satuan-lebar'],
 ]);
+
+/* ---------------------- VENDOR & MODAL SEWA ---------------------- */
+
+/*
+ | Orcha belum punya kendaraan sendiri: unitnya dicarikan ke vendor begitu ada
+ | yang memesan. Sampai sekarang kenyataan itu hanya hidup di komentar kode —
+ | tidak ada satu kolom pun yang menyebut vendor, dan tidak ada satu kolom pun
+ | yang menyebut berapa yang dibayarkan kepadanya.
+ */
+
+/*
+ | Namanya dibuat khas berkas ini. Penolong Pest hidup di ruang nama GLOBAL,
+ | dan vendorUji() sudah dipakai ApiRabTest — tabrakannya fatal, tetapi hanya
+ | muncul saat rangkaian penuh dijalankan, tidak pernah saat --filter.
+ */
+function vendorSewaUji(array $ubah = []): Vendor
+{
+    return Vendor::create(array_merge([
+        'nama' => 'CV Rekanan Uji',
+        'kontak' => '0812-0000-0000',
+        'jenis' => 'transportasi',
+        'aktif' => true,
+    ], $ubah));
+}
+
+test('modal yang belum dicatat memulangkan null, bukan nol', function () {
+    $mobil = buatMobil();
+
+    /*
+     | Bedanya menentukan: modal nol membuat untungnya terbaca sebesar SELURUH
+     | harga sewa, dan angka itu akan dipercaya karena tampil seperti hasil
+     | hitungan — bukan seperti data yang belum diisi.
+     */
+    expect($mobil->modalEstimasi('hari', 3))->toBeNull()
+        ->and($mobil->rincianModal('hari', 3))->toBe([]);
+});
+
+test('modal dihitung sebentuk dengan harga jualnya', function () {
+    $mobil = buatMobil(['modal_per_hari' => 250000, 'modal_per_jam' => 40000, 'modal_sopir' => 100000]);
+
+    // 3 hari × 250.000 + sopir 3 hari × 100.000
+    expect($mobil->modalEstimasi('hari', 3, true))->toBe(1050000)
+        // 6 jam × 40.000 + sopir SATU hari — sopir selalu harian, sama seperti
+        // di rincianEstimasi()
+        ->and($mobil->modalEstimasi('jam', 6, true))->toBe(340000)
+        ->and($mobil->modalEstimasi('hari', 2, false))->toBe(500000);
+});
+
+test('pos operasional tidak ikut dihitung sebagai modal', function () {
+    $mobil = buatMobil([
+        'modal_per_hari' => 250000,
+        'termasuk_bbm' => true, 'biaya_bbm' => 150000,
+    ]);
+
+    // BBM ditanggung penyewa atau dibayar di jalan, bukan ditagihkan vendor
+    // atas unitnya. Ikut terhitung = untungnya terbaca lebih kecil daripada
+    // yang benar-benar diterima.
+    expect($mobil->modalEstimasi('hari', 2))->toBe(500000);
+});
+
+test('milik sendiri tidak disimpulkan dari vendor yang kosong', function () {
+    $tanpaVendor = buatMobil();
+    $punyaVendor = buatMobil(['name' => 'Xenia Uji', 'vendor_id' => vendorSewaUji()->id]);
+    $sendiri = buatMobil(['name' => 'Innova Uji', 'milik_sendiri' => true]);
+
+    /*
+     | Hari migrasi ini jalan, keempat belas unit di katalog semuanya milik
+     | vendor dan vendor_id-nya belum terisi. Kalau "kosong" diartikan "milik
+     | sendiri", seluruh katalog langsung salah terbaca.
+     */
+    expect($tanpaVendor->asal_unit)->toBe('Vendor belum ditentukan')
+        ->and($punyaVendor->asal_unit)->toBe('CV Rekanan Uji')
+        ->and($sendiri->asal_unit)->toBe('Milik Orcha');
+});
+
+test('vendor dan modal disalin ke pesanan, tidak dibaca ulang dari katalog', function () {
+    $vendor = vendorSewaUji();
+    $mobil = buatMobil(['vendor_id' => $vendor->id, 'modal_per_hari' => 250000]);
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic', 'satuan' => 'hari', 'durasi' => 2,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 700000, 'status' => 'baru',
+        'vendor_id' => $mobil->vendor_id,
+        'modal' => $mobil->modalEstimasi('hari', 2),
+    ]);
+
+    // Harga vendor naik sesudahnya — pesanan yang sudah jalan tidak boleh ikut
+    // berubah untungnya.
+    $mobil->update(['modal_per_hari' => 400000]);
+
+    expect($sewa->fresh()->modal)->toBe(500000)
+        ->and($sewa->fresh()->untung)->toBe(200000);
+});
+
+test('untung null saat modal belum dicatat, bukan sebesar harga sewa', function () {
+    $mobil = buatMobil();
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic', 'satuan' => 'hari', 'durasi' => 2,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 700000, 'status' => 'baru',
+    ]);
+
+    expect($sewa->untung)->toBeNull()
+        ->and($sewa->margin_persen)->toBeNull()
+        ->and($sewa->vendor_ditentukan)->toBeFalse();
+});
+
+test('denda tidak ikut dihitung sebagai untung', function () {
+    $mobil = buatMobil(['modal_per_hari' => 250000]);
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic', 'satuan' => 'hari', 'durasi' => 2,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 700000, 'modal' => 500000, 'status' => 'selesai',
+        'denda_kerusakan' => 900000,
+    ]);
+
+    /*
+     | Denda kerusakan hampir selalu habis untuk perbaikan di bengkel vendor.
+     | Ikut dihitung = pesanan yang unitnya rusak terbaca paling menguntungkan,
+     | persis kebalikan dari kenyataannya.
+     */
+    expect($sewa->untung)->toBe(200000)
+        ->and($sewa->total_tagihan)->toBe(1600000);
+});
+
+test('endpoint vendor menyimpan vendor dan modal, dan bisa mengosongkannya', function () {
+    $vendor = vendorSewaUji();
+    $mobil = buatMobil();
+
+    $sewa = PenyewaanKendaraan::create([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic', 'satuan' => 'hari', 'durasi' => 2,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 700000, 'status' => 'baru',
+    ]);
+
+    $kepala = [
+        'X-Orcha-Key' => config('orcha.api.kunci'),
+        'X-Orcha-Admin' => 'admin@phoenix.test',
+        'Accept' => 'application/json',
+    ];
+
+    $this->patchJson("/api/v1/penyewaan/{$sewa->id}/vendor", [
+        'vendor_id' => $vendor->id,
+        'modal' => 520000,
+    ], $kepala)->assertOk();
+
+    expect($sewa->fresh()->vendor_id)->toBe($vendor->id)
+        ->and($sewa->fresh()->modal)->toBe(520000)
+        ->and($sewa->fresh()->untung)->toBe(180000);
+
+    // Salah ketik harus bisa DIHAPUS, bukan cuma ditimpa angka lain — dan nol
+    // bukan cara menghapus, karena nol berarti "gratis".
+    $this->patchJson("/api/v1/penyewaan/{$sewa->id}/vendor", [
+        'vendor_id' => null,
+        'modal' => null,
+    ], $kepala)->assertOk();
+
+    expect($sewa->fresh()->modal)->toBeNull()
+        ->and($sewa->fresh()->untung)->toBeNull();
+});
+
+test('tab belum ada vendor menghitung yang unitnya belum dicarikan', function () {
+    $vendor = vendorSewaUji();
+    $mobilVendor = buatMobil();
+    $mobilSendiri = buatMobil(['name' => 'Innova Milik Sendiri', 'milik_sendiri' => true]);
+
+    $buat = fn (array $ubah) => PenyewaanKendaraan::create(array_merge([
+        'car_id' => $mobilVendor->id, 'nama_kendaraan' => 'Avanza Uji', 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic', 'satuan' => 'hari', 'durasi' => 1,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 350000, 'status' => 'baru',
+    ], $ubah));
+
+    $belum = $buat([]);
+    $buat(['vendor_id' => $vendor->id]);                       // sudah dicarikan
+    $buat(['status' => 'batal']);                              // tak perlu dicarikan lagi
+    $buat(['status' => 'selesai']);                            // idem
+    $buat(['car_id' => $mobilSendiri->id]);                    // tidak punya vendor sama sekali
+
+    $balasan = $this->getJson('/api/v1/penyewaan?tanpa_vendor=1', [
+        'X-Orcha-Key' => config('orcha.api.kunci'),
+        'X-Orcha-Admin' => 'admin@phoenix.test',
+    ])->assertOk()->json();
+
+    expect($balasan['meta']['jumlah_tab']['tanpa_vendor'])->toBe(1)
+        ->and(collect($balasan['data'])->pluck('id')->all())->toBe([$belum->id]);
+});

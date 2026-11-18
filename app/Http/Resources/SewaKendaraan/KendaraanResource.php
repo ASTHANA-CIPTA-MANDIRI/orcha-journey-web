@@ -68,6 +68,32 @@ class KendaraanResource extends JsonResource
                 'luar_kota' => $this->harga_luar_kota,
                 'sopir_per_hari' => $this->harga_sopir,
             ],
+            /*
+             | Sisi biaya, pasangan satu lawan satu dari 'tarif' di atas.
+             |
+             | Katalog ini bukan unit milik sendiri melainkan contoh: begitu
+             | ada yang memesan, unitnya dicarikan ke vendor. Tanpa kolom ini
+             | tidak ada tempat mencatat berapa yang dibayarkan ke vendor,
+             | sehingga untung sewa tidak pernah bisa dihitung.
+             |
+             | null berarti BELUM DICATAT, bukan nol.
+             */
+            'modal' => [
+                'jam' => $this->modal_per_jam,
+                '12jam' => $this->modal_12_jam,
+                'hari' => $this->modal_per_hari,
+                'luar_kota' => $this->modal_luar_kota,
+                'sopir_per_hari' => $this->modal_sopir,
+            ],
+            'milik_sendiri' => (bool) $this->milik_sendiri,
+            'vendor' => $this->vendor ? [
+                'id' => $this->vendor->id,
+                'nama' => $this->vendor->nama,
+                'kontak' => $this->vendor->kontak,
+            ] : null,
+            'vendor_id' => $this->vendor_id,
+            'asal_unit' => $this->asal_unit,
+
             'gambar' => $this->image,
             'tersedia' => (bool) $this->is_available,
             'jumlah_penyewaan' => $this->whenCounted('penyewaan'),
