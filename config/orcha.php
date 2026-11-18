@@ -681,6 +681,17 @@ return [
         'surat' => ['lecet' => 0, 'rusak' => 250000, 'hilang' => 1000000],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Token cron cadangan
+    |--------------------------------------------------------------------------
+    |
+    | Dipakai rute GET /cron/run/{token} sebagai jaring pengaman bila cron
+    | hPanel mati. KOSONG berarti rutenya 404 alias nonaktif — jadi memasang
+    | kodenya tanpa mengisi token tidak membuka apa pun.
+    */
+    'cron_token' => env('CRON_TOKEN', ''),
+
     'satuan_sewa' => [
         'jam' => ['label' => 'Per jam', 'satuan' => 'jam', 'maks' => 23],
         '12jam' => ['label' => 'Paket 12 jam', 'satuan' => '× 12 jam', 'maks' => 2],

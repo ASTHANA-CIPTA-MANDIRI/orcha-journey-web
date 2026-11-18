@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ApiController;
 use App\Models\Rab\MasterHarga;
 use App\Models\Rab\RabBiaya;
 use App\Models\Rab\Vendor;
+use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\Rab\HitungRab;
 use App\Support\RincianBiaya;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -307,10 +308,57 @@ class VendorController extends ApiController
         $halaman = max(1, (int) $request->integer('halaman', 1));
         $potong = $perRab->forPage($halaman, $perHalaman)->values();
 
+        /*
+         | Belanja lewat SEWA KENDARAAN, dihitung terpisah dari RAB.
+         |
+         | Untuk vendor armada justru di sinilah belanjanya: unit disewa satu
+         | per satu lewat pesanan sewa, bukan lewat RAB paket. Selama ini
+         | halaman vendor hanya menjumlahkan RAB, sehingga vendor transportasi
+         | yang sudah dipakai puluhan kali tetap tampak "belum pernah
+         | dibelanjakan" — dan angka itulah yang dipakai menawar harga tahun
+         | depan.
+         |
+         | Yang dijumlahkan hanya pesanan yang MODALNYA SUDAH DICATAT. Pesanan
+         | yang modalnya masih kosong tidak dihitung nol, melainkan disebut
+         | jumlahnya tersendiri: "Rp 0 dari 12 pesanan" dan "Rp 0 dari 0
+         | pesanan" adalah dua keadaan yang sangat berbeda.
+         |
+         | Yang batal tidak ikut: unitnya tidak jadi dipakai.
+         */
+        $sewaSemua = PenyewaanKendaraan::where('vendor_id', $vendor->id)
+            ->where('status', '!=', 'batal')
+            ->orderByDesc('id')
+            ->get();
+
+        $sewaBermodal = $sewaSemua->whereNotNull('modal');
+        $belanjaSewa = (int) $sewaBermodal->sum('modal');
+
+        $sewaPotong = $sewaSemua->take(10)->map(fn (PenyewaanKendaraan $sewa) => [
+            'id' => $sewa->id,
+            'kode' => $sewa->kode,
+            'nama' => $sewa->nama,
+            'kendaraan' => $sewa->nama_kendaraan,
+            'tanggal_mulai' => $sewa->tanggal_mulai?->toDateString(),
+            'durasi_label' => $sewa->durasi_label,
+            'status' => $sewa->status,
+            'status_label' => config("orcha.status_penyewaan.{$sewa->status}") ?? $sewa->status,
+            'modal' => $sewa->modal,
+            'modal_teks' => $sewa->modal === null ? null : RincianBiaya::rupiah((int) $sewa->modal),
+        ])->values();
+
         return response()->json(['data' => [
             'vendor' => $this->baris($vendor->loadCount('harga')),
             'harga' => $harga,
             'rab' => $potong,
+            'sewa' => $sewaPotong,
+            'sewa_jumlah' => $sewaSemua->count(),
+            'sewa_tanpa_modal' => $sewaSemua->count() - $sewaBermodal->count(),
+            'belanja_sewa' => $belanjaSewa,
+            'belanja_sewa_teks' => RincianBiaya::rupiah($belanjaSewa),
+            // Dua jalur belanja dijumlahkan, supaya tawar-menawar tahun depan
+            // memakai angka yang utuh.
+            'belanja_total' => $belanja + $belanjaSewa,
+            'belanja_total_teks' => RincianBiaya::rupiah($belanja + $belanjaSewa),
             'rab_meta' => [
                 'halaman' => $halaman,
                 'halaman_terakhir' => max(1, (int) ceil($perRab->count() / $perHalaman)),

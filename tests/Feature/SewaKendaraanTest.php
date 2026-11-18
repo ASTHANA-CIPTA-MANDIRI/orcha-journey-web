@@ -8,7 +8,9 @@ use App\Models\Rab\Vendor;
 use App\Models\SewaKendaraan\Car;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use App\Support\NotaSewa;
+use App\Support\SewaKendaraan\KeuntunganSewa;
 use App\Support\TagihanPesanan;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
@@ -1335,4 +1337,200 @@ test('tab belum ada vendor menghitung yang unitnya belum dicarikan', function ()
 
     expect($balasan['meta']['jumlah_tab']['tanpa_vendor'])->toBe(1)
         ->and(collect($balasan['data'])->pluck('id')->all())->toBe([$belum->id]);
+});
+
+/* ------------------- LAPORAN KEUNTUNGAN SEWA ------------------- */
+
+function sewaUntukLaporan(Car $mobil, array $ubah = []): PenyewaanKendaraan
+{
+    return PenyewaanKendaraan::create(array_merge([
+        'car_id' => $mobil->id, 'nama_kendaraan' => $mobil->name, 'nama' => 'Budi',
+        'whatsapp' => '0812', 'transmisi' => 'Matic', 'satuan' => 'hari', 'durasi' => 2,
+        'tanggal_mulai' => '2026-09-10', 'jam_mulai' => '08:00',
+        'estimasi_biaya' => 700000, 'status' => 'selesai',
+    ], $ubah));
+}
+
+test('pendapatan dihitung dari semua sewa, untung hanya dari yang bermodal', function () {
+    $mobil = buatMobil();
+
+    sewaUntukLaporan($mobil, ['estimasi_biaya' => 700000, 'modal' => 500000]);
+    sewaUntukLaporan($mobil, ['estimasi_biaya' => 300000]);            // modal belum dicatat
+    sewaUntukLaporan($mobil, ['estimasi_biaya' => 900000, 'status' => 'batal']);
+
+    $ringkas = KeuntunganSewa::laporan()['ringkas'];
+
+    /*
+     | Pendapatan memuat yang modalnya belum dicatat; untung tidak.
+     |
+     | Sempat keduanya dihitung dari pesanan bermodal saja, dan hasilnya
+     | ringkasan menulis "Pendapatan Rp 0" tepat di atas tabel yang
+     | menampilkan Rp 15.000.000 — dua angka yang saling membantah di satu
+     | layar. Yang batal tidak ikut ke mana pun.
+     */
+    expect($ringkas['pendapatan'])->toBe(1000000)
+        ->and($ringkas['pendapatan_dihitung'])->toBe(700000)
+        ->and($ringkas['modal'])->toBe(500000)
+        ->and($ringkas['untung'])->toBe(200000)
+        ->and($ringkas['pesanan'])->toBe(2)
+        ->and($ringkas['tanpa_modal'])->toBe(1)
+        // Margin dihitung terhadap pendapatan SUBSET-nya, bukan seluruhnya:
+        // membaginya dengan Rp 1 juta memberi 20%, angka yang terbaca jauh
+        // lebih buruk daripada yang sebenarnya.
+        ->and($ringkas['margin_persen'])->toBe(28.6);
+});
+
+test('untung null saat belum ada satu pun modal dicatat', function () {
+    $mobil = buatMobil();
+    sewaUntukLaporan($mobil, ['estimasi_biaya' => 700000]);
+
+    $ringkas = KeuntunganSewa::laporan()['ringkas'];
+
+    // Bukan nol: nol berarti impas, dan impas adalah kabar yang sangat
+    // berbeda dari "belum bisa dihitung".
+    expect($ringkas['untung'])->toBeNull()
+        ->and($ringkas['margin_persen'])->toBeNull()
+        ->and($ringkas['pendapatan'])->toBe(700000);
+});
+
+test('margin rata-rata ditimbang nilainya, bukan dirata-rata persennya', function () {
+    $mobil = buatMobil();
+
+    // Sewa kecil bermargin 50%, sewa besar bermargin 10%.
+    sewaUntukLaporan($mobil, ['estimasi_biaya' => 200000, 'modal' => 100000]);
+    sewaUntukLaporan($mobil, ['estimasi_biaya' => 10000000, 'modal' => 9000000]);
+
+    /*
+     | Rata-rata persen polos memberi (50+10)/2 = 30% — angka yang dikuasai
+     | sewa sehari dua ratus ribu. Yang benar: (10,2jt − 9,1jt) / 10,2jt.
+     */
+    expect(KeuntunganSewa::marginRataRata())->toBe(10.8);
+});
+
+test('laporan memisahkan per unit dan per vendor', function () {
+    $vendorA = vendorSewaUji(['nama' => 'CV A']);
+    $vendorB = vendorSewaUji(['nama' => 'CV B']);
+    $avanza = buatMobil(['name' => 'Avanza']);
+    $hiace = buatMobil(['name' => 'HiAce']);
+
+    sewaUntukLaporan($avanza, ['nama_kendaraan' => 'Avanza', 'vendor_id' => $vendorA->id, 'estimasi_biaya' => 700000, 'modal' => 500000]);
+    sewaUntukLaporan($hiace, ['nama_kendaraan' => 'HiAce', 'vendor_id' => $vendorB->id, 'estimasi_biaya' => 2000000, 'modal' => 1000000]);
+
+    $laporan = KeuntunganSewa::laporan();
+
+    // Diurutkan untung terbesar lebih dulu: yang dicari pertama adalah yang
+    // paling menguntungkan, bukan yang abjadnya paling awal.
+    expect(collect($laporan['per_unit'])->pluck('nama')->all())->toBe(['HiAce', 'Avanza'])
+        ->and(collect($laporan['per_vendor'])->pluck('nama')->all())->toBe(['CV B', 'CV A'])
+        ->and($laporan['per_vendor'][0]['untung'])->toBe(1000000);
+});
+
+test('halaman vendor menjumlahkan belanja lewat sewa, bukan RAB saja', function () {
+    $vendor = vendorSewaUji();
+    $mobil = buatMobil();
+
+    sewaUntukLaporan($mobil, ['vendor_id' => $vendor->id, 'modal' => 500000]);
+    sewaUntukLaporan($mobil, ['vendor_id' => $vendor->id, 'modal' => 300000]);
+    sewaUntukLaporan($mobil, ['vendor_id' => $vendor->id]);                       // belum dicatat
+    sewaUntukLaporan($mobil, ['vendor_id' => $vendor->id, 'modal' => 900000, 'status' => 'batal']);
+
+    $data = $this->getJson("/api/v1/vendor/{$vendor->id}/rincian", [
+        'X-Orcha-Key' => config('orcha.api.kunci'),
+        'X-Orcha-Admin' => 'admin@phoenix.test',
+    ])->assertOk()->json('data');
+
+    /*
+     | Untuk vendor armada, di sinilah belanjanya — bukan di RAB. Sebelumnya
+     | halaman vendor hanya menjumlahkan RAB, sehingga vendor transportasi
+     | yang sudah dipakai puluhan kali tetap tampak belum pernah dibelanjakan.
+     */
+    expect($data['belanja_sewa'])->toBe(800000)
+        // Yang belum dicatat disebut jumlahnya, tidak dihitung nol: selama
+        // angkanya belum nol, belanja di atas masih kurang.
+        ->and($data['sewa_tanpa_modal'])->toBe(1)
+        // Yang batal tidak ikut ke mana pun.
+        ->and($data['sewa_jumlah'])->toBe(3)
+        ->and($data['belanja_total'])->toBe($data['belanja'] + 800000);
+});
+
+/* ------------------- KABAR HARIAN & PENJADWAL ------------------- */
+
+test('kabar harian tidak mengirim surat saat tidak ada yang perlu dikabarkan', function () {
+    Mail::fake();
+
+    // Surat harian yang tetap datang saat tidak ada apa-apa mengajari
+    // penerimanya bahwa surat ini boleh diabaikan.
+    $this->artisan('sewa:kabar-harian')->assertSuccessful();
+
+    Mail::assertNothingSent();
+});
+
+test('kabar harian menghitung berangkat besok, telat, dan yang belum ada vendor', function () {
+    Mail::fake();
+
+    $mobil = buatMobil();
+
+    // Berangkat besok (hari ini dibekukan 1 September 2026).
+    sewaUntukLaporan($mobil, ['tanggal_mulai' => '2026-09-02', 'status' => 'dp_masuk']);
+    // Belum ada vendor, dan belum selesai.
+    sewaUntukLaporan($mobil, ['tanggal_mulai' => '2026-09-20', 'status' => 'baru']);
+
+    $this->artisan('sewa:kabar-harian')
+        ->expectsOutputToContain('Berangkat besok: 1')
+        ->expectsOutputToContain('Belum ada vendor: 2')
+        ->assertSuccessful();
+
+    Mail::assertSent(PemberitahuanFormulir::class);
+});
+
+it('menjadwalkan perintah pemeliharaan, tidak membiarkannya mati', function () {
+    /*
+     | Tiga belas perintah pemeliharaan Orcha tidak pernah dijadwalkan sampai
+     | 18 Nov 2026 — semuanya hanya berjalan bila ada yang mengetikkannya di
+     | terminal, dan itu berarti tidak pernah.
+     |
+     | Yang diperiksa NAMANYA di penjadwal, bukan isi berkasnya: perintah yang
+     | di-rename tanpa memperbarui jadwalnya akan lolos dari pemeriksaan teks.
+     */
+    $terdaftar = collect(app(Schedule::class)->events())
+        ->map(fn ($e) => $e->description)
+        ->filter()
+        ->all();
+
+    foreach ([
+        'sewa:kabar-harian',
+        'orcha:selaraskan-status',
+        'orcha:lepas-kursi',
+        'orcha:pengingat',
+        'orcha:cadangan',
+    ] as $perintah) {
+        expect($terdaftar)->toContain($perintah);
+    }
+});
+
+it('memakai pembungkus Artisan::call, bukan Schedule::command', function () {
+    /*
+     | Komentarnya dibuang dulu. Berkas itu MENJELASKAN kenapa
+     | Schedule::command() tidak dipakai, jadi mencari teksnya apa adanya
+     | selalu ketemu — di kalimat yang justru melarangnya.
+     */
+    $sumber = preg_replace(
+        ['#/\*.*?\*/#s', '#//[^\n]*#'],
+        '',
+        file_get_contents(base_path('routes/console.php')),
+    );
+
+    /*
+     | Schedule::command() menjalankan tiap tugas sebagai proses TERPISAH, dan
+     | itu menuntut proc_open — yang dimatikan hosting ini. Sudah terbukti di
+     | Phoenix, yang berjalan di server yang sama: seluruh penjadwal diam
+     | tanpa satu pun galat.
+     */
+    expect($sumber)->toContain('Artisan::call($perintah)')
+        ->not->toContain('Schedule::command(');
+
+    // Tiap withoutOverlapping diberi batas menit eksplisit: tanpa itu, satu
+    // run yang mati di tengah mengunci tugasnya selama 24 JAM diam-diam.
+    expect(preg_match_all('/withoutOverlapping\(\d+\)/', $sumber))
+        ->toBe(preg_match_all('/withoutOverlapping\(/', $sumber));
 });

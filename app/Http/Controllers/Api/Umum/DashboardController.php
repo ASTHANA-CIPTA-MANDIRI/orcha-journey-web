@@ -15,6 +15,7 @@ use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
 use App\Models\SewaKendaraan\Car;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
+use App\Support\SewaKendaraan\KeuntunganSewa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -37,6 +38,7 @@ class DashboardController extends ApiController
                     PenyewaanKendaraan::latest('id')->limit(5)->get()
                 )->resolve(),
                 'tren_bulanan' => $this->trenBulanan(),
+                'uang_sewa' => $this->uangSewa(),
                 'perlu_ditindak' => [
                     'pendaftaran_baru' => PendaftaranOpenTrip::where('status', 'baru')->count(),
                     'penyewaan_baru' => PenyewaanKendaraan::where('status', 'baru')->count(),
@@ -49,6 +51,32 @@ class DashboardController extends ApiController
                 'diperbarui_pada' => now()->toIso8601String(),
             ],
         ]);
+    }
+
+    /**
+     * Uang dari sewa kendaraan bulan berjalan.
+     *
+     * Dashboard selama ini hanya menghitung CACAHAN: berapa pendaftaran,
+     * berapa penyewaan. Pertanyaan yang sebenarnya dibawa orang saat membuka
+     * dashboard — "bulan ini masuk berapa, untungnya berapa" — tidak pernah
+     * terjawab untuk sewa, bahkan setelah modalnya mulai dicatat.
+     *
+     * Pendapatan dihitung dari SELURUH sewa yang tidak batal; untung hanya
+     * dari yang modalnya sudah dicatat, dan jumlah yang belum dicatat
+     * disebut apa adanya. Satu angka untung yang diam soal itu akan dibaca
+     * sebagai untung seluruhnya.
+     *
+     * @return array<string, mixed>
+     */
+    private function uangSewa(): array
+    {
+        $laporan = KeuntunganSewa::laporan([
+            'dari' => now()->startOfMonth()->toDateString(),
+            'sampai' => now()->endOfMonth()->toDateString(),
+            'dasar' => 'mulai',
+        ]);
+
+        return $laporan['ringkas'] + ['periode' => now()->locale('id')->translatedFormat('F Y')];
     }
 
     /**

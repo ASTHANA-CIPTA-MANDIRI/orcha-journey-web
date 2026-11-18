@@ -11,6 +11,7 @@ use App\Support\KirimPemberitahuan;
 use App\Support\NotaSewa;
 use App\Support\Pemeriksaan;
 use App\Support\SalinanPelanggan;
+use App\Support\SewaKendaraan\KeuntunganSewa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -210,7 +211,22 @@ class PenyewaanController extends ApiController
             'kode' => $penyewaan->kode,
         ]);
 
-        return response()->json(['data' => $data]);
+        /*
+         | Margin rata-rata SELURUH sewa bermodal — dipakai halaman detail
+         | sebagai pembanding.
+         |
+         | "Untung Rp 200.000 · 28,6%" tidak bisa dinilai sendirian: admin
+         | tidak tahu 28,6% itu bagus atau pas-pasan tanpa tahu biasanya
+         | berapa. Dikirim di meta, bukan di tiap baris daftar — menghitungnya
+         | per baris berarti menyapu seluruh tabel sekali per baris.
+         |
+         | null bila belum ada satu pun pesanan bermodal, dan halaman yang
+         | memakainya harus diam — bukan menampilkan 0%.
+         */
+        return response()->json([
+            'data' => $data,
+            'meta' => ['margin_rata_rata' => KeuntunganSewa::marginRataRata()],
+        ]);
     }
 
     public function ubahStatus(PenyewaanKendaraan $penyewaan, Request $request): JsonResponse

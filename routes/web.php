@@ -1,5 +1,10 @@
 <?php
 
+use App\Http\Controllers\BerkasRahasiaController;
+use App\Http\Controllers\CronController;
+use App\Http\Controllers\OpenTrip\BerkasPelangganController;
+use App\Http\Controllers\Pembayaran\DokuNotifikasiController;
+use App\Http\Controllers\PetaSitusController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 use Livewire\Volt\Volt;
@@ -86,7 +91,7 @@ Volt::route('/konfirmasi-pembayaran', 'public.open-trip.konfirmasi-pembayaran')-
  */
 Volt::route('/pembayaran-selesai', 'public.open-trip.pembayaran-selesai')->name('pembayaran-selesai');
 
-Route::post('/pembayaran/doku/notifikasi', \App\Http\Controllers\Pembayaran\DokuNotifikasiController::class)
+Route::post('/pembayaran/doku/notifikasi', DokuNotifikasiController::class)
     // Dibatasi supaya alamat yang terbuka ini tidak bisa dipakai membanjiri
     // server dengan tanda tangan asal-asalan. Angkanya longgar terhadap
     // pemakaian yang wajar: DOKU mengirim satu notifikasi per pembayaran,
@@ -106,7 +111,7 @@ Route::post('/pembayaran/doku/notifikasi', \App\Http\Controllers\Pembayaran\Doku
  | dihitung ulang dari nomor pendaftaran berarti bisa ditebak, sementara
  | berkasnya memuat nama, nomor telepon, dan rincian biaya seseorang.
  */
-Route::get('/t/{kode}', [\App\Http\Controllers\OpenTrip\BerkasPelangganController::class, 'pendek'])
+Route::get('/t/{kode}', [BerkasPelangganController::class, 'pendek'])
     ->name('tautan.pendek');
 
 // Halaman informasi & ketentuan
@@ -124,12 +129,12 @@ Route::get('/t/{kode}', [\App\Http\Controllers\OpenTrip\BerkasPelangganControlle
  | Jalurnya memakai .* supaya garis miring di dalamnya ikut tertangkap
  | ("bukti-bayar/x.webp"), bukan terpotong di ruas pertama.
  */
-Route::get('/berkas-rahasia/{jalur}', \App\Http\Controllers\BerkasRahasiaController::class)
+Route::get('/berkas-rahasia/{jalur}', BerkasRahasiaController::class)
     ->where('jalur', '.*')
     ->middleware('signed')
     ->name('berkas.rahasia');
 
-Route::get('/sitemap.xml', \App\Http\Controllers\PetaSitusController::class)->name('peta-situs');
+Route::get('/sitemap.xml', PetaSitusController::class)->name('peta-situs');
 
 Volt::route('/faq', 'public.informasi.faq')->name('faq');
 Volt::route('/syarat-ketentuan', 'public.informasi.syarat-ketentuan')->name('syarat-ketentuan');
@@ -198,3 +203,9 @@ if (config('orcha.admin_bawaan')) {
 
     require __DIR__.'/auth.php';
 }
+
+/*
+ | Jaring pengaman penjadwal: dipicu layanan cron eksternal bila cron hPanel
+ | mati. Nonaktif selama CRON_TOKEN belum diisi.
+ */
+Route::get('/cron/run/{token}', CronController::class)->name('cron.run');

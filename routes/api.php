@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\Rujukan\KodeRujukanController;
 use App\Http\Controllers\Api\SewaKendaraan\BagianPemeriksaanController;
 use App\Http\Controllers\Api\SewaKendaraan\KatalogKendaraanController;
 use App\Http\Controllers\Api\SewaKendaraan\KendaraanController;
+use App\Http\Controllers\Api\SewaKendaraan\KeuntunganSewaController;
 use App\Http\Controllers\Api\SewaKendaraan\PenyewaanController;
 use App\Http\Controllers\Api\Umum\DashboardController;
 use App\Http\Controllers\Api\Umum\JejakAuditController;
@@ -336,6 +337,9 @@ Route::prefix('v1')
 
         Route::get('/keuntungan', [KeuntunganController::class, 'index']);
         Route::get('/keuntungan/rincian', [KeuntunganController::class, 'rincian']);
+        // Laporan keuntungan SEWA KENDARAAN — bentuknya sama, sumbernya beda.
+        Route::get('/keuntungan-sewa', [KeuntunganSewaController::class, 'index']);
+        Route::get('/keuntungan-sewa/rincian', [KeuntunganSewaController::class, 'rincian']);
 
         Route::get('/saran', [PaketWisataController::class, 'saran']);
         Route::post('/saran', [PaketWisataController::class, 'simpanSaran']);
