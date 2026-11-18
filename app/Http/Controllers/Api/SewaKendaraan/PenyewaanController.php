@@ -26,10 +26,90 @@ class PenyewaanController extends ApiController
                     ->orWhere('nama_kendaraan', 'like', "%{$cari}%")
             ))
             ->when($request->string('status')->toString(), fn ($q, $status) => $q->where('status', $status))
+
+            /*
+             | Saringan "belum kembali": unit yang sudah lewat tenggat dan
+             | belum dicatat pulang.
+             |
+             | Disaring lewat DAFTAR ID, bukan where() biasa — `terlambat`
+             | adalah aksesor yang menghitung dari tenggat, bukan kolom, jadi
+             | tidak ada yang bisa dibandingkan di SQL. Daftar idnya dirakit
+             | dari himpunan yang sudah dibatasi status, jadi jumlahnya kecil;
+             | penomoran halamannya tetap dikerjakan basis data.
+             */
+            ->when($request->boolean('telat'), fn ($q) => $q->whereIn('id', $this->idTerlambat()))
+
             ->latest('id')
             ->paginate($this->perHalaman($request));
 
-        return $this->halaman($daftar, PenyewaanResource::class);
+        return $this->halamanDipeta(
+            $daftar,
+            fn () => PenyewaanResource::collection($daftar->getCollection())->resolve(),
+            ['jumlah_tab' => $this->jumlahTab($request)],
+        );
+    }
+
+    /**
+     * Id sewa yang unitnya sudah lewat tenggat dan belum dicatat kembali.
+     *
+     * Yang SUDAH kembali tidak ikut, sekalipun kembalinya telat: pekerjaan
+     * menagihnya sudah selesai, dan unitnya sudah bisa disewakan lagi.
+     *
+     * @return array<int, int>
+     */
+    private function idTerlambat(): array
+    {
+        return PenyewaanKendaraan::whereNull('dikembalikan_pada')
+            ->whereNotIn('status', ['selesai', 'batal'])
+            ->get()
+            ->filter(fn (PenyewaanKendaraan $sewa) => $sewa->terlambat)
+            ->pluck('id')
+            ->all();
+    }
+
+    /**
+     * Berapa sewa di tiap tab — dihitung dari SELURUH data, bukan dari halaman
+     * yang sedang tampil.
+     *
+     * Angka di atas tab itulah yang membuatnya berguna. Tanpa angkanya, tiap
+     * tab adalah tombol yang harus ditekan dulu untuk tahu apakah ada
+     * pekerjaan di baliknya — dan tombol semacam itu berhenti ditekan setelah
+     * dua kali kosong, termasuk pada hari ia berisi.
+     *
+     * Pencarian IKUT diperhitungkan, tetapi saringan status dan "belum
+     * kembali" TIDAK: angka di tab harus menjawab "kalau saya pindah ke sana,
+     * ada berapa", bukan memantulkan pilihan yang sedang aktif.
+     *
+     * @return array<string, int>
+     */
+    private function jumlahTab(Request $request): array
+    {
+        $dasar = fn () => PenyewaanKendaraan::query()
+            ->when($request->string('cari')->toString(), fn ($q, $cari) => $q->where(
+                fn ($sub) => $sub->where('nama', 'like', "%{$cari}%")
+                    ->orWhere('kode', 'like', "%{$cari}%")
+                    ->orWhere('whatsapp', 'like', "%{$cari}%")
+                    ->orWhere('nama_kendaraan', 'like', "%{$cari}%")
+            ));
+
+        $perStatus = $dasar()->selectRaw('status, COUNT(*) as jumlah')
+            ->groupBy('status')->pluck('jumlah', 'status');
+
+        /*
+         | Kuncinya diambil dari config, bukan ditulis tangan. Status yang
+         | ditambahkan di config lalu terlupa di sini menghasilkan tab tanpa
+         | angka — dan tab yang angkanya selalu nol terbaca sebagai "tidak ada
+         | pekerjaan di sana", persis kebalikan dari yang sebenarnya.
+         */
+        $hasil = ['semua' => (int) $perStatus->sum()];
+
+        foreach (array_keys(config('orcha.status_penyewaan', [])) as $status) {
+            $hasil[$status] = (int) ($perStatus[$status] ?? 0);
+        }
+
+        $hasil['telat'] = count($this->idTerlambat());
+
+        return $hasil;
     }
 
     /**
