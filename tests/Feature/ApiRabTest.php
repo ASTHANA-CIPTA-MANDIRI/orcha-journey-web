@@ -2980,3 +2980,128 @@ test('tiket terhitung kegiatan berwaktu, sama seperti konsumsi dan akomodasi', f
         ->not->toContain('transportasi')
         ->not->toContain('lainnya');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Dua orang menyusun satu RAB bersamaan
+|--------------------------------------------------------------------------
+*/
+
+/** Kepala permintaan BERIKUT identitas admin — persis seperti kiriman lemon. */
+function kepalaRabAdmin(string $admin = 'admin@phoenix.test'): array
+{
+    return kepalaRab() + ['X-Orcha-Admin' => $admin];
+}
+
+test('penanda versi naik tiap isi RAB berubah', function () {
+    $rab = buatRabLewatApi($this);
+
+    $awal = $this->getJson("/api/v1/rab/{$rab['id']}/penanda", kepalaRabAdmin())
+        ->assertOk()->json('data.versi');
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Kawah Ijen', 'jam' => '02:00', 'destinasi' => 'Kawah Ijen'],
+    ]], kepalaRabAdmin())->assertOk();
+
+    $sesudah = $this->getJson("/api/v1/rab/{$rab['id']}/penanda", kepalaRabAdmin())
+        ->assertOk()->json('data');
+
+    expect($sesudah['versi'])->toBeGreaterThan($awal)
+        // Siapa yang mengubah ikut dicatat: pesan "ditolak" yang tidak
+        // menyebut siapa membuat orang menebak, dan yang paling sering
+        // ditebak adalah "aplikasinya rusak".
+        ->and($sesudah['oleh'])->toBe('admin@phoenix.test');
+});
+
+test('simpanan yang dasarnya versi lama DITOLAK, bukan menimpa', function () {
+    $rab = buatRabLewatApi($this);
+
+    // A dan B sama-sama membuka RAB pada versi yang sama.
+    $versiBersama = $this->getJson("/api/v1/rab/{$rab['id']}/penanda", kepalaRab())
+        ->assertOk()->json('data.versi');
+
+    // A menyimpan lebih dulu.
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", [
+        'versi' => $versiBersama,
+        'itinerary' => [['hari_ke' => 1, 'nama' => 'Punya A', 'jam' => '08:00']],
+    ], kepalaRab())->assertOk();
+
+    /*
+     | B menyimpan dengan versi yang SAMA — salinan lama yang masih
+     | dipegangnya. Tanpa pemeriksaan ini, jadwal A terhapus seluruhnya:
+     | simpanItinerary() menghapus semua barisnya lalu menulis ulang dari
+     | kiriman pengirim.
+     */
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", [
+        'versi' => $versiBersama,
+        'itinerary' => [['hari_ke' => 1, 'nama' => 'Punya B', 'jam' => '09:00']],
+    ], kepalaRab())->assertStatus(409);
+
+    // Pekerjaan A masih utuh.
+    $nama = collect($this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())
+        ->assertOk()->json('data.itinerary'))->pluck('nama');
+
+    expect($nama)->toContain('Punya A')
+        ->not->toContain('Punya B');
+});
+
+test('penolakan menyebut siapa yang mengubah dan menyuruh muat ulang', function () {
+    $rab = buatRabLewatApi($this);
+    $versi = $this->getJson("/api/v1/rab/{$rab['id']}/penanda", kepalaRabAdmin())->json('data.versi');
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", [
+        'versi' => $versi,
+        'itinerary' => [['hari_ke' => 1, 'nama' => 'Duluan', 'jam' => '08:00']],
+    ], kepalaRabAdmin())->assertOk();
+
+    $pesan = $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", [
+        'versi' => $versi,
+        'itinerary' => [],
+    ], kepalaRabAdmin())->assertStatus(409)->json('pesan');
+
+    expect($pesan)->toContain('admin@phoenix.test')
+        ->toContain('dimuat ulang');
+});
+
+test('kiriman TANPA versi tetap diterima', function () {
+    $rab = buatRabLewatApi($this);
+
+    /*
+     | Layar lama yang belum mengirim versi tidak boleh mendadak berhenti
+     | bekerja hanya karena kode peladen naik lebih dulu daripada layarnya.
+     | Perlindungannya menyala sendiri begitu layarnya ikut naik.
+     */
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Tanpa versi', 'jam' => '08:00'],
+    ]], kepalaRab())->assertOk();
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Tanpa versi lagi', 'jam' => '09:00'],
+    ]], kepalaRab())->assertOk();
+});
+
+test('ubah harga biaya juga ditolak bila dasarnya ketinggalan', function () {
+    $m = masterUji(['destinasi' => 'Kawah Ijen', 'nama' => 'Tiket Kawah Ijen', 'harga' => 50_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id, 'jumlah' => 1], kepalaRab())->assertOk();
+
+    $isi = $this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())->json('data');
+    $versi = $isi['versi'];
+    $biayaId = $isi['ringkasan']['baris'][0]['id'];
+
+    // A menaikkan harganya.
+    $this->patchJson("/api/v1/rab/{$rab['id']}/biaya/{$biayaId}", [
+        'versi' => $versi, 'harga_satuan' => 100_000,
+    ], kepalaRab())->assertOk();
+
+    // B menyimpan angka lamanya — inilah "900 ribu yang balik lagi".
+    $this->patchJson("/api/v1/rab/{$rab['id']}/biaya/{$biayaId}", [
+        'versi' => $versi, 'harga_satuan' => 50_000,
+    ], kepalaRab())->assertStatus(409);
+
+    $harga = $this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())
+        ->json('data.ringkasan.baris.0.harga_satuan');
+
+    expect((int) $harga)->toBe(100_000);
+});

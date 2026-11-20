@@ -303,6 +303,10 @@ Route::prefix('v1')
         Route::get('/rab/rekap-tunggakan', [RealisasiController::class, 'tunggakan']);
         Route::delete('/rab/templat/{templat}', [RabController::class, 'hapusTemplat']);
         Route::post('/rab', [RabController::class, 'store']);
+        // Penanda versi saja — diambil berkala oleh layar yang terbuka.
+        // Namanya /penanda, bukan /versi: alamat itu sudah dipakai riwayat
+        // versi penawaran.
+        Route::get('/rab/{rab}/penanda', [RabController::class, 'penanda']);
         Route::get('/rab/{rab}', [RabController::class, 'show']);
         Route::patch('/rab/{rab}', [RabController::class, 'update']);
         Route::delete('/rab/{rab}', [RabController::class, 'destroy']);
