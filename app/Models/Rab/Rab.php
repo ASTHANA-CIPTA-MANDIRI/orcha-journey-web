@@ -5,6 +5,7 @@ namespace App\Models\Rab;
 use App\Support\Rab\PaketDariRab;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -26,7 +27,33 @@ class Rab extends Model
         'margin_jenis', 'margin_nilai', 'pembulatan', 'harga_nego', 'alasan_nego',
         'catatan', 'catatan_penawaran', 'status', 'berlaku_sampai',
         'kode_pendaftaran', 'travel_package_id', 'dibuat_oleh',
+        // Versi TIDAK ikut fillable: ia hanya boleh naik lewat naikkanVersi(),
+        // tidak pernah dari muatan permintaan.
     ];
+
+    /**
+     * Menaikkan penanda versi — dipanggil tiap isi RAB berubah.
+     *
+     * Dua orang bisa menyusun satu RAB bersamaan, dan penyimpanan jadwal
+     * menghapus seluruh barisnya lalu menulis ulang dari kiriman pengirim.
+     * Tanpa penanda ini, yang menyimpan terakhir menimpa pekerjaan yang lain
+     * dengan salinan lama yang masih dipegangnya — diam-diam.
+     *
+     * Dinaikkan lewat increment() di basis data, BUKAN dibaca lalu ditulis
+     * dari PHP: dua permintaan yang berbarengan sama-sama membaca angka yang
+     * sama lalu menuliskan angka yang sama, dan versinya berhenti naik tepat
+     * saat ia paling dibutuhkan.
+     */
+    public function naikkanVersi(?string $oleh = null): void
+    {
+        $this->newQuery()->whereKey($this->getKey())->update([
+            'versi' => DB::raw('versi + 1'),
+            'versi_oleh' => $oleh ?: $this->versi_oleh,
+            'versi_pada' => now(),
+        ]);
+
+        $this->refresh();
+    }
 
     /**
      * Jumlah peserta yang dipakai MENGHITUNG HARGA.
@@ -64,6 +91,8 @@ class Rab extends Model
         'margin_nilai' => 'integer',
         'pembulatan' => 'integer',
         'harga_nego' => 'integer',
+        'versi' => 'integer',
+        'versi_pada' => 'datetime',
     ];
 
     protected static function booted(): void
