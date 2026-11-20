@@ -487,6 +487,8 @@ class RabController extends ApiController
 
     public function update(Rab $rab, Request $request): JsonResponse
     {
+        $this->periksaVersi($rab, $request);
+
         $statusLama = $rab->status;
 
         $rab->update($this->periksaKepala($request, $rab));
@@ -499,6 +501,10 @@ class RabController extends ApiController
         }
 
         $this->catat($request, 'ubah rab', ['kode' => $rab->kode]);
+
+        // Isi RAB berubah: penandanya dinaikkan supaya layar lain tahu,
+        // dan supaya simpanan yang dasarnya versi ini ditolak.
+        $this->naikkanVersi($rab, $request);
 
         return response()->json(['data' => $this->bentuk($rab->fresh()), 'pesan' => 'RAB diperbarui.']);
     }
@@ -766,6 +772,8 @@ class RabController extends ApiController
             'itinerary.*.jam_selesai.regex' => 'Jam selesai ditulis seperti 11:00.',
         ]);
 
+        $this->periksaVersi($rab, $request);
+
         DB::transaction(function () use ($rab, $data) {
             $rab->itinerary()->delete();
 
@@ -789,6 +797,10 @@ class RabController extends ApiController
         });
 
         $dibuang = $this->buangTiketYatim($rab->fresh());
+
+        // Isi RAB berubah: penandanya dinaikkan supaya layar lain tahu,
+        // dan supaya simpanan yang dasarnya versi ini ditolak.
+        $this->naikkanVersi($rab, $request);
 
         return response()->json([
             'data' => $this->bentuk($rab->fresh()),
@@ -851,6 +863,8 @@ class RabController extends ApiController
      */
     public function tambahBiaya(Rab $rab, Request $request): JsonResponse
     {
+        $this->periksaVersi($rab, $request);
+
         if ($request->filled('master_harga_id')) {
             $master = MasterHarga::findOrFail($request->integer('master_harga_id'));
             $this->tambahkanDariMaster($rab, collect([$master]), bolehGanda: true);
@@ -893,11 +907,17 @@ class RabController extends ApiController
             ]);
         }
 
+        // Isi RAB berubah: penandanya dinaikkan supaya layar lain tahu,
+        // dan supaya simpanan yang dasarnya versi ini ditolak.
+        $this->naikkanVersi($rab, $request);
+
         return response()->json(['data' => $this->bentuk($rab->fresh()), 'pesan' => 'Biaya ditambahkan.']);
     }
 
     public function ubahBiaya(Rab $rab, RabBiaya $biaya, Request $request): JsonResponse
     {
+        $this->periksaVersi($rab, $request);
+
         abort_unless((int) $biaya->rab_id === (int) $rab->id, 404);
 
         /*
@@ -1014,6 +1034,10 @@ class RabController extends ApiController
 
             $biaya->update($data);
         }
+
+        // Isi RAB berubah: penandanya dinaikkan supaya layar lain tahu,
+        // dan supaya simpanan yang dasarnya versi ini ditolak.
+        $this->naikkanVersi($rab, $request);
 
         return response()->json(['data' => $this->bentuk($rab->fresh()), 'pesan' => 'Biaya diperbarui.']);
     }
@@ -1374,6 +1398,8 @@ class RabController extends ApiController
      */
     public function urutkanBiaya(Rab $rab, Request $request): JsonResponse
     {
+        $this->periksaVersi($rab, $request);
+
         $data = $request->validate([
             'id' => ['required', 'array', 'min:1'],
             'id.*' => ['integer'],
@@ -1389,11 +1415,17 @@ class RabController extends ApiController
             }
         }
 
+        // Isi RAB berubah: penandanya dinaikkan supaya layar lain tahu,
+        // dan supaya simpanan yang dasarnya versi ini ditolak.
+        $this->naikkanVersi($rab, $request);
+
         return response()->json(['data' => $this->bentuk($rab->fresh()), 'pesan' => 'Urutan biaya disimpan.']);
     }
 
     public function hapusBiaya(Rab $rab, RabBiaya $biaya, Request $request): JsonResponse
     {
+        $this->periksaVersi($rab, $request);
+
         abort_unless((int) $biaya->rab_id === (int) $rab->id, 404);
 
         /*
@@ -1431,11 +1463,19 @@ class RabController extends ApiController
                 $rab->itinerary()->whereRaw('LOWER(TRIM(destinasi)) = ?', [$rapi($d)])->delete();
             }
 
+            // Jalur kedua hapusBiaya: kunjungannya ikut dibuang, jadi isinya
+            // berubah lebih banyak lagi — versinya wajib ikut naik.
+            $this->naikkanVersi($rab, $request);
+
             return response()->json([
                 'data' => $this->bentuk($rab->fresh()),
                 'pesan' => "Biaya dihapus, dan kunjungan ke {$destinasi} ikut dibuang dari itinerary.",
             ]);
         }
+
+        // Isi RAB berubah: penandanya dinaikkan supaya layar lain tahu,
+        // dan supaya simpanan yang dasarnya versi ini ditolak.
+        $this->naikkanVersi($rab, $request);
 
         return response()->json([
             'data' => $this->bentuk($rab->fresh()),
@@ -1454,6 +1494,8 @@ class RabController extends ApiController
      */
     public function tarikBiaya(Rab $rab, Request $request): JsonResponse
     {
+        $this->periksaVersi($rab, $request);
+
         $destinasi = $rab->itinerary()->whereNotNull('destinasi')->pluck('destinasi')->unique();
 
         /*
@@ -1528,6 +1570,10 @@ class RabController extends ApiController
         $tanpaTiket = $destinasi
             ->reject(fn ($d) => $calon->contains(fn (MasterHarga $m) => $m->mencakup($d)))
             ->values();
+
+        // Isi RAB berubah: penandanya dinaikkan supaya layar lain tahu,
+        // dan supaya simpanan yang dasarnya versi ini ditolak.
+        $this->naikkanVersi($rab, $request);
 
         return response()->json([
             'data' => $this->bentuk($rab->fresh()),
@@ -1982,6 +2028,14 @@ class RabController extends ApiController
         return [
             'id' => $rab->id,
             'kode' => $rab->kode,
+            /*
+             | Penanda kerja bersamaan. Layar membawanya kembali pada tiap
+             | penyimpanan, dan peladen menolak yang dasarnya sudah
+             | ketinggalan — lihat periksaVersi().
+             */
+            'versi' => (int) $rab->versi,
+            'versi_oleh' => $rab->versi_oleh,
+            'versi_pada' => $rab->versi_pada?->toIso8601String(),
             'judul' => $rab->judul,
             'nama_pelanggan' => $rab->nama_pelanggan,
             'whatsapp' => $rab->whatsapp,
@@ -2068,6 +2122,73 @@ class RabController extends ApiController
             ->groupBy('destinasi')
             ->map(fn ($g) => $g->pluck('catatan')->unique()->implode(' · '))
             ->all();
+    }
+
+    /**
+     * Penanda versi saja — SENGAJA sekecil mungkin.
+     *
+     * Inilah yang diambil berkala oleh layar yang sedang terbuka. Hosting ini
+     * sudah pernah membalas 503 karena kuota proses saat ada poller tiap lima
+     * detik, jadi jawaban ini tidak boleh membawa apa pun selain yang
+     * dibutuhkan untuk memutuskan "perlu dimuat ulang atau tidak":
+     * TIGA kolom dari SATU baris, tanpa satu pun relasi.
+     *
+     * Isinya yang berat baru diambil saat penandanya memang berubah.
+     *
+     * Namanya BUKAN versi(): nama itu sudah dipakai riwayat versi penawaran,
+     * dan /rab/{rab}/versi sudah menjadi alamatnya.
+     */
+    public function penanda(Rab $rab): JsonResponse
+    {
+        return response()->json(['data' => [
+            'versi' => (int) $rab->versi,
+            'oleh' => $rab->versi_oleh,
+            'pada' => $rab->versi_pada?->toIso8601String(),
+            'pada_teks' => $rab->versi_pada?->locale('id')->diffForHumans(),
+        ]]);
+    }
+
+    /**
+     * Menolak penyimpanan yang dasarnya sudah ketinggalan.
+     *
+     * Dua orang bisa menyusun satu RAB bersamaan. simpanItinerary()
+     * menghapus seluruh jadwal lalu menulis ulang dari kiriman pengirim,
+     * jadi tanpa pemeriksaan ini yang menyimpan terakhir menimpa pekerjaan
+     * yang lain dengan salinan lama yang masih dipegangnya — tanpa galat,
+     * tanpa satu pun tanda.
+     *
+     * Kiriman TANPA versi tetap diterima. Layar lama yang belum mengirimnya
+     * tidak boleh mendadak berhenti bekerja hanya karena kodenya naik lebih
+     * dulu daripada layarnya; yang penting, begitu layarnya ikut naik,
+     * perlindungannya menyala sendiri.
+     */
+    private function periksaVersi(Rab $rab, Request $request): void
+    {
+        if (! $request->filled('versi')) {
+            return;
+        }
+
+        if ((int) $request->integer('versi') === (int) $rab->versi) {
+            return;
+        }
+
+        $oleh = trim((string) $rab->versi_oleh);
+        $kapan = $rab->versi_pada?->locale('id')->diffForHumans();
+
+        abort(response()->json([
+            'pesan' => 'RAB ini baru saja diubah'
+                .($oleh !== '' && $oleh !== 'tidak diketahui' ? ' oleh '.$oleh : ' orang lain')
+                .($kapan ? ' ('.$kapan.')' : '')
+                .'. Layar Anda dimuat ulang supaya perubahannya ikut terbaca — '
+                .'silakan ulangi suntingan Anda di atas data yang baru.',
+            'versi' => (int) $rab->versi,
+        ], 409));
+    }
+
+    /** Menaikkan penanda versi atas nama admin yang memanggil. */
+    private function naikkanVersi(Rab $rab, Request $request): void
+    {
+        $rab->naikkanVersi((string) $request->attributes->get('admin_pemanggil'));
     }
 
     private function bentuk(Rab $rab): array
