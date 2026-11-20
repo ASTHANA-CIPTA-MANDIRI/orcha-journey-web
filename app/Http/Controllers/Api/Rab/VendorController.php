@@ -35,6 +35,14 @@ class VendorController extends ApiController
             ->when($request->string('provinsi')->toString(), fn ($q, $p) => $p === '-'
                 ? $q->whereNull('provinsi')
                 : $q->untukProvinsi($p))
+            /*
+             | Vendor tanpa nomor: pekerjaan yang belum selesai.
+             |
+             | Angkanya sudah lama dihitung di 'ringkas', tetapi tanpa
+             | saringannya angka itu cuma bisa dipandangi — tidak ada cara
+             | membuka daftarnya selain memindai halaman demi halaman.
+             */
+            ->when($request->boolean('tanpa_kontak'), fn ($q) => $q->whereNull('kontak'))
             ->withCount('harga')
             ->orderBy('nama')
             ->paginate($this->perHalaman($request));
@@ -50,6 +58,16 @@ class VendorController extends ApiController
              */
             [
                 'ringkas' => [
+                    /*
+                     | Angka untuk kartu tab di layar lemon. Dihitung dari
+                     | SELURUH tabel, bukan dari halaman yang sedang disaring:
+                     | tab yang angkanya ikut berubah saat disaring tidak lagi
+                     | memberi tahu apa pun tentang isi tabelnya.
+                     */
+                    'semua' => Vendor::count(),
+                    'aktif' => Vendor::where('aktif', true)->count(),
+                    'tanpa_jenis' => Vendor::whereNull('jenis')->count(),
+                    'dipakai' => Vendor::has('harga')->count(),
                     'tanpa_kontak' => Vendor::whereNull('kontak')->count(),
                     'nonaktif' => Vendor::where('aktif', false)->count(),
                     'jenis' => Vendor::whereNotNull('jenis')->distinct()->orderBy('jenis')->pluck('jenis'),
