@@ -50,10 +50,18 @@ class RabController extends ApiController
      * Yang tidak pernah jadi kegiatan cuma yang tidak punya jam: armada,
      * asuransi, operasional tim.
      *
+     * TIKET IKUT SEJAK 20 Nov 2026, dan sebenarnya ia contoh yang paling
+     * jelas dari aturan di atas: tiket masuk Kawah Ijen adalah TEMPAT yang
+     * dikunjungi berjam-jam, bukan sekadar pos biaya. Ketinggalannya membuat
+     * admin yang menarik tiket lewat pemilih master harga mendapat biayanya
+     * di RAB tetapi itinerary-nya tetap kosong — lalu mengetik ulang
+     * tempatnya dengan tangan, atau mengirim penawaran tanpa jadwal sama
+     * sekali.
+     *
      * Satu tempat saja — dipakai pencarian tempat maupun daftar pencarian
      * lintas provinsi. Dua tebakan untuk hal yang sama suatu hari berselisih.
      */
-    private const KEGIATAN_BERWAKTU = ['konsumsi', 'akomodasi'];
+    private const KEGIATAN_BERWAKTU = ['konsumsi', 'akomodasi', 'tiket'];
 
     public function index(Request $request): JsonResponse
     {

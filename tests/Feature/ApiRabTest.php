@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Rab\RabController;
 use App\Mail\PenawaranRab;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\TravelPackage;
@@ -2929,4 +2930,24 @@ test('satuan yang tidak dikenal ditolak', function () {
     $this->patchJson("/api/v1/rab/{$rab['id']}/biaya/{$biaya['id']}", [
         'satuan' => 'per_bulan',
     ], kepalaRab())->assertStatus(422);
+});
+
+test('tiket terhitung kegiatan berwaktu, sama seperti konsumsi dan akomodasi', function () {
+    /*
+     | Dilaporkan 20 Nov 2026: tiket masuk destinasi yang ditarik dari master
+     | harga mendarat di RAB tetapi tidak pernah di itinerary.
+     |
+     | Tiket adalah contoh paling jelas dari aturan "biaya yang sekaligus
+     | kejadian berwaktu": Kawah Ijen dikunjungi berjam-jam. Yang memang
+     | tidak punya jam cuma armada, asuransi, dan operasional tim.
+     */
+    $pantul = new ReflectionClass(RabController::class);
+    $kegiatan = $pantul->getConstant('KEGIATAN_BERWAKTU');
+
+    expect($kegiatan)->toContain('tiket')
+        ->toContain('konsumsi')
+        ->toContain('akomodasi')
+        // Yang tidak punya jam tetap di luar.
+        ->not->toContain('transportasi')
+        ->not->toContain('lainnya');
 });
