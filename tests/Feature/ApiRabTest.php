@@ -2689,6 +2689,35 @@ test('biaya yang namanya sama dengan kegiatan ikut membawa harinya', function ()
     expect($baris['hari'])->toBe([2]);
 });
 
+test('tempat yang diketik tangan tetap bertemu tiketnya', function () {
+    /*
+     | RAB yang disusun SEBELUM tiket ikut masuk jadwal sendiri (20 Nov 2026).
+     |
+     | Admin mengetik tempatnya sebagai kegiatan biasa — "Mikutopia" — jadi
+     | kolom destinasinya kosong, sementara nama baris biayanya "Tiket Masuk
+     | Mikutopia". Keduanya tidak pernah bertemu: pil harinya hilang, dan yang
+     | membacanya di lapangan mengira harinya belum ada tiketnya.
+     |
+     | Dicocokkan lewat nama DESTINASI di master, bukan dengan menulis ulang
+     | data lama — RAB yang terlanjur begitu pulih sendiri tanpa disunting
+     | satu per satu.
+     */
+    $m = masterUji(['destinasi' => 'Mikutopia', 'nama' => 'Tiket Masuk Mikutopia', 'harga' => 80_000]);
+    $rab = buatRabLewatApi($this);
+
+    $this->putJson("/api/v1/rab/{$rab['id']}/itinerary", ['itinerary' => [
+        ['hari_ke' => 1, 'nama' => 'Penjemputan peserta', 'jam' => '07:00'],
+        // Diketik tangan: destinasi KOSONG, hurufnya pun kecil semua.
+        ['hari_ke' => 2, 'nama' => 'mikutopia', 'jam' => '08:30'],
+    ]], kepalaRab())->assertOk();
+
+    $this->postJson("/api/v1/rab/{$rab['id']}/biaya", ['master_harga_id' => $m->id, 'jumlah' => 1], kepalaRab())->assertOk();
+
+    $baris = $this->getJson("/api/v1/rab/{$rab['id']}", kepalaRab())->assertOk()->json('data.ringkasan.baris.0');
+
+    expect($baris['hari'])->toBe([2]);
+});
+
 test('nama yang MIRIP tidak dianggap cocok', function () {
     /*
      | "Makan siang" yang cocok dengan "Makan siang di Bromo" akan

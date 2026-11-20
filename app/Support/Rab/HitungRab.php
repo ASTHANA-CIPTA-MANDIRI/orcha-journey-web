@@ -452,8 +452,26 @@ class HitungRab
              | tiket yang sama — dan yang membacanya di lapangan mengira hari
              | kedua belum ada tiketnya.
              */
+            /*
+             | Nama destinasinya dicocokkan ke DUA tempat: kolom destinasi
+             | baris itinerary, dan nama kegiatannya.
+             |
+             | Sebabnya tempat yang diketik tangan. Sebelum tiket ikut masuk
+             | jadwal sendiri (20 Nov 2026), admin mengetik tempatnya sebagai
+             | kegiatan biasa — "mikutopia" — sehingga kolom destinasinya
+             | kosong. Tiketnya ada, jadwalnya ada, tetapi keduanya tidak
+             | pernah bertemu: pil "Hari 2" tidak muncul, dan yang membacanya
+             | di lapangan mengira harinya belum ada tiketnya.
+             |
+             | Dicocokkan di sini, bukan dengan menulis ulang data lama, supaya
+             | RAB yang sudah terlanjur begitu pulih sendiri tanpa disunting
+             | ulang satu per satu.
+             */
             $hari = collect($b->master?->semuaDestinasi() ?? [])
-                ->flatMap(fn ($d) => $perDestinasi[$rapi($d)] ?? [])
+                ->flatMap(fn ($d) => array_merge(
+                    $perDestinasi[$rapi($d)] ?? [],
+                    $perNama[$rapi($d)] ?? [],
+                ))
                 ->all();
 
             if ($hari === []) {
