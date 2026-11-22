@@ -324,8 +324,7 @@
 
                 {{-- 1. LAMBANG --}}
                 <a href="{{ route('home') }}"
-                    class="flex items-center gap-2 px-3 py-2 transition border shrink-0 rounded-2xl sm:px-4 bg-white/95 backdrop-blur-md border-white/70 group"
-                    :class="scrolled || open ? 'shadow-[0_16px_34px_-24px_rgba(60,40,25,0.65)]' : 'shadow-[0_10px_26px_-22px_rgba(60,40,25,0.5)]'">
+                    class="flex items-center gap-2 py-2 pl-2 pr-4 transition rounded-full shrink-0 sm:pr-5 gelembung group">
                     <img src="{{ asset('orcha-logo-only.png') }}" alt="Logo Orcha Journey" width="56" height="56"
                         fetchpriority="high" decoding="async"
                         class="object-contain transition-transform duration-300 w-9 h-9 group-hover:scale-105">
@@ -345,11 +344,13 @@
                      tautannya bertambah dan tetap tidak muat, ia meluber keluar
                      dan langsung terlihat saat diuji — bukan melipat diam-diam
                      jadi dua baris yang tampak "hampir rapi". --}}
-                <div class="items-center hidden gap-1 p-1.5 transition border rounded-full xl:flex flex-nowrap bg-white/95 backdrop-blur-md border-white/70"
-                    :class="scrolled || open ? 'shadow-[0_16px_34px_-24px_rgba(60,40,25,0.65)]' : 'shadow-[0_10px_26px_-22px_rgba(60,40,25,0.5)]'">
+                <div class="items-center hidden px-2 py-1.5 rounded-full xl:flex flex-nowrap gelembung">
+                    {{-- Halaman yang sedang dibuka ditandai lewat WARNA tulisannya
+                         saja, bukan bidang berwarna di belakangnya: pada rancangan
+                         acuan seluruh tautan duduk rata di dalam satu kapsul. --}}
                     @foreach ($navLinks as $item)
                         <a href="{{ $item['url'] }}" @if ($item['aktif']) aria-current="page" @endif
-                            class="px-3.5 py-2 text-sm font-semibold transition rounded-full whitespace-nowrap {{ $item['aktif'] ? 'bg-orcha-sand text-orcha-navy' : 'text-slate-500 hover:text-orcha-navy hover:bg-orcha-sand/70' }}">
+                            class="px-3.5 py-2 text-sm transition rounded-full whitespace-nowrap {{ $item['aktif'] ? 'font-bold text-orcha-navy' : 'font-semibold text-slate-500 hover:text-orcha-navy' }}">
                             {{ $item['label'] }}
                         </a>
                     @endforeach
@@ -361,8 +362,7 @@
                          pencarian yang memang ada — daftar destinasi. Ikon yang
                          tidak membuka apa pun lebih buruk daripada tidak ada. --}}
                     <a href="{{ route('destinasi') }}" aria-label="Cari destinasi"
-                        class="items-center justify-center hidden w-10 h-10 transition border rounded-full sm:flex bg-white/95 backdrop-blur-md border-white/70 text-orcha-navy hover:text-orcha-amber"
-                        :class="scrolled || open ? 'shadow-[0_16px_34px_-24px_rgba(60,40,25,0.65)]' : 'shadow-[0_10px_26px_-22px_rgba(60,40,25,0.5)]'">
+                        class="items-center justify-center hidden transition rounded-full w-11 h-11 sm:flex gelembung text-orcha-navy hover:text-orcha-amber">
                         <x-heroicon-o-magnifying-glass class="w-5 h-5" />
                     </a>
 
@@ -377,9 +377,9 @@
                          menu sampai terpotong tepi layar. --}}
                     <span class="hidden xl:block">
                         <a href="{{ $waLink }}" target="_blank" rel="noopener noreferrer"
-                            class="btn-orcha btn-orcha-sun !py-1.5 !pl-5 !pr-1.5 !text-sm whitespace-nowrap">
+                            class="btn-orcha btn-orcha-sun !py-2.5 !px-6 !text-sm whitespace-nowrap">
                             Rencanakan Trip
-                            <span class="btn-panah !w-7 !h-7"><x-heroicon-o-arrow-right class="w-4 h-4" /></span>
+                            <x-heroicon-o-arrow-right class="w-4 h-4" />
                         </a>
                     </span>
 
@@ -391,7 +391,7 @@
                     <button type="button" @click="open = !open"
                         :aria-label="open ? 'Tutup menu' : 'Buka menu'" :aria-expanded="open"
                         :class="open ? 'menu-tombol-buka' : ''"
-                        class="flex items-center justify-center w-10 h-10 transition border rounded-full menu-tombol xl:hidden bg-white/95 backdrop-blur-md border-white/70 text-orcha-navy">
+                        class="flex items-center justify-center transition rounded-full menu-tombol xl:hidden gelembung text-orcha-navy">
                         <span class="menu-garis"></span>
                         <span class="menu-garis"></span>
                         <span class="menu-garis"></span>

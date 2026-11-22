@@ -287,27 +287,20 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                 alt="Pemandangan pantai dari jendela pesawat, dengan paspor dan boarding pass di meja kabin"
                 fetchpriority="high" decoding="async" width="1672" height="941">
 
-            {{-- Kartu melayang di atas foto, seperti pada acuan. Disembunyikan
-                 di layar sempit: di sana fotonya sendiri sudah sempit, dan
-                 kartunya menutupi jendela yang justru jadi isi fotonya. --}}
-            <div class="hero-kabin-kartu hero-kabin-kartu-atas">
-                <span class="flex items-center justify-center w-8 h-8 rounded-full bg-orcha-foam text-orcha-amber shrink-0">
-                    <x-heroicon-s-paper-airplane class="w-4 h-4" />
+            {{-- Gelembung "Tujuan berikutnya" — satu-satunya yang melayang di
+                 atas foto, sama seperti rancangan acuan. Disembunyikan di layar
+                 sempit: di sana fotonya sendiri sudah kecil, dan gelembungnya
+                 menutupi jendela yang justru jadi isi fotonya. --}}
+            <div class="hero-kabin-kartu">
+                <span class="gelembung-ikon">
+                    <x-heroicon-s-paper-airplane class="w-5 h-5" />
                 </span>
-                <span class="min-w-0">
-                    <span class="block text-[0.6rem] font-bold tracking-widest uppercase text-slate-400">Tujuan berikutnya</span>
-                    <span class="block text-sm font-bold leading-snug text-orcha-navy">Pengalaman yang lebih baik</span>
+                <span class="block mt-3.5 text-sm text-slate-400">Tujuan berikutnya</span>
+                <span class="block mt-1 text-lg font-extrabold leading-tight font-heading text-orcha-navy">
+                    Pengalaman yang Lebih Baik
                 </span>
-            </div>
-
-            <div class="hero-kabin-kartu hero-kabin-kartu-bawah">
-                <span class="min-w-0">
-                    <span class="flex items-center gap-0.5">
-                        @for ($i = 0; $i < 5; $i++)
-                            <x-heroicon-s-star class="w-3.5 h-3.5 text-orcha-sun" />
-                        @endfor
-                    </span>
-                    <span class="block mt-1 text-sm font-bold text-orcha-navy">{{ $totalTestimoni ?: 50 }}+ ulasan pelanggan</span>
+                <span class="flex justify-end mt-2 text-orcha-navy">
+                    <x-heroicon-o-arrow-right class="w-5 h-5" />
                 </span>
             </div>
         </div>
@@ -334,28 +327,38 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                 <div class="flex flex-col gap-3 mt-8 sm:flex-row sm:items-center">
                     <a href="{{ route('paket-wisata') }}" class="btn-orcha btn-orcha-sun">
                         Jelajahi Perjalanan
-                        <span class="btn-panah"><x-heroicon-o-arrow-right class="w-4 h-4" /></span>
+                        <x-heroicon-o-arrow-right class="w-5 h-5" />
                     </a>
                     <a href="{{ $wa('Halo Orcha Journey, saya ingin merencanakan perjalanan.') }}"
-                        target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-outline">
-                        <x-bi-whatsapp class="w-5 h-5" />
+                        target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-gelembung">
                         Rencanakan Perjalanan
                     </a>
                 </div>
 
-                <div class="flex flex-wrap gap-2 mt-8">
-                    @foreach ([['map-pin', 'Destinasi pilihan'], ['user-group', 'Itinerary per rombongan'], ['shield-check', 'Berangkat tanpa repot']] as [$ikon, $teks])
-                        <span class="chip-orcha">
-                            <x-dynamic-component :component="'heroicon-s-' . $ikon" class="w-4 h-4 text-orcha-amber" />
-                            {{ $teks }}
+            </div>
+
+            {{-- Barisan jaminan berdiri DI LUAR kolom tulisan.
+
+                 Di dalamnya ia terkurung selebar 36rem dan butir ketiga turun
+                 ke baris kedua; pada acuan ketiganya berjajar dalam satu baris
+                 yang lebih lebar daripada judulnya.
+
+                 Ikonnya duduk di kotak kecil dan tulisannya DI LUAR kotak —
+                 bukan pil yang membungkus keduanya. --}}
+            <div class="flex flex-wrap items-center gap-x-8 gap-y-3 mt-9 max-w-3xl reveal">
+                @foreach ([['paper-airplane', 'Destinasi pilihan'], ['user-group', 'Itinerary per rombongan'], ['shield-check', 'Berangkat tanpa repot']] as [$ikon, $teks])
+                    <span class="flex items-center gap-2.5 text-sm text-slate-500">
+                        <span class="gelembung-ikon !w-9 !h-9 !rounded-xl">
+                            <x-dynamic-component :component="'heroicon-s-' . $ikon" class="w-4 h-4" />
                         </span>
-                    @endforeach
-                </div>
+                        {{ $teks }}
+                    </span>
+                @endforeach
             </div>
         </div>
     </section>
 
-    <div class="container-orcha pt-4 pb-6 space-y-4 sm:space-y-5">
+    <div class="container-orcha rak-panel pb-6 space-y-4 sm:space-y-5">
 
         {{-- ==================================================================
              DESTINASI POPULER

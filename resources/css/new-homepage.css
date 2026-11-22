@@ -305,6 +305,25 @@ h6,
     box-shadow: 0 10px 24px -18px rgb(60 40 25 / 0.5);
 }
 
+/* Pil krem yang TIMBUL, tanpa garis tepi — pasangan tombol oranye pada
+   rancangan acuan. Bayangannya sama dengan .gelembung supaya seluruh
+   permukaan empuk di halaman ini terbaca sebagai satu keluarga. */
+.btn-orcha-gelembung {
+    background: #fdfbf8;
+    color: var(--color-orcha-navy);
+    box-shadow:
+        0 18px 34px -18px rgb(60 40 25 / 0.26),
+        0 4px 10px -4px rgb(60 40 25 / 0.1),
+        inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+
+.btn-orcha-gelembung:hover {
+    box-shadow:
+        0 22px 40px -18px rgb(60 40 25 / 0.32),
+        0 5px 12px -4px rgb(60 40 25 / 0.12),
+        inset 0 1px 0 rgb(255 255 255 / 0.95);
+}
+
 .btn-orcha-outline:hover {
     border-color: var(--color-orcha-sky);
     color: var(--color-orcha-navy);
@@ -474,6 +493,40 @@ h6,
 }
 
 /* ==========================================================
+   GELEMBUNG — permukaan empuk yang dipakai rancangan acuan
+
+   Bukan kartu putih bergaris tepi, melainkan permukaan krem yang tampak
+   TIMBUL: bayangan besar yang lembut di bawahnya, bayangan pendek yang
+   rapat tepat di bawah tepinya, dan satu garis cahaya tipis di sisi atas.
+   Ketiganya harus ada bersama — tanpa garis cahaya, bentuknya kembali
+   terbaca sebagai kotak datar yang kebetulan berbayang.
+========================================================== */
+.gelembung {
+    background: #fdfbf8;
+    border: 0;
+    box-shadow:
+        0 18px 34px -18px rgb(60 40 25 / 0.26),
+        0 4px 10px -4px rgb(60 40 25 / 0.1),
+        inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+
+/* Kotak kecil tempat ikon duduk — ikut timbul, tetapi lebih dangkal. */
+.gelembung-ikon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.85rem;
+    background: #fffdfa;
+    color: var(--color-orcha-navy);
+    box-shadow:
+        0 6px 12px -8px rgb(60 40 25 / 0.35),
+        inset 0 1px 0 rgb(255 255 255 / 0.95);
+}
+
+/* ==========================================================
    HERO KABIN — selebar kanvas
 
    Foto kabin pesawat menempel ke tepi atas dan tepi kanan halaman; tulisan
@@ -481,12 +534,19 @@ h6,
    keduanya: tanpa itu tulisan gelap jatuh di atas bagian foto yang terang
    dan hilang timbul mengikuti isi foto.
 ========================================================== */
+/*
+   Hero TIDAK berupa kartu, dan tidak berhenti tepat di atas panel pertama.
+
+   Ia memanjang ke bawah, lalu panel di bawahnya ditarik NAIK menindihnya —
+   itulah yang membuat panel pertama terbaca menggantung pada hero, persis
+   seperti rancangan acuan. Karena tertindih, sudut bawah hero tidak perlu
+   dibulatkan: yang terlihat di bawah panel hanya pias kiri dan kanannya.
+*/
 .hero-kabin {
     position: relative;
     isolation: isolate;
     overflow: hidden;
     background: var(--color-orcha-sand);
-    border-radius: 0 0 clamp(1.25rem, 2.6vw, 2.25rem) clamp(1.25rem, 2.6vw, 2.25rem);
 }
 
 .hero-kabin-media {
@@ -545,30 +605,30 @@ h6,
 }
 
 .hero-kabin-isi {
-    padding-block: clamp(7rem, 11vw, 10.5rem) clamp(3rem, 6vw, 6rem);
+    padding-block: clamp(7rem, 11vw, 10.5rem) clamp(6rem, 11vw, 11rem);
 }
 
+/* Panel pertama naik menindih hero. Angkanya LEBIH KECIL daripada bantalan
+   bawah hero di atas: kalau sama, jaminan "Destinasi pilihan" yang berdiri
+   paling bawah ikut tertutup. */
+.rak-panel {
+    margin-top: clamp(-7rem, -7vw, -4rem);
+}
+
+/* Gelembung "Tujuan berikutnya" — persegi membulat yang tampak timbul,
+   bukan pita mendatar. Bentuk inilah yang ada pada rancangan acuan. */
 .hero-kabin-kartu {
     position: absolute;
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.7rem 0.95rem;
-    background: #fff;
-    border: 1px solid #f1ece2;
-    border-radius: 1.1rem;
-    box-shadow: 0 22px 45px -26px rgb(60 40 25 / 0.55);
-}
-
-.hero-kabin-kartu-atas {
-    top: clamp(6.5rem, 10vw, 9rem);
-    right: clamp(1.5rem, 4vw, 4rem);
-    max-width: 15rem;
-}
-
-.hero-kabin-kartu-bawah {
-    bottom: clamp(2.5rem, 5vw, 4.5rem);
-    right: clamp(14rem, 26vw, 28rem);
+    top: clamp(6.5rem, 9vw, 8.5rem);
+    right: clamp(1.25rem, 3.5vw, 3.5rem);
+    width: clamp(11rem, 14vw, 13.5rem);
+    padding: 1.05rem 1.1rem 0.85rem;
+    border-radius: 1.75rem;
+    background: #fbf8f3;
+    box-shadow:
+        0 34px 60px -30px rgb(40 28 18 / 0.45),
+        0 10px 20px -12px rgb(40 28 18 / 0.25),
+        inset 0 2px 0 rgb(255 255 255 / 0.95);
 }
 
 /*
@@ -611,6 +671,10 @@ h6,
     .hero-kabin-isi {
         order: 1;
         padding-block: clamp(6.5rem, 20vw, 8rem) clamp(1.5rem, 5vw, 2.5rem);
+    }
+
+    .rak-panel {
+        margin-top: 0;
     }
 
     .hero-kabin-kartu {
