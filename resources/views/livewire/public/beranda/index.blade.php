@@ -272,101 +272,90 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
     dipakai versi gelapnya — lihat --color-orcha-amber di new-homepage.css.
 --}}
 <div id="beranda" class="latar-krem">
-    <div class="container-orcha pt-24 pb-6 space-y-4 sm:pt-28 sm:space-y-5 lg:pt-32">
 
-        {{-- ==================================================================
-             HERO
-        =================================================================== --}}
-        <section class="relative overflow-hidden panel-orcha !p-0">
-            <div class="grid lg:grid-cols-[1.05fr_1fr]">
-                <div class="px-6 py-10 sm:px-10 sm:py-14 lg:py-16 reveal">
-                    {{-- Kapital kecil berjarak lebar, persis seperti baris
-                         "GO FURTHER. STAY AHEAD." pada rancangan acuan.
-                         Kaligrafi Great Vibes tetap dipakai di kepala halaman
-                         LAIN — di sana ia berdiri di atas foto gelap dan
-                         memang jadi tanda tangan rupa Orcha. --}}
-                    <p class="text-[0.7rem] font-bold tracking-[0.22em] uppercase text-slate-400">
-                        {{ config('orcha.slogan') }}
-                    </p>
+    {{-- ==================================================================
+         HERO — selebar kanvas
 
-                    <h1 class="mt-4 font-heading font-extrabold text-orcha-navy leading-[1.06] tracking-tight"
-                        style="font-size: clamp(1.8rem, 5.2vw, 3.5rem);">
-                        Pergi ke tempat yang
-                        <span class="sorot-kata">layak dikenang.</span>
-                    </h1>
+         Fotonya menempel ke tepi atas dan tepi kanan halaman, persis seperti
+         rancangan acuan: kabin pesawat dengan jendela menghadap destinasi.
+         Bilah menu melayang DI ATASNYA, jadi hero ini sengaja tidak duduk di
+         dalam .container-orcha seperti panel-panel di bawahnya.
+    =================================================================== --}}
+    <section class="hero-kabin">
+        <div class="hero-kabin-media">
+            <img src="{{ asset('images/HERO/kabin-pesawat.webp') }}"
+                alt="Pemandangan pantai dari jendela pesawat, dengan paspor dan boarding pass di meja kabin"
+                fetchpriority="high" decoding="async" width="1672" height="941">
 
-                    <p class="max-w-xl mt-5 text-base leading-relaxed text-slate-600 sm:text-lg">
-                        Open trip, private trip, study tour, sampai sewa mobil, HiAce, dan bus.
-                        Sebutkan tujuan dan tanggalnya &mdash; rute, armada, sampai sopirnya kami yang siapkan.
-                    </p>
+            {{-- Kartu melayang di atas foto, seperti pada acuan. Disembunyikan
+                 di layar sempit: di sana fotonya sendiri sudah sempit, dan
+                 kartunya menutupi jendela yang justru jadi isi fotonya. --}}
+            <div class="hero-kabin-kartu hero-kabin-kartu-atas">
+                <span class="flex items-center justify-center w-8 h-8 rounded-full bg-orcha-foam text-orcha-amber shrink-0">
+                    <x-heroicon-s-paper-airplane class="w-4 h-4" />
+                </span>
+                <span class="min-w-0">
+                    <span class="block text-[0.6rem] font-bold tracking-widest uppercase text-slate-400">Tujuan berikutnya</span>
+                    <span class="block text-sm font-bold leading-snug text-orcha-navy">Pengalaman yang lebih baik</span>
+                </span>
+            </div>
 
-                    <div class="flex flex-col gap-3 mt-8 sm:flex-row sm:items-center">
-                        <a href="{{ route('paket-wisata') }}" class="btn-orcha btn-orcha-sun">
-                            Jelajahi Perjalanan
-                            <span class="btn-panah"><x-heroicon-o-arrow-right class="w-4 h-4" /></span>
-                        </a>
-                        <a href="{{ $wa('Halo Orcha Journey, saya ingin merencanakan perjalanan.') }}"
-                            target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-outline">
-                            <x-bi-whatsapp class="w-5 h-5" />
-                            Rencanakan Perjalanan
-                        </a>
-                    </div>
+            <div class="hero-kabin-kartu hero-kabin-kartu-bawah">
+                <span class="min-w-0">
+                    <span class="flex items-center gap-0.5">
+                        @for ($i = 0; $i < 5; $i++)
+                            <x-heroicon-s-star class="w-3.5 h-3.5 text-orcha-sun" />
+                        @endfor
+                    </span>
+                    <span class="block mt-1 text-sm font-bold text-orcha-navy">{{ $totalTestimoni ?: 50 }}+ ulasan pelanggan</span>
+                </span>
+            </div>
+        </div>
 
-                    <div class="flex flex-wrap gap-2 mt-8">
-                        @foreach ([['map-pin', 'Destinasi pilihan'], ['user-group', 'Itinerary per rombongan'], ['shield-check', 'Berangkat tanpa repot']] as [$ikon, $teks])
-                            <span class="chip-orcha">
-                                <x-dynamic-component :component="'heroicon-s-' . $ikon" class="w-4 h-4 text-orcha-wave" />
-                                {{ $teks }}
-                            </span>
-                        @endforeach
-                    </div>
+        <div class="hero-kabin-tirai"></div>
+
+        <div class="relative container-orcha hero-kabin-isi">
+            <div class="max-w-xl reveal">
+                <p class="text-[0.7rem] font-bold tracking-[0.22em] uppercase text-slate-400">
+                    {{ config('orcha.slogan') }}
+                </p>
+
+                <h1 class="mt-4 font-heading font-extrabold text-orcha-navy leading-[1.06] tracking-tight"
+                    style="font-size: clamp(1.8rem, 5.2vw, 3.5rem);">
+                    Pergi ke tempat yang
+                    <span class="sorot-kata">layak dikenang.</span>
+                </h1>
+
+                <p class="max-w-lg mt-5 text-base leading-relaxed text-slate-600 sm:text-lg">
+                    Open trip, private trip, study tour, sampai sewa mobil, HiAce, dan bus.
+                    Sebutkan tujuan dan tanggalnya &mdash; rute, armada, sampai sopirnya kami yang siapkan.
+                </p>
+
+                <div class="flex flex-col gap-3 mt-8 sm:flex-row sm:items-center">
+                    <a href="{{ route('paket-wisata') }}" class="btn-orcha btn-orcha-sun">
+                        Jelajahi Perjalanan
+                        <span class="btn-panah"><x-heroicon-o-arrow-right class="w-4 h-4" /></span>
+                    </a>
+                    <a href="{{ $wa('Halo Orcha Journey, saya ingin merencanakan perjalanan.') }}"
+                        target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-outline">
+                        <x-bi-whatsapp class="w-5 h-5" />
+                        Rencanakan Perjalanan
+                    </a>
                 </div>
 
-                {{-- Foto hero sebagai "jendela" membulat, bukan foto selebar
-                     layar dengan tulisan putih di atasnya. Tulisan di atas foto
-                     selalu bergantung pada bagian foto mana yang kebetulan
-                     gelap; di sini tulisannya berdiri di atas putih. --}}
-                <div class="relative p-4 sm:p-6 lg:p-8 lg:pl-0">
-                    <div class="jendela-hero h-full min-h-[16rem] aspect-[4/3] lg:aspect-auto">
-                        {{-- Begitu ada berkas video di public/videos, jendela ini
-                             memutarnya; selama belum ada, fotonya yang tampil.
-                             Jalur ini sudah dipakai sejak rupa lama — mengganti
-                             foto hero dengan video adalah cara admin mengganti
-                             kesan halaman depan tanpa menyentuh kode. --}}
-                        @if ($heroVideo)
-                            <video autoplay muted loop playsinline preload="metadata"
-                                poster="{{ asset('images/HERO/destinasi.webp') }}">
-                                <source src="{{ asset($heroVideo) }}"
-                                    type="video/{{ str_ends_with($heroVideo, '.webm') ? 'webm' : 'mp4' }}">
-                            </video>
-                        @else
-                            <img src="{{ asset('images/HERO/destinasi.webp') }}"
-                                alt="Panorama destinasi wisata yang dilayani Orcha Journey"
-                                fetchpriority="high" decoding="async" width="1200" height="900">
-                        @endif
-                    </div>
-
-                    <div class="absolute hidden top-10 right-10 sm:block kartu-melayang w-44 reveal">
-                        <p class="text-[0.65rem] font-bold tracking-wider uppercase text-slate-400">Tujuan berikutnya</p>
-                        <p class="flex items-center gap-2 mt-1 text-sm font-bold text-orcha-navy">
-                            <x-heroicon-s-paper-airplane class="w-4 h-4 text-orcha-wave" />
-                            Pengalaman yang lebih baik
-                        </p>
-                    </div>
-
-                    <div class="absolute hidden bottom-10 left-0 sm:block kartu-melayang reveal">
-                        <div class="flex items-center gap-1">
-                            @for ($i = 0; $i < 5; $i++)
-                                <x-heroicon-s-star class="w-4 h-4 text-orcha-sun" />
-                            @endfor
-                        </div>
-                        <p class="mt-1 text-sm font-bold text-orcha-navy">
-                            {{ $totalTestimoni ?: 50 }}+ ulasan pelanggan
-                        </p>
-                    </div>
+                <div class="flex flex-wrap gap-2 mt-8">
+                    @foreach ([['map-pin', 'Destinasi pilihan'], ['user-group', 'Itinerary per rombongan'], ['shield-check', 'Berangkat tanpa repot']] as [$ikon, $teks])
+                        <span class="chip-orcha">
+                            <x-dynamic-component :component="'heroicon-s-' . $ikon" class="w-4 h-4 text-orcha-amber" />
+                            {{ $teks }}
+                        </span>
+                    @endforeach
                 </div>
             </div>
-        </section>
+        </div>
+    </section>
+
+    <div class="container-orcha pt-4 pb-6 space-y-4 sm:space-y-5">
 
         {{-- ==================================================================
              DESTINASI POPULER

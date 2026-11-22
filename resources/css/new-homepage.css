@@ -473,6 +473,151 @@ h6,
     box-shadow: 0 8px 18px -16px rgb(60 40 25 / 0.6);
 }
 
+/* ==========================================================
+   HERO KABIN — selebar kanvas
+
+   Foto kabin pesawat menempel ke tepi atas dan tepi kanan halaman; tulisan
+   berdiri di separuh kiri, di atas krem. Tirai gradien yang memisahkan
+   keduanya: tanpa itu tulisan gelap jatuh di atas bagian foto yang terang
+   dan hilang timbul mengikuti isi foto.
+========================================================== */
+.hero-kabin {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: var(--color-orcha-sand);
+    border-radius: 0 0 clamp(1.25rem, 2.6vw, 2.25rem) clamp(1.25rem, 2.6vw, 2.25rem);
+}
+
+.hero-kabin-media {
+    position: absolute;
+    inset: 0 0 0 auto;
+    /* Separuh lebar layar pas: tulisan hero paling lebar 36rem, dan pada
+       1280px separuh kanvas dimulai persis di ujung tulisan itu. Lebih lebar
+       dari ini, fotonya menindih judul di layar laptop. */
+    width: 50%;
+    z-index: -2;
+}
+
+@media (min-width: 1536px) {
+    .hero-kabin-media {
+        width: 58%;
+    }
+}
+
+.hero-kabin-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 60% 50%;
+    /*
+       Tepi kiri fotonya dilebur, bukan dipotong lurus.
+
+       Tirai gradien saja tidak cukup: ia menipis pada PERSENTASE lebar layar,
+       sedangkan tepi foto berdiri di titik tetap — jadi pada lebar tertentu
+       keduanya tidak bertemu dan tepi itu tampak sebagai garis lurus. Lapisan
+       topeng ini menempel pada fotonya sendiri, jadi selalu pas berapa pun
+       lebar layarnya.
+    */
+    /* 90deg, bukan miring: sumbu yang dimiringkan membuat baris paling bawah
+       mulai lebih jauh di sepanjang gradien, jadi sudut kiri-bawah foto tidak
+       pernah benar-benar tembus pandang — dan di situlah sandaran kursi yang
+       gelap memperlihatkan tepi lurusnya. */
+    -webkit-mask-image: linear-gradient(90deg, rgb(0 0 0 / 0) 0%, rgb(0 0 0 / 0.3) 14%, rgb(0 0 0 / 1) 38%);
+    mask-image: linear-gradient(90deg, rgb(0 0 0 / 0) 0%, rgb(0 0 0 / 0.3) 14%, rgb(0 0 0 / 1) 38%);
+}
+
+.hero-kabin-tirai {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    /* Tirainya PEKAT sampai melewati tepi kiri foto, baru kemudian memudar.
+       Kalau ia sudah tembus pandang di titik foto dimulai, tepi kiri foto
+       terlihat sebagai garis lurus — sambungan yang justru menonjol. */
+    background: linear-gradient(
+        100deg,
+        var(--color-orcha-sand) 0%,
+        var(--color-orcha-sand) 42%,
+        rgb(246 241 234 / 0.72) 52%,
+        rgb(246 241 234 / 0.25) 62%,
+        rgb(246 241 234 / 0) 72%
+    );
+}
+
+.hero-kabin-isi {
+    padding-block: clamp(7rem, 11vw, 10.5rem) clamp(3rem, 6vw, 6rem);
+}
+
+.hero-kabin-kartu {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.7rem 0.95rem;
+    background: #fff;
+    border: 1px solid #f1ece2;
+    border-radius: 1.1rem;
+    box-shadow: 0 22px 45px -26px rgb(60 40 25 / 0.55);
+}
+
+.hero-kabin-kartu-atas {
+    top: clamp(6.5rem, 10vw, 9rem);
+    right: clamp(1.5rem, 4vw, 4rem);
+    max-width: 15rem;
+}
+
+.hero-kabin-kartu-bawah {
+    bottom: clamp(2.5rem, 5vw, 4.5rem);
+    right: clamp(14rem, 26vw, 28rem);
+}
+
+/*
+   Di layar sempit fotonya TIDAK lagi jadi latar.
+
+   Separuh lebar ponsel tidak cukup untuk memuat jendela pesawatnya, dan
+   tulisan di atas foto yang terang jadi sulit dibaca. Fotonya turun ke
+   bawah tulisan sebagai blok tersendiri.
+*/
+/* Ambangnya xl, sama dengan bilah menu: di bawah 1280px menu lengkapnya
+   sudah berganti tombol tiga garis, dan separuh kanvas tidak lagi cukup
+   lebar untuk memuat judul di sebelah foto. */
+@media (max-width: 1279.98px) {
+    .hero-kabin {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .hero-kabin-media img {
+        -webkit-mask-image: none;
+        mask-image: none;
+    }
+
+    .hero-kabin-media {
+        position: relative;
+        inset: auto;
+        order: 2;
+        width: auto;
+        margin: 0 clamp(1rem, 5vw, 2rem) clamp(1.25rem, 4vw, 2rem);
+        aspect-ratio: 16 / 10;
+        overflow: hidden;
+        border-radius: 1.25rem;
+        z-index: 0;
+    }
+
+    .hero-kabin-tirai {
+        display: none;
+    }
+
+    .hero-kabin-isi {
+        order: 1;
+        padding-block: clamp(6.5rem, 20vw, 8rem) clamp(1.5rem, 5vw, 2.5rem);
+    }
+
+    .hero-kabin-kartu {
+        display: none;
+    }
+}
+
 /* Bingkai foto hero — "jendela" membulat, bukan foto selebar layar. */
 .jendela-hero {
     position: relative;

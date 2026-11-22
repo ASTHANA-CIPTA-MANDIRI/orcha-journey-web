@@ -115,11 +115,23 @@ test('itinerary bisa bolak-balik antara teks admin dan bentuk tersimpan', functi
     expect(ItineraryTeks::keArray($teks))->toBe($this->banyuwangi->itinerary);
 });
 
-test('beranda memakai video hero bila berkasnya tersedia', function () {
-    expect(file_exists(public_path('videos/hero.mp4')))->toBeTrue();
+test('hero beranda memakai foto kabin pesawat, dan berkasnya ada', function () {
+    /*
+     | Hero beranda tidak lagi memutar video.
+     |
+     | Bentuknya kini mengikuti rancangan yang diminta: foto kabin pesawat
+     | yang menempel ke tepi atas dan tepi kanan kanvas, dengan tulisan di
+     | separuh kiri. Video selebar layar tidak bisa menempati bentuk itu —
+     | ia menuntut seluruh lebar, dan tulisan di atasnya kembali bergantung
+     | pada bagian video mana yang kebetulan gelap.
+     |
+     | Berkas videonya SENGAJA tidak dihapus: ia milik Orcha, dan kalau suatu
+     | saat hero video dipakai lagi, berkasnya masih di tempatnya.
+     */
+    expect(file_exists(public_path('images/HERO/kabin-pesawat.webp')))->toBeTrue();
 
     $this->get('/')
         ->assertOk()
-        ->assertSee('videos/hero.mp4', false)
-        ->assertSee('<video', false);
+        ->assertSee('images/HERO/kabin-pesawat.webp', false)
+        ->assertDontSee('videos/hero.mp4', false);
 });
