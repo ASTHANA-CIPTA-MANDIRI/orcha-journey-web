@@ -630,11 +630,11 @@ h6,
     position: absolute;
     top: clamp(6.5rem, 9vw, 8.5rem);
     right: clamp(1.25rem, 3.5vw, 3.5rem);
-    width: clamp(11.5rem, 14vw, 14rem);
-    padding: clamp(1.05rem, 1.4vw, 1.45rem);
+    width: clamp(10.5rem, 12vw, 12rem);
+    padding: clamp(1.15rem, 1.6vw, 1.6rem) clamp(1rem, 1.3vw, 1.35rem) clamp(1.1rem, 1.5vw, 1.5rem);
     /* Jari-jarinya hampir seperempat lebar kartu — itu yang membuatnya
        terbaca sebagai bantal, bukan sebagai kotak bersudut tumpul. */
-    border-radius: clamp(1.75rem, 2.6vw, 2.6rem);
+    border-radius: clamp(2rem, 2.9vw, 2.9rem);
     /* Permukaannya TIDAK rata: lebih terang di kiri-atas, meredup ke
        kanan-bawah, seperti benda yang kena cahaya dari satu arah. */
     background: linear-gradient(145deg, #fdfaf6 0%, #f5eee4 58%, #eae1d5 100%);
@@ -643,6 +643,19 @@ h6,
         0 14px 26px -14px rgb(40 28 18 / 0.28),
         inset 0 2px 1px rgb(255 255 255 / 0.95),
         inset 0 -16px 24px -18px rgb(120 95 70 / 0.4);
+    /*
+       MIRING, dan miringnya bukan sekadar diputar datar.
+
+       Pada rancangan acuan kartu ini benda nyata yang dipotret dari sisi
+       kiri: tepi atasnya turun ke kanan, dan tepi kanannya lebih pendek
+       daripada tepi kiri karena sisi itu lebih jauh dari mata. Dua hal itu
+       hanya bisa dicapai bersama lewat putaran pada sumbu Y di dalam ruang
+       berperspektif — putaran datar saja (rotate) memiringkan kartunya
+       tetapi kedua tepinya tetap sama panjang, dan bentuknya tetap terbaca
+       seperti stiker, bukan benda.
+    */
+    transform: perspective(760px) rotateY(-12deg) rotateZ(10deg);
+    transform-origin: 55% 50%;
 }
 
 /* Kotak ikonnya ikut timbul, satu tingkat lebih terang daripada kartunya. */
