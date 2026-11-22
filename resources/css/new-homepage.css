@@ -156,8 +156,10 @@ h6,
 .title-orcha {
     font-family: var(--font-heading);
     font-weight: 800;
-    line-height: 1.08;
-    letter-spacing: -0.025em;
+    /* Dirapatkan: huruf tebal berukuran besar butuh jarak yang lebih rapat
+       daripada bawaannya, kalau tidak judulnya terbaca renggang dan lemas. */
+    line-height: 1.02;
+    letter-spacing: -0.035em;
     color: var(--color-orcha-navy);
     font-size: clamp(1.9rem, 4vw, 3.25rem);
     text-wrap: balance;
@@ -242,18 +244,39 @@ h6,
     box-shadow: var(--shadow-orcha-lg);
 }
 
+/*
+   Tombol yang terasa bisa DITEKAN.
+
+   Tiga hal sekaligus: badan padat di bawahnya (sisi tebal tombol), kilau
+   tipis di tepi atas tempat cahaya jatuh, dan bayangan berwarna di bawahnya.
+   Saat disentuh, badannya menipis dan tombolnya turun — gerak yang sama
+   seperti tombol fisik yang ditekan.
+*/
 .btn-orcha-sun {
-    background: linear-gradient(
-        120deg,
-        var(--color-orcha-sun),
-        var(--color-orcha-sunset)
-    );
+    background: linear-gradient(135deg, #ff8d52 0%, #f26a24 58%, #e65c13 100%);
     color: #fff;
-    box-shadow: 0 16px 32px -16px rgb(239 95 24 / 0.6);
+    box-shadow:
+        0 6px 0 -1px #c9500c,
+        0 20px 34px -16px rgb(239 95 24 / 0.65),
+        inset 0 1px 0 rgb(255 255 255 / 0.45),
+        inset 0 -8px 14px -10px rgb(140 50 0 / 0.5);
 }
 
 .btn-orcha-sun:hover {
-    box-shadow: 0 20px 40px -16px rgb(239 95 24 / 0.7);
+    box-shadow:
+        0 8px 0 -1px #c9500c,
+        0 26px 42px -16px rgb(239 95 24 / 0.7),
+        inset 0 1px 0 rgb(255 255 255 / 0.5),
+        inset 0 -8px 14px -10px rgb(140 50 0 / 0.5);
+}
+
+.btn-orcha-sun:active {
+    transform: translateY(2px);
+    box-shadow:
+        0 2px 0 -1px #c9500c,
+        0 10px 18px -12px rgb(239 95 24 / 0.6),
+        inset 0 1px 0 rgb(255 255 255 / 0.4),
+        inset 0 -6px 12px -10px rgb(140 50 0 / 0.5);
 }
 
 /*
@@ -309,18 +332,26 @@ h6,
    rancangan acuan. Bayangannya sama dengan .gelembung supaya seluruh
    permukaan empuk di halaman ini terbaca sebagai satu keluarga. */
 .btn-orcha-gelembung {
-    background: #fdfbf8;
+    background: linear-gradient(140deg, #fffdfa, #f8f2e9);
     color: var(--color-orcha-navy);
     box-shadow:
-        0 18px 34px -18px rgb(60 40 25 / 0.26),
-        0 4px 10px -4px rgb(60 40 25 / 0.1),
-        inset 0 1px 0 rgb(255 255 255 / 0.9);
+        0 6px 0 -1px #e5d9c7,
+        0 20px 34px -18px rgb(60 40 25 / 0.3),
+        inset 0 1px 0 rgb(255 255 255 / 0.95);
 }
 
 .btn-orcha-gelembung:hover {
     box-shadow:
-        0 22px 40px -18px rgb(60 40 25 / 0.32),
-        0 5px 12px -4px rgb(60 40 25 / 0.12),
+        0 8px 0 -1px #e5d9c7,
+        0 26px 42px -18px rgb(60 40 25 / 0.34),
+        inset 0 1px 0 rgb(255 255 255 / 0.95);
+}
+
+.btn-orcha-gelembung:active {
+    transform: translateY(2px);
+    box-shadow:
+        0 2px 0 -1px #e5d9c7,
+        0 10px 18px -12px rgb(60 40 25 / 0.28),
         inset 0 1px 0 rgb(255 255 255 / 0.95);
 }
 
@@ -419,8 +450,8 @@ h6,
 .judul-panel {
     font-family: var(--font-heading);
     font-weight: 800;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
     color: var(--color-orcha-navy);
     font-size: clamp(1.55rem, 2.9vw, 2.5rem);
     text-wrap: balance;
@@ -519,10 +550,26 @@ h6,
     width: 2.5rem;
     height: 2.5rem;
     border-radius: 0.85rem;
-    background: #fffdfa;
+    background: linear-gradient(150deg, #fffdfa 0%, #faf4ec 60%, #f3ece1 100%);
     color: var(--color-orcha-navy);
+    /* Ikut punya sisi tebal di kanan-bawah, seperti gelembung besar di hero —
+       supaya seluruh permukaan empuk di halaman ini satu keluarga. */
     box-shadow:
-        0 6px 12px -8px rgb(60 40 25 / 0.35),
+        4px 5px 0 0 #e8dccb,
+        0 12px 18px -10px rgb(60 40 25 / 0.4),
+        inset 0 1px 0 rgb(255 255 255 / 0.95);
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+/* Sedikit terangkat saat barisnya disentuh. */
+.hero-kabin-isi span:hover > .gelembung-ikon,
+a:hover > .gelembung-ikon {
+    transform: translate(-1px, -2px);
+    box-shadow:
+        5px 7px 0 0 #e8dccb,
+        0 16px 22px -10px rgb(60 40 25 / 0.45),
         inset 0 1px 0 rgb(255 255 255 / 0.95);
 }
 
@@ -551,6 +598,43 @@ h6,
        sisi kirinya tertutup panel yang naik menindih, dan di bawah panel
        warnanya krem di atas krem. */
     border-radius: 0 0 clamp(2rem, 3.5vw, 3.5rem) clamp(2rem, 3.5vw, 3.5rem);
+}
+
+/*
+   Sisi kiri tidak dibiarkan rata polos.
+
+   Dua cahaya lembut — putih hangat di belakang judul dan semburat kuning di
+   sudut bawah — memberi kedalaman tanpa menambah satu pun benda baru. Diberi
+   lapisan butiran halus di atasnya supaya bidang krem seluas itu tidak
+   terbaca sebagai cat tembok yang rata.
+*/
+.hero-kabin::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    /* Ditahan di separuh kiri: cahaya putih yang menyeberang ke fotonya akan
+       memucatkan pemandangan di dalam jendela — persoalan yang baru saja
+       dibereskan pada tirai. */
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 32%, transparent 50%);
+    mask-image: linear-gradient(90deg, #000 0%, #000 32%, transparent 50%);
+    background:
+        radial-gradient(58% 52% at 16% 30%, rgb(255 255 255 / 0.85), transparent 72%),
+        radial-gradient(42% 38% at 4% 88%, rgb(239 168 62 / 0.14), transparent 72%),
+        radial-gradient(34% 30% at 34% 96%, rgb(42 122 107 / 0.05), transparent 72%);
+}
+
+.hero-kabin::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.5;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+    /* Butirannya hanya di separuh kiri: di atas foto ia justru terlihat
+       seperti berkas yang rusak. */
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 34%, transparent 52%);
+    mask-image: linear-gradient(90deg, #000 0%, #000 34%, transparent 52%);
 }
 
 .hero-kabin-media {
@@ -598,13 +682,19 @@ h6,
     /* Tirainya PEKAT sampai melewati tepi kiri foto, baru kemudian memudar.
        Kalau ia sudah tembus pandang di titik foto dimulai, tepi kiri foto
        terlihat sebagai garis lurus — sambungan yang justru menonjol. */
+    /* Berhenti SEBELUM jendelanya.
+
+       Jendela pesawat duduk di 55-78% lebar kanvas. Tirai yang baru habis di
+       72% masih menyapu pemandangan di dalamnya — lautnya jadi keputihan dan
+       kehilangan warna. Sekarang ia sudah bening di 58%, dan peleburan tepi
+       kiri foto diserahkan ke lapisan topeng pada fotonya sendiri. */
     background: linear-gradient(
         100deg,
         var(--color-orcha-sand) 0%,
-        var(--color-orcha-sand) 42%,
-        rgb(246 241 234 / 0.72) 52%,
-        rgb(246 241 234 / 0.25) 62%,
-        rgb(246 241 234 / 0) 72%
+        var(--color-orcha-sand) 38%,
+        rgb(246 241 234 / 0.6) 45%,
+        rgb(246 241 234 / 0.14) 52%,
+        rgb(246 241 234 / 0) 58%
     );
 }
 

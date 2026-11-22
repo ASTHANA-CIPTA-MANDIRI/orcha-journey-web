@@ -315,8 +315,10 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                     {{ config('orcha.slogan') }}
                 </p>
 
-                <h1 class="mt-4 font-heading font-extrabold text-orcha-navy leading-[1.06] tracking-tight"
-                    style="font-size: clamp(1.8rem, 5.2vw, 3.5rem);">
+                {{-- Jarak huruf dan barisnya dirapatkan: huruf tebal sebesar ini
+                     terbaca renggang dan lemas dengan jarak bawaannya. --}}
+                <h1 class="mt-4 font-heading font-extrabold text-orcha-navy leading-[0.99] tracking-[-0.035em]"
+                    style="font-size: clamp(1.85rem, 5vw, 3.45rem);">
                     Pergi ke tempat yang
                     <span class="sorot-kata">layak dikenang.</span>
                 </h1>
