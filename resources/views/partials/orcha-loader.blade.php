@@ -257,7 +257,8 @@
     }
     .orc-word-top {
         display: block;
-        font-family: 'Bricolage Grotesque', system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font-family: 'Fraunces', Georgia, serif;
+        font-variation-settings: 'SOFT' 40, 'WONK' 1;
         font-weight: 800;
         font-size: 1.5rem;
         letter-spacing: .5px;
@@ -269,7 +270,8 @@
     .orc-word-bot {
         display: block;
         margin-top: 3px;
-        font-family: 'Bricolage Grotesque', system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font-family: 'Fraunces', Georgia, serif;
+        font-variation-settings: 'SOFT' 40, 'WONK' 1;
         font-weight: 600;
         font-size: .72rem;
         letter-spacing: 4px;

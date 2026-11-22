@@ -100,7 +100,7 @@
          Aman karena hurufnya sudah memakai display=swap: tulisan tampil
          seketika dengan huruf bawaan perangkat, lalu berganti sendiri. --}}
     @php
-        $tautanHuruf = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Great+Vibes&display=swap';
+        $tautanHuruf = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..900,0..100,0..1&family=Great+Vibes&display=swap';
     @endphp
     <link rel="preload" as="style" href="{{ $tautanHuruf }}">
     <link rel="stylesheet" href="{{ $tautanHuruf }}" media="print" onload="this.media='all'">

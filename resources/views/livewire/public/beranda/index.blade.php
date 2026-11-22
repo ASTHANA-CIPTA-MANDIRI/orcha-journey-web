@@ -317,8 +317,8 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
 
                 {{-- Jarak huruf dan barisnya dirapatkan: huruf tebal sebesar ini
                      terbaca renggang dan lemas dengan jarak bawaannya. --}}
-                <h1 class="mt-4 font-heading font-extrabold text-orcha-navy leading-[0.99] tracking-[-0.035em]"
-                    style="font-size: clamp(1.85rem, 5vw, 3.45rem);">
+                <h1 class="mt-4 font-heading font-extrabold text-orcha-navy leading-[1.02] tracking-[-0.018em]"
+                    style="font-size: clamp(1.85rem, 5vw, 3.45rem); font-variation-settings: 'SOFT' 40, 'WONK' 1;">
                     Pergi ke tempat yang
                     <span class="sorot-kata">layak dikenang.</span>
                 </h1>

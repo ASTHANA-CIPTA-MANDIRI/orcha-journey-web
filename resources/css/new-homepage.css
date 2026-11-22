@@ -27,20 +27,26 @@
 ========================================================== */
 @theme {
     /*
-       Huruf judul: grotesk yang punya WATAK, bukan yang rata-rata saja.
+       Huruf judul: serif lembut yang punya watak.
 
-       Plus Jakarta Sans sebelumnya rapi tetapi datar — bentuknya nyaris
-       sama dengan huruf bawaan sistem, jadi judul sebesar apa pun tidak
-       meninggalkan kesan. Bricolage Grotesque sedikit menyempit dengan
-       potongan ujung yang miring dan ekor 'g' serta 'y' yang khas: hidup
-       dibaca sekilas, tetapi tetap grotesk biasa yang mudah dieja —
-       bukan huruf hias yang melelahkan di paragraf panjang.
+       Fraunces dirancang justru untuk ini — ia punya tiga sumbu yang
+       dipakai sekaligus di sini:
 
-       Sumbu opsz-nya membuat bentuk huruf menyesuaikan ukuran: di judul
-       besar ia merapat dan menajam, di tulisan kecil ia melebar supaya
-       tetap terbaca.
+       opsz (9..144) membuat bentuk huruf menyesuaikan UKURAN: di judul
+       besar seriknya menajam dan merapat, di tulisan kecil ia menebal dan
+       melebar supaya tetap terbaca.
+
+       SOFT membulatkan sudut-sudut tajamnya, jadi hangat dan tidak kaku
+       seperti serif koran.
+
+       WONK menukar beberapa huruf dengan bentuk "miring" khasnya — itu
+       yang membuat judulnya terasa digambar tangan, bukan disusun mesin.
+
+       Teks isi TETAP Inter. Serif di paragraf panjang membuat mata bekerja
+       lebih keras, dan sebagian pengunjung Orcha membacanya di layar ponsel
+       yang kecil.
     */
-    --font-heading: "Bricolage Grotesque", sans-serif;
+    --font-heading: "Fraunces", Georgia, serif;
     --font-sans: "Inter", sans-serif;
     /* Aksen kaligrafi, masih dipakai di kepala halaman selain beranda */
     --font-aksen: "Great Vibes", "Segoe Script", cursive;
@@ -168,8 +174,9 @@ h6,
     font-weight: 800;
     /* Dirapatkan: huruf tebal berukuran besar butuh jarak yang lebih rapat
        daripada bawaannya, kalau tidak judulnya terbaca renggang dan lemas. */
-    line-height: 1.02;
-    letter-spacing: -0.035em;
+    line-height: 1.04;
+    letter-spacing: -0.018em;
+    font-variation-settings: 'SOFT' 40, 'WONK' 1;
     color: var(--color-orcha-navy);
     font-size: clamp(1.9rem, 4vw, 3.25rem);
     text-wrap: balance;
@@ -460,8 +467,9 @@ h6,
 .judul-panel {
     font-family: var(--font-heading);
     font-weight: 800;
-    line-height: 1.05;
-    letter-spacing: -0.03em;
+    line-height: 1.06;
+    letter-spacing: -0.015em;
+    font-variation-settings: 'SOFT' 40, 'WONK' 1;
     color: var(--color-orcha-navy);
     font-size: clamp(1.55rem, 2.9vw, 2.5rem);
     text-wrap: balance;
