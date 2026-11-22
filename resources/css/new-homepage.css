@@ -511,20 +511,33 @@ h6,
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
-    width: 2.2rem;
-    height: 2.2rem;
+    width: 2.5rem;
+    height: 2.5rem;
     border-radius: 9999px;
-    background: linear-gradient(130deg, var(--color-orcha-sun), var(--color-orcha-sunset));
-    color: #fff;
-    box-shadow: 0 10px 20px -12px rgb(239 95 24 / 0.75);
+    /* Keping KREM berisi panah oranye — bukan bundaran oranye padat.
+       Itu bentuk yang dipakai rancangan acuan, dan ia ikut keluarga
+       permukaan empuk yang lain: punya sisi tebal di kanan-bawah. */
+    background: linear-gradient(150deg, #fffdfa 0%, #faf4ec 60%, #f4ede2 100%);
+    color: var(--color-orcha-sunset);
+    box-shadow:
+        3px 4px 0 0 #e9dccb,
+        0 10px 16px -8px rgb(60 40 25 / 0.4),
+        inset 0 1px 0 rgb(255 255 255 / 0.95);
     transition:
         transform 0.25s ease,
-        box-shadow 0.25s ease;
+        box-shadow 0.25s ease,
+        color 0.25s ease;
 }
 
+.kartu-destinasi:hover .tombol-bulat,
+.ubin-orcha:hover .tombol-bulat,
 .tombol-bulat:hover {
-    transform: translateX(2px);
-    box-shadow: 0 14px 26px -12px rgb(239 95 24 / 0.9);
+    transform: translate(-1px, -2px);
+    color: var(--color-orcha-amber);
+    box-shadow:
+        4px 6px 0 0 #e9dccb,
+        0 14px 20px -8px rgb(60 40 25 / 0.45),
+        inset 0 1px 0 rgb(255 255 255 / 0.95);
 }
 
 .chip-orcha {
@@ -885,27 +898,67 @@ a:hover > .gelembung-ikon {
 }
 
 /* Kartu destinasi: foto di atas, nama & satu kalimat di bawah. */
-/* Fotonya DUDUK DI DALAM kartu dengan bingkai putih tipis mengelilinginya,
-   bukan menempel rata ke tepi — itu yang membuat deretan kartu pada acuan
-   terbaca seperti kumpulan foto, bukan seperti tabel bergambar. */
+/*
+   Fotonya memenuhi SELURUH kartu, dan tulisannya menumpang di atasnya
+   sebagai panel krem yang menempel di tepi bawah — bentuk yang dipakai
+   rancangan acuan.
+
+   Sebelumnya foto dan tulisan bertumpuk ke bawah dalam satu kolom, jadi
+   kartunya terbaca seperti baris tabel bergambar. Dengan panel yang
+   menumpang, fotonya tetap utuh sampai ke tepi dan kartunya terbaca
+   sebagai satu gambar bertanda.
+*/
 .kartu-destinasi {
-    display: flex;
-    flex-direction: column;
+    position: relative;
+    display: block;
     overflow: hidden;
-    padding: 0.5rem;
-    background: #fff;
-    border: 1px solid #f0e8dc;
+    /* Perbandingan diambil dari rancangan acuan: 0,9 — hampir persegi,
+       bukan memanjang. Kartu yang terlalu jangkung membuat panel
+       tulisannya terbaca kecil dan terdesak di dasar foto. */
+    aspect-ratio: 9 / 10;
     border-radius: 1.4rem;
+    background: var(--color-orcha-foam);
+    box-shadow: 0 16px 30px -20px rgb(60 40 25 / 0.45);
     transition:
         transform 0.3s ease,
-        box-shadow 0.3s ease,
-        border-color 0.3s ease;
+        box-shadow 0.3s ease;
+}
+
+.kartu-destinasi > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.7s ease;
+}
+
+.kartu-destinasi-isi {
+    position: absolute;
+    right: 0.45rem;
+    bottom: 0.45rem;
+    left: 0.45rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    /* Tingginya dipatok PADA KASUS TERPANJANG — nama dua baris ditambah
+       keterangan dua baris. Nama yang patah dua baris membuat panelnya naik
+       lebih tinggi daripada tetangganya, dan deretan kartu yang tepi atas
+       panelnya bergerigi terbaca seperti salah susun. */
+    min-height: 6.9rem;
+    padding: 0.8rem 0.85rem;
+    border-radius: 1.05rem;
+    background: linear-gradient(150deg, #fffdfa 0%, #faf6ef 100%);
+    box-shadow: 0 12px 24px -14px rgb(40 28 18 / 0.5);
 }
 
 .kartu-destinasi:hover {
     transform: translateY(-5px);
-    border-color: var(--color-orcha-mist);
-    box-shadow: var(--shadow-orcha);
+    box-shadow: 0 24px 40px -20px rgb(60 40 25 / 0.5);
+}
+
+.kartu-destinasi:hover > img {
+    transform: scale(1.06);
 }
 
 /* Tab filter (kategori paket & jenis armada) */

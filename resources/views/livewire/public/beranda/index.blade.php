@@ -392,30 +392,29 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                                 52,
                             );
                         @endphp
-                        <a href="{{ route('destinasi') }}" class="kartu-destinasi group reveal">
-                            <span class="relative block overflow-hidden rounded-[1rem] aspect-[4/5]">
-                                <img src="{{ $dest->main_photo ?: asset('images/pantai-senja.webp') }}"
-                                    alt="{{ $dest->destination_name }}" loading="lazy"
-                                    class="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105">
-                            </span>
-                            <span class="flex items-end gap-2 px-2 pt-3 pb-1 sm:px-2.5">
+                        <a href="{{ route('destinasi') }}" class="kartu-destinasi reveal">
+                            <img src="{{ $dest->main_photo ?: asset('images/pantai-senja.webp') }}"
+                                alt="{{ $dest->destination_name }}" loading="lazy">
+
+                            {{-- Panel tulisan MENUMPANG di atas foto, menempel ke tepi
+                                 bawah kartu. Ditumpuk ke bawah dalam satu kolom,
+                                 kartunya terbaca seperti baris tabel bergambar. --}}
+                            <span class="kartu-destinasi-isi">
                                 <span class="flex-1 min-w-0">
                                     <span class="block text-sm font-bold sm:text-base text-orcha-navy">
                                         {{ $dest->destination_name }}
                                     </span>
-                                    {{-- Dipangkas dua baris: tanpa itu tinggi tiap kartu
-                                         ikut panjang keterangannya dan deretannya jadi
-                                         bergerigi. --}}
-                                    <span class="mt-1 text-xs leading-snug text-slate-500 line-clamp-2">
+                                    {{-- Dipangkas dua baris: tanpa itu tinggi panelnya ikut
+                                         panjang keterangan dan deretan kartunya bergerigi. --}}
+                                    <span class="mt-0.5 text-xs leading-snug text-slate-500 line-clamp-2">
                                         {{ $ketDestinasi }}
                                     </span>
                                 </span>
                                 {{-- Di layar sempit kartunya cuma selebar 130px; keping
                                      panah di sampingnya menyisakan lajur tulisan selebar
-                                     tiga kata, dan keterangannya pecah jadi enam baris
-                                     pendek. Seluruh kartunya memang sudah berupa tautan. --}}
+                                     tiga kata. Seluruh kartunya memang sudah berupa tautan. --}}
                                 <span class="hidden sm:block">
-                                    <span class="tombol-bulat !w-8 !h-8">
+                                    <span class="tombol-bulat !w-9 !h-9">
                                         <x-heroicon-o-arrow-right class="w-4 h-4" />
                                     </span>
                                 </span>
