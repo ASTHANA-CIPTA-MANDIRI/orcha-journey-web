@@ -138,6 +138,47 @@ test('markup navbar tetap menyatakan maksudnya', function () {
     expect($blade)->not->toMatch('/class="[^"]*\bhidden\b[^"]*btn-orcha/');
 });
 
+test('kelas yang menetapkan display tidak disembunyikan dengan utilitas hidden', function () {
+    /*
+     | Perangkap yang sama sudah tiga kali muncul: .menu-tombol, .btn-orcha,
+     | lalu .tombol-bulat. Ketiganya menetapkan display di new-homepage.css —
+     | berkas yang isinya TIDAK berada di dalam @layer — sedangkan utilitas
+     | `hidden` milik Tailwind v4 ada di dalamnya. CSS tanpa lapisan selalu
+     | menang, jadi `hidden` pada elemen berkelas itu tidak melakukan apa pun
+     | dan tidak ada satu pun galat yang muncul.
+     |
+     | Jalan keluarnya selalu sama: sembunyikan PEMBUNGKUSNYA.
+     */
+    $kelasBerdisplay = ['btn-orcha', 'tombol-bulat', 'menu-tombol', 'chip-orcha', 'ubin-orcha', 'kartu-destinasi'];
+
+    $berkas = collect(\Illuminate\Support\Facades\File::allFiles(resource_path('views')))
+        ->filter(fn ($f) => str_ends_with($f->getFilename(), '.blade.php'));
+
+    $pelanggaran = [];
+
+    foreach ($berkas as $f) {
+        foreach (file($f->getPathname()) as $nomor => $baris) {
+            if (! preg_match_all('/class="([^"]*)"/', $baris, $cocok)) {
+                continue;
+            }
+
+            foreach ($cocok[1] as $kelas) {
+                if (! preg_match('/(^|\s)hidden(\s|$)/', $kelas)) {
+                    continue;
+                }
+
+                foreach ($kelasBerdisplay as $k) {
+                    if (preg_match('/(^|\s)'.preg_quote($k, '/').'(\s|$)/', $kelas)) {
+                        $pelanggaran[] = $f->getRelativePathname().':'.($nomor + 1).' — '.$k;
+                    }
+                }
+            }
+        }
+    }
+
+    expect($pelanggaran)->toBe([]);
+});
+
 test('galeri beranda memakai foto admin walau baru sedikit', function () {
     Galeri::create(['foto' => '/storage/galeri/rombongan.webp', 'urutan' => 1]);
 

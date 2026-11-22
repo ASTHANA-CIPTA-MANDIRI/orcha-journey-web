@@ -407,12 +407,21 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                                     <span class="block text-sm font-bold sm:text-base text-orcha-navy">
                                         {{ $dest->destination_name }}
                                     </span>
-                                    <span class="block mt-1 text-xs leading-snug text-slate-500">
+                                    {{-- Dipangkas dua baris: tanpa itu tinggi tiap kartu
+                                         ikut panjang keterangannya dan deretannya jadi
+                                         bergerigi. --}}
+                                    <span class="mt-1 text-xs leading-snug text-slate-500 line-clamp-2">
                                         {{ $ketDestinasi }}
                                     </span>
                                 </span>
-                                <span class="tombol-bulat !w-8 !h-8">
-                                    <x-heroicon-o-arrow-right class="w-4 h-4" />
+                                {{-- Di layar sempit kartunya cuma selebar 130px; keping
+                                     panah di sampingnya menyisakan lajur tulisan selebar
+                                     tiga kata, dan keterangannya pecah jadi enam baris
+                                     pendek. Seluruh kartunya memang sudah berupa tautan. --}}
+                                <span class="hidden sm:block">
+                                    <span class="tombol-bulat !w-8 !h-8">
+                                        <x-heroicon-o-arrow-right class="w-4 h-4" />
+                                    </span>
                                 </span>
                             </span>
                         </a>
