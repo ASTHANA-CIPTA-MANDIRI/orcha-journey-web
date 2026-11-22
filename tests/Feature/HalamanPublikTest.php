@@ -137,11 +137,16 @@ test('beranda menampilkan tiga paket TERBARU dan menaut ke halaman lengkap', fun
         ->assertSee('Paket Nomor 7')
         ->assertDontSee('Paket Nomor 6')
         ->assertDontSee('Paket Nomor 1')
-        ->assertSee('Lihat Semua Paket Wisata')
-        ->assertSee('Lihat Semua Armada');
+        // Jalan ke daftar lengkapnya sekarang berupa tab di kepala tiap panel,
+        // bukan tombol panjang di bawahnya. Yang diuji tetap hal yang sama:
+        // beranda hanya menyorot, daftar lengkapnya ada di halaman sendiri.
+        ->assertSee('Semua Paket')
+        ->assertSee('Semua Armada')
+        ->assertSee(route('paket-wisata'), false)
+        ->assertSee(route('sewa-kendaraan'), false);
 });
 
-test('hanya satu paket yang disorot di beranda, berapa pun yang ditandai admin', function () {
+test('hanya satu paket yang diangkat jadi kartu sorotan, berapa pun yang ditandai admin', function () {
     // Penanda "terlaris" di admin boleh menempel di banyak paket sekaligus —
     // saat ini tiga dari lima. Kalau semuanya ikut disorot, tidak ada yang
     // menonjol dan sorotannya kehilangan gunanya.
@@ -155,17 +160,16 @@ test('hanya satu paket yang disorot di beranda, berapa pun yang ditandai admin',
 
     $isi = $this->get(route('home'))->assertOk()->getContent();
 
-    // Diperiksa pada kelas sorotnya, bukan pada utilitas ring: ring digambar
-    // lewat box-shadow dan berebut properti itu dengan bayangan .card-orcha,
-    // sehingga garisnya pernah hilang sama sekali tanpa satu tes pun merah.
-    expect(substr_count($isi, 'kartu-sorot'))->toBe(1)
-        ->and(substr_count($isi, 'Terlaris'))->toBe(1);
+    // Satu kartu sorotan, dan hanya satu: yang lain berjajar sebagai kartu
+    // biasa di panel di bawahnya.
+    expect(substr_count($isi, 'Paket Sorotan'))->toBe(1)
+        ->and(substr_count($isi, 'Lihat Detail'))->toBe(2);
 });
 
-test('paket yang disorot diletakkan di TENGAH, bukan di tempat yang kebetulan didudukinya', function () {
-    // Tiga paket dibuat berurutan; yang ditandai justru yang PALING LAMA,
-    // jadi menurut urutan terbaru ia semestinya duduk paling kanan. Kalau uji
-    // ini hijau, yang teruji memang pemindahannya — bukan kebetulan.
+test('paket yang disorot DIANGKAT ke kartu sorotan, bukan diulang di daftar bawahnya', function () {
+    // Tiga paket dibuat berurutan; yang ditandai justru yang PALING LAMA, jadi
+    // menurut urutan terbaru ia semestinya duduk paling kanan di daftar. Kalau
+    // uji ini hijau, yang teruji memang pemindahannya — bukan kebetulan.
     $tandai = TravelPackage::create([
         'name' => 'Paket Ditandai', 'category' => 'open_trip', 'price' => 100000,
         'original_price' => 0, 'discount_percentage' => null, 'is_best_choice' => true,
@@ -182,13 +186,19 @@ test('paket yang disorot diletakkan di TENGAH, bukan di tempat yang kebetulan di
 
     $isi = $this->get(route('home'))->assertOk()->getContent();
 
-    $letak = collect(['Paket Biasa Satu', 'Paket Biasa Dua', $tandai->name])
-        ->mapWithKeys(fn ($nama) => [$nama => strpos($isi, $nama)]);
+    // Dipisah lewat id bagiannya, bukan lewat urutan kemunculan huruf: nama
+    // paket juga muncul di dalam tautan WhatsApp tiap kartu.
+    $awalDaftar = strpos($isi, 'id="paket"');
+    $awalSorotan = strpos($isi, 'id="paket-sorotan"');
+    $sorotan = substr($isi, $awalSorotan, $awalDaftar - $awalSorotan);
+    $daftar = substr($isi, $awalDaftar);
 
-    // Di tepi, kartunya terbaca sebagai "yang pertama" dan mata meneruskan ke
-    // kanan seperti daftar biasa. Di tengah ia jadi titik henti, diapit dua
-    // pembanding.
-    expect($letak->sort()->keys()[1])->toBe($tandai->name);
+    expect($sorotan)->toContain($tandai->name)
+        // Satu paket yang sama tampil dua kali membuat beranda terbaca seperti
+        // salah data, bukan seperti sorotan.
+        ->and($daftar)->not->toContain($tandai->name)
+        ->and($daftar)->toContain('Paket Biasa Satu')
+        ->and($daftar)->toContain('Paket Biasa Dua');
 });
 
 test('halaman kontak memuat kanal komunikasi', function () {

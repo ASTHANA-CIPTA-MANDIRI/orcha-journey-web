@@ -24,7 +24,7 @@
 
     <title>{{ $judulHalaman }}</title>
     <meta name="description" content="{{ $keterangan }}">
-    <meta name="theme-color" content="#001220">
+    <meta name="theme-color" content="#11332b">
 
     {{-- Satu halaman bisa dicapai lewat beberapa alamat — dengan atau tanpa
          garis miring, dengan tempelan ?utm_source. Tanpa kanonis, mesin pencari
@@ -305,72 +305,85 @@
          sebelumnya. --}}
     @php $navbarPadat = $navbarSolid ?? false; @endphp
 
-    <nav x-data="{ open: false, scrolled: @js($navbarPadat) }"
-        x-init="scrolled = scrolled || window.scrollY > 20"
-        @scroll.window="scrolled = @js($navbarPadat) || window.scrollY > 20"
+    <nav x-data="{ open: false, scrolled: false }"
+        x-init="scrolled = window.scrollY > 20"
+        @scroll.window="scrolled = window.scrollY > 20"
         @keydown.escape.window="open = false"
-        :class="(scrolled || open) ? 'bg-white/95 backdrop-blur-md shadow-lg shadow-orcha-navy/5' : 'bg-transparent'"
-        class="fixed inset-x-0 top-0 z-[900] transition-all duration-300">
+        class="fixed inset-x-0 top-0 z-[900] pt-3 sm:pt-4 transition-all duration-300">
 
         <div class="container-orcha">
-            <div class="flex items-center justify-between transition-all duration-300"
-                :class="(scrolled || open) ? 'h-16' : 'h-20 lg:h-24'">
+            {{-- Bilahnya MELAYANG: satu kapsul putih di atas halaman, bukan pita
+                 selebar layar yang menempel di puncaknya.
 
-                <a href="#beranda" class="flex items-center gap-2 shrink-0 sm:gap-3 group">
+                 Sebelumnya bilah ini tembus pandang sebelum digulung, karena
+                 hampir semua halaman dibuka foto hero gelap. Beranda sekarang
+                 dibuka latar krem terang, dan tulisan putih di atasnya lenyap
+                 sama sekali. Kapsul putih terbaca di atas apa pun — foto gelap
+                 maupun latar terang — jadi tidak ada lagi halaman yang perlu
+                 memaksanya padat lewat $navbarSolid. --}}
+            <div class="flex items-center justify-between gap-3 px-3 py-2.5 transition-all duration-300 border rounded-full sm:px-4 bg-white/92 backdrop-blur-md border-white/70"
+                :class="scrolled || open ? 'shadow-[0_18px_40px_-26px_rgba(17,51,43,0.55)]' : 'shadow-[0_12px_30px_-26px_rgba(17,51,43,0.4)]'">
+
+                <a href="{{ route('home') }}" class="flex items-center gap-2 shrink-0 group">
                     <img src="{{ asset('orcha-logo-only.png') }}" alt="Logo Orcha Journey" width="56" height="56"
                         fetchpriority="high" decoding="async"
-                        class="object-contain w-10 h-10 transition-transform duration-300 sm:w-12 sm:h-12 group-hover:scale-105">
-                    <span class="text-lg font-black tracking-tight uppercase sm:text-xl lg:text-2xl font-heading"
-                        :class="(scrolled || open) ? 'text-orcha-navy' : 'text-white'">
-                        Orcha <span class="text-orcha-sky">Journey</span>
+                        class="object-contain w-9 h-9 transition-transform duration-300 sm:w-10 sm:h-10 group-hover:scale-105">
+                    <span class="text-base font-black tracking-tight sm:text-lg font-heading text-orcha-navy">
+                        Orcha <span class="text-orcha-ocean">Journey</span>
                     </span>
                 </a>
 
                 {{-- Ambangnya xl (1280px), bukan lg (1024px).
 
                      Pada 1024px — lebar iPad Pro tegak — menu lengkap ini muncul
-                     padahal ruangnya tidak cukup: enam tautan dan satu tombol
-                     ajakan melipat jadi dua baris lalu menabrak logo. Yang
-                     terbaca pengunjung bukan menu, melainkan tumpukan.
+                     padahal ruangnya tidak cukup: tujuh tautan dan satu tombol
+                     ajakan melipat jadi dua baris lalu menabrak logo.
 
                      flex-nowrap dan whitespace-nowrap menjaga janji itu: bila
                      suatu saat tautannya bertambah dan tetap tidak muat, ia
                      meluber keluar dan langsung terlihat saat diuji — bukan
                      melipat diam-diam jadi dua baris yang tampak "hampir rapi". --}}
-                <div class="items-center hidden gap-6 xl:flex xl:gap-8 flex-nowrap">
+                <div class="items-center hidden gap-1 px-1.5 py-1 rounded-full xl:flex flex-nowrap bg-orcha-sand">
                     @foreach ($navLinks as $item)
                         <a href="{{ $item['url'] }}" @if ($item['aktif']) aria-current="page" @endif
-                            class="relative text-sm font-semibold transition-colors whitespace-nowrap hover:text-orcha-sky"
-                            :class="(scrolled || open)
-                                ? '{{ $item['aktif'] ? 'text-orcha-ocean' : 'text-slate-600' }}'
-                                : '{{ $item['aktif'] ? 'text-orcha-sun nav-link-hero' : 'text-white nav-link-hero' }}'">
+                            class="px-3.5 py-2 text-sm font-semibold transition rounded-full whitespace-nowrap {{ $item['aktif'] ? 'bg-white text-orcha-ocean shadow-sm' : 'text-slate-600 hover:text-orcha-ocean hover:bg-white/70' }}">
                             {{ $item['label'] }}
-                            @if ($item['aktif'])
-                                <span class="absolute -bottom-2 inset-x-0 h-0.5 rounded-full bg-current"></span>
-                            @endif
                         </a>
                     @endforeach
-
-                    <a href="{{ $waLink }}" target="_blank" rel="noopener noreferrer"
-                        class="btn-orcha btn-orcha-sun !py-2.5 !px-6 !text-sm whitespace-nowrap">
-                        <x-bi-whatsapp class="w-4 h-4" />
-                        Hubungi Kami
-                    </a>
                 </div>
+
+                <div class="flex items-center gap-2 shrink-0">
+                    {{-- Disembunyikan lewat PEMBUNGKUS, bukan kelas hidden di
+                         tombolnya sendiri.
+
+                         .btn-orcha menetapkan display: inline-flex di berkas
+                         gaya yang tidak berada di dalam @layer, sedangkan
+                         utilitas hidden milik Tailwind v4 ada di dalamnya —
+                         dan CSS tanpa layer selalu menang. Ditempel langsung,
+                         tombolnya tetap tampil di ponsel dan menghimpit tombol
+                         menu sampai terpotong tepi layar. --}}
+                    <span class="hidden xl:block">
+                        <a href="{{ $waLink }}" target="_blank" rel="noopener noreferrer"
+                            class="btn-orcha btn-orcha-sun !py-2.5 !px-5 !text-sm whitespace-nowrap">
+                            <x-bi-whatsapp class="w-4 h-4" />
+                            Hubungi Kami
+                        </a>
+                    </span>
 
                 {{-- Tiga garis yang BERUBAH jadi silang, bukan dua gambar yang
                      bertukar tempat. Bertukar gambar, perubahannya terjadi
                      seketika dan tidak menerangkan apa-apa; bergerak, ia
                      menunjukkan bahwa tombol yang sama kini menutup apa yang
                      tadi dibukanya. --}}
-                <button type="button" @click="open = !open"
-                    :aria-label="open ? 'Tutup menu' : 'Buka menu'" :aria-expanded="open"
-                    :class="[(scrolled || open) ? 'text-orcha-navy' : 'text-white', open ? 'menu-tombol-buka' : '']"
-                    class="p-2 transition menu-tombol rounded-xl xl:hidden hover:bg-orcha-foam/60">
-                    <span class="menu-garis"></span>
-                    <span class="menu-garis"></span>
-                    <span class="menu-garis"></span>
-                </button>
+                    <button type="button" @click="open = !open"
+                        :aria-label="open ? 'Tutup menu' : 'Buka menu'" :aria-expanded="open"
+                        :class="open ? 'menu-tombol-buka' : ''"
+                        class="p-2 transition menu-tombol rounded-xl xl:hidden text-orcha-navy hover:bg-orcha-foam/60">
+                        <span class="menu-garis"></span>
+                        <span class="menu-garis"></span>
+                        <span class="menu-garis"></span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -392,7 +405,7 @@
                  Menutupi seluruh layar, tirainya duduk di belakang latar navbar
                  yang tembus 95% dan ikut mengusamkan logonya — terlihat kusam
                  tanpa sebab yang jelas. --}}
-            class="fixed inset-x-0 bottom-0 top-16 bg-orcha-navy/45 backdrop-blur-[2px] lg:hidden"
+            class="fixed inset-x-0 bottom-0 top-20 bg-orcha-navy/45 backdrop-blur-[2px] xl:hidden"
             aria-hidden="true">
         </div>
 

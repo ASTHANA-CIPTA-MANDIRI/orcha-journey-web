@@ -117,11 +117,18 @@ test('markup navbar tetap menyatakan maksudnya', function () {
     // Ambangnya bukan lg: pada 1024px — lebar iPad Pro tegak — enam tautan dan
     // satu tombol ajakan tidak muat, lalu melipat jadi dua baris yang menabrak
     // logo.
-    expect($blade)->toContain('hidden gap-6 xl:flex')
+    expect($blade)->toMatch('/class="[^"]*\bhidden\b[^"]*\bxl:flex\b[^"]*"/')
         ->and($blade)->toContain('menu-tombol rounded-xl xl:hidden')
         // Tautan yang tidak muat harus meluber, bukan melipat diam-diam.
         ->and($blade)->toContain('flex-nowrap')
         ->and($blade)->toContain('whitespace-nowrap');
+
+    // Perangkap yang sama dengan .menu-tombol di atas, pada tombol lain:
+    // .btn-orcha menetapkan display di luar lapisan CSS, jadi kelas `hidden`
+    // milik Tailwind tidak pernah menang. Tombol ajakan yang disembunyikan
+    // begitu tetap tampil di ponsel dan menghimpit tombol menu sampai
+    // terpotong tepi layar. Penyembunyiannya harus lewat pembungkus.
+    expect($blade)->not->toMatch('/class="[^"]*\bhidden\b[^"]*btn-orcha/');
 });
 
 test('galeri beranda memakai foto admin walau baru sedikit', function () {

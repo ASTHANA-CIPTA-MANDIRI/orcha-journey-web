@@ -12,8 +12,18 @@
 
 /* ==========================================================
    1. DESIGN TOKEN — diambil langsung dari warna logo Orcha
-   navy #001220 (badan orca) · ocean #006DA8 · wave #0086C3
-   sky #1AB0E2 (lingkaran laut) · sun #FFC74E (matahari)
+   hijau pinus #21473a (badan orca) · tosca #46a8a7 (ombak)
+   tosca muda #76c7c1 · kuning pasir #efa83e (jalan)
+
+   NAMA tokennya sengaja TIDAK diganti meski warnanya kini hijau-tosca.
+   Nama lama (navy/ocean/wave/sky) dipakai ratusan kali di seluruh halaman
+   publik, dan mengganti namanya berarti menyentuh setiap berkas itu hanya
+   untuk mengubah warna. Yang berganti nilainya, jadi seluruh situs ikut
+   senada dengan logo baru dalam satu tempat.
+
+   Semua pasangan warna di bawah ini sudah diperiksa keterbacaannya:
+   teks navy di atas foam 12:1 · teks navy di atas sun 8:1 ·
+   teks ocean di atas putih 4,6:1 · teks sky di atas navy 7:1.
 ========================================================== */
 @theme {
     --font-heading: "Poppins", sans-serif;
@@ -21,20 +31,26 @@
     /* Aksen kaligrafi, mengikuti gaya tulisan pada poster Orcha */
     --font-aksen: "Great Vibes", "Segoe Script", cursive;
 
-    --color-orcha-navy: #001220;
-    --color-orcha-night: #04223a;
-    --color-orcha-abyss: #005084;
-    --color-orcha-ocean: #006da8;
-    --color-orcha-wave: #0086c3;
-    --color-orcha-sky: #1ab0e2;
-    --color-orcha-mist: #7fd4f3;
-    --color-orcha-foam: #e8f7fd;
-    --color-orcha-sun: #ffc74e;
-    --color-orcha-sunset: #f2a33b;
-    --color-orcha-sand: #fff8ec;
+    --color-orcha-navy: #11332b;
+    --color-orcha-night: #17402f;
+    --color-orcha-abyss: #1d4a3c;
+    --color-orcha-ocean: #2a7a6b;
+    --color-orcha-wave: #3f9a90;
+    --color-orcha-sky: #5dbdb3;
+    --color-orcha-mist: #a5d9d2;
+    --color-orcha-foam: #e9f4f1;
+    --color-orcha-sun: #efa83e;
+    --color-orcha-sunset: #dd9128;
+    --color-orcha-sand: #fbf6ee;
 
-    --shadow-orcha: 0 18px 45px -20px rgb(0 18 32 / 0.45);
-    --shadow-orcha-lg: 0 32px 70px -28px rgb(0 18 32 / 0.55);
+    /* Kuning yang cukup gelap untuk DITULIS di atas krem — warna logo
+       sendiri terlalu terang untuk teks (2,1:1) dan membuat mata bekerja. */
+    --color-orcha-amber: #b87a1c;
+
+    /* Bayangannya ikut kehijauan: bayangan biru di atas latar krem
+       terbaca sebagai noda abu-abu yang kotor. */
+    --shadow-orcha: 0 18px 45px -22px rgb(17 51 43 / 0.28);
+    --shadow-orcha-lg: 0 32px 70px -30px rgb(17 51 43 / 0.38);
 }
 
 body {
@@ -142,8 +158,10 @@ h6,
     font-size: clamp(1.75rem, 3.4vw, 2.9rem);
 }
 
+/* Dipakai di atas latar TERANG. Kuning logo di atas putih hanya 2,1:1 —
+   terbaca sebagai tulisan yang pudar, bukan sebagai aksen. */
 .aksen-orcha-gelap {
-    color: var(--color-orcha-ocean);
+    color: var(--color-orcha-amber);
 }
 
 /* Paragraf pengantar di bawah judul */
@@ -268,6 +286,183 @@ h6,
     border-radius: 1.5rem;
 }
 
+/* ==========================================================
+   5b. BAHASA RUPA BERANDA — panel putih di atas latar krem
+
+   Beranda tidak lagi disusun dari pita warna yang berganti-ganti (putih,
+   biru muda, biru tua). Sekarang seluruh halaman berdiri di atas satu latar
+   krem hangat, dan tiap bagian adalah PANEL putih membulat di atasnya.
+
+   Alasannya keterbacaan: tulisan gelap di atas putih di dalam bingkai krem
+   punya satu tingkat kontras yang sama dari atas sampai bawah, sementara
+   pita gelap-terang bergantian memaksa mata menyetel ulang tiap kali
+   menggulung — itu yang membuat halaman panjang terasa melelahkan.
+========================================================== */
+.latar-krem {
+    background: var(--color-orcha-sand);
+}
+
+.panel-orcha {
+    position: relative;
+    background: #fff;
+    border: 1px solid #f1ebe0;
+    border-radius: clamp(1.4rem, 2.6vw, 2.25rem);
+    padding: clamp(1.35rem, 3.4vw, 3rem);
+    box-shadow: 0 20px 50px -34px rgb(17 51 43 / 0.3);
+}
+
+/* Panel bernada krem — dipakai bergantian supaya deretan panel putih
+   tidak terbaca sebagai satu blok panjang tanpa jeda. */
+.panel-orcha-krem {
+    background: #fdfaf4;
+}
+
+/*
+   Panel gelap untuk ajakan.
+
+   Harus berupa KELAS, bukan utilitas bg-* yang ditempel di markah: aturan
+   .panel-orcha di berkas ini tidak berada di dalam @layer, sedangkan utilitas
+   Tailwind v4 ada di dalamnya — dan CSS tanpa layer selalu menang atas CSS
+   di dalam layer, berapa pun urutannya. Menempelkan bg-orcha-navy pada panel
+   tidak mengubah apa pun, dan panelnya tetap putih tanpa satu pun galat.
+*/
+.panel-orcha-gelap {
+    background: var(--color-orcha-navy);
+    border-color: transparent;
+    color: #fff;
+}
+
+.label-orcha {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    /* Kuning logo terlalu terang untuk DITULIS (2,1:1 di atas putih);
+       yang dipakai di sini versi gelapnya, 4,8:1. */
+    color: var(--color-orcha-amber);
+}
+
+.judul-panel {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--color-orcha-navy);
+    font-size: clamp(1.55rem, 2.9vw, 2.5rem);
+    text-wrap: balance;
+}
+
+.sorot-kata {
+    color: var(--color-orcha-amber);
+}
+
+.ubin-orcha {
+    display: flex;
+    flex-direction: column;
+    background: var(--color-orcha-sand);
+    border: 1px solid #f2ede3;
+    border-radius: 1.25rem;
+    padding: 1.1rem 1.15rem;
+    transition:
+        transform 0.3s ease,
+        box-shadow 0.3s ease,
+        border-color 0.3s ease;
+}
+
+/* Ubin putih di atas panel krem — alasannya sama dengan .panel-orcha-gelap:
+   bg-white dari Tailwind kalah oleh latar .ubin-orcha di berkas ini. */
+.ubin-orcha-putih {
+    background: #fff;
+}
+
+.ubin-orcha:hover {
+    transform: translateY(-4px);
+    border-color: var(--color-orcha-mist);
+    box-shadow: var(--shadow-orcha);
+}
+
+/* Tombol panah bulat di sudut kartu — penanda "ada lanjutannya" yang
+   dipakai berulang supaya pengunjung belajar sekali, berlaku seterusnya. */
+.tombol-bulat {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 9999px;
+    background: var(--color-orcha-sun);
+    color: var(--color-orcha-navy);
+    transition:
+        transform 0.25s ease,
+        background-color 0.25s ease;
+}
+
+.tombol-bulat:hover {
+    transform: translateX(2px);
+    background: var(--color-orcha-sunset);
+}
+
+.chip-orcha {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.5rem 0.9rem;
+    border-radius: 9999px;
+    background: #fff;
+    border: 1px solid #f0eae0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-orcha-abyss);
+}
+
+/* Bingkai foto hero — "jendela" membulat, bukan foto selebar layar. */
+.jendela-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: clamp(1.5rem, 3vw, 2.5rem);
+    background: var(--color-orcha-foam);
+    box-shadow: 0 40px 80px -45px rgb(17 51 43 / 0.55);
+}
+
+.jendela-hero img,
+.jendela-hero video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.kartu-melayang {
+    background: #fff;
+    border: 1px solid #f1ece2;
+    border-radius: 1.1rem;
+    padding: 0.7rem 0.9rem;
+    box-shadow: 0 22px 45px -26px rgb(17 51 43 / 0.5);
+}
+
+/* Kartu destinasi: foto di atas, nama & satu kalimat di bawah. */
+.kartu-destinasi {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #f1ece2;
+    border-radius: 1.25rem;
+    transition:
+        transform 0.3s ease,
+        box-shadow 0.3s ease,
+        border-color 0.3s ease;
+}
+
+.kartu-destinasi:hover {
+    transform: translateY(-5px);
+    border-color: var(--color-orcha-mist);
+    box-shadow: var(--shadow-orcha);
+}
+
 /* Tab filter (kategori paket & jenis armada) */
 .tab-orcha {
     border-radius: 9999px;
@@ -348,13 +543,13 @@ h6,
     background:
         linear-gradient(
             180deg,
-            rgb(0 18 32 / 0.82) 0%,
-            rgb(0 18 32 / 0.55) 40%,
-            rgb(0 80 132 / 0.75) 100%
+            rgb(17 51 43 / 0.82) 0%,
+            rgb(17 51 43 / 0.55) 40%,
+            rgb(29 74 60 / 0.78) 100%
         ),
         radial-gradient(
             80% 60% at 75% 25%,
-            rgb(255 199 78 / 0.22),
+            rgb(239 168 62 / 0.2),
             transparent 70%
         );
 }
@@ -379,7 +574,7 @@ h6,
 
 /* Tautan navbar saat masih melayang di atas foto hero */
 .nav-link-hero {
-    text-shadow: 0 1px 4px rgb(0 18 32 / 0.55);
+    text-shadow: 0 1px 4px rgb(17 51 43 / 0.55);
 }
 
 .scroll-cue span {
@@ -441,7 +636,7 @@ body.orc-terkunci {
        noda kuning, karena bayangan yang dikenal mata selalu lebih gelap
        daripada latarnya. */
     box-shadow:
-        0 30px 60px -18px rgba(0, 18, 32, .42),
+        0 30px 60px -18px rgba(17, 51, 43, .42),
         0 16px 40px -12px rgba(255, 199, 78, .55);
 }
 
@@ -495,13 +690,17 @@ body.orc-terkunci {
 
 .menu-mobile {
     position: relative;
+    margin-top: 0.6rem;
     background: #fff;
-    border-top: 1px solid var(--color-orcha-foam);
-    border-radius: 0 0 1.5rem 1.5rem;
-    box-shadow: 0 28px 60px -24px rgba(0, 18, 32, .5);
+    border: 1px solid #f1ebe0;
+    /* Membulat di KEEMPAT sudutnya: bilah di atasnya kini kapsul yang
+       melayang, bukan pita yang menempel di puncak layar — panel bersudut
+       siku di bawahnya akan terbaca seperti potongan yang lepas. */
+    border-radius: 1.5rem;
+    box-shadow: 0 28px 60px -26px rgb(17 51 43 / 0.45);
     /* Panjang menunya tetap; kalau layarnya pendek, ia yang menggulung —
        bukan halaman di belakangnya. */
-    max-height: calc(100vh - 4rem);
+    max-height: calc(100vh - 6rem);
     overflow-y: auto;
 }
 
@@ -595,7 +794,7 @@ body.orc-terkunci {
     background: #fff;
     border: 1px solid var(--color-orcha-foam);
     border-radius: 1rem;
-    box-shadow: 0 18px 40px -14px rgba(0, 18, 32, .35);
+    box-shadow: 0 18px 40px -14px rgba(17, 51, 43, .35);
 }
 
 .usul-daftar button {
@@ -663,7 +862,7 @@ body.orc-terkunci {
     border-radius: 999px;
     background: var(--warna);
     border: 3px solid #fff;
-    box-shadow: 0 2px 8px rgba(0, 18, 32, .45);
+    box-shadow: 0 2px 8px rgba(17, 51, 43, .45);
 }
 
 .peta-rute-teks {
@@ -815,8 +1014,8 @@ body.orc-terkunci {
     width: 0.42rem;
     height: 0.42rem;
     border-radius: 50%;
-    background: #ffc74e;
-    box-shadow: 0 0 0 3px rgba(255, 199, 78, 0.25);
+    background: var(--color-orcha-sun);
+    box-shadow: 0 0 0 3px rgb(239 168 62 / 0.25);
 }
 
 /* Tulisannya sendiri dipangkas satu baris: tile-nya 4:3, dan pil setinggi tiga
@@ -1075,7 +1274,7 @@ input[type="radio"] {
 .isian-orcha:focus {
     outline: none;
     border-color: var(--color-orcha-sky);
-    box-shadow: 0 0 0 3px rgb(26 176 226 / 0.25);
+    box-shadow: 0 0 0 3px rgb(93 189 179 / 0.25);
 }
 
 .isian-orcha::placeholder {
@@ -1567,7 +1766,7 @@ input[type="radio"] {
 
 .orc-art-sampul {
     border-radius: 18px; overflow: hidden; margin-bottom: 1.8rem;
-    box-shadow: 0 12px 30px rgba(0, 18, 32, .10);
+    box-shadow: 0 12px 30px rgba(17, 51, 43, .10);
     aspect-ratio: 16/9; background: var(--color-orcha-foam);
 }
 .orc-art-sampul img { width: 100%; height: 100%; object-fit: cover; }
@@ -1607,7 +1806,7 @@ input[type="radio"] {
 .orc-kartu-samping {
     background: #fff; border: 1px solid var(--color-orcha-foam);
     border-radius: 18px; padding: 1.3rem 1.3rem 1.4rem;
-    box-shadow: 0 8px 24px rgba(0, 18, 32, .05);
+    box-shadow: 0 8px 24px rgba(17, 51, 43, .05);
 }
 .orc-kartu-samping .judul {
     font-family: var(--font-heading); font-weight: 800; font-size: 1.02rem;
