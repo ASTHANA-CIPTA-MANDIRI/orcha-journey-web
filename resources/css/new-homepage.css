@@ -637,7 +637,10 @@ h6,
     border-radius: clamp(2rem, 2.9vw, 2.9rem);
     /* Permukaannya TIDAK rata: lebih terang di kiri-atas, meredup ke
        kanan-bawah, seperti benda yang kena cahaya dari satu arah. */
-    background: linear-gradient(145deg, #fdfaf6 0%, #f5eee4 58%, #eae1d5 100%);
+    /* Mukanya dibuat tetap TERANG sampai ke tepi bawahnya. Kalau ia ikut
+       meredup, warnanya bertemu warna lapisan tubuh di belakangnya dan
+       keduanya melebur — tebalnya hilang, tinggal satu bidang kusam. */
+    background: linear-gradient(145deg, #fffdfa 0%, #faf6ef 60%, #f3ede2 100%);
     /*
        Bayangannya JATUH KE KANAN-BAWAH, bukan lurus ke bawah.
 
@@ -650,11 +653,28 @@ h6,
        Bayangan dalamnya ikut dari kanan-bawah: itu sisi tubuh kartunya
        sendiri, bagian yang membelakangi cahaya.
     */
+    /*
+       Lapis pertama BUKAN bayangan.
+
+       Satu lapis padat tanpa kabur yang digeser ke kanan-bawah adalah TUBUH
+       kartunya — sisi tebalnya yang membelakangi cahaya. Itu yang membuat
+       benda ini terbaca punya ketebalan; bayangan jatuh saja hanya menempel
+       di dinding di belakangnya, dan kartunya tetap setipis kertas.
+
+       Digambar lewat box-shadow tanpa kabur, bukan lewat lapisan ::before:
+       anak ber-z-index negatif digambar DI ATAS latar induknya, jadi lapisan
+       itu justru menutupi muka kartunya sendiri — kartunya tampak kusam dan
+       tebalnya tidak terlihat.
+
+       Dua lapis sesudahnya barulah bayangan jatuh, juga ke kanan-bawah
+       karena cahayanya datang dari kiri-atas.
+    */
     box-shadow:
-        30px 40px 64px -26px rgb(40 28 18 / 0.5),
-        14px 18px 28px -14px rgb(40 28 18 / 0.3),
-        inset 0 2px 1px rgb(255 255 255 / 0.95),
-        inset -10px -16px 26px -18px rgb(120 95 70 / 0.45);
+        13px 15px 0 0 #ded1be,
+        36px 46px 66px -26px rgb(40 28 18 / 0.5),
+        18px 22px 30px -16px rgb(40 28 18 / 0.3),
+        inset 0 2px 1px rgb(255 251 243 / 0.9),
+        inset -8px -12px 20px -16px rgb(120 95 70 / 0.22);
     /*
        MIRING, dan miringnya bukan sekadar diputar datar.
 
