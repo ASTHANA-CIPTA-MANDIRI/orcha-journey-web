@@ -26,11 +26,21 @@
    teks ocean di atas putih 4,6:1 · teks sky di atas navy 7:1.
 ========================================================== */
 @theme {
-    /* Huruf judul: grotesk tebal berujung rata, seperti rancangan yang
-       dijadikan acuan. Poppins sebelumnya terlalu bundar dan lebar — huruf
-       'a' dan 'g'-nya berbentuk lingkaran geometris, dan judul tebalnya
-       terbaca jauh lebih "gemuk" daripada acuan. */
-    --font-heading: "Plus Jakarta Sans", sans-serif;
+    /*
+       Huruf judul: grotesk yang punya WATAK, bukan yang rata-rata saja.
+
+       Plus Jakarta Sans sebelumnya rapi tetapi datar — bentuknya nyaris
+       sama dengan huruf bawaan sistem, jadi judul sebesar apa pun tidak
+       meninggalkan kesan. Bricolage Grotesque sedikit menyempit dengan
+       potongan ujung yang miring dan ekor 'g' serta 'y' yang khas: hidup
+       dibaca sekilas, tetapi tetap grotesk biasa yang mudah dieja —
+       bukan huruf hias yang melelahkan di paragraf panjang.
+
+       Sumbu opsz-nya membuat bentuk huruf menyesuaikan ukuran: di judul
+       besar ia merapat dan menajam, di tulisan kecil ia melebar supaya
+       tetap terbaca.
+    */
+    --font-heading: "Bricolage Grotesque", sans-serif;
     --font-sans: "Inter", sans-serif;
     /* Aksen kaligrafi, masih dipakai di kepala halaman selain beranda */
     --font-aksen: "Great Vibes", "Segoe Script", cursive;
