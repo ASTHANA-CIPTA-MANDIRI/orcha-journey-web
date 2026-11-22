@@ -24,7 +24,7 @@
 
     <title>{{ $judulHalaman }}</title>
     <meta name="description" content="{{ $keterangan }}">
-    <meta name="theme-color" content="#11332b">
+    <meta name="theme-color" content="#16211c">
 
     {{-- Satu halaman bisa dicapai lewat beberapa alamat — dengan atau tanpa
          garis miring, dengan tempelan ?utm_source. Tanpa kanonis, mesin pencari
@@ -100,7 +100,7 @@
          Aman karena hurufnya sudah memakai display=swap: tulisan tampil
          seketika dengan huruf bawaan perangkat, lalu berganti sendiri. --}}
     @php
-        $tautanHuruf = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800;900&family=Great+Vibes&display=swap';
+        $tautanHuruf = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Great+Vibes&display=swap';
     @endphp
     <link rel="preload" as="style" href="{{ $tautanHuruf }}">
     <link rel="stylesheet" href="{{ $tautanHuruf }}" media="print" onload="this.media='all'">
@@ -312,47 +312,60 @@
         class="fixed inset-x-0 top-0 z-[900] pt-3 sm:pt-4 transition-all duration-300">
 
         <div class="container-orcha">
-            {{-- Bilahnya MELAYANG: satu kapsul putih di atas halaman, bukan pita
-                 selebar layar yang menempel di puncaknya.
+            {{-- TIGA kelompok yang melayang terpisah, bukan satu pita selebar
+                 layar: lambang di kiri, tautan di kapsul tengah, tindakan di
+                 kanan. Bentuk inilah yang dipakai rancangan acuan.
 
-                 Sebelumnya bilah ini tembus pandang sebelum digulung, karena
-                 hampir semua halaman dibuka foto hero gelap. Beranda sekarang
-                 dibuka latar krem terang, dan tulisan putih di atasnya lenyap
-                 sama sekali. Kapsul putih terbaca di atas apa pun — foto gelap
-                 maupun latar terang — jadi tidak ada lagi halaman yang perlu
-                 memaksanya padat lewat $navbarSolid. --}}
-            <div class="flex items-center justify-between gap-3 px-3 py-2.5 transition-all duration-300 border rounded-full sm:px-4 bg-white/92 backdrop-blur-md border-white/70"
-                :class="scrolled || open ? 'shadow-[0_18px_40px_-26px_rgba(17,51,43,0.55)]' : 'shadow-[0_12px_30px_-26px_rgba(17,51,43,0.4)]'">
+                 Masing-masing berlatar putih sendiri, jadi terbaca di atas apa
+                 pun — foto hero gelap maupun latar krem terang. Sebelumnya
+                 bilah ini tembus pandang sebelum digulung, dan di halaman
+                 berlatar terang tulisannya lenyap sama sekali. --}}
+            <div class="flex items-center justify-between gap-2 sm:gap-3">
 
-                <a href="{{ route('home') }}" class="flex items-center gap-2 shrink-0 group">
+                {{-- 1. LAMBANG --}}
+                <a href="{{ route('home') }}"
+                    class="flex items-center gap-2 px-3 py-2 transition border shrink-0 rounded-2xl sm:px-4 bg-white/95 backdrop-blur-md border-white/70 group"
+                    :class="scrolled || open ? 'shadow-[0_16px_34px_-24px_rgba(60,40,25,0.65)]' : 'shadow-[0_10px_26px_-22px_rgba(60,40,25,0.5)]'">
                     <img src="{{ asset('orcha-logo-only.png') }}" alt="Logo Orcha Journey" width="56" height="56"
                         fetchpriority="high" decoding="async"
-                        class="object-contain w-9 h-9 transition-transform duration-300 sm:w-10 sm:h-10 group-hover:scale-105">
-                    <span class="text-base font-black tracking-tight sm:text-lg font-heading text-orcha-navy">
-                        Orcha <span class="text-orcha-ocean">Journey</span>
+                        class="object-contain transition-transform duration-300 w-9 h-9 group-hover:scale-105">
+                    <span class="text-base font-extrabold tracking-tight sm:text-lg font-heading text-orcha-navy">
+                        Orcha <span class="text-orcha-amber">Journey</span>
                     </span>
                 </a>
 
-                {{-- Ambangnya xl (1280px), bukan lg (1024px).
+                {{-- 2. TAUTAN.
 
-                     Pada 1024px — lebar iPad Pro tegak — menu lengkap ini muncul
-                     padahal ruangnya tidak cukup: tujuh tautan dan satu tombol
-                     ajakan melipat jadi dua baris lalu menabrak logo.
+                     Ambangnya xl (1280px), bukan lg (1024px). Pada 1024px —
+                     lebar iPad Pro tegak — menu lengkap ini muncul padahal
+                     ruangnya tidak cukup: tujuh tautan dan satu tombol ajakan
+                     melipat jadi dua baris lalu menabrak logo.
 
                      flex-nowrap dan whitespace-nowrap menjaga janji itu: bila
-                     suatu saat tautannya bertambah dan tetap tidak muat, ia
-                     meluber keluar dan langsung terlihat saat diuji — bukan
-                     melipat diam-diam jadi dua baris yang tampak "hampir rapi". --}}
-                <div class="items-center hidden gap-1 px-1.5 py-1 rounded-full xl:flex flex-nowrap bg-orcha-sand">
+                     tautannya bertambah dan tetap tidak muat, ia meluber keluar
+                     dan langsung terlihat saat diuji — bukan melipat diam-diam
+                     jadi dua baris yang tampak "hampir rapi". --}}
+                <div class="items-center hidden gap-1 p-1.5 transition border rounded-full xl:flex flex-nowrap bg-white/95 backdrop-blur-md border-white/70"
+                    :class="scrolled || open ? 'shadow-[0_16px_34px_-24px_rgba(60,40,25,0.65)]' : 'shadow-[0_10px_26px_-22px_rgba(60,40,25,0.5)]'">
                     @foreach ($navLinks as $item)
                         <a href="{{ $item['url'] }}" @if ($item['aktif']) aria-current="page" @endif
-                            class="px-3.5 py-2 text-sm font-semibold transition rounded-full whitespace-nowrap {{ $item['aktif'] ? 'bg-white text-orcha-ocean shadow-sm' : 'text-slate-600 hover:text-orcha-ocean hover:bg-white/70' }}">
+                            class="px-3.5 py-2 text-sm font-semibold transition rounded-full whitespace-nowrap {{ $item['aktif'] ? 'bg-orcha-sand text-orcha-navy' : 'text-slate-500 hover:text-orcha-navy hover:bg-orcha-sand/70' }}">
                             {{ $item['label'] }}
                         </a>
                     @endforeach
                 </div>
 
+                {{-- 3. TINDAKAN --}}
                 <div class="flex items-center gap-2 shrink-0">
+                    {{-- Kaca pembesar pada rancangan acuan: di sini ia menuju
+                         pencarian yang memang ada — daftar destinasi. Ikon yang
+                         tidak membuka apa pun lebih buruk daripada tidak ada. --}}
+                    <a href="{{ route('destinasi') }}" aria-label="Cari destinasi"
+                        class="items-center justify-center hidden w-10 h-10 transition border rounded-full sm:flex bg-white/95 backdrop-blur-md border-white/70 text-orcha-navy hover:text-orcha-amber"
+                        :class="scrolled || open ? 'shadow-[0_16px_34px_-24px_rgba(60,40,25,0.65)]' : 'shadow-[0_10px_26px_-22px_rgba(60,40,25,0.5)]'">
+                        <x-heroicon-o-magnifying-glass class="w-5 h-5" />
+                    </a>
+
                     {{-- Disembunyikan lewat PEMBUNGKUS, bukan kelas hidden di
                          tombolnya sendiri.
 
@@ -364,9 +377,9 @@
                          menu sampai terpotong tepi layar. --}}
                     <span class="hidden xl:block">
                         <a href="{{ $waLink }}" target="_blank" rel="noopener noreferrer"
-                            class="btn-orcha btn-orcha-sun !py-2.5 !px-5 !text-sm whitespace-nowrap">
-                            <x-bi-whatsapp class="w-4 h-4" />
-                            Hubungi Kami
+                            class="btn-orcha btn-orcha-sun !py-1.5 !pl-5 !pr-1.5 !text-sm whitespace-nowrap">
+                            Rencanakan Trip
+                            <span class="btn-panah !w-7 !h-7"><x-heroicon-o-arrow-right class="w-4 h-4" /></span>
                         </a>
                     </span>
 
@@ -378,7 +391,7 @@
                     <button type="button" @click="open = !open"
                         :aria-label="open ? 'Tutup menu' : 'Buka menu'" :aria-expanded="open"
                         :class="open ? 'menu-tombol-buka' : ''"
-                        class="p-2 transition menu-tombol rounded-xl xl:hidden text-orcha-navy hover:bg-orcha-foam/60">
+                        class="flex items-center justify-center w-10 h-10 transition border rounded-full menu-tombol xl:hidden bg-white/95 backdrop-blur-md border-white/70 text-orcha-navy">
                         <span class="menu-garis"></span>
                         <span class="menu-garis"></span>
                         <span class="menu-garis"></span>
@@ -465,9 +478,9 @@
     </main>
 
     {{-- ============ FOOTER ============ --}}
-    <footer id="kontak" class="relative overflow-hidden text-slate-300 bg-orcha-navy">
-        <div class="absolute inset-0 pointer-events-none opacity-40"
-            style="background-image: radial-gradient(60% 50% at 15% 0%, rgba(26,176,226,.35), transparent 70%), radial-gradient(50% 40% at 90% 100%, rgba(255,199,78,.18), transparent 70%);">
+    <footer id="kontak" class="relative overflow-hidden border-t text-slate-600 bg-orcha-sand border-black/5">
+        <div class="absolute inset-0 pointer-events-none opacity-70"
+            style="background-image: radial-gradient(60% 50% at 15% 0%, rgba(255,122,61,.10), transparent 70%), radial-gradient(50% 40% at 90% 100%, rgba(255,122,61,.07), transparent 70%);">
         </div>
 
         <div class="relative container-orcha py-14 sm:py-20">
@@ -486,97 +499,97 @@
                     <div class="flex items-center justify-center gap-3 mb-5 sm:justify-start">
                         <img src="{{ asset('orcha-logo-only.png') }}" alt="Orcha Journey" width="48" height="48"
                             loading="lazy" decoding="async" class="object-contain w-12 h-12">
-                        <span class="text-xl font-black tracking-tight text-white uppercase font-heading">Orcha <span
-                                class="text-orcha-sky">Journey</span></span>
+                        <span class="text-xl font-extrabold tracking-tight text-orcha-navy font-heading">Orcha <span
+                                class="text-orcha-amber">Journey</span></span>
                     </div>
-                    <p class="max-w-sm mx-auto text-sm leading-relaxed text-slate-400 sm:mx-0">
+                    <p class="max-w-sm mx-auto text-sm leading-relaxed text-slate-500 sm:mx-0">
                         Travel agent Yogyakarta untuk open trip, private trip, study tour, dan sewa kendaraan
                         pariwisata. Harga transparan, armada terawat, dan pemandu yang paham medan.
                     </p>
                     <div class="flex justify-center gap-3 mt-6 sm:justify-start">
                         <a href="https://www.instagram.com/{{ config('orcha.instagram') }}/" target="_blank"
                             rel="noopener noreferrer" aria-label="Instagram Orcha Journey"
-                            class="flex items-center justify-center transition border rounded-full w-11 h-11 border-white/15 bg-white/5 hover:bg-orcha-sky hover:border-orcha-sky">
+                            class="flex items-center justify-center transition border rounded-full w-11 h-11 border-black/5 bg-white text-orcha-navy hover:bg-orcha-sun hover:text-white hover:border-orcha-sun">
                             <x-bi-instagram class="w-5 h-5" />
                         </a>
                         <a href="{{ $waLink }}" target="_blank" rel="noopener noreferrer"
                             aria-label="WhatsApp Orcha Journey"
-                            class="flex items-center justify-center transition border rounded-full w-11 h-11 border-white/15 bg-white/5 hover:bg-orcha-sky hover:border-orcha-sky">
+                            class="flex items-center justify-center transition border rounded-full w-11 h-11 border-black/5 bg-white text-orcha-navy hover:bg-orcha-sun hover:text-white hover:border-orcha-sun">
                             <x-bi-whatsapp class="w-5 h-5" />
                         </a>
                         <a href="mailto:{{ config('orcha.email') }}" aria-label="Email Orcha Journey"
-                            class="flex items-center justify-center transition border rounded-full w-11 h-11 border-white/15 bg-white/5 hover:bg-orcha-sky hover:border-orcha-sky">
+                            class="flex items-center justify-center transition border rounded-full w-11 h-11 border-black/5 bg-white text-orcha-navy hover:bg-orcha-sun hover:text-white hover:border-orcha-sun">
                             <x-heroicon-o-envelope class="w-5 h-5" />
                         </a>
                     </div>
                 </div>
 
                 <div class="lg:col-span-2">
-                    <h4 class="mb-4 text-sm font-bold tracking-[0.2em] uppercase text-orcha-sun">Layanan</h4>
+                    <h4 class="mb-4 text-xs font-bold tracking-[0.2em] uppercase text-orcha-amber">Layanan</h4>
                     <ul class="space-y-3 text-sm">
                         <li><a href="{{ route('paket-wisata', 'open-trip') }}"
-                                class="transition hover:text-orcha-sky">Open Trip</a></li>
+                                class="transition hover:text-orcha-amber">Open Trip</a></li>
                         <li><a href="{{ route('paket-wisata', 'private-trip') }}"
-                                class="transition hover:text-orcha-sky">Private Trip</a></li>
+                                class="transition hover:text-orcha-amber">Private Trip</a></li>
                         <li><a href="{{ route('paket-wisata', 'study-tour') }}"
-                                class="transition hover:text-orcha-sky">Study Tour</a></li>
+                                class="transition hover:text-orcha-amber">Study Tour</a></li>
                         <li><a href="{{ route('sewa-kendaraan', 'mobil') }}"
-                                class="transition hover:text-orcha-sky">Sewa Mobil</a></li>
+                                class="transition hover:text-orcha-amber">Sewa Mobil</a></li>
                         <li><a href="{{ route('sewa-kendaraan', 'hiace') }}"
-                                class="transition hover:text-orcha-sky">Sewa HiAce</a></li>
+                                class="transition hover:text-orcha-amber">Sewa HiAce</a></li>
                         <li><a href="{{ route('sewa-kendaraan', 'bus') }}"
-                                class="transition hover:text-orcha-sky">Sewa Bus</a></li>
+                                class="transition hover:text-orcha-amber">Sewa Bus</a></li>
                     </ul>
                 </div>
 
                 <div class="lg:col-span-2">
-                    <h4 class="mb-4 text-sm font-bold tracking-[0.2em] uppercase text-orcha-sun">Jelajahi</h4>
+                    <h4 class="mb-4 text-xs font-bold tracking-[0.2em] uppercase text-orcha-amber">Jelajahi</h4>
                     <ul class="space-y-3 text-sm">
-                        <li><a href="{{ route('home') }}" class="transition hover:text-orcha-sky">Beranda</a></li>
-                        <li><a href="{{ route('tentang-kami') }}" class="transition hover:text-orcha-sky">Tentang
+                        <li><a href="{{ route('home') }}" class="transition hover:text-orcha-amber">Beranda</a></li>
+                        <li><a href="{{ route('tentang-kami') }}" class="transition hover:text-orcha-amber">Tentang
                                 Kami</a></li>
-                        <li><a href="{{ route('destinasi') }}" class="transition hover:text-orcha-sky">Destinasi</a>
+                        <li><a href="{{ route('destinasi') }}" class="transition hover:text-orcha-amber">Destinasi</a>
                         </li>
-                        <li><a href="{{ route('testimoni') }}" class="transition hover:text-orcha-sky">Testimoni</a>
+                        <li><a href="{{ route('testimoni') }}" class="transition hover:text-orcha-amber">Testimoni</a>
                         </li>
-                        <li><a href="{{ route('blog') }}" class="transition hover:text-orcha-sky">Blog</a></li>
+                        <li><a href="{{ route('blog') }}" class="transition hover:text-orcha-amber">Blog</a></li>
                         <li><a href="{{ route('pendaftaran-open-trip') }}"
-                                class="transition hover:text-orcha-sky">Daftar Open Trip</a></li>
-                        <li><a href="{{ route('kontak') }}" class="transition hover:text-orcha-sky">Kontak</a></li>
+                                class="transition hover:text-orcha-amber">Daftar Open Trip</a></li>
+                        <li><a href="{{ route('kontak') }}" class="transition hover:text-orcha-amber">Kontak</a></li>
                     </ul>
                 </div>
 
                 <div class="lg:col-span-2">
-                    <h4 class="mb-4 text-sm font-bold tracking-[0.2em] uppercase text-orcha-sun">Informasi</h4>
+                    <h4 class="mb-4 text-xs font-bold tracking-[0.2em] uppercase text-orcha-amber">Informasi</h4>
                     <ul class="space-y-3 text-sm">
-                        <li><a href="{{ route('faq') }}" class="transition hover:text-orcha-sky">FAQ</a></li>
-                        <li><a href="{{ route('syarat-ketentuan') }}" class="transition hover:text-orcha-sky">Syarat &
+                        <li><a href="{{ route('faq') }}" class="transition hover:text-orcha-amber">FAQ</a></li>
+                        <li><a href="{{ route('syarat-ketentuan') }}" class="transition hover:text-orcha-amber">Syarat &
                                 Ketentuan</a></li>
                         <li><a href="{{ route('ketentuan-pembayaran') }}"
-                                class="transition hover:text-orcha-sky">Pembayaran & DP</a></li>
+                                class="transition hover:text-orcha-amber">Pembayaran & DP</a></li>
                         <li><a href="{{ route('kebijakan-pengembalian') }}"
-                                class="transition hover:text-orcha-sky">Pengembalian Dana</a></li>
-                        <li><a href="{{ route('kebijakan-privasi') }}" class="transition hover:text-orcha-sky">Kebijakan
+                                class="transition hover:text-orcha-amber">Pengembalian Dana</a></li>
+                        <li><a href="{{ route('kebijakan-privasi') }}" class="transition hover:text-orcha-amber">Kebijakan
                                 Privasi</a></li>
                         {{-- Paling atas di kelompok ini: "pesanan saya bagaimana?"
                              ditanyakan jauh lebih sering daripada ketiga formulir di
                              bawahnya, dan halaman ini juga pintu menuju ketiganya. --}}
-                        <li><a href="{{ route('lacak-pesanan') }}" class="transition hover:text-orcha-sky">Lacak
+                        <li><a href="{{ route('lacak-pesanan') }}" class="transition hover:text-orcha-amber">Lacak
                                 Pesanan Saya</a></li>
-                        <li><a href="{{ route('riwayat-kesehatan') }}" class="transition hover:text-orcha-sky">Riwayat
+                        <li><a href="{{ route('riwayat-kesehatan') }}" class="transition hover:text-orcha-amber">Riwayat
                                 Kesehatan Peserta</a></li>
                         <li><a href="{{ route('konfirmasi-pembayaran') }}"
-                                class="transition hover:text-orcha-sky">Konfirmasi Pembayaran</a></li>
-                        <li><a href="{{ route('pembatalan') }}" class="transition hover:text-orcha-sky">Ajukan
+                                class="transition hover:text-orcha-amber">Konfirmasi Pembayaran</a></li>
+                        <li><a href="{{ route('pembatalan') }}" class="transition hover:text-orcha-amber">Ajukan
                                 Pembatalan</a></li>
                     </ul>
                 </div>
 
                 <div class="lg:col-span-2">
-                    <h4 class="mb-4 text-sm font-bold tracking-[0.2em] uppercase text-orcha-sun">Kontak</h4>
+                    <h4 class="mb-4 text-xs font-bold tracking-[0.2em] uppercase text-orcha-amber">Kontak</h4>
                     <ul class="space-y-4 text-sm">
                         <li class="flex items-start justify-center gap-3 sm:justify-start">
-                            <x-heroicon-s-map-pin class="w-5 h-5 shrink-0 mt-0.5 text-orcha-sky" />
+                            <x-heroicon-s-map-pin class="w-5 h-5 shrink-0 mt-0.5 text-orcha-amber" />
                             {{-- Lebarnya dibatasi di layar sempit supaya ikon dan teks
                                  terbaca sebagai satu kelompok yang dipusatkan. Dibiarkan
                                  selebar baris, alamat yang panjang mendorong ikonnya
@@ -585,17 +598,17 @@
                             <span class="max-w-[15rem] sm:max-w-none">{{ config('orcha.alamat') }}</span>
                         </li>
                         <li class="flex items-center justify-center gap-3 sm:justify-start">
-                            <x-heroicon-s-phone class="w-5 h-5 shrink-0 text-orcha-sky" />
+                            <x-heroicon-s-phone class="w-5 h-5 shrink-0 text-orcha-amber" />
                             <a href="{{ $waLink }}" target="_blank" rel="noopener noreferrer"
-                                class="transition hover:text-orcha-sky">+{{ config('orcha.whatsapp') }}</a>
+                                class="transition hover:text-orcha-amber">+{{ config('orcha.whatsapp') }}</a>
                         </li>
                         <li class="flex items-center justify-center gap-3 sm:justify-start">
-                            <x-heroicon-s-envelope class="w-5 h-5 shrink-0 text-orcha-sky" />
+                            <x-heroicon-s-envelope class="w-5 h-5 shrink-0 text-orcha-amber" />
                             <a href="mailto:{{ config('orcha.email') }}"
-                                class="transition hover:text-orcha-sky">{{ config('orcha.email') }}</a>
+                                class="transition hover:text-orcha-amber">{{ config('orcha.email') }}</a>
                         </li>
                         <li class="flex items-center justify-center gap-3 sm:justify-start">
-                            <x-heroicon-s-clock class="w-5 h-5 shrink-0 text-orcha-sky" />
+                            <x-heroicon-s-clock class="w-5 h-5 shrink-0 text-orcha-amber" />
                             <span>Setiap hari, 08.00 – 21.00 WIB</span>
                         </li>
                     </ul>
@@ -603,7 +616,7 @@
             </div>
 
             <div
-                class="flex flex-col items-center gap-2 pt-8 mt-12 text-xs text-center border-t border-white/10 text-slate-500 sm:flex-row sm:justify-between sm:text-left">
+                class="flex flex-col items-center gap-2 pt-8 mt-12 text-xs text-center border-t border-black/5 text-slate-400 sm:flex-row sm:justify-between sm:text-left">
                 <p>&copy; {{ date('Y') }} Orcha Journey &mdash; {{ config('orcha.perusahaan') }}.
                     Seluruh hak cipta dilindungi.</p>
                 {{-- Slogannya, bukan nama kota: kotanya sudah tersebut di blok

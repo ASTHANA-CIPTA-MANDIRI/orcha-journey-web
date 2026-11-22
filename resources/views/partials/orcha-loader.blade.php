@@ -75,7 +75,7 @@
         align-items: center;
         justify-content: center;
         background:
-            radial-gradient(120% 90% at 50% 38%, #17402f 0%, #14382e 55%, #11332b 100%);
+            radial-gradient(120% 90% at 50% 38%, #1f2e27 0%, #1a2520 55%, #16211c 100%);
         opacity: 1;
         visibility: visible;
         transition: opacity .55s ease, visibility 0s linear .55s;
@@ -112,7 +112,7 @@
         height: 240px;
         transform: translateX(-50%);
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(93,189,179,.40) 0%, rgba(42,122,107,.16) 42%, rgba(42,122,107,0) 70%);
+        background: radial-gradient(circle, rgba(255,122,61,.38) 0%, rgba(239,95,24,.14) 42%, rgba(239,95,24,0) 70%);
         filter: blur(4px);
         animation: orcGlow 2.6s ease-in-out infinite;
         pointer-events: none;
@@ -128,7 +128,7 @@
         position: relative;
         width: 132px;
         height: 132px;
-        filter: drop-shadow(0 12px 26px rgba(42,122,107,.42));
+        filter: drop-shadow(0 12px 26px rgba(239,95,24,.38));
     }
 
     /* Lencananya sendiri: tumbuh dari kecil dengan sedikit overshoot,
@@ -171,9 +171,9 @@
         inset: -9px;
         border-radius: 50%;
         background: conic-gradient(from -90deg,
-            #5dbdb3 0deg,
-            #a5d9d2 var(--orc-sudut),
-            rgba(165,217,210,.10) var(--orc-sudut));
+            #ff7a3d 0deg,
+            #f8cba8 var(--orc-sudut),
+            rgba(248,203,168,.10) var(--orc-sudut));
         -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
                 mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
         opacity: 0;
@@ -229,7 +229,7 @@
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background: radial-gradient(circle at 35% 30%, #ffffff 0%, #a5d9d2 45%, rgba(93,189,179,0) 72%);
+        background: radial-gradient(circle at 35% 30%, #ffffff 0%, #f8cba8 45%, rgba(255,122,61,0) 72%);
         opacity: 0;
         animation: orcBubble 2.8s ease-in infinite;
     }
@@ -261,7 +261,7 @@
         font-weight: 800;
         font-size: 1.5rem;
         letter-spacing: .5px;
-        background: linear-gradient(90deg, #5dbdb3, #efa83e);
+        background: linear-gradient(90deg, #ff7a3d, #ef5f18);
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
@@ -274,7 +274,7 @@
         font-size: .72rem;
         letter-spacing: 4px;
         text-transform: uppercase;
-        color: #a5d9d2;
+        color: #f8cba8;
     }
     @keyframes orcWord {
         0%, 22%  { opacity: 0; transform: translateY(8px); }
@@ -288,7 +288,7 @@
         width: 148px;
         height: 4px;
         border-radius: 99px;
-        background: rgba(93,189,179,.18);
+        background: rgba(255,122,61,.18);
         overflow: hidden;
     }
     .orc-bar span {
@@ -296,7 +296,7 @@
         width: 42%;
         height: 100%;
         border-radius: 99px;
-        background: linear-gradient(90deg, #5dbdb3, #efa83e);
+        background: linear-gradient(90deg, #ff7a3d, #ef5f18);
         animation: orcBar 1.25s cubic-bezier(.65,.05,.35,1) infinite;
     }
     @keyframes orcBar {
@@ -309,12 +309,12 @@
        nada dasar Orcha memang laut dalam. */
     @media (prefers-color-scheme: light) {
         .orc-loader {
-            background: radial-gradient(120% 90% at 50% 38%, #ffffff 0%, #f4faf7 55%, #e9f4f1 100%);
+            background: radial-gradient(120% 90% at 50% 38%, #ffffff 0%, #fbf6ef 55%, #f6f1ea 100%);
         }
-        .orc-word-bot { color: #2a7a6b; }
-        .orc-bar { background: rgba(42,122,107,.16); }
+        .orc-word-bot { color: #d9530a; }
+        .orc-bar { background: rgba(239,95,24,.14); }
         .orc-glow {
-            background: radial-gradient(circle, rgba(93,189,179,.30) 0%, rgba(42,122,107,.12) 42%, rgba(42,122,107,0) 70%);
+            background: radial-gradient(circle, rgba(255,122,61,.28) 0%, rgba(239,95,24,.12) 42%, rgba(239,95,24,0) 70%);
         }
         .orc-sheen { mix-blend-mode: soft-light; }
     }

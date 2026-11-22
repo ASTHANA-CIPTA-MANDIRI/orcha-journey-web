@@ -26,31 +26,47 @@
    teks ocean di atas putih 4,6:1 · teks sky di atas navy 7:1.
 ========================================================== */
 @theme {
-    --font-heading: "Poppins", sans-serif;
+    /* Huruf judul: grotesk tebal berujung rata, seperti rancangan yang
+       dijadikan acuan. Poppins sebelumnya terlalu bundar dan lebar — huruf
+       'a' dan 'g'-nya berbentuk lingkaran geometris, dan judul tebalnya
+       terbaca jauh lebih "gemuk" daripada acuan. */
+    --font-heading: "Plus Jakarta Sans", sans-serif;
     --font-sans: "Inter", sans-serif;
-    /* Aksen kaligrafi, mengikuti gaya tulisan pada poster Orcha */
+    /* Aksen kaligrafi, masih dipakai di kepala halaman selain beranda */
     --font-aksen: "Great Vibes", "Segoe Script", cursive;
 
-    --color-orcha-navy: #11332b;
-    --color-orcha-night: #17402f;
-    --color-orcha-abyss: #1d4a3c;
-    --color-orcha-ocean: #2a7a6b;
-    --color-orcha-wave: #3f9a90;
-    --color-orcha-sky: #5dbdb3;
-    --color-orcha-mist: #a5d9d2;
-    --color-orcha-foam: #e9f4f1;
-    --color-orcha-sun: #efa83e;
-    --color-orcha-sunset: #dd9128;
-    --color-orcha-sand: #fbf6ee;
+    /*
+       Palet mengikuti rancangan acuan: krem hangat, tulisan nyaris hitam,
+       dan satu warna ajakan — oranye.
 
-    /* Kuning yang cukup gelap untuk DITULIS di atas krem — warna logo
-       sendiri terlalu terang untuk teks (2,1:1) dan membuat mata bekerja. */
-    --color-orcha-amber: #b87a1c;
+       Nama tokennya sengaja TIDAK diganti meski artinya bergeser (navy kini
+       nyaris hitam, wave & sky kini oranye). Nama lama dipakai ratusan kali
+       di seluruh halaman publik; mengganti namanya berarti menyentuh setiap
+       berkas itu hanya untuk mengubah warna.
 
-    /* Bayangannya ikut kehijauan: bayangan biru di atas latar krem
-       terbaca sebagai noda abu-abu yang kotor. */
-    --shadow-orcha: 0 18px 45px -22px rgb(17 51 43 / 0.28);
-    --shadow-orcha-lg: 0 32px 70px -30px rgb(17 51 43 / 0.38);
+       Hitamnya bersemu hijau, bukan biru: logo Orcha hijau pinus, dan
+       tulisan biru-hitam di sebelah lambang hijau terbaca sumbang.
+    */
+    --color-orcha-navy: #16211c;
+    --color-orcha-night: #1f2e27;
+    --color-orcha-abyss: #2c3b34;
+    --color-orcha-ocean: #4a5a52;
+    --color-orcha-wave: #e8711f;
+    --color-orcha-sky: #f59b57;
+    --color-orcha-mist: #f8cba8;
+    --color-orcha-foam: #fcefe3;
+    --color-orcha-sun: #ff7a3d;
+    --color-orcha-sunset: #ef5f18;
+    --color-orcha-sand: #f6f1ea;
+
+    /* Oranye yang cukup gelap untuk DITULIS di atas krem (4,6:1). Oranye
+       ajakan di atas terlalu terang untuk teks kecil. */
+    --color-orcha-amber: #d9530a;
+
+    /* Bayangan hangat: bayangan biru di atas krem terbaca sebagai noda
+       abu-abu yang kotor. */
+    --shadow-orcha: 0 18px 45px -22px rgb(60 40 25 / 0.28);
+    --shadow-orcha-lg: 0 32px 70px -30px rgb(60 40 25 / 0.38);
 }
 
 body {
@@ -175,12 +191,13 @@ h6,
     color: #fff;
 }
 
+/* Kata yang disorot di dalam judul — oranye, seperti "Remembering." pada
+   rancangan acuan. Dipakai di halaman selain beranda. */
 .text-gradient-orcha {
     background: linear-gradient(
         120deg,
-        var(--color-orcha-sky),
-        var(--color-orcha-ocean) 55%,
-        var(--color-orcha-navy)
+        var(--color-orcha-sun),
+        var(--color-orcha-amber)
     );
     -webkit-background-clip: text;
     background-clip: text;
@@ -231,8 +248,43 @@ h6,
         var(--color-orcha-sun),
         var(--color-orcha-sunset)
     );
-    color: var(--color-orcha-navy);
-    box-shadow: var(--shadow-orcha);
+    color: #fff;
+    box-shadow: 0 16px 32px -16px rgb(239 95 24 / 0.6);
+}
+
+.btn-orcha-sun:hover {
+    box-shadow: 0 20px 40px -16px rgb(239 95 24 / 0.7);
+}
+
+/*
+   Keping panah bundar di ujung tombol.
+
+   Bentuk ini yang membuat tombol pada rancangan acuan terbaca sebagai
+   ajakan, bukan sekadar pil berwarna: labelnya di kiri, lalu bundaran
+   putih berisi panah di kanan. Tombol yang memakainya diberi bantalan
+   kanan lebih tipis supaya bundarannya tidak terdorong jauh dari tepi.
+*/
+.btn-orcha:has(.btn-panah) {
+    padding-right: 0.45rem;
+}
+
+.btn-panah {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 1.85rem;
+    height: 1.85rem;
+    border-radius: 9999px;
+    background: #fff;
+    color: var(--color-orcha-sunset);
+}
+
+/* Di tombol putih, kepingnya yang berwarna — kebalikannya. */
+.btn-orcha-outline .btn-panah,
+.btn-orcha-ghost .btn-panah {
+    background: var(--color-orcha-foam);
+    color: var(--color-orcha-sunset);
 }
 
 .btn-orcha-ghost {
@@ -248,9 +300,9 @@ h6,
 
 .btn-orcha-outline {
     background: #fff;
-    color: var(--color-orcha-ocean);
-    border: 1px solid var(--color-orcha-foam);
-    box-shadow: var(--shadow-orcha);
+    color: var(--color-orcha-navy);
+    border: 1px solid #ece4d9;
+    box-shadow: 0 10px 24px -18px rgb(60 40 25 / 0.5);
 }
 
 .btn-orcha-outline:hover {
@@ -304,8 +356,8 @@ h6,
 
 .panel-orcha {
     position: relative;
-    background: #fff;
-    border: 1px solid #f1ebe0;
+    background: #fffdfb;
+    border: 1px solid #f0e8dc;
     border-radius: clamp(1.4rem, 2.6vw, 2.25rem);
     padding: clamp(1.35rem, 3.4vw, 3rem);
     box-shadow: 0 20px 50px -34px rgb(17 51 43 / 0.3);
@@ -314,7 +366,7 @@ h6,
 /* Panel bernada krem — dipakai bergantian supaya deretan panel putih
    tidak terbaca sebagai satu blok panjang tanpa jeda. */
 .panel-orcha-krem {
-    background: #fdfaf4;
+    background: #fbf6ef;
 }
 
 /*
@@ -362,10 +414,10 @@ h6,
 .ubin-orcha {
     display: flex;
     flex-direction: column;
-    background: var(--color-orcha-sand);
-    border: 1px solid #f2ede3;
-    border-radius: 1.25rem;
-    padding: 1.1rem 1.15rem;
+    background: #fbf7f1;
+    border: 1px solid #f1e9dd;
+    border-radius: 1.4rem;
+    padding: 1.15rem 1.2rem;
     transition:
         transform 0.3s ease,
         box-shadow 0.3s ease,
@@ -394,16 +446,17 @@ h6,
     width: 2.2rem;
     height: 2.2rem;
     border-radius: 9999px;
-    background: var(--color-orcha-sun);
-    color: var(--color-orcha-navy);
+    background: linear-gradient(130deg, var(--color-orcha-sun), var(--color-orcha-sunset));
+    color: #fff;
+    box-shadow: 0 10px 20px -12px rgb(239 95 24 / 0.75);
     transition:
         transform 0.25s ease,
-        background-color 0.25s ease;
+        box-shadow 0.25s ease;
 }
 
 .tombol-bulat:hover {
     transform: translateX(2px);
-    background: var(--color-orcha-sunset);
+    box-shadow: 0 14px 26px -12px rgb(239 95 24 / 0.9);
 }
 
 .chip-orcha {
@@ -413,10 +466,11 @@ h6,
     padding: 0.5rem 0.9rem;
     border-radius: 9999px;
     background: #fff;
-    border: 1px solid #f0eae0;
+    border: 1px solid #ece4d9;
     font-size: 0.8rem;
     font-weight: 600;
     color: var(--color-orcha-abyss);
+    box-shadow: 0 8px 18px -16px rgb(60 40 25 / 0.6);
 }
 
 /* Bingkai foto hero — "jendela" membulat, bukan foto selebar layar. */
@@ -444,13 +498,17 @@ h6,
 }
 
 /* Kartu destinasi: foto di atas, nama & satu kalimat di bawah. */
+/* Fotonya DUDUK DI DALAM kartu dengan bingkai putih tipis mengelilinginya,
+   bukan menempel rata ke tepi — itu yang membuat deretan kartu pada acuan
+   terbaca seperti kumpulan foto, bukan seperti tabel bergambar. */
 .kartu-destinasi {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    padding: 0.5rem;
     background: #fff;
-    border: 1px solid #f1ece2;
-    border-radius: 1.25rem;
+    border: 1px solid #f0e8dc;
+    border-radius: 1.4rem;
     transition:
         transform 0.3s ease,
         box-shadow 0.3s ease,
@@ -470,8 +528,8 @@ h6,
     font-size: 0.875rem;
     font-weight: 700;
     white-space: nowrap;
-    color: var(--color-orcha-abyss);
-    background: var(--color-orcha-foam);
+    color: var(--color-orcha-navy);
+    background: #fbf3ea;
     border: 1px solid transparent;
     transition:
         background-color 0.25s ease,
@@ -487,11 +545,11 @@ h6,
 .tab-orcha-active {
     background: linear-gradient(
         120deg,
-        var(--color-orcha-sky),
-        var(--color-orcha-ocean)
+        var(--color-orcha-sun),
+        var(--color-orcha-sunset)
     );
     color: #fff;
-    box-shadow: var(--shadow-orcha);
+    box-shadow: 0 12px 26px -14px rgb(239 95 24 / 0.65);
 }
 
 /* Baris tab yang bisa digeser di layar kecil tanpa scrollbar */

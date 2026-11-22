@@ -28,14 +28,21 @@ test('halaman formulir memakai kolom samping yang ikut menggulung', function (st
 })->with(['pendaftaran-open-trip', 'riwayat-kesehatan', 'pembatalan']);
 
 test('kepala halaman memakai aksen kaligrafi', function () {
+    // Kaligrafi Great Vibes tetap jadi tanda tangan rupa Orcha di kepala
+    // halaman yang dibuka foto gelap — di sana ia berdiri di atas foto dan
+    // memang terbaca sebagai aksen.
     $this->get(route('sewa-kendaraan'))
         ->assertOk()
         ->assertSee('aksen-orcha', false)
         ->assertSee('Great+Vibes', false);
 
+    // Beranda TIDAK memakainya: hero-nya berlatar krem terang dan mengikuti
+    // rancangan acuan, yang memakai kapital kecil berjarak lebar sebagai
+    // kepala. Hurufnya tetap ikut dimuat karena halaman lain memerlukannya.
     $this->get('/')
         ->assertOk()
-        ->assertSee('aksen-orcha', false);
+        ->assertSee('Great+Vibes', false)
+        ->assertDontSee('aksen-orcha', false);
 });
 
 test('hero sewa kendaraan memakai foto armada sendiri', function () {
@@ -118,7 +125,7 @@ test('markup navbar tetap menyatakan maksudnya', function () {
     // satu tombol ajakan tidak muat, lalu melipat jadi dua baris yang menabrak
     // logo.
     expect($blade)->toMatch('/class="[^"]*\bhidden\b[^"]*\bxl:flex\b[^"]*"/')
-        ->and($blade)->toContain('menu-tombol rounded-xl xl:hidden')
+        ->and($blade)->toMatch('/class="[^"]*menu-tombol[^"]*\bxl:hidden\b[^"]*"/')
         // Tautan yang tidak muat harus meluber, bukan melipat diam-diam.
         ->and($blade)->toContain('flex-nowrap')
         ->and($blade)->toContain('whitespace-nowrap');

@@ -22,26 +22,26 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
             [
                 'icon' => 'users',
                 'title' => 'Open Trip',
-                'desc' => 'Gabung rombongan dengan peserta lain. Biaya patungan, tanggal sudah kami tetapkan, dan berangkat setelah kuota minimal 6 orang terpenuhi.',
-                'points' => ['Jadwal keberangkatan sudah ditetapkan', 'Berangkat minimal 6 orang', 'Sudah termasuk pemandu'],
+                'desc' => 'Gabung rombongan, biaya patungan, tanggal sudah kami tetapkan.',
+                'tautan' => route('paket-wisata', 'open-trip'),
             ],
             [
                 'icon' => 'sparkles',
                 'title' => 'Private Trip',
-                'desc' => 'Satu rombongan hanya keluarga atau tim Anda. Rute, jam berangkat, dan menu makan bisa diatur sendiri.',
-                'points' => ['Itinerary fleksibel', 'Kendaraan eksklusif', 'Cocok untuk keluarga & kantor'],
+                'desc' => 'Satu rombongan keluarga atau tim Anda sendiri. Rutenya ikut Anda.',
+                'tautan' => route('paket-wisata', 'private-trip'),
             ],
             [
                 'icon' => 'academic-cap',
                 'title' => 'Study Tour',
-                'desc' => 'Paket kunjungan edukatif sekolah dan kampus. Lengkap dengan surat jalan, dokumentasi, dan pendamping tiap bus.',
-                'points' => ['Kapasitas ratusan peserta', 'Laporan & dokumentasi', 'Asuransi perjalanan'],
+                'desc' => 'Kunjungan edukatif sekolah & kampus, lengkap dengan pendampingnya.',
+                'tautan' => route('paket-wisata', 'study-tour'),
             ],
             [
                 'icon' => 'truck',
                 'title' => 'Sewa Kendaraan',
-                'desc' => 'Mobil harian, HiAce untuk rombongan kecil, sampai bus pariwisata besar. Bisa lepas kunci atau dengan sopir.',
-                'points' => ['Mobil, HiAce, & Bus', 'Sopir berpengalaman', 'Armada terawat rutin'],
+                'desc' => 'Mobil, HiAce, sampai bus pariwisata. Lepas kunci atau dengan sopir.',
+                'tautan' => route('sewa-kendaraan'),
             ],
         ];
     }
@@ -280,15 +280,17 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
         <section class="relative overflow-hidden panel-orcha !p-0">
             <div class="grid lg:grid-cols-[1.05fr_1fr]">
                 <div class="px-6 py-10 sm:px-10 sm:py-14 lg:py-16 reveal">
-                    {{-- Kaligrafi, bukan huruf kapital kecil seperti bagian lain:
-                         ini tanda tangan rupa Orcha yang sudah dipakai di poster
-                         dan di kepala halaman lain. Warnanya versi gelap —
-                         kuning logo di atas putih cuma 2,1:1, terlalu pucat
-                         untuk dibaca. --}}
-                    <p class="aksen-orcha aksen-orcha-gelap">{{ config('orcha.slogan') }}</p>
+                    {{-- Kapital kecil berjarak lebar, persis seperti baris
+                         "GO FURTHER. STAY AHEAD." pada rancangan acuan.
+                         Kaligrafi Great Vibes tetap dipakai di kepala halaman
+                         LAIN — di sana ia berdiri di atas foto gelap dan
+                         memang jadi tanda tangan rupa Orcha. --}}
+                    <p class="text-[0.7rem] font-bold tracking-[0.22em] uppercase text-slate-400">
+                        {{ config('orcha.slogan') }}
+                    </p>
 
-                    <h1 class="mt-2 font-heading font-black text-orcha-navy leading-[1.06] tracking-tight"
-                        style="font-size: clamp(2.05rem, 4.3vw, 3.5rem);">
+                    <h1 class="mt-4 font-heading font-extrabold text-orcha-navy leading-[1.06] tracking-tight"
+                        style="font-size: clamp(1.8rem, 5.2vw, 3.5rem);">
                         Pergi ke tempat yang
                         <span class="sorot-kata">layak dikenang.</span>
                     </h1>
@@ -301,7 +303,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                     <div class="flex flex-col gap-3 mt-8 sm:flex-row sm:items-center">
                         <a href="{{ route('paket-wisata') }}" class="btn-orcha btn-orcha-sun">
                             Jelajahi Perjalanan
-                            <x-heroicon-o-arrow-right class="w-5 h-5" />
+                            <span class="btn-panah"><x-heroicon-o-arrow-right class="w-4 h-4" /></span>
                         </a>
                         <a href="{{ $wa('Halo Orcha Journey, saya ingin merencanakan perjalanan.') }}"
                             target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-outline">
@@ -376,27 +378,37 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                         <p class="label-orcha"><span class="w-6 h-px bg-orcha-sun"></span> Destinasi Populer</p>
                         <h2 class="mt-3 judul-panel">Ke mana Anda berikutnya?</h2>
                     </div>
-                    <a href="{{ route('destinasi') }}" class="btn-orcha btn-orcha-outline !py-2.5 !px-5 !text-sm">
+                    <a href="{{ route('destinasi') }}" class="btn-orcha btn-orcha-outline !py-1.5 !pl-5 !pr-1.5 !text-sm">
                         Lihat Semua Destinasi
-                        <x-heroicon-o-arrow-right class="w-4 h-4" />
+                        <span class="btn-panah !w-7 !h-7"><x-heroicon-o-arrow-right class="w-4 h-4" /></span>
                     </a>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 sm:gap-4">
                     @foreach ($destinations->take(5) as $dest)
-                        <a href="{{ route('destinasi') }}" class="kartu-destinasi reveal">
-                            <span class="relative block overflow-hidden aspect-[4/5]">
+                        @php
+                            // Dua baris keterangan, seperti kartu pada rancangan acuan.
+                            // Dipotong di sini, bukan lewat CSS: deskripsi destinasi
+                            // bisa sepanjang satu paragraf, dan kartu yang tingginya
+                            // ikut isi membuat barisnya bergerigi.
+                            $ketDestinasi = \Illuminate\Support\Str::limit(
+                                strip_tags((string) $dest->deskripsi) ?: trim(($dest->daerah ? $dest->daerah.', ' : '').$dest->provinsi, ', '),
+                                52,
+                            );
+                        @endphp
+                        <a href="{{ route('destinasi') }}" class="kartu-destinasi group reveal">
+                            <span class="relative block overflow-hidden rounded-[1rem] aspect-[4/5]">
                                 <img src="{{ $dest->main_photo ?: asset('images/pantai-senja.webp') }}"
                                     alt="{{ $dest->destination_name }}" loading="lazy"
-                                    class="object-cover w-full h-full transition-transform duration-700 hover:scale-105">
+                                    class="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105">
                             </span>
-                            <span class="flex items-center gap-2 p-3 sm:p-4">
+                            <span class="flex items-end gap-2 px-2 pt-3 pb-1 sm:px-2.5">
                                 <span class="flex-1 min-w-0">
-                                    <span class="block text-sm font-bold truncate sm:text-base text-orcha-navy">
+                                    <span class="block text-sm font-bold sm:text-base text-orcha-navy">
                                         {{ $dest->destination_name }}
                                     </span>
-                                    <span class="block mt-0.5 text-xs text-slate-500 truncate">
-                                        {{ $dest->provinsi ?: shortNumber($dest->total_visitor) . ' pengunjung' }}
+                                    <span class="block mt-1 text-xs leading-snug text-slate-500">
+                                        {{ $ketDestinasi }}
                                     </span>
                                 </span>
                                 <span class="tombol-bulat !w-8 !h-8">
@@ -426,21 +438,20 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
 
             <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 sm:gap-4">
                 @foreach ($layanan as $item)
-                    <article class="ubin-orcha ubin-orcha-putih reveal">
-                        <span class="flex items-center justify-center mb-4 w-11 h-11 rounded-xl bg-orcha-foam text-orcha-ocean">
-                            <x-dynamic-component :component="'heroicon-o-' . $item['icon']" class="w-6 h-6" />
+                    <a href="{{ $item['tautan'] }}" class="ubin-orcha ubin-orcha-putih reveal">
+                        <span class="flex items-start gap-3">
+                            <span class="flex items-center justify-center shrink-0 w-14 h-14 rounded-2xl bg-orcha-foam text-orcha-amber">
+                                <x-dynamic-component :component="'heroicon-o-' . $item['icon']" class="w-7 h-7" />
+                            </span>
+                            <span class="flex-1 min-w-0">
+                                <span class="block text-base font-bold font-heading text-orcha-navy">{{ $item['title'] }}</span>
+                                <span class="block mt-1 text-sm leading-snug text-slate-500">{{ $item['desc'] }}</span>
+                            </span>
                         </span>
-                        <h3 class="text-base font-bold font-heading text-orcha-navy">{{ $item['title'] }}</h3>
-                        <p class="flex-1 mt-2 text-sm leading-relaxed text-slate-600">{{ $item['desc'] }}</p>
-                        <ul class="pt-4 mt-4 space-y-1.5 border-t border-orcha-foam">
-                            @foreach ($item['points'] as $point)
-                                <li class="flex items-start gap-2 text-xs text-slate-600">
-                                    <x-heroicon-s-check-circle class="w-4 h-4 shrink-0 text-orcha-wave" />
-                                    <span>{{ $point }}</span>
-                                </li>
-                            @endforeach
-                        </ul>
-                    </article>
+                        <span class="flex justify-end mt-4">
+                            <span class="tombol-bulat !w-8 !h-8"><x-heroicon-o-arrow-right class="w-4 h-4" /></span>
+                        </span>
+                    </a>
                 @endforeach
             </div>
         </section>
@@ -458,13 +469,15 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                      tetapi isinya tidak — fotonya berhenti di tengah dan
                      separuh bawah kartu menganga putih. --}}
                 <section id="paket-sorotan" class="overflow-hidden panel-orcha !p-0 !flex !flex-col scroll-mt-28 reveal">
-                    <div class="grid flex-1 sm:grid-cols-2">
-                        <div class="relative min-h-[14rem]">
+                    <div class="grid flex-1 gap-0 p-2 sm:grid-cols-2 sm:p-2.5">
+                        {{-- Berbingkai, bukan rata tepi: kartu unggulan pada rancangan
+                             acuan menyisakan pias putih tipis mengelilingi fotonya. --}}
+                        <div class="relative min-h-[14rem] overflow-hidden rounded-[1.1rem]">
                             <img src="{{ $paketSorot->sampul }}" alt="{{ $paketSorot->name }}" loading="lazy"
                                 class="absolute inset-0 object-cover w-full h-full">
                         </div>
 
-                        <div class="flex flex-col p-6 sm:p-7">
+                        <div class="flex flex-col p-5 sm:p-6">
                             <p class="label-orcha">Paket Sorotan</p>
                             <h2 class="mt-2 text-xl font-bold leading-snug font-heading text-orcha-navy sm:text-2xl">
                                 {{ $paketSorot->name }}
@@ -501,9 +514,9 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                                     <span class="text-xs text-slate-500">/orang</span>
                                 </span>
                                 <a href="{{ route('paket-detail', $paketSorot->uuid) }}"
-                                    class="btn-orcha btn-orcha-sun !py-2.5 !px-5 !text-sm">
+                                    class="btn-orcha btn-orcha-sun !py-1.5 !pl-5 !pr-1.5 !text-sm">
                                     Lihat Paket
-                                    <x-heroicon-o-arrow-right class="w-4 h-4" />
+                                    <span class="btn-panah !w-7 !h-7"><x-heroicon-o-arrow-right class="w-4 h-4" /></span>
                                 </a>
                             </div>
                         </div>
@@ -517,12 +530,11 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
 
                 <div class="grid flex-1 gap-3 mt-5 sm:grid-cols-2">
                     @foreach ($alasan as $poin)
-                        <div class="ubin-orcha">
-                            <span class="flex items-center justify-center mb-3 w-9 h-9 rounded-lg bg-white text-orcha-ocean">
-                                <x-dynamic-component :component="'heroicon-o-' . $poin['icon']" class="w-5 h-5" />
+                        <div class="!flex-row items-center gap-3 ubin-orcha">
+                            <span class="flex items-center justify-center w-10 h-10 bg-white shrink-0 rounded-xl text-orcha-amber">
+                                <x-dynamic-component :component="'heroicon-s-' . $poin['icon']" class="w-5 h-5" />
                             </span>
-                            <h3 class="text-sm font-bold text-orcha-navy">{{ $poin['title'] }}</h3>
-                            <p class="mt-1 text-xs leading-relaxed text-slate-600">{{ $poin['desc'] }}</p>
+                            <h3 class="text-sm font-bold leading-snug text-orcha-navy">{{ $poin['title'] }}</h3>
                         </div>
                     @endforeach
                 </div>
@@ -675,7 +687,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
             @if ($testimonials->isNotEmpty())
                 <section id="testimoni" class="panel-orcha scroll-mt-28">
                     <div class="flex flex-wrap items-end justify-between gap-4 mb-6 reveal">
-                        <div>
+                        <div class="flex-1 min-w-0">
                             <p class="label-orcha"><span class="w-6 h-px bg-orcha-sun"></span> Testimoni</p>
                             <h2 class="mt-3 judul-panel">Cerita asli, pelanggan yang senang.</h2>
                         </div>
@@ -785,7 +797,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
 
             <div class="relative grid items-center gap-6 p-7 sm:p-10 lg:grid-cols-[1.4fr_1fr] lg:p-14">
                 <div class="reveal">
-                    <h2 class="text-2xl font-black leading-tight text-white font-heading sm:text-3xl lg:text-4xl">
+                    <h2 class="text-2xl font-extrabold leading-tight text-white font-heading sm:text-3xl lg:text-4xl">
                         Sudah punya tanggalnya? Kami siap berangkat.
                     </h2>
                     <p class="max-w-xl mt-3 text-sm leading-relaxed text-slate-200 sm:text-base">
@@ -799,7 +811,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                         </a>
                         <a href="{{ route('paket-wisata') }}" class="btn-orcha btn-orcha-ghost">
                             Lihat Paket Wisata
-                            <x-heroicon-o-arrow-right class="w-5 h-5" />
+                            <span class="btn-panah"><x-heroicon-o-arrow-right class="w-4 h-4" /></span>
                         </a>
                     </div>
                 </div>
