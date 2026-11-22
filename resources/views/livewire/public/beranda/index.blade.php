@@ -292,14 +292,16 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                  sempit: di sana fotonya sendiri sudah kecil, dan gelembungnya
                  menutupi jendela yang justru jadi isi fotonya. --}}
             <div class="hero-kabin-kartu">
+                {{-- Pesawat tampak atas yang dimiringkan, bukan pesawat kertas:
+                     itu bentuk ikon pada rancangan acuan. --}}
                 <span class="gelembung-ikon">
-                    <x-heroicon-s-paper-airplane class="w-5 h-5" />
+                    <x-bi-airplane-fill class="w-5 h-5 rotate-45" />
                 </span>
-                <span class="block mt-3.5 text-sm text-slate-400">Tujuan berikutnya</span>
-                <span class="block mt-1 text-lg font-extrabold leading-tight font-heading text-orcha-navy">
+                <span class="block mt-4 text-sm text-[#9a9289]">Tujuan berikutnya</span>
+                <span class="block mt-0.5 text-[1.15rem] font-extrabold leading-[1.15] font-heading text-orcha-navy">
                     Pengalaman yang Lebih Baik
                 </span>
-                <span class="flex justify-end mt-2 text-orcha-navy">
+                <span class="flex justify-end mt-3 text-orcha-navy">
                     <x-heroicon-o-arrow-right class="w-5 h-5" />
                 </span>
             </div>
