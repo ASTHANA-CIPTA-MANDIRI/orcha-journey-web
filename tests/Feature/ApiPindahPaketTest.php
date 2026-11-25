@@ -571,3 +571,100 @@ test('harga nego juga yang dipakai saat pendaftarannya benar-benar dipindahkan',
     // Pelanggan ditagih harga yang DISEPAKATI, bukan harga hitungan.
     expect((int) $eva->fresh()->harga_jual)->toBe(395_000);
 });
+
+/* ------------------- Private trip tidak menumpang paket open trip */
+
+/*
+ | Terjadi di produksi 25 Nov 2026.
+ |
+ | RAB private Eva tertaut ke paket #11 "Open Trip Dieng 1 Hari", dan
+ | perpindahan membuat tanggal 4-5 Desember lahir di dalam paket itu. Halaman
+ | publik paket tersebut lalu memajangnya sebagai pilihan berangkat seharga
+ | Rp 395.000 — tanggal dan harga satu keluarga, terpampang untuk umum.
+ |
+ | Kursinya memang tidak bisa direbut (kuota dikunci sejumlah rombongan),
+ | jadi yang bocor tampilannya. Itu tetap tidak boleh.
+ */
+test('RAB private yang tertaut ke paket open trip mendapat paket privatnya sendiri', function () {
+    $open = paketPindah('Open Trip Dieng 1 Hari', 350_000, 'open_trip');
+    $eva = evaPindah($open, berangkatPindah($open, '2026-12-06'));
+
+    // Persis keadaan produksi: RAB private, tetapi paketnya open trip.
+    $rab = pindahRabPrivate($open, ['harga_nego' => 395_000]);
+
+    $sebelum = TravelPackage::count();
+
+    pindahkan($eva, ['rab_id' => $rab->id, 'kelebihan' => 'saldo'])->assertOk();
+
+    expect(TravelPackage::count())->toBe($sebelum + 1);
+
+    $baru = TravelPackage::latest('id')->first();
+
+    expect($baru->category)->toBe('private_trip')
+        // Draf: paket privat tidak pernah perlu terbit, dan halaman publik
+        // hanya menampilkan yang terbit.
+        ->and($baru->status)->toBe('draf')
+        ->and($eva->fresh()->travel_package_id)->toBe($baru->id)
+        // RAB-nya ikut dipindahkan tautannya, supaya penyelarasan berikutnya
+        // tidak menulis kembali ke paket open trip.
+        ->and($rab->fresh()->travel_package_id)->toBe($baru->id);
+});
+
+test('paket open trip tidak ketambahan tanggal milik rombongan privat', function () {
+    $open = paketPindah('Open Trip Dieng 1 Hari', 350_000, 'open_trip');
+    $eva = evaPindah($open, berangkatPindah($open, '2026-12-06'));
+    $rab = pindahRabPrivate($open, ['harga_nego' => 395_000]);
+
+    pindahkan($eva, ['rab_id' => $rab->id, 'kelebihan' => 'saldo'])->assertOk();
+
+    // Inilah yang bocor di produksi: tanggal 4 Des lahir di paket open trip
+    // dan terpajang di halaman publiknya.
+    expect(Keberangkatan::where('travel_package_id', $open->id)
+        ->whereDate('tanggal_berangkat', '2026-12-04')->count())->toBe(0)
+        // Tanggal open trip aslinya tidak ikut terganggu.
+        ->and(Keberangkatan::where('travel_package_id', $open->id)->count())->toBe(1);
+});
+
+test('paket privat yang sudah ada dipakai lagi, tidak dibuat berulang', function () {
+    $privat = paketPindah('Private Trip Dieng', 395_000, 'private_trip');
+    $eva = evaPindah($privat, berangkatPindah($privat, '2026-12-06'));
+    $rab = pindahRabPrivate($privat);
+
+    $sebelum = TravelPackage::count();
+
+    pindahkan($eva, ['rab_id' => $rab->id, 'kelebihan' => 'saldo'])->assertOk();
+
+    expect(TravelPackage::count())->toBe($sebelum)
+        ->and($eva->fresh()->travel_package_id)->toBe($privat->id);
+});
+
+test('perpindahan yang dibatalkan tidak meninggalkan paket privat kosong', function () {
+    $open = paketPindah('Open Trip Dieng 1 Hari', 350_000, 'open_trip');
+    // Sudah bayar jauh lebih banyak daripada tagihan barunya.
+    $eva = evaPindah($open, berangkatPindah($open, '2026-12-06'), 9_000_000);
+    $rab = pindahRabPrivate($open, ['harga_nego' => 395_000]);
+
+    $sebelum = TravelPackage::count();
+
+    pindahkan($eva, ['rab_id' => $rab->id])
+        ->assertStatus(422)
+        ->assertJsonPath('butuh_keputusan_kelebihan', true);
+
+    expect(TravelPackage::count())->toBe($sebelum)
+        ->and($rab->fresh()->travel_package_id)->toBe($open->id);
+});
+
+test('open trip tetap boleh memakai paket open trip', function () {
+    $open = paketPindah('Open Trip Dieng 1 Hari', 350_000, 'open_trip');
+    $eva = evaPindah($open, berangkatPindah($open, '2026-12-06'));
+
+    $rab = pindahRabPrivate($open, ['jenis' => 'open', 'nama_pelanggan' => 'Umum']);
+
+    $sebelum = TravelPackage::count();
+
+    pindahkan($eva, ['rab_id' => $rab->id, 'kelebihan' => 'saldo'])->assertOk();
+
+    // Tidak ada paket baru: aturannya hanya berlaku untuk private trip.
+    expect(TravelPackage::count())->toBe($sebelum)
+        ->and($eva->fresh()->travel_package_id)->toBe($open->id);
+});

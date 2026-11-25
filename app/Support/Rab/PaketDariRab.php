@@ -70,6 +70,41 @@ class PaketDariRab
     }
 
     /**
+     * Paket untuk SATU ROMBONGAN private — tidak pernah tayang untuk umum.
+     *
+     * Private trip tetap membutuhkan paket, karena pendaftaran menyimpan
+     * travel_package_id. Yang tidak boleh adalah ia menumpang paket open
+     * trip: tanggalnya lalu ikut terbit di halaman paket itu, lengkap dengan
+     * harga rombongan yang bersangkutan. Terjadi di produksi 25 Nov 2026 —
+     * "Open Trip Dieng 1 Hari" memajang "4 - 5 Desember 2026" seharga
+     * Rp 395.000 yang sebenarnya trip privat satu keluarga.
+     *
+     * Berbeda dari buat():
+     * - kategorinya private_trip, jadi ia tidak pernah ikut daftar open trip;
+     * - TIDAK membuatkan keberangkatan. Yang memanggil (pindahPaket) membuat
+     *   sendiri, lengkap dengan kuota dan harga rombongan itu — dan dua baris
+     *   tanggal untuk satu rombongan jauh lebih sulit dilihat daripada
+     *   dibayangkan.
+     *
+     * Statusnya draf, sama seperti buat(): menerbitkan tetap keputusan
+     * manusia, dan paket privat memang tidak pernah perlu diterbitkan.
+     */
+    public static function buatPrivat(Rab $rab): TravelPackage
+    {
+        $paket = TravelPackage::create([
+            'uuid' => (string) Str::uuid(),
+            'category' => 'private_trip',
+            'status' => 'draf',
+            'berakhir_otomatis' => true,
+            'minimal_peserta' => max(1, (int) $rab->jumlah_peserta),
+        ] + self::isiDariRab($rab));
+
+        $rab->forceFill(['travel_package_id' => $paket->id])->save();
+
+        return $paket;
+    }
+
+    /**
      * Menyelaraskan paket yang sudah tertaut dengan keadaan RAB sekarang.
      *
      * Dipanggil setiap RAB berubah — baris biaya, itinerary, atau kepalanya.

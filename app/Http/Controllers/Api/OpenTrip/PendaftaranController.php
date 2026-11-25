@@ -18,6 +18,7 @@ use App\Support\BerkasKwitansi;
 use App\Support\NomorTelepon;
 use App\Support\PerkiraanPotongan;
 use App\Support\Rab\HitungRab;
+use App\Support\Rab\PaketDariRab;
 use App\Support\RencanaAngsuran;
 use App\Support\RincianBiaya;
 use App\Support\SuratPenggantian;
@@ -1413,7 +1414,36 @@ class PendaftaranController extends ApiController
                 $paket = TravelPackage::find($data['travel_package_id']);
             }
 
-            if (! $paket) {
+            /*
+             | Private trip TIDAK BOLEH menumpang paket open trip.
+             |
+             | Paketnya tetap dibutuhkan — pendaftaran menyimpan
+             | travel_package_id — tetapi menaruhnya di paket open trip
+             | membuat tanggal rombongan itu ikut TERBIT di halaman paket
+             | tersebut, lengkap dengan harganya.
+             |
+             | Terjadi di produksi 25 Nov 2026: RAB private Eva tertaut ke
+             | paket #11 "Open Trip Dieng 1 Hari", dan perpindahan membuat
+             | tanggal 4-5 Desember lahir di sana. Halaman publik paket itu
+             | lalu memajangnya sebagai pilihan berangkat seharga Rp 395.000.
+             | Kursinya memang tidak bisa direbut orang lain (kuota dikunci
+             | sejumlah rombongan), tetapi tanggal dan harga satu keluarga
+             | terpampang untuk umum.
+             |
+             | Tautan paketnya tidak dipercaya begitu saja: kalau jenisnya
+             | tidak cocok, paketnya dibuat ulang sebagai paket privat DI
+             | DALAM transaksi di bawah — supaya perpindahan yang akhirnya
+             | dibatalkan tidak meninggalkan paket kosong.
+             */
+            $paketPrivatBaru = $rab->jenis === 'private'
+                && (! $paket || $paket->category !== 'private_trip');
+
+            if ($paketPrivatBaru) {
+                $paket = null;
+                $tujuan = null;
+            }
+
+            if (! $paket && ! $paketPrivatBaru) {
                 return response()->json([
                     'pesan' => 'RAB '.$rab->kode.' belum tertaut ke paket wisata mana pun. Buka RAB-nya lalu '
                         .'jadikan paket dulu, atau pilih paket tujuannya sendiri di bawah.',
@@ -1438,7 +1468,10 @@ class PendaftaranController extends ApiController
              | berangkat di halaman publik.
              */
             $tanggalRab = $rab->tanggal_mulai?->toDateString();
-            $tujuan = $tanggalRab
+
+            // $paket null berarti paket privatnya baru akan lahir di dalam
+            // transaksi; paket baru tidak mungkin sudah punya tanggal.
+            $tujuan = $tanggalRab && $paket
                 ? Keberangkatan::where('travel_package_id', $paket->id)
                     ->whereDate('tanggal_berangkat', $tanggalRab)->first()
                 : null;
@@ -1514,6 +1547,16 @@ class PendaftaranController extends ApiController
                  | dan rombongan yang disewa satu keluarga tiba-tiba kedatangan
                  | orang asing adalah kesalahan yang tidak bisa ditarik.
                  */
+                /*
+                 | Paket privatnya lahir DI SINI, di dalam transaksi:
+                 | perpindahan yang akhirnya dibatalkan (kelebihan bayar yang
+                 | belum diputuskan) tidak boleh meninggalkan paket kosong
+                 | yang tidak pernah dipakai siapa pun.
+                 */
+                if (! $paket) {
+                    $paket = PaketDariRab::buatPrivat($rab);
+                }
+
                 if (! $tujuan) {
                     $mulai = $rab->tanggal_mulai;
                     $hari = max(1, (int) $rab->jumlah_hari);
@@ -1610,6 +1653,15 @@ class PendaftaranController extends ApiController
                     'tanggal_baru' => $tujuan->tanggal_berangkat?->toDateString(),
                     'keberangkatan_id' => $tujuan->id,
                     'rab' => $rab?->kode,
+                    /*
+                     | Nama paketnya ikut dipulangkan, tidak dibaca ulang dari
+                     | $paket di luar: pada jalur privat paketnya baru lahir
+                     | DI DALAM closure ini, jadi $paket di luar masih null
+                     | dan jejak auditnya akan jatuh justru saat
+                     | perpindahannya berhasil.
+                     */
+                    'paket' => $paket->name,
+                    'paket_id' => $paket->id,
                 ];
             });
         } catch (KelebihanBelumDiputuskan $e) {
@@ -1628,7 +1680,9 @@ class PendaftaranController extends ApiController
         $this->catat($request, 'pindah paket pendaftaran', [
             'kode' => $pendaftaran->kode,
             'dari' => $sebelum['paket'].' ('.($sebelum['tanggal'] ?? '-').')',
-            'ke' => $paket->name.' ('.($hasil['tanggal_baru'] ?? '-').')',
+            // $hasil, bukan $paket: pada jalur privat paketnya lahir di dalam
+            // transaksi, dan $paket di luar sini masih null.
+            'ke' => ($hasil['paket'] ?? '-').' ('.($hasil['tanggal_baru'] ?? '-').')',
             'rab' => $hasil['rab'] ?? '-',
             'tagihan_lama' => $sebelum['tagihan'],
             'tagihan_baru' => $hasil['tagihan_baru'],
@@ -1639,7 +1693,7 @@ class PendaftaranController extends ApiController
         return response()->json([
             'data' => (new PendaftaranResource($pendaftaran->fresh()))->resolve(),
             'ringkasan' => $hasil + ['sebelum' => $sebelum],
-            'pesan' => 'Pendaftaran dipindahkan ke '.$paket->name
+            'pesan' => 'Pendaftaran dipindahkan ke '.($hasil['paket'] ?? 'paket tujuan')
                 .($hasil['rab'] ? ', angkanya mengikuti '.$hasil['rab'].'.' : '.'),
         ]);
     }
