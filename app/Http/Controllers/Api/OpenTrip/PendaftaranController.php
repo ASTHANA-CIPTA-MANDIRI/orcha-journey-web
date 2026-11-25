@@ -12,9 +12,12 @@ use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\Keberangkatan;
 use App\Models\PaketWisata\TravelPackage;
 use App\Models\Pelanggan\SaldoPelanggan;
+use App\Models\Rab\Rab;
 use App\Models\Umum\TautanPendek;
 use App\Support\BerkasKwitansi;
+use App\Support\NomorTelepon;
 use App\Support\PerkiraanPotongan;
+use App\Support\Rab\HitungRab;
 use App\Support\RencanaAngsuran;
 use App\Support\RincianBiaya;
 use App\Support\SuratPenggantian;
@@ -1238,11 +1241,89 @@ class PendaftaranController extends ApiController
      * Pembekuan itu harus dilepas di sini — kalau tidak, pindah ke paket yang
      * harganya berbeda tidak akan mengubah tagihannya sama sekali.
      */
+    /**
+     * RAB yang boleh dipakai memindahkan pendaftaran ini.
+     *
+     * Disaring di sini, bukan di lemon: daftar RAB berisi nama dan nomor
+     * seluruh pelanggan, dan layar pendaftaran satu rombongan tidak punya
+     * urusan dengan rombongan lain. Yang dikirim hanya milik nomor yang sama.
+     *
+     * Yang sudah terpakai pendaftaran LAIN tetap ikut, ditandai — supaya
+     * "RAB saya kok tidak ada di daftar" terjawab di layarnya sendiri, bukan
+     * lewat tebakan.
+     */
+    public function rabCocok(PendaftaranOpenTrip $pendaftaran): JsonResponse
+    {
+        $nomor = NomorTelepon::angka($pendaftaran->whatsapp);
+
+        if (! $nomor) {
+            return response()->json(['data' => []]);
+        }
+
+        $daftar = Rab::query()
+            ->where('status', 'disetujui')
+            ->orderByDesc('id')
+            ->get(['id', 'kode', 'judul', 'jenis', 'whatsapp', 'nama_pelanggan',
+                'tanggal_mulai', 'jumlah_hari', 'jumlah_peserta', 'travel_package_id', 'kode_pendaftaran'])
+            ->filter(fn (Rab $r) => NomorTelepon::angka($r->whatsapp) === $nomor)
+            ->map(function (Rab $r) use ($pendaftaran) {
+                $angka = HitungRab::ringkas($r);
+
+                return [
+                    'id' => $r->id,
+                    'kode' => $r->kode,
+                    'judul' => $r->judul,
+                    'jenis' => $r->jenis,
+                    'tanggal_mulai' => $r->tanggal_mulai?->toDateString(),
+                    'tanggal_teks' => $r->tanggal_mulai?->locale('id')->translatedFormat('j M Y'),
+                    'jumlah_peserta' => (int) $r->jumlah_peserta,
+                    'harga_jual' => (int) $angka['untuk_pendaftaran']['harga_jual'],
+                    'harga_modal' => (int) $angka['untuk_pendaftaran']['harga_modal'],
+                    /*
+                     | Modal TOTAL ikut, dan layar memakai angka inilah.
+                     |
+                     | Modal per orang sering nol dengan benar: Hiace dan
+                     | homestay dibayar per rombongan, bukan per kepala, jadi
+                     | seluruhnya masuk biaya tetap. "Modal Rp 0/orang" di
+                     | layar akan terbaca sebagai trip tanpa biaya.
+                     */
+                    'biaya_tetap' => (int) $angka['untuk_pendaftaran']['biaya_tetap'],
+                    'modal_total' => (int) $angka['modal_total'],
+                    'untung' => (int) $angka['untung'],
+                    'punya_paket' => (bool) $r->travel_package_id,
+                    // Terpakai pendaftaran lain — ditampilkan, tetapi tidak
+                    // bisa dipilih.
+                    'terpakai' => $r->kode_pendaftaran && $r->kode_pendaftaran !== $pendaftaran->kode
+                        ? $r->kode_pendaftaran
+                        : null,
+                    'peserta_cocok' => (int) $r->jumlah_peserta === (int) $pendaftaran->jumlah_peserta,
+                ];
+            })
+            ->values()
+            ->all();
+
+        return response()->json(['data' => $daftar]);
+    }
+
     public function pindahPaket(PendaftaranOpenTrip $pendaftaran, Request $request): JsonResponse
     {
         $data = $request->validate([
-            'travel_package_id' => ['required', 'integer', 'exists:tbl_travel_package,id'],
-            'keberangkatan_id' => ['required', 'integer', 'exists:tbl_paket_keberangkatan,id'],
+            /*
+             | RAB sebagai SUMBER ANGKA, bukan sekadar jalan pintas mengetik.
+             |
+             | Tanpa ini modal pendaftaran diambil dari paket katalog,
+             | sementara modal yang sebenarnya sudah dihitung baris per baris
+             | di RAB. Keduanya hampir tidak pernah sama, dan yang terbaca
+             | laporan keuntungan adalah yang salah: trip yang RAB-nya rugi
+             | Rp 45.000 bisa terbaca untung sembilan ratus ribu tanpa ada
+             | seorang pun salah mengetik.
+             |
+             | Paket dan tanggalnya menyusul dari RAB, jadi keduanya tidak
+             | lagi wajib dikirim saat rab_id ada.
+             */
+            'rab_id' => ['sometimes', 'nullable', 'integer', 'exists:tbl_rab,id'],
+            'travel_package_id' => ['required_without:rab_id', 'integer', 'exists:tbl_travel_package,id'],
+            'keberangkatan_id' => ['required_without:rab_id', 'integer', 'exists:tbl_paket_keberangkatan,id'],
             'harga_jual' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
             'paksa' => ['sometimes', 'boolean'],
             // Hanya dibutuhkan bila tagihan barunya LEBIH KECIL daripada uang
@@ -1263,20 +1344,117 @@ class PendaftaranController extends ApiController
             ], 422);
         }
 
-        $paket = TravelPackage::findOrFail($data['travel_package_id']);
-        $tujuan = Keberangkatan::find($data['keberangkatan_id']);
+        $rab = null;
+        $angkaRab = null;
 
-        if (! $tujuan || (int) $tujuan->travel_package_id !== (int) $paket->id) {
-            return response()->json([
-                'pesan' => 'Tanggal itu bukan milik paket '.$paket->name.'.',
-            ], 422);
-        }
+        if (! empty($data['rab_id'])) {
+            $rab = Rab::find($data['rab_id']);
 
-        if ((int) $paket->id === (int) $pendaftaran->travel_package_id
-            && (int) $tujuan->id === (int) $pendaftaran->keberangkatan_id) {
-            return response()->json([
-                'pesan' => 'Paket dan tanggalnya sama dengan yang sekarang — tidak ada yang dipindahkan.',
-            ], 422);
+            if ((string) $rab->status !== 'disetujui') {
+                return response()->json([
+                    'pesan' => 'RAB '.$rab->kode.' belum disetujui (status sekarang "'.$rab->status
+                        .'"). Tagihan pelanggan hanya boleh dihitung ulang dari angka yang sudah disepakati.',
+                ], 422);
+            }
+
+            if ($rab->kode_pendaftaran && $rab->kode_pendaftaran !== $pendaftaran->kode) {
+                return response()->json([
+                    'pesan' => 'RAB '.$rab->kode.' sudah dipakai pendaftaran '.$rab->kode_pendaftaran
+                        .'. Satu RAB hanya untuk satu rombongan.',
+                ], 422);
+            }
+
+            /*
+             | Pemiliknya dicocokkan lewat nomor yang sudah dibakukan.
+             |
+             | "+62 882-0010-32472" dan "0882-0010-32472" adalah orang yang
+             | sama; penolakan karena bedanya tanda baca akan terbaca sebagai
+             | sistem yang rusak, bukan sebagai pengaman.
+             */
+            $waRab = NomorTelepon::angka($rab->whatsapp);
+            $waDaftar = NomorTelepon::angka($pendaftaran->whatsapp);
+
+            if ($waRab && $waDaftar && $waRab !== $waDaftar) {
+                return response()->json([
+                    'pesan' => 'RAB ini atas nama '.$rab->nama_pelanggan.' ('.$rab->whatsapp
+                        .'), sedangkan pendaftaran '.$pendaftaran->kode.' atas nama '.$pendaftaran->nama
+                        .' ('.$pendaftaran->whatsapp.'). Pastikan RAB-nya milik rombongan yang sama.',
+                ], 422);
+            }
+
+            /*
+             | Jumlah orang TIDAK diambil diam-diam dari RAB.
+             |
+             | Harga per orang di RAB dihitung untuk jumlah kepala tertentu.
+             | Memakainya pada rombongan yang jumlahnya lain mengubah total
+             | tagihan tanpa ada yang memutuskannya — dan mana yang benar,
+             | RAB atau daftar peserta, tidak bisa ditebak dari sini.
+             */
+            if ((int) $rab->jumlah_peserta !== (int) $pendaftaran->jumlah_peserta) {
+                return response()->json([
+                    'pesan' => 'RAB ini disusun untuk '.$rab->jumlah_peserta.' orang, sedangkan pendaftarannya '
+                        .$pendaftaran->jumlah_peserta.' orang. Samakan dulu jumlahnya — harga per orang di RAB '
+                        .'dihitung dari jumlah itu, jadi menebaknya di sini berarti mengubah tagihan tanpa sengaja.',
+                ], 422);
+            }
+
+            $paket = $rab->travel_package_id ? TravelPackage::find($rab->travel_package_id) : null;
+
+            if (! $paket && ! empty($data['travel_package_id'])) {
+                $paket = TravelPackage::find($data['travel_package_id']);
+            }
+
+            if (! $paket) {
+                return response()->json([
+                    'pesan' => 'RAB '.$rab->kode.' belum tertaut ke paket wisata mana pun. Buka RAB-nya lalu '
+                        .'jadikan paket dulu, atau pilih paket tujuannya sendiri di bawah.',
+                    'butuh_paket' => true,
+                ], 422);
+            }
+
+            $angkaRab = HitungRab::ringkas($rab);
+
+            if ($angkaRab['modal_total'] <= 0) {
+                return response()->json([
+                    'pesan' => 'RAB '.$rab->kode.' belum berisi biaya apa pun, jadi tidak ada angka yang bisa dipakai.',
+                ], 422);
+            }
+
+            /*
+             | Tanggal keberangkatannya ikut RAB. Bila paket itu belum punya
+             | tanggal tersebut, barisnya DIBUAT — tetapi di dalam transaksi
+             | di bawah, bukan di sini: perpindahan masih bisa dibatalkan
+             | (kelebihan bayar yang belum diputuskan), dan tanggal sisa yang
+             | tertinggal di paket terbit akan muncul sebagai pilihan
+             | berangkat di halaman publik.
+             */
+            $tanggalRab = $rab->tanggal_mulai?->toDateString();
+            $tujuan = $tanggalRab
+                ? Keberangkatan::where('travel_package_id', $paket->id)
+                    ->whereDate('tanggal_berangkat', $tanggalRab)->first()
+                : null;
+
+            if (! $tanggalRab) {
+                return response()->json([
+                    'pesan' => 'RAB '.$rab->kode.' belum punya tanggal mulai.',
+                ], 422);
+            }
+        } else {
+            $paket = TravelPackage::findOrFail($data['travel_package_id']);
+            $tujuan = Keberangkatan::find($data['keberangkatan_id']);
+
+            if (! $tujuan || (int) $tujuan->travel_package_id !== (int) $paket->id) {
+                return response()->json([
+                    'pesan' => 'Tanggal itu bukan milik paket '.$paket->name.'.',
+                ], 422);
+            }
+
+            if ((int) $paket->id === (int) $pendaftaran->travel_package_id
+                && (int) $tujuan->id === (int) $pendaftaran->keberangkatan_id) {
+                return response()->json([
+                    'pesan' => 'Paket dan tanggalnya sama dengan yang sekarang — tidak ada yang dipindahkan.',
+                ], 422);
+            }
         }
 
         $paksa = (bool) ($data['paksa'] ?? false);
@@ -1287,8 +1465,10 @@ class PendaftaranController extends ApiController
          | kelebihan satu kursi memang kadang diputuskan; yang tidak boleh
          | adalah kelebihannya terjadi tanpa ada yang memilihnya.
          */
-        $sisa = $tujuan->sisa_kursi;
-        if (! $paksa && $sisa !== null && $sisa < (int) $pendaftaran->jumlah_peserta) {
+        // Tanggal yang belum ada (baru akan dibuat dari RAB) jelas masih
+        // kosong — tidak ada kuota yang bisa ditembus di sana.
+        $sisa = $tujuan?->sisa_kursi;
+        if (! $paksa && $tujuan && $sisa !== null && $sisa < (int) $pendaftaran->jumlah_peserta) {
             return response()->json([
                 'pesan' => 'Tanggal '.$tujuan->rentang_tanggal.' tinggal '.max(0, $sisa)
                     .' kursi, sedangkan rombongan ini '.$pendaftaran->jumlah_peserta.' orang.',
@@ -1314,56 +1494,114 @@ class PendaftaranController extends ApiController
          | hasilnya.
          */
         try {
-            $hasil = DB::transaction(function () use ($pendaftaran, $paket, $tujuan, $data, $request, $sebelum) {
-            $pendaftaran->travel_package_id = $paket->id;
-            $pendaftaran->nama_paket = $paket->name;
-            $pendaftaran->keberangkatan_id = $tujuan->id;
-            $pendaftaran->tanggal_berangkat = $tujuan->tanggal_berangkat;
+            $hasil = DB::transaction(function () use ($pendaftaran, $paket, $tujuan, $data, $request, $sebelum, $rab, $angkaRab) {
+                /*
+                 | Tanggal dari RAB yang belum ada di paket dibuatkan sekarang,
+                 | lengkap dengan angkanya, supaya tanggal itu tidak jadi lubang
+                 | yang harganya harus ditebak lain kali.
+                 |
+                 | Kuotanya dipatok sejumlah rombongan ini: private trip yang
+                 | tanggalnya terbuka di paket terbit bisa didaftari orang lain,
+                 | dan rombongan yang disewa satu keluarga tiba-tiba kedatangan
+                 | orang asing adalah kesalahan yang tidak bisa ditarik.
+                 */
+                if (! $tujuan) {
+                    $mulai = $rab->tanggal_mulai;
+                    $hari = max(1, (int) $rab->jumlah_hari);
 
-            // Pembekuan harga dilepas: diisi ulang dari paket tujuan, kecuali
-            // admin menyebut angkanya sendiri (rombongan yang sudah telanjur
-            // disepakati di harga lain).
-            $pendaftaran->harga_jual = $data['harga_jual'] ?? (int) ($tujuan->price ?? $paket->price);
-            $pendaftaran->harga_modal = $tujuan->harga_modal ?? $paket->harga_modal;
-            $pendaftaran->potongan_promo = (int) (
-                RincianBiaya::untuk($paket, (int) $pendaftaran->jumlah_peserta)['promo_potongan'] ?? 0
-            );
+                    $tujuan = Keberangkatan::create([
+                        'travel_package_id' => $paket->id,
+                        'tanggal_berangkat' => $mulai,
+                        'tanggal_pulang' => $hari > 1 ? $mulai->copy()->addDays($hari - 1) : null,
+                        'kuota' => (int) $rab->jumlah_peserta,
+                        'price' => (int) $angkaRab['untuk_pendaftaran']['harga_jual'],
+                        'harga_modal' => (int) $angkaRab['untuk_pendaftaran']['harga_modal'],
+                        'aktif' => true,
+                        'catatan' => 'Dibuat dari '.$rab->kode.' saat '.$pendaftaran->kode.' dipindahkan.',
+                    ]);
+                }
 
-            $pendaftaran->save();
-            $pendaftaran->refresh();
+                $pendaftaran->travel_package_id = $paket->id;
+                $pendaftaran->nama_paket = $paket->name;
+                $pendaftaran->keberangkatan_id = $tujuan->id;
+                $pendaftaran->tanggal_berangkat = $tujuan->tanggal_berangkat;
 
-            $tagihanBaru = (int) $pendaftaran->total_tagihan;
-            $dibayar = (int) KonfirmasiPembayaran::where('kode', $pendaftaran->kode)
-                ->where('status', 'diterima')
-                ->sum('nominal');
+                if ($angkaRab) {
+                    /*
+                     | Angkanya dari RAB, termasuk MODAL dan biaya tetap — itu
+                     | seluruh alasan jalur ini ada. Dirakit HitungRab, sama
+                     | persis dengan yang dipakai RabController::jadikanPendaftaran,
+                     | supaya laporan keuntungan tidak pernah berbeda beberapa
+                     | rupiah dari penawaran yang disetujui pelanggan.
+                     |
+                     | Promo katalog TIDAK ditumpuk di atasnya: harga RAB sudah
+                     | harga yang disepakati, dan potongan kedua di atas harga
+                     | nego adalah diskon yang tidak pernah dijanjikan siapa pun.
+                     */
+                    $pendaftaran->harga_jual = $data['harga_jual'] ?? (int) $angkaRab['untuk_pendaftaran']['harga_jual'];
+                    $pendaftaran->harga_modal = (int) $angkaRab['untuk_pendaftaran']['harga_modal'];
+                    $pendaftaran->biaya_tetap = (int) $angkaRab['untuk_pendaftaran']['biaya_tetap'];
+                    $pendaftaran->potongan_promo = 0;
+                } else {
+                    // Pembekuan harga dilepas: diisi ulang dari paket tujuan, kecuali
+                    // admin menyebut angkanya sendiri (rombongan yang sudah telanjur
+                    // disepakati di harga lain).
+                    $pendaftaran->harga_jual = $data['harga_jual'] ?? (int) ($tujuan->price ?? $paket->price);
+                    $pendaftaran->harga_modal = $tujuan->harga_modal ?? $paket->harga_modal;
+                    $pendaftaran->potongan_promo = (int) (
+                        RincianBiaya::untuk($paket, (int) $pendaftaran->jumlah_peserta)['promo_potongan'] ?? 0
+                    );
+                }
 
-            $kelebihan = max(0, $dibayar - $tagihanBaru);
+                $pendaftaran->save();
+                $pendaftaran->refresh();
 
-            if ($kelebihan > 0 && empty($data['kelebihan'])) {
-                // Belum diputuskan: seluruh perpindahan dibatalkan, dan
-                // angkanya disebutkan supaya admin memilih dengan tahu.
-                throw new KelebihanBelumDiputuskan($kelebihan, $tagihanBaru, $dibayar);
-            }
+                $tagihanBaru = (int) $pendaftaran->total_tagihan;
+                $dibayar = (int) KonfirmasiPembayaran::where('kode', $pendaftaran->kode)
+                    ->where('status', 'diterima')
+                    ->sum('nominal');
 
-            $saldo = null;
-            if ($kelebihan > 0 && ($data['kelebihan'] ?? null) === 'saldo') {
-                $saldo = SaldoPelanggan::create([
-                    'whatsapp' => $pendaftaran->whatsapp,
-                    'nama' => $pendaftaran->nama,
-                    'nominal' => $kelebihan,
-                    'asal_kode' => $pendaftaran->kode,
-                    'alasan' => 'Kelebihan bayar setelah pindah dari '.$sebelum['paket'].' ke '.$paket->name,
-                    'dicatat_oleh' => $request->attributes->get('admin_pemanggil'),
-                ]);
-            }
+                $kelebihan = max(0, $dibayar - $tagihanBaru);
 
-            return [
-                'tagihan_baru' => $tagihanBaru,
-                'dibayar' => $dibayar,
-                'kelebihan' => $kelebihan,
-                'perlakuan_kelebihan' => $kelebihan > 0 ? ($data['kelebihan'] ?? null) : null,
-                'saldo_id' => $saldo?->id,
-            ];
+                if ($kelebihan > 0 && empty($data['kelebihan'])) {
+                    // Belum diputuskan: seluruh perpindahan dibatalkan, dan
+                    // angkanya disebutkan supaya admin memilih dengan tahu.
+                    throw new KelebihanBelumDiputuskan($kelebihan, $tagihanBaru, $dibayar);
+                }
+
+                $saldo = null;
+                if ($kelebihan > 0 && ($data['kelebihan'] ?? null) === 'saldo') {
+                    $saldo = SaldoPelanggan::create([
+                        'whatsapp' => $pendaftaran->whatsapp,
+                        'nama' => $pendaftaran->nama,
+                        'nominal' => $kelebihan,
+                        'asal_kode' => $pendaftaran->kode,
+                        'alasan' => 'Kelebihan bayar setelah pindah dari '.$sebelum['paket'].' ke '.$paket->name,
+                        'dicatat_oleh' => $request->attributes->get('admin_pemanggil'),
+                    ]);
+                }
+
+                // Ditandai setelah perpindahan benar-benar berdiri: RAB yang
+                // tertaut ke pendaftaran yang batal tersimpan akan menolak
+                // dipakai lagi, padahal belum pernah terpakai.
+                $rab?->update(['kode_pendaftaran' => $pendaftaran->kode]);
+
+                return [
+                    'tagihan_baru' => $tagihanBaru,
+                    'dibayar' => $dibayar,
+                    'kelebihan' => $kelebihan,
+                    'perlakuan_kelebihan' => $kelebihan > 0 ? ($data['kelebihan'] ?? null) : null,
+                    'saldo_id' => $saldo?->id,
+                    /*
+                     | Tanggalnya dipulangkan, tidak dibaca ulang dari $tujuan di
+                     | luar: pada jalur RAB barisnya baru lahir DI DALAM closure
+                     | ini, jadi $tujuan di luar masih null dan jejak auditnya
+                     | akan jatuh justru saat perpindahannya berhasil.
+                     */
+                    'tanggal_baru' => $tujuan->tanggal_berangkat?->toDateString(),
+                    'keberangkatan_id' => $tujuan->id,
+                    'rab' => $rab?->kode,
+                ];
             });
         } catch (KelebihanBelumDiputuskan $e) {
             return response()->json([
@@ -1381,7 +1619,8 @@ class PendaftaranController extends ApiController
         $this->catat($request, 'pindah paket pendaftaran', [
             'kode' => $pendaftaran->kode,
             'dari' => $sebelum['paket'].' ('.($sebelum['tanggal'] ?? '-').')',
-            'ke' => $paket->name.' ('.$tujuan->tanggal_berangkat?->toDateString().')',
+            'ke' => $paket->name.' ('.($hasil['tanggal_baru'] ?? '-').')',
+            'rab' => $hasil['rab'] ?? '-',
             'tagihan_lama' => $sebelum['tagihan'],
             'tagihan_baru' => $hasil['tagihan_baru'],
             'kelebihan' => $hasil['kelebihan'],
@@ -1391,7 +1630,8 @@ class PendaftaranController extends ApiController
         return response()->json([
             'data' => (new PendaftaranResource($pendaftaran->fresh()))->resolve(),
             'ringkasan' => $hasil + ['sebelum' => $sebelum],
-            'pesan' => 'Pendaftaran dipindahkan ke '.$paket->name.'.',
+            'pesan' => 'Pendaftaran dipindahkan ke '.$paket->name
+                .($hasil['rab'] ? ', angkanya mengikuti '.$hasil['rab'].'.' : '.'),
         ]);
     }
 

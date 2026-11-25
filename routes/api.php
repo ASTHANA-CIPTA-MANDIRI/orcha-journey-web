@@ -147,6 +147,7 @@ Route::prefix('v1')
          | Kodenya dipertahankan, jadi bukti pembayaran, angsuran, dan
          | kwitansi yang menempel padanya tidak perlu dipindahkan sama sekali.
          */
+        Route::get('/pendaftaran/{pendaftaran}/rab-cocok', [PendaftaranController::class, 'rabCocok']);
         Route::post('/pendaftaran/{pendaftaran}/pindah-paket', [PendaftaranController::class, 'pindahPaket']);
         // Melengkapi nama peserta yang belum didata — dari sisi admin, karena
         // pemesan tidak selalu bisa diminta mengisi ulang lewat website.

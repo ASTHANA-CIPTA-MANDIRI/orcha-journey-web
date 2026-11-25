@@ -5,6 +5,10 @@ use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\Keberangkatan;
 use App\Models\PaketWisata\TravelPackage;
 use App\Models\Pelanggan\SaldoPelanggan;
+use App\Models\Rab\Rab;
+use App\Models\Rab\RabBiaya;
+use App\Support\Rab\HitungRab;
+use App\Support\TagihanPesanan;
 
 /**
  * Memindahkan pendaftaran ke paket lain — open trip jadi private trip.
@@ -311,7 +315,7 @@ test('kasus Eva: 350rb jadi 395rb — tagihan dan kekurangannya dihitung ulang',
 
     // Dan inilah angka yang dibaca layar Pendaftaran Trip:
     // sisa = 1.580.000 - 420.000 = 1.160.000
-    $tagihan = \App\Support\TagihanPesanan::untuk($eva->fresh(), hanyaDiterima: true);
+    $tagihan = TagihanPesanan::untuk($eva->fresh(), hanyaDiterima: true);
 
     expect($tagihan['total'])->toBe(1580000)
         ->and($tagihan['sudah'])->toBe(420000)
@@ -343,4 +347,190 @@ test('batas pelunasan ikut bergeser ke tanggal baru', function () {
     ])->assertOk();
 
     expect($eva->fresh()->keberangkatan->batas_pelunasan->toDateString())->toBe('2026-11-30');
+});
+
+/* -------------------------------------------------- Angka dari RAB */
+
+/*
+ | Memindahkan pendaftaran DENGAN angka RAB-nya.
+ |
+ | Tanpa jalur ini, modal pendaftaran diambil dari paket katalog sementara
+ | modal sebenarnya sudah dihitung baris per baris di RAB. Keduanya hampir
+ | tidak pernah sama, dan yang dibaca laporan keuntungan adalah yang salah —
+ | trip yang RAB-nya rugi terbaca untung, tanpa seorang pun salah mengetik.
+ |
+ | Nama penolongnya diawali "pindah" dengan sengaja: penolong Pest hidup di
+ | ruang nama GLOBAL, dan nama sepolos "rabPrivate" akan bertabrakan dengan
+ | berkas uji lain pada rangkaian penuh — bukan saat dijalankan sendirian.
+ */
+function pindahRabPrivate(TravelPackage $paket, array $ubah = []): Rab
+{
+    $rab = Rab::create(array_merge([
+        'judul' => 'Private Trip Dieng 1 Hari', 'nama_pelanggan' => 'Eva',
+        'whatsapp' => '+62 812-3456-7890',
+        'provinsi' => 'Jawa Tengah', 'jenis' => 'private', 'harga_dasar' => 'peserta',
+        'tanggal_mulai' => '2026-12-04', 'jumlah_hari' => 2, 'jumlah_malam' => 1,
+        'jumlah_peserta' => 4, 'peserta_minimum' => 4,
+        'margin_jenis' => 'persen', 'margin_nilai' => 10,
+        'status' => 'disetujui', 'travel_package_id' => $paket->id,
+    ], $ubah));
+
+    RabBiaya::create(['rab_id' => $rab->id, 'kategori' => 'transportasi',
+        'nama' => 'Hiace', 'satuan' => 'unit_hari', 'harga_satuan' => 1_400_000, 'kapasitas' => 14, 'jumlah' => 1]);
+    RabBiaya::create(['rab_id' => $rab->id, 'kategori' => 'akomodasi',
+        'nama' => 'Homestay', 'satuan' => 'kamar_malam', 'harga_satuan' => 300_000, 'jumlah' => 1]);
+
+    return $rab->fresh();
+}
+
+test('angka pendaftaran diambil dari RAB, bukan dari harga paket', function () {
+    $paket = paketPindah('Private Trip Dieng 1 Hari', 999_000, 'private_trip');
+    $eva = evaPindah($paket, berangkatPindah($paket, '2026-12-06'));
+    $rab = pindahRabPrivate($paket);
+
+    $harap = HitungRab::ringkas($rab)['untuk_pendaftaran'];
+
+    pindahkan($eva, ['rab_id' => $rab->id, 'kelebihan' => 'saldo'])->assertOk();
+
+    $eva->refresh();
+
+    // Harga paket 999.000 TIDAK dipakai sama sekali.
+    expect((int) $eva->harga_jual)->toBe((int) $harap['harga_jual'])
+        ->and((int) $eva->harga_modal)->toBe((int) $harap['harga_modal'])
+        ->and((int) $eva->biaya_tetap)->toBe((int) $harap['biaya_tetap'])
+        ->and((int) $eva->harga_jual)->not->toBe(999_000);
+});
+
+test('tanggal RAB yang belum ada di paket dibuatkan, dan kuotanya dikunci sejumlah rombongan', function () {
+    $paket = paketPindah('Private Trip Dieng 1 Hari', 395_000, 'private_trip');
+    $eva = evaPindah($paket, berangkatPindah($paket, '2026-12-06'));
+    $rab = pindahRabPrivate($paket);
+
+    expect(Keberangkatan::where('travel_package_id', $paket->id)->count())->toBe(1);
+
+    pindahkan($eva, ['rab_id' => $rab->id, 'kelebihan' => 'saldo'])->assertOk();
+
+    $baru = Keberangkatan::where('travel_package_id', $paket->id)
+        ->whereDate('tanggal_berangkat', '2026-12-04')->first();
+
+    expect($baru)->not->toBeNull()
+        // Private trip yang tanggalnya dibiarkan terbuka di paket terbit bisa
+        // didaftari orang asing — kuotanya dipatok sejumlah rombongan ini.
+        ->and((int) $baru->kuota)->toBe(4)
+        ->and($eva->fresh()->keberangkatan_id)->toBe($baru->id)
+        ->and($eva->fresh()->tanggal_berangkat->toDateString())->toBe('2026-12-04');
+});
+
+test('RAB ditandai sudah terpakai, supaya tidak dipakai dua rombongan', function () {
+    $paket = paketPindah('Private Trip Dieng 1 Hari', 395_000, 'private_trip');
+    $eva = evaPindah($paket, berangkatPindah($paket, '2026-12-06'));
+    $rab = pindahRabPrivate($paket);
+
+    pindahkan($eva, ['rab_id' => $rab->id, 'kelebihan' => 'saldo'])->assertOk();
+
+    expect($rab->fresh()->kode_pendaftaran)->toBe($eva->kode);
+});
+
+test('kelebihan yang belum diputuskan membatalkan SEMUANYA, termasuk tanggal yang baru dibuat', function () {
+    $paket = paketPindah('Private Trip Dieng 1 Hari', 395_000, 'private_trip');
+    // Sudah bayar jauh lebih banyak daripada tagihan barunya.
+    $eva = evaPindah($paket, berangkatPindah($paket, '2026-12-06'), 9_000_000);
+    $rab = pindahRabPrivate($paket);
+
+    pindahkan($eva, ['rab_id' => $rab->id])
+        ->assertStatus(422)
+        ->assertJsonPath('butuh_keputusan_kelebihan', true);
+
+    // Inilah yang dijaga: tanggal 4 Des TIDAK boleh tertinggal di paket yang
+    // terbit, karena ia akan muncul sebagai pilihan berangkat di halaman
+    // publik untuk perpindahan yang tidak pernah terjadi.
+    expect(Keberangkatan::where('travel_package_id', $paket->id)
+        ->whereDate('tanggal_berangkat', '2026-12-04')->count())->toBe(0)
+        ->and($rab->fresh()->kode_pendaftaran)->toBeNull()
+        ->and($eva->fresh()->tanggal_berangkat->toDateString())->toBe('2026-12-06');
+});
+
+test('paket yang sama dengan harga baru boleh, karena paketnya sendiri yang berubah', function () {
+    // Kasus Eva sebenarnya: paketnya TIDAK pindah ke mana-mana — paket itu
+    // yang berubah dari Open Trip 350rb jadi Private Trip 395rb.
+    $paket = paketPindah('Private Trip Dieng 1 Hari', 395_000, 'private_trip');
+    $kb = berangkatPindah($paket, '2026-12-04');
+    $eva = evaPindah($paket, $kb);
+    $rab = pindahRabPrivate($paket);
+
+    pindahkan($eva, ['rab_id' => $rab->id, 'kelebihan' => 'saldo'])->assertOk();
+
+    $harap = HitungRab::ringkas($rab)['untuk_pendaftaran'];
+
+    /*
+     | Yang diperiksa biaya_tetap, bukan harga_modal.
+     |
+     | Modal PER ORANG nol di sini dengan benar: Hiace dan homestay dibayar
+     | per rombongan, bukan per kepala, jadi seluruh Rp 3,1 jt masuk biaya
+     | tetap. Menuntut harga_modal > 0 berarti menuntut RAB salah menghitung.
+     */
+    expect($eva->fresh()->keberangkatan_id)->toBe($kb->id)
+        ->and((int) $eva->fresh()->biaya_tetap)->toBe((int) $harap['biaya_tetap'])
+        ->and((int) $eva->fresh()->biaya_tetap)->toBeGreaterThan(0);
+});
+
+test('RAB yang belum disetujui ditolak', function () {
+    $paket = paketPindah('Private Trip Dieng 1 Hari', 395_000, 'private_trip');
+    $eva = evaPindah($paket, berangkatPindah($paket, '2026-12-06'));
+    $rab = pindahRabPrivate($paket, ['status' => 'draf']);
+
+    pindahkan($eva, ['rab_id' => $rab->id])->assertStatus(422);
+});
+
+test('RAB milik pelanggan lain ditolak', function () {
+    $paket = paketPindah('Private Trip Dieng 1 Hari', 395_000, 'private_trip');
+    $eva = evaPindah($paket, berangkatPindah($paket, '2026-12-06'));
+    $rab = pindahRabPrivate($paket, ['whatsapp' => '0899-0000-1111', 'nama_pelanggan' => 'Budi']);
+
+    pindahkan($eva, ['rab_id' => $rab->id])->assertStatus(422);
+});
+
+test('nomor yang ejaannya berbeda tetap dianggap orang yang sama', function () {
+    $paket = paketPindah('Private Trip Dieng 1 Hari', 395_000, 'private_trip');
+    $eva = evaPindah($paket, berangkatPindah($paket, '2026-12-06'));
+    // "+62 812-3456-7890" pada RAB vs "0812-3456-7890" pada pendaftaran.
+    $rab = pindahRabPrivate($paket);
+
+    pindahkan($eva, ['rab_id' => $rab->id, 'kelebihan' => 'saldo'])->assertOk();
+});
+
+test('jumlah peserta yang berbeda ditahan, bukan ditebak', function () {
+    $paket = paketPindah('Private Trip Dieng 1 Hari', 395_000, 'private_trip');
+    $eva = evaPindah($paket, berangkatPindah($paket, '2026-12-06'));
+    $rab = pindahRabPrivate($paket, ['jumlah_peserta' => 6]);
+
+    pindahkan($eva, ['rab_id' => $rab->id])->assertStatus(422);
+
+    // Tagihannya tidak boleh bergeser sedikit pun saat ditolak.
+    expect($eva->fresh()->tanggal_berangkat->toDateString())->toBe('2026-12-06');
+});
+
+test('RAB yang sudah dipakai pendaftaran lain ditolak', function () {
+    $paket = paketPindah('Private Trip Dieng 1 Hari', 395_000, 'private_trip');
+    $eva = evaPindah($paket, berangkatPindah($paket, '2026-12-06'));
+    $rab = pindahRabPrivate($paket, ['kode_pendaftaran' => 'OT-2311-LAIN99']);
+
+    pindahkan($eva, ['rab_id' => $rab->id])->assertStatus(422);
+});
+
+test('daftar RAB yang cocok hanya berisi milik nomor yang sama', function () {
+    $paket = paketPindah('Private Trip Dieng 1 Hari', 395_000, 'private_trip');
+    $eva = evaPindah($paket, berangkatPindah($paket, '2026-12-06'));
+
+    pindahRabPrivate($paket);
+    pindahRabPrivate($paket, ['whatsapp' => '0899-0000-1111', 'nama_pelanggan' => 'Budi']);
+    pindahRabPrivate($paket, ['status' => 'draf']);
+
+    $isi = test()->getJson("/api/v1/pendaftaran/{$eva->id}/rab-cocok", kepalaPindah())
+        ->assertOk()->json('data');
+
+    expect($isi)->toHaveCount(1)
+        // modal_total, bukan harga_modal: lihat alasannya di uji di atas.
+        ->and($isi[0]['modal_total'])->toBeGreaterThan(0)
+        ->and($isi[0]['peserta_cocok'])->toBeTrue();
 });
