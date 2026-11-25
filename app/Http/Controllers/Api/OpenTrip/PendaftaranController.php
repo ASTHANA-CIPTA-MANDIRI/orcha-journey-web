@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\OpenTrip;
 
+use App\Exceptions\KelebihanBelumDiputuskan;
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\OpenTrip\PendaftaranResource;
 use App\Models\OpenTrip\Angsuran;
@@ -10,6 +11,7 @@ use App\Models\OpenTrip\Pembatalan;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\Keberangkatan;
 use App\Models\PaketWisata\TravelPackage;
+use App\Models\Pelanggan\SaldoPelanggan;
 use App\Models\Umum\TautanPendek;
 use App\Support\BerkasKwitansi;
 use App\Support\PerkiraanPotongan;
@@ -1214,6 +1216,185 @@ class PendaftaranController extends ApiController
      * borang yang hanya memperbaiki nomor WhatsApp tidak boleh ikut
      * mengosongkan catatan.
      */
+    /**
+     * Memindahkan pendaftaran ke PAKET LAIN — open trip jadi private trip,
+     * atau sebaliknya.
+     *
+     * Jalur tersendiri, bukan ditempelkan ke update(). update() sengaja
+     * menolak pindah paket dengan kalimatnya sendiri ("pemesanannya memang
+     * berbeda harga dan isi"), dan penolakan itu tetap benar untuk jalur yang
+     * dipakai sehari-hari: mengubah paket diam-diam lewat borang data pemesan
+     * akan menggeser tagihan tanpa ada yang memutuskannya.
+     *
+     * Yang membuat ini TIDAK boleh dikerjakan dengan membatalkan lalu
+     * mendaftar ulang: seluruh riwayat uang — bukti pembayaran, angsuran,
+     * kwitansi — menempel pada KODE pendaftaran, bukan pada nomor barisnya.
+     * Pendaftaran baru dapat kode baru, jadi uang yang sudah masuk tertinggal
+     * di kode lama dan jejaknya terbelah dua. Di sini kodenya dipertahankan,
+     * sehingga tidak ada satu rupiah pun yang perlu dipindahkan.
+     *
+     * Harga jual DIBEKUKAN saat pendaftaran dibuat (lihat booted() pada
+     * modelnya) supaya revisi harga paket tidak menggeser laporan bulan lalu.
+     * Pembekuan itu harus dilepas di sini — kalau tidak, pindah ke paket yang
+     * harganya berbeda tidak akan mengubah tagihannya sama sekali.
+     */
+    public function pindahPaket(PendaftaranOpenTrip $pendaftaran, Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'travel_package_id' => ['required', 'integer', 'exists:tbl_travel_package,id'],
+            'keberangkatan_id' => ['required', 'integer', 'exists:tbl_paket_keberangkatan,id'],
+            'harga_jual' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+            'paksa' => ['sometimes', 'boolean'],
+            // Hanya dibutuhkan bila tagihan barunya LEBIH KECIL daripada uang
+            // yang sudah diterima. Diminta saat itu juga, bukan ditanyakan
+            // belakangan: selisih yang menggantung tanpa keputusan adalah
+            // uang yang pelanggannya ingat dan kantornya lupa.
+            'kelebihan' => ['sometimes', 'nullable', 'in:refund,saldo'],
+            'alasan' => ['sometimes', 'nullable', 'string', 'max:191'],
+        ], [], [
+            'travel_package_id' => 'paket tujuan',
+            'keberangkatan_id' => 'tanggal keberangkatan',
+            'harga_jual' => 'harga jual',
+        ]);
+
+        if ((string) $pendaftaran->status === 'batal') {
+            return response()->json([
+                'pesan' => 'Pendaftaran ini sudah dibatalkan. Yang batal tidak dipindahkan, tetapi didaftarkan ulang.',
+            ], 422);
+        }
+
+        $paket = TravelPackage::findOrFail($data['travel_package_id']);
+        $tujuan = Keberangkatan::find($data['keberangkatan_id']);
+
+        if (! $tujuan || (int) $tujuan->travel_package_id !== (int) $paket->id) {
+            return response()->json([
+                'pesan' => 'Tanggal itu bukan milik paket '.$paket->name.'.',
+            ], 422);
+        }
+
+        if ((int) $paket->id === (int) $pendaftaran->travel_package_id
+            && (int) $tujuan->id === (int) $pendaftaran->keberangkatan_id) {
+            return response()->json([
+                'pesan' => 'Paket dan tanggalnya sama dengan yang sekarang — tidak ada yang dipindahkan.',
+            ], 422);
+        }
+
+        $paksa = (bool) ($data['paksa'] ?? false);
+
+        /*
+         | Kuota diperiksa, dan boleh ditembus DENGAN SENGAJA — aturan yang
+         | sama persis dengan pindah tanggal di update(). Rombongan penuh yang
+         | kelebihan satu kursi memang kadang diputuskan; yang tidak boleh
+         | adalah kelebihannya terjadi tanpa ada yang memilihnya.
+         */
+        $sisa = $tujuan->sisa_kursi;
+        if (! $paksa && $sisa !== null && $sisa < (int) $pendaftaran->jumlah_peserta) {
+            return response()->json([
+                'pesan' => 'Tanggal '.$tujuan->rentang_tanggal.' tinggal '.max(0, $sisa)
+                    .' kursi, sedangkan rombongan ini '.$pendaftaran->jumlah_peserta.' orang.',
+                'butuh_paksa' => true,
+            ], 422);
+        }
+
+        $sebelum = [
+            'paket' => $pendaftaran->nama_paket,
+            'tanggal' => $pendaftaran->tanggal_berangkat?->toDateString(),
+            'tagihan' => (int) $pendaftaran->total_tagihan,
+        ];
+
+        /*
+         | Dikerjakan di dalam transaksi, lalu DIBATALKAN bila ternyata
+         | kelebihan bayar dan admin belum memutuskan apa jadinya.
+         |
+         | Alternatifnya menghitung sendiri tagihan barunya sebelum menyimpan
+         | — dan itu berarti menyalin rumus omzet ke tempat kedua. Dua rumus
+         | sejajar untuk angka uang pasti berbeda jawabannya suatu saat, dan
+         | yang pertama ketahuan biasanya keuntungan yang tidak pernah cocok.
+         | Lebih aman membiarkan model menghitungnya sendiri lalu membaca
+         | hasilnya.
+         */
+        try {
+            $hasil = DB::transaction(function () use ($pendaftaran, $paket, $tujuan, $data, $request, $sebelum) {
+            $pendaftaran->travel_package_id = $paket->id;
+            $pendaftaran->nama_paket = $paket->name;
+            $pendaftaran->keberangkatan_id = $tujuan->id;
+            $pendaftaran->tanggal_berangkat = $tujuan->tanggal_berangkat;
+
+            // Pembekuan harga dilepas: diisi ulang dari paket tujuan, kecuali
+            // admin menyebut angkanya sendiri (rombongan yang sudah telanjur
+            // disepakati di harga lain).
+            $pendaftaran->harga_jual = $data['harga_jual'] ?? (int) ($tujuan->price ?? $paket->price);
+            $pendaftaran->harga_modal = $tujuan->harga_modal ?? $paket->harga_modal;
+            $pendaftaran->potongan_promo = (int) (
+                RincianBiaya::untuk($paket, (int) $pendaftaran->jumlah_peserta)['promo_potongan'] ?? 0
+            );
+
+            $pendaftaran->save();
+            $pendaftaran->refresh();
+
+            $tagihanBaru = (int) $pendaftaran->total_tagihan;
+            $dibayar = (int) KonfirmasiPembayaran::where('kode', $pendaftaran->kode)
+                ->where('status', 'diterima')
+                ->sum('nominal');
+
+            $kelebihan = max(0, $dibayar - $tagihanBaru);
+
+            if ($kelebihan > 0 && empty($data['kelebihan'])) {
+                // Belum diputuskan: seluruh perpindahan dibatalkan, dan
+                // angkanya disebutkan supaya admin memilih dengan tahu.
+                throw new KelebihanBelumDiputuskan($kelebihan, $tagihanBaru, $dibayar);
+            }
+
+            $saldo = null;
+            if ($kelebihan > 0 && ($data['kelebihan'] ?? null) === 'saldo') {
+                $saldo = SaldoPelanggan::create([
+                    'whatsapp' => $pendaftaran->whatsapp,
+                    'nama' => $pendaftaran->nama,
+                    'nominal' => $kelebihan,
+                    'asal_kode' => $pendaftaran->kode,
+                    'alasan' => 'Kelebihan bayar setelah pindah dari '.$sebelum['paket'].' ke '.$paket->name,
+                    'dicatat_oleh' => $request->attributes->get('admin_pemanggil'),
+                ]);
+            }
+
+            return [
+                'tagihan_baru' => $tagihanBaru,
+                'dibayar' => $dibayar,
+                'kelebihan' => $kelebihan,
+                'perlakuan_kelebihan' => $kelebihan > 0 ? ($data['kelebihan'] ?? null) : null,
+                'saldo_id' => $saldo?->id,
+            ];
+            });
+        } catch (KelebihanBelumDiputuskan $e) {
+            return response()->json([
+                'pesan' => 'Tagihan barunya Rp '.number_format($e->tagihanBaru, 0, ',', '.')
+                    .', sedangkan yang sudah dibayar Rp '.number_format($e->dibayar, 0, ',', '.')
+                    .'. Kelebihan Rp '.number_format($e->kelebihan, 0, ',', '.')
+                    .' mau dikembalikan atau disimpan sebagai saldo untuk trip berikutnya?',
+                'butuh_keputusan_kelebihan' => true,
+                'kelebihan' => $e->kelebihan,
+                'tagihan_baru' => $e->tagihanBaru,
+                'dibayar' => $e->dibayar,
+            ], 422);
+        }
+
+        $this->catat($request, 'pindah paket pendaftaran', [
+            'kode' => $pendaftaran->kode,
+            'dari' => $sebelum['paket'].' ('.($sebelum['tanggal'] ?? '-').')',
+            'ke' => $paket->name.' ('.$tujuan->tanggal_berangkat?->toDateString().')',
+            'tagihan_lama' => $sebelum['tagihan'],
+            'tagihan_baru' => $hasil['tagihan_baru'],
+            'kelebihan' => $hasil['kelebihan'],
+            'perlakuan' => $hasil['perlakuan_kelebihan'] ?? '-',
+        ]);
+
+        return response()->json([
+            'data' => (new PendaftaranResource($pendaftaran->fresh()))->resolve(),
+            'ringkasan' => $hasil + ['sebelum' => $sebelum],
+            'pesan' => 'Pendaftaran dipindahkan ke '.$paket->name.'.',
+        ]);
+    }
+
     public function update(PendaftaranOpenTrip $pendaftaran, Request $request): JsonResponse
     {
         $data = $request->validate([

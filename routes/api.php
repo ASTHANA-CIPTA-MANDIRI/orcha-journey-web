@@ -135,6 +135,19 @@ Route::prefix('v1')
          | memang sudah.
          */
         Route::post('/pendaftaran/{pendaftaran}/gabungkan', [PendaftaranController::class, 'gabungkan']);
+
+        /*
+         | Pindah paket: open trip jadi private trip, atau sebaliknya.
+         |
+         | Jalur tersendiri, BUKAN lewat PATCH /pendaftaran — yang itu sengaja
+         | menolak pindah paket, dan penolakannya tetap benar: mengubah paket
+         | diam-diam lewat borang data pemesan akan menggeser tagihan tanpa
+         | ada yang memutuskannya.
+         |
+         | Kodenya dipertahankan, jadi bukti pembayaran, angsuran, dan
+         | kwitansi yang menempel padanya tidak perlu dipindahkan sama sekali.
+         */
+        Route::post('/pendaftaran/{pendaftaran}/pindah-paket', [PendaftaranController::class, 'pindahPaket']);
         // Melengkapi nama peserta yang belum didata — dari sisi admin, karena
         // pemesan tidak selalu bisa diminta mengisi ulang lewat website.
         Route::patch('/pendaftaran/{pendaftaran}/peserta', [PendaftaranController::class, 'ubahPeserta']);
