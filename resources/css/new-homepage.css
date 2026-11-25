@@ -49,7 +49,6 @@
     --font-heading: "Fraunces", Georgia, serif;
     --font-sans: "Inter", sans-serif;
     /* Aksen kaligrafi, masih dipakai di kepala halaman selain beranda */
-    --font-aksen: "Great Vibes", "Segoe Script", cursive;
 
     /*
        Palet mengikuti rancangan acuan: krem hangat, tulisan nyaris hitam,
@@ -63,21 +62,49 @@
        Hitamnya bersemu hijau, bukan biru: logo Orcha hijau pinus, dan
        tulisan biru-hitam di sebelah lambang hijau terbaca sumbang.
     */
+    /* TOSKA — warna utama logo Orcha.
+
+       Diambil dari berkas logonya sendiri, bukan dikira-kira: 52% piksel
+       logo berada di rona 150-180 derajat, sisanya emas. Sebelum ini
+       beranda cuma 1,19% toska, jadi warna yang paling menandai perusahaan
+       justru nyaris tidak ada di halamannya.
+
+       Dua nilai karena satu nilai tidak bisa dipakai di dua latar:
+       - toska (#1f7d6e) 5,0:1 di atas putih, tetapi cuma 3,3:1 di panel gelap
+       - toska-muda (#7fd0c4) 9,2:1 di panel gelap, tetapi 1,8:1 di putih
+       Masing-masing dipakai hanya di latar yang sesuai. */
+    --color-orcha-toska: #1f7d6e;
+    --color-orcha-toska-muda: #7fd0c4;
+    --color-orcha-toska-samar: #a8ddd2;
     --color-orcha-navy: #16211c;
     --color-orcha-night: #1f2e27;
     --color-orcha-abyss: #2c3b34;
     --color-orcha-ocean: #4a5a52;
-    --color-orcha-wave: #e8711f;
-    --color-orcha-sky: #f59b57;
-    --color-orcha-mist: #f8cba8;
-    --color-orcha-foam: #fcefe3;
-    --color-orcha-sun: #ff7a3d;
-    --color-orcha-sunset: #ef5f18;
+    --color-orcha-wave: #d89030;
+    --color-orcha-sky: #eab766;
+    --color-orcha-mist: #f6d7a6;
+    --color-orcha-foam: #fdf2e0;
+    /* KELUARGA EMAS — digeser dari jingga ke emas logo.
+
+       Logo Orcha tidak punya jingga sama sekali: aksennya emas di rona 34-43
+       derajat, sedangkan seluruh tombol dan lencana halaman ini sebelumnya
+       duduk di rona 18-23. Selisih itu yang membuat logo dan halaman terbaca
+       sekeluarga tapi bukan saudara kandung.
+
+       Tiap nilai dipilih menurut TUGASNYA, dengan kontras yang dihitung:
+       - sun     #e8a33a  isian lencana & aksen di panel gelap (6,5:1 di sana)
+       - wave    #d89030  emas tengah logo, persis dari berkasnya
+       - sunset  #c98a22  emas dalam untuk gradasi tombol
+       - amber   #9c6414  TULISAN emas di latar terang (4,6:1 di krem)
+       Emas lebih terang dari jingga, jadi tulisan di ATAS isian emas wajib
+       navy, bukan putih: putih di atas #d89030 cuma 2,6:1. */
+    --color-orcha-sun: #e8a33a;
+    --color-orcha-sunset: #c98a22;
     --color-orcha-sand: #f6f1ea;
 
     /* Oranye yang cukup gelap untuk DITULIS di atas krem (4,6:1). Oranye
        ajakan di atas terlalu terang untuk teks kecil. */
-    --color-orcha-amber: #d9530a;
+    --color-orcha-amber: #9c6414;
 
     /* Bayangan hangat: bayangan biru di atas krem terbaca sebagai noda
        abu-abu yang kotor. */
@@ -184,20 +211,6 @@ h6,
 
 /* Tulisan kaligrafi emas — dipakai sebagai aksen di atas judul,
    meniru gaya "Open Trip" dan "Special Edition" pada poster. */
-.aksen-orcha {
-    font-family: var(--font-aksen);
-    font-weight: 400;
-    line-height: 1.15;
-    letter-spacing: 0.01em;
-    color: var(--color-orcha-sun);
-    font-size: clamp(1.75rem, 3.4vw, 2.9rem);
-}
-
-/* Dipakai di atas latar TERANG. Kuning logo di atas putih hanya 2,1:1 —
-   terbaca sebagai tulisan yang pudar, bukan sebagai aksen. */
-.aksen-orcha-gelap {
-    color: var(--color-orcha-amber);
-}
 
 /* Paragraf pengantar di bawah judul */
 .pengantar-orcha {
@@ -247,18 +260,29 @@ h6,
     transform: translateY(-2px);
 }
 
+/*
+   Gradasi JINGGA, bukan jingga -> zaitun.
+
+   Sebelumnya tombol ini memakai `sky -> ocean`. Kedua nama itu peninggalan
+   palet biru yang lama: setelah palet berganti ke jingga, --color-orcha-sky
+   bernilai #f59b57 (jingga) sedangkan --color-orcha-ocean bernilai #4a5a52
+   (hijau zaitun gelap). Gradasi di antara dua warna yang berseberangan roda
+   warna selalu melewati lumpur di tengahnya — dan itu yang terlihat di
+   tombol "Lihat Detail": kiri jingga, kanan zaitun, tengahnya cokelat kusam.
+
+   Dipakai 39 kali di seluruh situs, jadi kekusamannya bukan cuma di satu
+   kartu.
+*/
 .btn-orcha-primary {
-    background: linear-gradient(
-        120deg,
-        var(--color-orcha-sky),
-        var(--color-orcha-ocean)
-    );
-    color: #fff;
-    box-shadow: var(--shadow-orcha);
+    background: linear-gradient(120deg, #f0b43f 0%, #dd9a2d 55%, #c98a22 100%);
+    /* Navy, bukan putih: lihat catatan di palet — putih di atas emas gagal
+       kontras, navy di atasnya 6,3:1. */
+    color: var(--color-orcha-navy);
+    box-shadow: 0 14px 26px -14px rgb(201 138 34 / 0.55);
 }
 
 .btn-orcha-primary:hover {
-    box-shadow: var(--shadow-orcha-lg);
+    box-shadow: 0 20px 34px -14px rgb(201 138 34 / 0.65);
 }
 
 /*
@@ -270,21 +294,21 @@ h6,
    seperti tombol fisik yang ditekan.
 */
 .btn-orcha-sun {
-    background: linear-gradient(135deg, #ff8d52 0%, #f26a24 58%, #e65c13 100%);
-    color: #fff;
+    background: linear-gradient(135deg, #f0b43f 0%, #dd9a2d 58%, #c98a22 100%);
+    color: var(--color-orcha-navy);
     box-shadow:
-        0 6px 0 -1px #c9500c,
-        0 20px 34px -16px rgb(239 95 24 / 0.65),
+        0 6px 0 -1px #a06a12,
+        0 20px 34px -16px rgb(201 138 34 / 0.65),
         inset 0 1px 0 rgb(255 255 255 / 0.45),
-        inset 0 -8px 14px -10px rgb(140 50 0 / 0.5);
+        inset 0 -8px 14px -10px rgb(110 70 10 / 0.45);
 }
 
 .btn-orcha-sun:hover {
     box-shadow:
-        0 8px 0 -1px #c9500c,
-        0 26px 42px -16px rgb(239 95 24 / 0.7),
+        0 8px 0 -1px #a06a12,
+        0 26px 42px -16px rgb(201 138 34 / 0.7),
         inset 0 1px 0 rgb(255 255 255 / 0.5),
-        inset 0 -8px 14px -10px rgb(140 50 0 / 0.5);
+        inset 0 -8px 14px -10px rgb(110 70 10 / 0.45);
 }
 
 .btn-orcha-sun:active {
@@ -446,12 +470,57 @@ h6,
    tidak mengubah apa pun, dan panelnya tetap putih tanpa satu pun galat.
 */
 .panel-orcha-gelap {
-    background: var(--color-orcha-navy);
+    /* #183030 — warna GELAP LOGO, diambil dari berkas logonya: itu warna
+       tunggal terbanyak di sana (19,5% piksel), rona 180 derajat.
+
+       Sebelumnya panel gelap memakai --color-orcha-navy (#16211c), hijau
+       yang nyaris netral dan tidak ada di logo. Bidang gelap ini mengisi
+       15% beranda, jadi memakai warna logo di sini memindahkan warna
+       perusahaan ke bidang terbesar halaman sekaligus — jauh lebih berbunyi
+       daripada menambah aksen kecil-kecil.
+
+       Hanya LATAR panel yang berganti. --color-orcha-navy tetap dipakai
+       untuk tulisan dan ikon di latar terang; itu dua pekerjaan berbeda dan
+       tidak perlu warna yang sama. */
+    background: #183030;
     border-color: transparent;
     color: #fff;
 }
 
-.label-orcha {
+/* Judul dan label di dalam panel gelap ikut berganti warna SENDIRI.
+
+   Ditulis di sini, bukan ditambahkan kelas !text-white satu per satu di
+   markah: kalau nanti ada panel yang dibuat gelap atau dikembalikan terang,
+   yang diganti cukup satu kelas di <section>-nya dan isinya menyesuaikan.
+   Aturan ini di luar lapisan utilitas Tailwind, jadi ia menang atas
+   text-* bawaan tanpa perlu tanda seru. */
+.panel-orcha-gelap .judul-panel {
+    color: #fff;
+}
+
+/* Amber (#d9530a) dipilih dulu untuk label di atas LATAR TERANG. Di atas
+   #16211c ia cuma 3,4:1 — di bawah ambang 4,5:1. Sun (#ff7a3d) mencapai
+   6,2:1 di latar yang sama. */
+.panel-orcha-gelap .label-bagian {
+    color: var(--color-orcha-sun);
+}
+
+/* Label kecil di atas judul bagian ("DESTINASI POPULER", "CARA PESAN").
+
+   Namanya .label-bagian, BUKAN .label-orcha. Nama lama dipakai dua arti di
+   berkas ini: di sini untuk label bagian, dan di kelompok gaya borang
+   (bersama .isian-orcha) untuk label isian — `display: block`, 0,85rem,
+   navy. Definisi borang ditulis belakangan, jadi ialah yang menang, dan
+   SELURUH label bagian di beranda diam-diam kehilangan tiga hal: warna
+   amber-nya, huruf kapital berjarak, dan sifat flex-nya — sehingga garis
+   jingga kecil <span class="w-6 h-px"> di dalamnya tidak pernah tergambar
+   sama sekali (span sebaris tidak punya lebar maupun tinggi).
+
+   Tidak ada galat apa pun; halamannya tetap 200 dan labelnya tetap terbaca,
+   hanya saja bukan dalam rupa yang dirancang. Nama inilah yang diganti,
+   bukan nama di borang: label bagian hanya 10 pemakaian di satu berkas,
+   sedangkan label borang 71 pemakaian di sembilan berkas. */
+.label-bagian {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -486,10 +555,12 @@ h6,
     border: 1px solid #f1e9dd;
     border-radius: 1.4rem;
     padding: 1.15rem 1.2rem;
+    /* Lengkung waktu yang sama dengan permukaan empuk lain di halaman ini:
+       cepat di awal lalu mengendap, bukan `ease` yang terasa datar. */
     transition:
-        transform 0.3s ease,
-        box-shadow 0.3s ease,
-        border-color 0.3s ease;
+        transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.38s ease,
+        border-color 0.38s ease;
 }
 
 /* Ubin putih di atas panel krem — alasannya sama dengan .panel-orcha-gelap:
@@ -502,6 +573,17 @@ h6,
     transform: translateY(-4px);
     border-color: var(--color-orcha-mist);
     box-shadow: var(--shadow-orcha);
+}
+
+/* Di panel GELAP bayangan gelap tidak terlihat sama sekali — padahal
+   bayangan itulah tanda utama bahwa kartunya terangkat. Diganti garis
+   cahaya tipis berwarna toska logo, dan angkatnya ditambah jadi 6px. */
+.panel-orcha-gelap .ubin-orcha:hover {
+    transform: translateY(-6px);
+    border-color: var(--color-orcha-toska-muda);
+    box-shadow:
+        0 20px 38px -18px rgb(0 0 0 / 0.55),
+        0 0 0 1px rgb(127 208 196 / 0.35);
 }
 
 /* Tombol panah bulat di sudut kartu — penanda "ada lanjutannya" yang
@@ -594,6 +676,9 @@ h6,
         box-shadow 0.25s ease;
 }
 
+/* Ubin gambar pada kartu nilai — bayangannya sama dengan .gelembung-ikon
+   supaya ia sekeluarga dengan kotak ikon di sebelahnya, walaupun isinya
+   gambar dan bukan ikon. */
 /* Sedikit terangkat saat barisnya disentuh. */
 .hero-kabin-isi span:hover > .gelembung-ikon,
 a:hover > .gelembung-ikon {
@@ -935,9 +1020,13 @@ a:hover > .gelembung-ikon {
 
 .kartu-destinasi-isi {
     position: absolute;
-    right: 0.45rem;
-    bottom: 0.45rem;
-    left: 0.45rem;
+    /* MEPET ke tiga tepi kartu, bukan disisakan jarak. Panel yang dikurungi
+       jarak 0,45rem menyisakan bingkai foto setipis rambut di kiri, kanan
+       dan bawahnya; pada foto berlatar gelap sisa itu terbaca sebagai siku
+       hitam di sudut bawah kartu. Rancangan acuan memepetkan panelnya. */
+    right: 0;
+    bottom: 0;
+    left: 0;
     display: flex;
     align-items: center;
     gap: 0.6rem;
@@ -946,10 +1035,45 @@ a:hover > .gelembung-ikon {
        lebih tinggi daripada tetangganya, dan deretan kartu yang tepi atas
        panelnya bergerigi terbaca seperti salah susun. */
     min-height: 6.9rem;
-    padding: 0.8rem 0.85rem;
-    border-radius: 1.05rem;
+    padding: 0.9rem 1rem;
+    /* Sudut kiri-atas SENGAJA 0 — lengkungnya dipindah ke "bahu" di
+       ::before. Tiga sudut lain sama bulat dengan kartunya; angka sudut
+       bawah harus sama persis karena kartunya ber-overflow:hidden, sudut
+       yang lebih kecil dari kartunya akan dipotong lurus. */
+    border-radius: 0 1.4rem 1.4rem 1.4rem;
     background: linear-gradient(150deg, #fffdfa 0%, #faf6ef 100%);
-    box-shadow: 0 12px 24px -14px rgb(40 28 18 / 0.5);
+    /* Bayangan diarahkan KE ATAS: bayangan ke bawah terpotong tepi kartu dan
+       tidak pernah terlihat, sedangkan batas panel dengan foto yang butuh
+       dipertegas ada di sisi atas. */
+    box-shadow: 0 -10px 22px -16px rgb(40 28 18 / 0.55);
+}
+
+/* Bahu kiri panel.
+
+   Tepi atas panel pada rancangan acuan TIDAK rata: sisi kirinya — kira-kira
+   dua perlima lebar panel, selebar nama destinasinya — terangkat kurang
+   lebih seperduapuluh lebar panel, dengan dua sudut membulat. Garis atas
+   yang rata membuat panelnya terbaca sebagai balok yang dipotong lurus.
+
+   Dibuat sebagai ::before, bukan dengan clip-path: clip-path:path() hanya
+   menerima angka px sehingga bentuknya tidak ikut melar bersama kartunya.
+
+   Tingginya DIBATASI 1,4rem (naik 0,7 + masuk 0,7) supaya tidak sampai
+   menutupi nama destinasi — padding atas panel 0,9rem. Dengan begitu ia
+   tidak perlu z-index negatif, yang justru akan menenggelamkannya ke
+   belakang latar panel. */
+.kartu-destinasi-isi::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: -0.7rem;
+    width: 42%;
+    height: 1.4rem;
+    border-radius: 1.1rem 1.1rem 0 0;
+    /* Warna TUNGGAL, bukan gradasi: di titik ini gradasi panelnya memang
+       masih di ujung terangnya, jadi sambungannya tidak terlihat. */
+    background: #fffdfa;
+    box-shadow: 0 -10px 22px -16px rgb(40 28 18 / 0.55);
 }
 
 .kartu-destinasi:hover {
@@ -961,11 +1085,333 @@ a:hover > .gelembung-ikon {
     transform: scale(1.06);
 }
 
+/* ==========================================================
+   GALERI — korsel 3D
+
+   Dua lapis gaya yang sengaja dipisah:
+
+   1. DASAR (tanpa kelas .is-3d) — baris bergulir mendatar dengan
+      scroll-snap. Inilah yang terlihat kalau JavaScript gagal dimuat:
+      galerinya tetap bisa digeser jari, bukan tumpukan kosong.
+   2. .is-3d — dipasang oleh skrip. Jalurnya berubah jadi panggung
+      berperspektif, kartunya ditumpuk di satu titik lalu digeser dan
+      dimiringkan satu per satu lewat atribut style dari JS.
+========================================================== */
+.galeri-panggung {
+    position: relative;
+}
+
+.galeri-jalur {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    padding-bottom: 0.5rem;
+}
+
+.galeri-jalur::-webkit-scrollbar {
+    display: none;
+}
+
+.galeri-kartu {
+    position: relative;
+    flex: 0 0 auto;
+    width: min(78vw, 30rem);
+    aspect-ratio: 4 / 3;
+    border-radius: 1.5rem;
+    overflow: hidden;
+    scroll-snap-align: center;
+    background: var(--color-orcha-foam);
+    box-shadow: 0 18px 40px -24px rgb(22 33 28 / 0.45);
+}
+
+.galeri-kartu img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Keterangan foto: selubung gradien + pil kaca di dalamnya.
+
+   Selubungnya tetap perlu meski tulisannya sudah berwadah — ia yang
+   menahan sudut bawah foto supaya pil putih tidak melayang di atas
+   bidang terang dan ikut hilang. */
+/* Hanya mode KIPAS (galeri). Kartu testimoni memakai kelas .galeri-kartu
+   yang sama, dan aturan-aturan figcaption di bawah ini — termasuk
+   display:none saat 3D — sempat ikut mengenainya: blok nama, foto, dan
+   bintang di kartu testimoni hilang sama sekali (terukur 0x0 di peramban)
+   tanpa satu pun galat. */
+.galeri-panggung[data-korsel="kipas"] .galeri-kartu figcaption {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 2.5rem 1.15rem 1.15rem;
+    background: linear-gradient(to top, rgb(22 33 28 / 0.75), transparent);
+}
+
+.galeri-panggung[data-korsel="kipas"] .galeri-kartu figcaption span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.95rem;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.92);
+    backdrop-filter: blur(6px);
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--color-orcha-navy);
+    box-shadow: 0 10px 20px -14px rgb(22 33 28 / 0.8);
+}
+
+/* Titik jingga kecil di depan tulisannya — penanda yang sama seperti pada
+   lencana lain di halaman ini, supaya pil ini terbaca sekeluarga. */
+.galeri-panggung[data-korsel="kipas"] .galeri-kartu figcaption span::before {
+    content: '';
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 9999px;
+    background: var(--color-orcha-sunset);
+    flex: 0 0 auto;
+}
+
+/* ---------- Lapis 3D ---------- */
+.galeri-panggung.is-3d .galeri-jalur {
+    position: relative;
+    display: block;
+    overflow: visible;
+    height: clamp(15rem, 30vw, 25rem);
+    /* Jarak pandang. Makin kecil angkanya makin tajam miringnya; di bawah
+       ±900px kartu tetangga terbaca melengkung, bukan miring. */
+    perspective: 1200px;
+}
+
+.galeri-panggung.is-3d .galeri-kartu {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    /* 44vw dengan batas 38rem, bukan 38vw batas 28rem.
+       Pada panel selebar ±1700px, kartu 28rem (448px) beserta dua tetangganya
+       hanya mengisi bagian tengah dan menyisakan sepertiga panel kosong di
+       kiri dan kanan. */
+    width: clamp(16rem, 30vw, 30rem);
+    height: 100%;
+    margin-left: calc(clamp(16rem, 30vw, 30rem) / -2);
+    aspect-ratio: auto;
+    transform-origin: center center;
+    transition:
+        transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1),
+        opacity 0.55s ease;
+    cursor: pointer;
+}
+
+/* Di mode 3D keterangannya DIPINDAH ke lajur kiri, jadi pita di atas foto
+   dimatikan — dua tempat menampilkan kalimat yang sama hanya menyita foto
+   tanpa menambah keterangan. Markahnya tetap ada (dipakai pada tata letak
+   dasar tanpa JavaScript, dan menjadi alt gambarnya). */
+.galeri-panggung.is-3d[data-korsel="kipas"] .galeri-kartu figcaption {
+    display: none;
+}
+
+/* Keterangan foto di lajur kiri — BERPENANDA, bukan kalimat polos.
+
+   Garis tegak di kiri memisahkannya dari judul di atasnya, dan label kecil
+   di dalamnya menyebut foto ke berapa. Tanpa keduanya, kalimat ini terbaca
+   sebagai anak kalimat judul — padahal ia milik foto yang sedang di tengah
+   dan berganti sendiri tiap empat detik.
+
+   min-height dipatok supaya baris kendali di bawahnya tidak ikut melompat
+   saat kalimatnya berganti dari satu baris ke dua baris. */
+.galeri-keterangan {
+    margin-top: 1.4rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--color-orcha-mist);
+    min-height: 3.5rem;
+}
+
+.galeri-keterangan-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-orcha-amber);
+    font-variant-numeric: tabular-nums;
+}
+
+.galeri-keterangan-teks {
+    margin-top: 0.3rem;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-orcha-ocean);
+}
+
+/* Kendali ikut rata kiri bersama tulisannya, bukan di tengah bawah foto:
+   di tata letak dua lajur, kendali yang melayang di tengah tidak menempel
+   pada apa pun. */
+/* ---------- Mode TUMPUK (testimoni) ----------
+   Panggungnya tidak berperspektif: kartunya tidak dimiringkan ke belakang,
+   hanya diperkecil dan diturunkan, jadi perspektif justru membuat tepinya
+   bergetar tanpa menambah apa pun. */
+.galeri-panggung.is-3d[data-korsel="tumpuk"] .galeri-jalur {
+    perspective: none;
+    height: auto;
+    min-height: 15rem;
+}
+
+.galeri-panggung.is-3d[data-korsel="tumpuk"] .galeri-kartu {
+    /* 32rem (512px), bukan 44rem. Kartu selebar 44rem membuat satu testimoni
+       pendek terbaca seperti pengumuman: barisnya panjang, dan sisa ruang di
+       bawahnya menganga. Panjang baris 45-75 huruf itu yang paling enak
+       dibaca, dan 32rem jatuh di rentang itu. */
+    width: min(100%, 32rem);
+    height: auto;
+    margin-left: calc(min(100%, 32rem) / -2);
+    border-radius: 1.5rem;
+    /* Kartu PUTIH di atas panel KREM — panelnya yang diberi .panel-orcha-krem,
+       lihat markahnya.
+
+       Dicoba kebalikannya lebih dulu (kartu krem di atas panel putih) dan
+       gagal: panel .panel-orcha berwarna #fffdfb dan krem ubinnya #fbf7f1,
+       bedanya cuma 4 poin per saluran warna — terukur di potret, bukan
+       dikira-kira. Kartu belakang tumpukan praktis hilang. */
+    background: #fff;
+    border: 1px solid #f0e8dc;
+    box-shadow: 0 24px 50px -30px rgb(22 33 28 / 0.45);
+    cursor: default;
+}
+
+/* Kartu di belakang tidak boleh ikut dibaca pembaca layar maupun ditekan;
+   yang terlihat separuh justru membingungkan kalau bisa difokus. */
+.galeri-panggung.is-3d[data-korsel="tumpuk"] .galeri-kartu:not(.is-aktif) {
+    pointer-events: none;
+}
+
+/* Tinggi panggung mengikuti kartu TERPANJANG, bukan kartu yang sedang
+   tampil: kalau mengikuti yang tampil, seluruh halaman di bawahnya
+   melompat tiap kali testimoni berganti. Kartu pengukur ini tetap di
+   alur dokumen (bukan absolut) tetapi tidak terlihat. */
+.galeri-panggung.is-3d[data-korsel="tumpuk"] .galeri-kartu.is-pengukur {
+    position: relative;
+    visibility: hidden;
+    transform: none !important;
+    opacity: 1 !important;
+    margin-left: auto;
+    margin-right: auto;
+    z-index: 0;
+}
+
+.galeri-kendali {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    margin-top: 1.6rem;
+}
+
+/* Kendali testimoni RATA TENGAH, kendali galeri tetap rata kiri.
+
+   Keduanya memakai .galeri-kendali, tetapi letaknya berbeda: di galeri ia
+   duduk di lajur tulisan sebelah kiri, jadi rata kiri bersama judulnya; di
+   testimoni ia berdiri sendiri di bawah kartu yang memang di tengah. */
+.galeri-panggung[data-korsel="tumpuk"] .galeri-kendali {
+    justify-content: center;
+}
+
+.galeri-tombol {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    background: #fff;
+    border: 1px solid var(--color-orcha-foam);
+    color: var(--color-orcha-amber);
+    box-shadow: 0 10px 22px -16px rgb(22 33 28 / 0.5);
+    transition:
+        transform 0.2s ease,
+        border-color 0.2s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .galeri-tombol:hover {
+        transform: translateY(-2px);
+        border-color: var(--color-orcha-mist);
+    }
+}
+
+.galeri-titik {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.galeri-titik button {
+    width: 0.5rem;
+    height: 0.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--color-orcha-mist);
+    cursor: pointer;
+    transition:
+        width 0.3s ease,
+        background-color 0.3s ease;
+}
+
+.galeri-titik button[aria-current="true"] {
+    width: 1.6rem;
+    background: var(--color-orcha-sunset);
+}
+
+/* Tanpa JS tidak ada titik maupun tombol yang berguna: keduanya
+   disembunyikan sampai skripnya memasang .is-3d. */
+.galeri-panggung:not(.is-3d) .galeri-kendali {
+    display: none;
+}
+
+/* Panel berbahu pada KARTU PAKET — bentuk yang sama dengan panel kartu
+   destinasi di atas, dipakai ulang supaya kedua kartu terbaca sekeluarga.
+
+   Bedanya cuma satu: di kartu destinasi panelnya MENUMPANG penuh di atas foto
+   (foto memenuhi seluruh kartu), sedangkan di kartu paket panelnya cuma
+   menindih tepi bawah foto lalu melanjut ke bawah sebagai badan kartu. Jadi
+   sudut bawahnya tidak dibulatkan di sini — yang membulatkan kartunya sendiri.
+
+   Angkanya sengaja sama persis dengan .kartu-destinasi-isi: bahu selebar 42%
+   lebar panel, naik 0,7rem, sudut atas 1,1rem. Kalau salah satu diubah,
+   ubah keduanya — dua bentuk yang hampir sama justru terbaca sebagai salah
+   cetak, bukan sebagai keluarga. */
+.kartu-paket-isi {
+    position: relative;
+    /* Sudut kiri-atas 0: lengkungnya dipindah ke bahu. */
+    border-radius: 0 1.4rem 0 0;
+    background: #fff;
+}
+
+.kartu-paket-isi::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: -0.7rem;
+    width: 42%;
+    height: 1.4rem;
+    border-radius: 1.1rem 1.1rem 0 0;
+    background: #fff;
+}
+
 /* Tab filter (kategori paket & jenis armada) */
 .tab-orcha {
     border-radius: 9999px;
-    padding: 0.6rem 1.35rem;
-    font-size: 0.875rem;
+    /* 1,1rem, bukan 1,35rem, dan 0,84rem bukan 0,875rem.
+
+       Terukur: deret empat tab di bagian Paket Wisata memakan 519px sementara
+       judul "Pilih paketnya, sisanya kami urus." 659px — total 1194px pada
+       kepala selebar 1198px. Sisanya 4px, dan kepala yang mengandalkan sisa
+       4px akan patah dua baris begitu ada satu nama kategori yang lebih
+       panjang. Dirampingkan di SEMUA deret tab, bukan di satu bagian saja,
+       supaya bentuk tabnya tetap sama di seluruh halaman. */
+    padding: 0.55rem 1.1rem;
+    font-size: 0.84rem;
     font-weight: 700;
     white-space: nowrap;
     color: var(--color-orcha-navy);
@@ -988,8 +1434,8 @@ a:hover > .gelembung-ikon {
         var(--color-orcha-sun),
         var(--color-orcha-sunset)
     );
-    color: #fff;
-    box-shadow: 0 12px 26px -14px rgb(239 95 24 / 0.65);
+    color: var(--color-orcha-navy);
+    box-shadow: 0 12px 26px -14px rgb(201 138 34 / 0.65);
 }
 
 /* Baris tab yang bisa digeser di layar kecil tanpa scrollbar */
@@ -1439,8 +1885,23 @@ body.orc-terkunci {
     animation-duration: 60s;
 }
 
+/* Berhenti MENDADAK saat kursor masuk — ini cadangan untuk keadaan JS gagal.
+   Kalau JS hidup, initPitaHalus() menambahkan .pita-halus di pembungkusnya dan
+   aturan di bawahnya membatalkan rem mendadak ini, lalu lajunya direm
+   bertahap lewat playbackRate. */
 .marquee-wrap:hover .marquee {
     animation-play-state: paused;
+}
+
+.marquee-wrap.pita-halus:hover .marquee {
+    animation-play-state: running;
+}
+
+/* Memberi tahu peramban bahwa yang berubah cuma transform, supaya pitanya
+   digambar di lapis sendiri dan tidak memaksa gambar ulang seisi panel tiap
+   bingkai. */
+.marquee {
+    will-change: transform;
 }
 
 @keyframes marquee-left {
@@ -1461,88 +1922,152 @@ body.orc-terkunci {
     }
 }
 
-/* Keterangan foto galeri — pil kaca, bukan teks telanjang.
-
-   Bentuk sebelumnya: tulisan putih di atas gradien gelap. Untuk keterangan
-   panjang itu terbaca; untuk yang pendek seperti "gass" ia justru tampak
-   seperti sisa yang lupa dibersihkan, bukan bagian dari desain. Pil punya tepi
-   sendiri, jadi sependek apa pun tulisannya ia tetap terbaca sebagai label. */
-.galeri-selubung {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: flex-end;
-    padding: 0.85rem;
-    background: linear-gradient(to top, rgba(9, 30, 51, 0.66) 0%, rgba(9, 30, 51, 0.14) 42%, transparent 70%);
-    pointer-events: none;
+/* Kartu tanya di kepala halaman — bentuknya dari .hero-kabin-kartu, yang
+   ditambahkan di sini hanya perilaku tautannya. */
+.kartu-tanya {
+    text-decoration: none;
+    transition:
+        transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.45s ease;
 }
 
-.galeri-keterangan {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    max-width: 100%;
-    padding: 0.4rem 0.7rem;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.28);
-    background: rgba(15, 45, 74, 0.55);
-
-    /* Kacanya membuat tulisan tetap terbaca di atas foto seterang apa pun,
-       tanpa menutupi fotonya dengan kotak pekat. */
-    -webkit-backdrop-filter: blur(10px) saturate(1.3);
-    backdrop-filter: blur(10px) saturate(1.3);
-
-    color: #fff;
-    font-size: 0.76rem;
-    font-weight: 600;
-    line-height: 1.3;
-    letter-spacing: 0.01em;
-    box-shadow: 0 6px 18px rgba(9, 30, 51, 0.35);
-
-    /* Sedikit membesar saat disentuh — penanda halus bahwa tilenya diperhatikan,
-       bukan syarat untuk membacanya. */
-    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* Titik kecil di depan tulisan: penanda bahwa ini keterangan tempat/momen,
-   bukan tombol. Digambar CSS, jadi tidak menambah permintaan berkas. */
-.galeri-keterangan::before {
-    content: '';
-    flex: 0 0 auto;
-    width: 0.42rem;
-    height: 0.42rem;
-    border-radius: 50%;
-    background: var(--color-orcha-sun);
-    box-shadow: 0 0 0 3px rgb(239 168 62 / 0.25);
-}
-
-/* Tulisannya sendiri dipangkas satu baris: tile-nya 4:3, dan pil setinggi tiga
-   baris menutupi fotonya sendiri. */
-.galeri-keterangan span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* Muncul saat disentuh? TIDAK — tampil terus, di layar mana pun.
-
-   Percobaan sebelumnya menyembunyikannya sampai kursor mendekat. Di ponsel
-   kursor itu tidak pernah ada, jadi keterangannya tidak akan pernah terbaca
-   siapa pun yang membuka dari telepon — dan justru dari sanalah kebanyakan
-   pengunjung datang. Aturan @media (hover: none) sempat menambalnya, tetapi
-   menambal berarti dua tampilan berbeda untuk satu hal yang sama.
-
-   Yang tersisa dari hover cuma penanda halus: pilnya membesar sedikit. */
-.group:hover .galeri-keterangan,
-.group:focus-within .galeri-keterangan {
-    transform: scale(1.04);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .galeri-selubung,
-    .galeri-keterangan {
-        transition: none;
+@media (hover: hover) and (pointer: fine) {
+    /* Menegak sedikit saat disentuh kursor — penanda bahwa ia bisa diklik,
+       sama seperti kartu blog di beranda. */
+    .kartu-tanya:hover {
+        transform: perspective(760px) rotateY(-6deg) rotateZ(5deg) translateY(-4px);
     }
+
+    .kartu-tanya:hover .panah-blog {
+        transform: translateX(4px);
+    }
+}
+
+/* ---------- Pita mitra ---------- */
+.kartu-mitra {
+    box-shadow: 0 10px 22px -18px rgb(22 33 28 / 0.55);
+    transition:
+        transform 0.25s ease,
+        border-color 0.25s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .kartu-mitra:hover {
+        transform: translateY(-2px);
+        border-color: var(--color-orcha-mist);
+    }
+}
+
+/* Kedua ujung pita MEMUDAR, bukan terpotong lurus di tepi panel. Dikerjakan
+   dengan topeng, bukan dua kotak gradien yang ditempel di atasnya: topeng
+   ikut bekerja di atas latar warna apa pun, sedangkan kotak gradien harus
+   menebak warna latar belakangnya dan langsung salah begitu panelnya
+   berganti warna. */
+.pita-mitra {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%);
+}
+
+/* Cap air lambang orca di panel gelap. Separuh keluar dari tepi kanan
+   supaya terbaca sebagai cap, bukan sebagai gambar yang diletakkan di sana;
+   panelnya overflow-hidden, jadi yang keluar terpangkas rapi. */
+.cap-orca {
+    position: absolute;
+    top: 50%;
+    right: -4rem;
+    width: clamp(14rem, 26vw, 26rem);
+    height: auto;
+    transform: translateY(-50%) rotate(-8deg);
+    opacity: 0.09;
+    pointer-events: none;
+    user-select: none;
+}
+
+@media (max-width: 640px) {
+    /* Di layar sempit panelnya tinggi dan sempit: cap sebesar itu jatuh tepat
+       di belakang tulisan langkah dan membuatnya sulit dibaca. */
+    .cap-orca {
+        display: none;
+    }
+}
+
+/* ---------- Ajakan penutup ---------- */
+.tirai-ajakan {
+    background: linear-gradient(
+        100deg,
+        rgb(13 27 42 / 0.94) 0%,
+        rgb(13 27 42 / 0.88) 32%,
+        rgb(13 27 42 / 0.42) 58%,
+        rgb(13 27 42 / 0.12) 100%
+    );
+}
+
+.tirai-ajakan-bawah {
+    background: linear-gradient(to top, rgb(13 27 42 / 0.55) 0%, rgb(13 27 42 / 0) 42%);
+}
+
+.kartu-blog {
+    text-decoration: none;
+
+    /* BERLAPIS, meniru kartu di hero (.hero-kabin-kartu).
+
+       Lapis pertama pada box-shadow BUKAN bayangan: satu lapis padat tanpa
+       kabur yang digeser ke kanan-bawah adalah TUBUH kartunya — sisi
+       tebalnya yang membelakangi cahaya. Itu yang membuatnya terbaca punya
+       ketebalan. Bayangan jatuh saja hanya menempel di dinding di
+       belakangnya, dan kartunya tetap setipis kertas.
+
+       Digambar lewat box-shadow, bukan lapisan ::before: anak ber-z-index
+       negatif digambar DI ATAS latar induknya, jadi lapisan itu justru
+       menutupi muka kartunya sendiri.
+
+       Semua lapisnya jatuh ke KANAN-BAWAH karena cahaya di halaman ini
+       datang dari kiri-atas, dan sisi kiri kartu inilah yang lebih dekat ke
+       mata. */
+    border: 0;
+    border-radius: 1.9rem;
+    padding: 1.1rem 1.2rem;
+    background: linear-gradient(145deg, #fffdfa 0%, #faf6ef 60%, #f3ede2 100%);
+    box-shadow:
+        10px 12px 0 0 #ded1be,
+        26px 34px 48px -22px rgb(40 28 18 / 0.5),
+        13px 16px 22px -14px rgb(40 28 18 / 0.3),
+        inset 0 2px 1px rgb(255 251 243 / 0.9),
+        inset -6px -9px 16px -14px rgb(120 95 70 / 0.22);
+
+    transform: perspective(900px) rotateX(5deg) rotateY(15deg) rotateZ(-1.5deg);
+    transition:
+        transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.45s ease;
+}
+
+
+@media (hover: hover) and (pointer: fine) {
+    /* Menegak saat disentuh kursor: perubahan sikap ini yang memberi tahu
+       bahwa kartunya bisa diklik. */
+    /* Menegak saat disentuh kursor. Tubuh tebalnya ikut MENIPIS (10px -> 6px),
+       seperti benda yang didorong mendekat ke dinding — kalau tebalnya tetap
+       sementara kartunya menegak, lapisan itu terbaca seperti bayangan yang
+       tertinggal di tempat. */
+    .kartu-blog:hover {
+        transform: perspective(900px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) translateY(-4px);
+        box-shadow:
+            6px 7px 0 0 #e3d8c7,
+            22px 30px 44px -22px rgb(40 28 18 / 0.45),
+            10px 13px 20px -14px rgb(40 28 18 / 0.26),
+            inset 0 2px 1px rgb(255 251 243 / 0.9),
+            inset -6px -9px 16px -14px rgb(120 95 70 / 0.18);
+    }
+
+    /* Panahnya maju saat kartunya disentuh kursor — penanda arah, bukan
+       hiasan: kartu ini membawa orang keluar dari beranda. */
+    .kartu-blog:hover .panah-blog {
+        transform: translateX(4px);
+    }
+}
+
+.panah-blog {
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ==========================================================
@@ -1577,18 +2102,61 @@ body.orc-terkunci {
 /* ==========================================================
    10. ANIMASI MASUK (GSAP menambah .is-visible; tetap terbaca tanpa JS)
 ========================================================== */
+/* Memakai properti `translate` TERSENDIRI, bukan `transform`.
+
+   Dulu keduanya memakai transform, dan .reveal.is-visible { transform: none }
+   ditulis jauh di bawah .ubin-orcha:hover { transform: translateY(-4px) }.
+   Keduanya sama kuat (dua kelas), jadi yang belakangan menang: SETIAP kartu
+   ber-.reveal kehilangan angkat-saat-disentuhnya. Tidak ada galat, dan
+   separuh tandanya tetap bekerja — tepi dan bayangannya masih berubah — jadi
+   yang terasa cuma "animasinya kurang", bukan "animasinya mati".
+
+   `translate` properti tersendiri yang digabung peramban dengan `transform`,
+   jadi munculnya kartu dan angkatnya tidak lagi saling menimpa. Peramban yang
+   tidak mengenalnya mengabaikan barisnya; isinya tetap muncul karena yang
+   menampilkannya adalah opacity. */
+/* Memakai ANIMASI, bukan transisi.
+
+   Dua jebakan beruntun pernah kena di sini:
+
+   1. Dulu .reveal memakai transform, dan transform: none miliknya menimpa
+      angkat-saat-disentuh milik kartu. Diperbaiki dengan properti translate
+      tersendiri.
+   2. Ternyata baris `transition`-nya sendiri juga menimpa. Transition itu
+      ringkasan: begitu .reveal menyebut `transition: opacity, translate`,
+      daftar transisi kartunya hilang seluruhnya — transform tidak lagi
+      dianimasikan, jadi kartunya MELOMPAT 6px dalam satu bingkai. Terukur:
+      42 bingkai berturut-turut semuanya sudah di -6, tanpa satu pun langkah
+      di antaranya.
+
+   Animasi tidak punya masalah ini: ia jalur tersendiri yang tidak menyentuh
+   daftar transisi elemennya. Aturan prefers-reduced-motion di berkas ini
+   memangkas animation-duration juga, jadi yang tidak ingin ada gerakan tetap
+   terlayani. */
 .reveal {
     opacity: 0;
-    transform: translateY(28px);
-    transition:
-        opacity 0.7s ease,
-        transform 0.7s ease;
+    translate: 0 28px;
 }
 
-.reveal.is-visible,
+.reveal.is-visible {
+    animation: reveal-muncul 0.7s ease forwards;
+}
+
 .no-js .reveal {
     opacity: 1;
-    transform: none;
+    translate: none;
+}
+
+@keyframes reveal-muncul {
+    from {
+        opacity: 0;
+        translate: 0 28px;
+    }
+
+    to {
+        opacity: 1;
+        translate: none;
+    }
 }
 
 .text-outline-white {
@@ -1723,12 +2291,59 @@ input[type="radio"] {
     padding: 0.8rem 1rem;
     font-size: 0.9rem;
     background: #fff;
-    border: 1px solid var(--color-orcha-foam);
+    /* Tepi TAN, bukan --color-orcha-foam.
+
+       Terukur di halaman kontak: isian berlatar #fff di atas panel #fffdfb
+       beda 1,01:1 — praktis warna yang sama — dan tepi foam (#fdf2e0) cuma
+       1,09:1. Jadi kotak isiannya tidak punya SATU PUN batas yang terlihat:
+       bukan isinya yang samar, melainkan bidangnya yang hilang sama sekali.
+
+       #cbb795 memberi 1,99:1 di atas panel putih dan 1,88:1 di atas panel
+       krem — terlihat di keduanya, dan masih sekeluarga dengan palet hangat
+       halaman ini alih-alih garis abu yang dingin. */
+    border: 1px solid #cbb795;
     border-radius: 1rem;
     color: #223240;
+    /* Tinggi baris DITULIS, tidak diwarisi.
+
+       Tingginya ikut menentukan tinggi kotak isian, dan nilai warisan tidak
+       berlaku sama untuk semua jenis isian — lihat aturan select di bawah. */
+    line-height: 1.65;
+    /* Bayangan DALAM: isian terbaca sebagai cekungan, bukan bidang datar yang
+       kebetulan bergaris. Garis saja masih bisa terbaca sebagai hiasan;
+       cekungan terbaca sebagai tempat menulis. */
+    box-shadow: inset 0 1px 2px rgb(60 40 25 / 0.07);
     transition:
         border-color 0.2s ease,
         box-shadow 0.2s ease;
+}
+
+/* SELECT harus dilepas dari tampilan bawaan peramban.
+
+   Terukur di halaman kontak: isian teks setinggi 51,36px sedangkan "Keperluan"
+   cuma 46,59px — berdampingan di satu baris, dan yang satu jelas lebih pendek.
+
+   Sebabnya bukan padding (keduanya 12,8px atas-bawah) melainkan tinggi baris:
+   `<select>` dengan tampilan bawaan MENGABAIKAN line-height yang diwarisi dan
+   memakai `normal`, sekitar 19px untuk huruf 14,4px, sementara isian teks
+   memakai 23,76px. Selisihnya 4,76px — persis beda tingginya.
+
+   Dengan appearance:none peramban berhenti memaksakan ukurannya sendiri dan
+   line-height di atas berlaku, sehingga ketiganya jadi 51,36px. Konsekuensinya
+   panah bawaannya ikut hilang, jadi panahnya digambar sendiri di sini — dan
+   itu justru lebih baik: panah bawaan macOS berupa dua segitiga biru yang
+   tidak ada hubungannya dengan rupa halaman ini. */
+.isian-orcha:where(select) {
+    appearance: none;
+    -webkit-appearance: none;
+    /* Ruang untuk panahnya. Tanpa ini pilihan yang panjang berjalan menembus
+       gambar panah. */
+    padding-right: 2.75rem;
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%239c6414' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 8l4.5 4.5L14.5 8'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.95rem center;
+    background-size: 1.05rem;
 }
 
 /* Isian yang satuannya ditulis di dalamnya ("30 hari", "2 × 12 jam").
@@ -1762,7 +2377,10 @@ input[type="radio"] {
     width: 2rem;
     height: 2rem;
     border-radius: 9999px;
-    background: var(--color-orcha-ocean);
+    /* Hijau logo, bukan --color-orcha-ocean. Peubah itu dulu biru laut;
+       setelah palet digeser nilainya jadi #4a5a52, abu kehijauan pudar —
+       nomor langkah yang terbaca mati padahal tugasnya menuntun. */
+    background: var(--color-orcha-toska);
     color: #fff;
     font-weight: 800;
     font-size: 0.9rem;
@@ -1771,12 +2389,23 @@ input[type="radio"] {
 
 .isian-orcha:focus {
     outline: none;
-    border-color: var(--color-orcha-sky);
-    box-shadow: 0 0 0 3px rgb(93 189 179 / 0.25);
+    /* Emas, bukan --color-orcha-sky, dan cincinnya emas pula.
+
+       Dua-duanya peninggalan palet biru: 'sky' kini bernilai #eab766 — emas
+       pucat yang nyaris sewarna tepi biasa, sehingga tanda fokusnya hampir
+       tidak terlihat — sedangkan cincin rgb(93 189 179) itu toska dari palet
+       lama yang sudah tidak ada lagi di halaman mana pun. */
+    border-color: var(--color-orcha-sun);
+    box-shadow:
+        inset 0 1px 2px rgb(60 40 25 / 0.07),
+        0 0 0 3px rgb(232 163 58 / 0.28);
 }
 
 .isian-orcha::placeholder {
-    color: #94a3b8;
+    /* 3,7:1 di atas putih, naik dari 2,56:1. Sengaja TIDAK dibuat segelap
+       tulisan sungguhan (4,5:1): contoh isian yang terlalu pekat terbaca
+       seperti kolom yang sudah terisi, dan orang melewatinya. */
+    color: #7b8696;
 }
 
 .label-orcha {
@@ -1825,21 +2454,27 @@ input[type="radio"] {
 }
 
 .page-orcha:hover:not(.page-orcha-mati):not(.page-orcha-aktif):not(.page-orcha-jeda) {
-    border-color: var(--color-orcha-sky);
+    border-color: var(--color-orcha-sun);
     color: var(--color-orcha-navy);
     transform: translateY(-1px);
     box-shadow: var(--shadow-orcha);
 }
 
+/* Halaman yang sedang dibuka: gradasi EMAS dengan tulisan navy — sama dengan
+   tombol utama dan tab aktif.
+
+   Sebelumnya gradasinya dari --color-orcha-sky ke --color-orcha-ocean. Dua
+   peubah itu dulu biru muda dan biru tua; setelah palet digeser ke emas logo,
+   nilainya jadi emas pucat (#eab766) dan abu-kehijauan (#4a5a52) — jadi yang
+   tergambar peralihan cokelat berlumpur ke abu, warna yang tidak pernah
+   dipilih siapa pun.
+
+   Tulisannya navy, bukan putih: putih di atas emas hanya 2,6:1. */
 .page-orcha-aktif {
-    background: linear-gradient(
-        120deg,
-        var(--color-orcha-sky),
-        var(--color-orcha-ocean)
-    );
+    background: linear-gradient(120deg, #f0b43f 0%, #dd9a2d 55%, #c98a22 100%);
     border-color: transparent;
-    color: #fff;
-    box-shadow: var(--shadow-orcha);
+    color: var(--color-orcha-navy);
+    box-shadow: 0 10px 20px -12px rgb(201 138 34 / 0.6);
     cursor: default;
 }
 
@@ -2123,7 +2758,12 @@ input[type="radio"] {
 .isi-artikel h3:first-child { margin-top: 0; }
 
 .isi-artikel a {
-    color: var(--color-orcha-ocean);
+    /* Emas tulisan, BUKAN --color-orcha-ocean. Peubah itu dulu biru laut;
+       setelah palet digeser mengikuti logo nilainya jadi #4a5a52, abu
+       kehijauan — nyaris sewarna tulisan biasa, sehingga tautan di dalam
+       artikel berhenti terlihat sebagai tautan. Seluruh blok gaya blog di
+       bawah ini kena hal yang sama dan ikut diperbaiki. */
+    color: var(--color-orcha-amber);
     font-weight: 600;
     text-decoration: underline;
     text-decoration-color: var(--color-orcha-mist);
@@ -2227,14 +2867,14 @@ input[type="radio"] {
 .orc-remah { margin: 2px 0 20px; }
 .orc-remah ol { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0; font-size: .84rem; color: #64748b; }
 .orc-remah li:not(:last-child)::after { content: "/"; margin-left: 8px; color: #cbd5e1; }
-.orc-remah a { color: var(--color-orcha-ocean); text-decoration: none; }
+.orc-remah a { color: var(--color-orcha-amber); text-decoration: none; }
 .orc-remah a:hover { color: var(--color-orcha-wave); }
 .orc-remah .kini { color: #64748b; }
 
 /* ---------- Kepala artikel ---------- */
 .orc-art-kat {
     display: inline-flex; align-items: center; gap: .4rem;
-    background: var(--color-orcha-foam); color: var(--color-orcha-ocean);
+    background: var(--color-orcha-foam); color: var(--color-orcha-amber);
     font-family: var(--font-heading); font-weight: 700; font-size: .72rem;
     padding: .34rem .85rem; border-radius: 999px;
     text-transform: uppercase; letter-spacing: .06em; text-decoration: none;
@@ -2257,10 +2897,13 @@ input[type="radio"] {
 .orc-art-meta span { display: inline-flex; align-items: center; gap: .4rem; }
 .orc-art-kat-tautan {
     display: inline-flex; align-items: center; gap: .4rem;
-    color: var(--color-orcha-ocean); font-weight: 700; text-decoration: none;
+    color: var(--color-orcha-amber); font-weight: 700; text-decoration: none;
 }
-.orc-art-kat-tautan:hover { color: var(--color-orcha-wave); }
-.orc-art-meta svg { color: var(--color-orcha-ocean); flex-shrink: 0; }
+.orc-art-kat-tautan:hover { color: var(--color-orcha-sunset); }
+/* Ikon keterangan pakai TOSKA, bukan emas. Baris ini berisi lima keterangan
+   kecil; dengan ikon seemas tautan kategori di sebelahnya, yang bisa diklik
+   dan yang tidak jadi sewarna. */
+.orc-art-meta svg { color: var(--color-orcha-toska); flex-shrink: 0; }
 
 .orc-art-sampul {
     border-radius: 18px; overflow: hidden; margin-bottom: 1.8rem;
@@ -2287,12 +2930,12 @@ input[type="radio"] {
 .orc-bagi .wa { background: #25d366; }
 .orc-bagi .fb { background: #1877f2; }
 .orc-bagi .tw { background: #111827; }
-.orc-bagi .salin { background: linear-gradient(135deg, var(--color-orcha-sky), var(--color-orcha-ocean)); }
+.orc-bagi .salin { background: linear-gradient(135deg, #f0b43f 0%, #dd9a2d 55%, #c98a22 100%); color: var(--color-orcha-navy); }
 .orc-bagi .salin.tersalin { background: #16a34a; }
 
 .orc-kembali {
     display: inline-flex; align-items: center; gap: .45rem;
-    color: var(--color-orcha-ocean); font-family: var(--font-heading);
+    color: var(--color-orcha-amber); font-family: var(--font-heading);
     font-weight: 700; font-size: .9rem; text-decoration: none;
 }
 .orc-kembali:hover svg { transform: translateX(-4px); }
@@ -2311,7 +2954,7 @@ input[type="radio"] {
     color: var(--color-orcha-navy); display: flex; align-items: center;
     gap: .5rem; margin-bottom: 1rem;
 }
-.orc-kartu-samping .judul svg { color: var(--color-orcha-ocean); }
+.orc-kartu-samping .judul svg { color: var(--color-orcha-toska); }
 
 .orc-samping-pos {
     display: flex; gap: .8rem; align-items: center; text-decoration: none;
@@ -2322,20 +2965,24 @@ input[type="radio"] {
 .orc-samping-pos .gambar img { width: 100%; height: 100%; object-fit: cover; }
 .orc-samping-pos .tanggal { font-size: .72rem; color: #64748b; display: block; margin-bottom: 2px; }
 .orc-samping-pos .nama { font-family: var(--font-heading); font-weight: 600; font-size: .88rem; color: var(--color-orcha-navy); line-height: 1.35; display: block; }
-.orc-samping-pos:hover .nama { color: var(--color-orcha-ocean); }
+.orc-samping-pos:hover .nama { color: var(--color-orcha-amber); }
 
 .orc-kartu-ajakan {
     position: relative; overflow: hidden; border-radius: 18px;
     padding: 1.5rem 1.4rem; color: #fff;
-    background: linear-gradient(135deg, var(--color-orcha-sky), var(--color-orcha-abyss));
-    box-shadow: 0 12px 30px rgba(0, 109, 168, .28);
+    /* Hijau logo, sama dengan panel gelap di beranda dan di daftar /blog.
+       Gradasinya dulu sky->abyss: setelah palet digeser itu jadi emas pucat
+       meluruh ke abu-hijau — bidang lumpur yang bukan pilihan siapa pun, dan
+       bayangannya pun masih biru dari palet lama. */
+    background: linear-gradient(135deg, var(--color-orcha-toska) 0%, #183030 100%);
+    box-shadow: 0 12px 30px rgba(17, 51, 43, .28);
 }
 .orc-kartu-ajakan::after { content: ""; position: absolute; right: -40px; top: -40px; width: 140px; height: 140px; border-radius: 50%; background: rgba(255, 255, 255, .14); }
 .orc-kartu-ajakan h4 { font-family: var(--font-heading); font-weight: 800; font-size: 1.1rem; margin-bottom: .4rem; position: relative; }
 .orc-kartu-ajakan p { font-size: .86rem; opacity: .95; margin-bottom: 1rem; position: relative; }
 .orc-kartu-ajakan .tombol {
     position: relative; display: inline-flex; align-items: center; gap: .45rem;
-    background: #fff; color: var(--color-orcha-ocean); font-family: var(--font-heading);
+    background: #fff; color: var(--color-orcha-navy); font-family: var(--font-heading);
     font-weight: 700; font-size: .88rem; padding: .6rem 1.1rem; border-radius: 999px; text-decoration: none;
 }
 .orc-kartu-ajakan .wa { position: relative; display: inline-flex; align-items: center; gap: .4rem; color: #fff; font-size: .82rem; margin-top: .7rem; text-decoration: none; opacity: .95; }
@@ -2360,7 +3007,7 @@ input[type="radio"] {
     font-size: 3.2rem;
     line-height: .82;
     padding: .3rem .55rem 0 0;
-    color: var(--color-orcha-ocean);
+    color: var(--color-orcha-toska);
 }
 
 /* Judul bagian ditandai batang gradasi, bukan sekadar ukuran huruf —
@@ -2377,7 +3024,7 @@ input[type="radio"] {
     bottom: .18em;
     width: 5px;
     border-radius: 4px;
-    background: linear-gradient(135deg, var(--color-orcha-sky), var(--color-orcha-ocean));
+    background: linear-gradient(135deg, var(--color-orcha-sun), var(--color-orcha-sunset));
 }
 
 /* Kutipan bertanda petik besar, bukan sekadar garis tepi. */
@@ -2402,11 +3049,268 @@ input[type="radio"] {
     top: .35rem;
     font-family: Georgia, serif;
     font-size: 2.8rem;
-    /* Biru, bukan emas. Kutipan sudah berlatar biru muda; tanda petik
-       berwarna krem menambah warna ketiga pada satu blok kecil dan terbaca
-       sebagai tempelan, bukan bagian dari kutipannya. */
-    color: var(--color-orcha-sky);
+    /* Toska, bukan emas. Kutipan sudah berlatar KREM — tanda petik emas di
+       atasnya nyaris sewarna latarnya sendiri. (Komentar lama di sini masih
+       menyebut "berlatar biru muda": itu peninggalan palet biru, dan warna
+       yang ditunjuknya, --color-orcha-sky, kini justru emas pucat.) */
+    color: var(--color-orcha-toska);
     line-height: 1;
 }
 
 .isi-artikel hr { border: none; border-top: 1px solid var(--color-orcha-foam); margin: 2rem 0; }
+
+/* ==========================================================
+   KARTU ARTIKEL — bentuk ABSTRAK, bukan kotak
+   ==========================================================
+
+   Daftar /blog sebelumnya lima persegi panjang bersudut sama: foto di atas,
+   tulisan di bawah, diulang lima kali. Yang membuatnya monoton bukan isinya
+   melainkan siluetnya — mata membaca satu bentuk, lalu empat salinannya.
+
+   Tiga hal memecah bentuk itu, dan ketiganya bekerja pada SILUET, bukan pada
+   warna:
+
+   1. Sudut yang tidak sama. Dua sudut berseberangan melengkung lebar, dua
+      lainnya nyaris tajam — bentuk daun, bukan kotak. Arahnya BERSELANG-SELING
+      antar kartu (lihat .kartu-artikel:nth-child(even)), jadi dua kartu
+      bertetangga tidak pernah sebangun.
+
+   2. Tepi bawah foto berupa OMBAK, bukan garis lurus. Digambar dengan SVG
+      sewarna badan kartu yang menindih kaki foto, jadi tidak ada satu pun
+      garis mendatar lurus yang tersisa di kartu ini.
+
+   3. Tombol bundar yang DUDUK DI ATAS perbatasan foto dan badan kartu.
+      Benda yang melintasi tepi membuat kartunya terbaca bertumpuk, bukan
+      sebagai satu lembar datar.
+
+   Tebalnya dari lapis padat tanpa kabur pada box-shadow — cara yang sama
+   dengan .kartu-blog dan .tombol-bulat: itu TUBUH kartunya, sisi tebal yang
+   membelakangi cahaya dari kiri-atas. Bayangan jatuh saja hanya menempel di
+   dinding di belakangnya, dan kartunya tetap setipis kertas. */
+.kartu-artikel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: #fffdfa;
+    border: 1px solid #f1e8dc;
+    border-radius: 3.1rem 0.8rem 3.1rem 0.8rem;
+    box-shadow:
+        6px 8px 0 0 #efe4d3,
+        0 26px 42px -28px rgb(40 28 18 / 0.45);
+    transition:
+        transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.42s ease,
+        border-color 0.42s ease;
+}
+.kartu-artikel:nth-child(even) {
+    border-radius: 0.8rem 3.1rem 0.8rem 3.1rem;
+}
+.kartu-artikel:hover {
+    transform: translateY(-7px) rotate(-0.45deg);
+    border-color: var(--color-orcha-mist);
+    box-shadow:
+        9px 12px 0 0 #e8d9c2,
+        0 34px 54px -26px rgb(40 28 18 / 0.5);
+}
+.kartu-artikel:nth-child(even):hover {
+    /* Miringnya ikut berlawanan arah dengan sudutnya: kartu bersudut lebar di
+       kanan-atas yang menunduk ke kiri terbaca patah, bukan terangkat. */
+    transform: translateY(-7px) rotate(0.45deg);
+}
+
+/* Pembungkus TIDAK memotong isinya: tombol bundar di bawah menjorok keluar
+   tepi bawahnya, dan overflow:hidden di sini akan memangkasnya separuh.
+   Pemotongnya satu lapis lebih dalam, pada bidang fotonya sendiri. */
+.kartu-artikel-sampul {
+    position: relative;
+    display: block;
+}
+.kartu-artikel-gambar {
+    border-radius: 3rem 0.75rem 0 0;
+    overflow: hidden;
+}
+.kartu-artikel:nth-child(even) .kartu-artikel-gambar {
+    border-radius: 0.75rem 3rem 0 0;
+}
+
+/* Ombak penutup kaki foto. Warnanya sama persis dengan badan kartu, jadi yang
+   terlihat bukan "ada bentuk putih di atas foto" melainkan "foto ini tepinya
+   bergelombang". preserveAspectRatio="none" membuatnya meregang mengikuti
+   lebar kartu berapa pun. */
+.ombak-kartu {
+    position: absolute;
+    left: -1px;
+    right: -1px;
+    bottom: -1px;
+    width: calc(100% + 2px);
+    height: 2.1rem;
+    display: block;
+    color: #fffdfa;
+    pointer-events: none;
+}
+/* Ombaknya DIBALIK di kartu genap. Satu lekuk yang sama di lima kartu akan
+   terbaca sebagai cetakan berulang — persis masalah yang bentuk ini datang
+   untuk memecahnya. */
+.kartu-artikel:nth-child(even) .ombak-kartu {
+    transform: scaleX(-1);
+}
+
+/* Lencana lama baca, melintasi tepi foto. z-index 2 supaya ia di atas ombak.
+
+   Dulu di sini ada tombol panah. Panah itu TIDAK punya tujuan sendiri: ia
+   berada di dalam tautan fotonya, jadi menekannya sama persis dengan menekan
+   "Baca selengkapnya" di kaki kartu — dua ajakan untuk satu tindakan, dan
+   pembaca harus berhenti menebak bedanya. Yang tinggal di tempat itu sekarang
+   keterangan, bukan ajakan: berapa lama tulisannya dibaca. Siluetnya tetap
+   terpotong seperti semula, tetapi tidak ada lagi tindakan kembar. */
+.kartu-artikel-baca {
+    position: absolute;
+    right: 1.3rem;
+    bottom: -0.85rem;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    height: 1.95rem;
+    padding: 0 0.8rem;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--color-orcha-amber);
+    background: linear-gradient(150deg, #fffdfa 0%, #faf4ec 60%, #f4ede2 100%);
+    box-shadow:
+        3px 4px 0 0 #e9dccb,
+        0 10px 16px -8px rgb(60 40 25 / 0.4),
+        inset 0 1px 0 rgb(255 255 255 / 0.95);
+}
+/* Ikut berpindah sisi mengikuti sudut lebar kartunya, sama seperti lencana
+   kategori — dua benda kecil yang berpindah bersama membuat kartu ganjil dan
+   genap terbaca sebagai dua bentuk, bukan satu bentuk yang digeser. */
+.kartu-artikel:nth-child(even) .kartu-artikel-baca {
+    right: auto;
+    left: 1.3rem;
+}
+
+/* Lencana kategori: ikut melengkung mengikuti sudut lebar kartunya, bukan
+   kapsul yang sama di semua kartu. */
+.kartu-artikel-label {
+    position: absolute;
+    top: 1rem;
+    left: 1.1rem;
+    z-index: 2;
+}
+.kartu-artikel:nth-child(even) .kartu-artikel-label {
+    left: auto;
+    right: 1.1rem;
+}
+
+/* ==========================================================
+   UBIN KANAL KONTAK — mendatar, bentuk ABSTRAK
+   ==========================================================
+
+   Dua masalah sekaligus yang dipecahkan bentuk ini.
+
+   1. BOROS RUANG. Versi sebelumnya menumpuk ke bawah: gambar 160px, lalu
+      judul, nilai, keterangan, dan tautan — sekitar 310px per ubin, dikali
+      dua baris jadi lebih dari 600px hanya untuk enam baris kontak. Dengan
+      gambar di SAMPING, tiap ubin tinggal sekitar 150px dan seluruh
+      deretnya muat di tiga baris pendek.
+
+   2. KOTAK SEMUA. Enam persegi panjang bersudut sama terbaca sebagai satu
+      bentuk yang dicetak enam kali. Yang dipecah di sini siluetnya, bukan
+      warnanya:
+
+      - Sudut yang tidak sama: dua sudut berseberangan melengkung lebar, dua
+        lainnya nyaris tajam — dan arahnya BERSELANG-SELING antar ubin, jadi
+        dua ubin bertetangga tidak pernah sebangun.
+      - Bidang gambarnya BUKAN kotak melainkan gumpalan (blob) ber-radius
+        tidak beraturan, dengan tiga ragam yang bergantian.
+      - Miring sedikit saat disentuh kursor, berlawanan arah mengikuti
+        sudutnya.
+
+   Tebalnya dari lapis padat tanpa kabur pada box-shadow — cara yang sama
+   dengan .kartu-artikel, .kartu-blog, dan .tombol-bulat: itu TUBUH ubinnya,
+   sisi tebal yang membelakangi cahaya dari kiri-atas. */
+.ubin-kanal {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.95rem;
+    padding: 0.8rem 1.15rem 0.8rem 0.8rem;
+    background: linear-gradient(140deg, #fffdfa 0%, #fbf6ee 60%, #f5efe4 100%);
+    border: 1px solid #f1e8dc;
+    border-radius: 2.9rem 0.7rem 2.9rem 0.7rem;
+    box-shadow:
+        5px 7px 0 0 #efe4d3,
+        0 22px 36px -28px rgb(40 28 18 / 0.45);
+    transition:
+        transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.42s ease,
+        border-color 0.42s ease;
+}
+.ubin-kanal:nth-child(even) {
+    border-radius: 0.7rem 2.9rem 0.7rem 2.9rem;
+    /* Gambarnya pindah ke KANAN di ubin genap: dua ubin bersebelahan yang
+       gambarnya sama-sama di kiri terbaca sebagai satu baris berulang, dan
+       sudut lebarnya pun jadi menunjuk ke bidang yang kosong. */
+    flex-direction: row-reverse;
+    padding: 0.8rem 0.8rem 0.8rem 1.15rem;
+}
+.ubin-kanal:hover {
+    transform: translateY(-5px) rotate(-0.4deg);
+    border-color: var(--color-orcha-mist);
+    box-shadow:
+        8px 11px 0 0 #e8d9c2,
+        0 30px 48px -26px rgb(40 28 18 / 0.5);
+}
+.ubin-kanal:nth-child(even):hover {
+    transform: translateY(-5px) rotate(0.4deg);
+}
+
+/* Bidang gambar berbentuk GUMPALAN, bukan kotak berujung tumpul.
+
+   Radius delapan nilai (empat horizontal / empat vertikal) membuat tiap
+   sudutnya melengkung berbeda — bentuk organik yang tidak punya satu pun
+   sisi lurus. Gambarnya sendiri object-contain di dalamnya, jadi tidak ada
+   yang terpotong: yang berbentuk gumpalan LATARNYA. */
+.kanal-bidang {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 9.4rem;
+    height: 7rem;
+    padding: 0.35rem;
+    background: linear-gradient(145deg, #eef7f4 0%, #e3f1ec 55%, #d8ebe4 100%);
+    border-radius: 63% 37% 48% 52% / 56% 44% 56% 44%;
+}
+.ubin-kanal:nth-child(3n + 2) .kanal-bidang {
+    background: linear-gradient(145deg, #fdf3e2 0%, #f9e9d2 55%, #f3dfc2 100%);
+    border-radius: 38% 62% 60% 40% / 44% 58% 42% 56%;
+}
+.ubin-kanal:nth-child(3n) .kanal-bidang {
+    background: linear-gradient(145deg, #f1f5f3 0%, #e7eeea 55%, #dde7e2 100%);
+    border-radius: 55% 45% 32% 68% / 62% 36% 64% 38%;
+}
+.kanal-bidang img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+@media (max-width: 420px) {
+    /* Di layar paling sempit, gambar di samping menyisakan lajur tulisan
+       selebar 150px dan setiap barisnya patah dua. Di sana ubinnya kembali
+       menumpuk — tetapi sudut dan gumpalannya tetap. */
+    .ubin-kanal,
+    .ubin-kanal:nth-child(even) {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 1rem 1.1rem 1.1rem;
+    }
+    .kanal-bidang {
+        width: 7.4rem;
+        height: 5.6rem;
+    }
+}

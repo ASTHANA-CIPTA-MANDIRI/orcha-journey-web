@@ -268,7 +268,6 @@ test('halaman artikel memuat bagian yang sama dengan blog Phoenix', function () 
 
     foreach ([
         'orc-art-meta' => 'baris keterangan',
-        'orc-art-sampul' => 'sampul di dalam artikel',
         'orc-bagi' => 'tombol bagikan',
         'orc-kembali' => 'tautan kembali ke blog',
         'orc-kartu-ajakan' => 'kartu ajakan',
@@ -279,6 +278,36 @@ test('halaman artikel memuat bagian yang sama dengan blog Phoenix', function () 
         expect(str_contains($html, $penanda))
             ->toBeTrue("bagian '$nama' hilang dari halaman artikel");
     }
+});
+
+/*
+ | Sampul di dalam artikel: ADA bila artikelnya punya sampul sendiri, TIDAK ADA
+ | bila tidak.
+ |
+ | Dulu yang tidak punya memakai foto hero /blog sebagai cadangan — foto yang
+ | sama persis dengan yang baru saja dilewati pembaca beberapa sentimeter di
+ | atasnya, jadi artikelnya terbaca seolah dibuka dua kali. Uji ini mengunci
+ | keputusan itu; sebelumnya ia justru mewajibkan bingkai sampul selalu ada.
+ */
+test('sampul di dalam artikel hanya digambar bila artikelnya punya sampul', function () {
+    $tanpaSampul = artikelTayang(['judul' => 'Tanpa Sampul', 'sampul' => null]);
+    $html = $this->get(route('blog.detail', $tanpaSampul))->assertOk()->getContent();
+
+    expect(str_contains($html, 'orc-art-sampul'))
+        ->toBeFalse('bingkai sampul tetap digambar padahal artikelnya tidak bersampul');
+    // Dihitung sebagai TAG <img>, bukan sebagai kemunculan alamatnya.
+    // Alamat itu muncul tiga kali di halaman yang sehat: foto kepala halaman,
+    // og:image, dan data terstruktur — dua yang terakhir memang harus menunjuk
+    // suatu gambar dan tidak terlihat pembaca. Yang tidak boleh lebih dari
+    // satu cuma yang benar-benar DIGAMBAR.
+    expect(preg_match_all('/<img[^>]*HERO\/blog\.webp/', $html))
+        ->toBe(1, 'foto hero /blog digambar dua kali: sekali di kepala halaman, sekali lagi sebagai sampul');
+
+    $bersampul = artikelTayang(['judul' => 'Bersampul', 'sampul' => '/storage/artikel/contoh.webp']);
+    $html = $this->get(route('blog.detail', $bersampul))->assertOk()->getContent();
+
+    expect(str_contains($html, 'orc-art-sampul'))->toBeTrue('sampul artikel hilang padahal kolomnya terisi');
+    expect($html)->toContain('/storage/artikel/contoh.webp');
 });
 
 test('nama penulis tidak pernah terbit ke halaman publik', function () {

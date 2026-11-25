@@ -100,7 +100,7 @@
          Aman karena hurufnya sudah memakai display=swap: tulisan tampil
          seketika dengan huruf bawaan perangkat, lalu berganti sendiri. --}}
     @php
-        $tautanHuruf = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..900,0..100,0..1&family=Great+Vibes&display=swap';
+        $tautanHuruf = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..900,0..100,0..1&display=swap';
     @endphp
     <link rel="preload" as="style" href="{{ $tautanHuruf }}">
     <link rel="stylesheet" href="{{ $tautanHuruf }}" media="print" onload="this.media='all'">
@@ -133,6 +133,16 @@
             'sameAs' => array_values(array_filter([
                 config('orcha.instagram')
                     ? 'https://instagram.com/'.ltrim(config('orcha.instagram'), '@')
+                    : null,
+                // TikTok ikut di sini, bukan cuma jadi tombol di kaki halaman:
+                // sameAs itulah yang dipakai mesin pencari untuk menyambungkan
+                // situs ini dengan akun resminya. Akun yang hanya ditautkan
+                // sebagai tombol tidak pernah terbaca sebagai milik yang sama.
+                config('orcha.tiktok')
+                    ? 'https://www.tiktok.com/@'.ltrim(config('orcha.tiktok'), '@')
+                    : null,
+                config('orcha.youtube')
+                    ? 'https://www.youtube.com/@'.ltrim(config('orcha.youtube'), '@')
                     : null,
             ])),
         ];
@@ -517,6 +527,16 @@
                             class="flex items-center justify-center transition border rounded-full w-11 h-11 border-black/5 bg-white text-orcha-navy hover:bg-orcha-sun hover:text-white hover:border-orcha-sun">
                             <x-bi-whatsapp class="w-5 h-5" />
                         </a>
+                        <a href="https://www.tiktok.com/@{{ ltrim(config('orcha.tiktok'), '@') }}" target="_blank"
+                            rel="noopener noreferrer" aria-label="TikTok Orcha Journey"
+                            class="flex items-center justify-center transition border rounded-full w-11 h-11 border-black/5 bg-white text-orcha-navy hover:bg-orcha-sun hover:text-white hover:border-orcha-sun">
+                            <x-bi-tiktok class="w-5 h-5" />
+                        </a>
+                        <a href="https://www.youtube.com/@{{ ltrim(config('orcha.youtube'), '@') }}" target="_blank"
+                            rel="noopener noreferrer" aria-label="YouTube Orcha Journey"
+                            class="flex items-center justify-center transition border rounded-full w-11 h-11 border-black/5 bg-white text-orcha-navy hover:bg-orcha-sun hover:text-white hover:border-orcha-sun">
+                            <x-bi-youtube class="w-5 h-5" />
+                        </a>
                         <a href="mailto:{{ config('orcha.email') }}" aria-label="Email Orcha Journey"
                             class="flex items-center justify-center transition border rounded-full w-11 h-11 border-black/5 bg-white text-orcha-navy hover:bg-orcha-sun hover:text-white hover:border-orcha-sun">
                             <x-heroicon-o-envelope class="w-5 h-5" />
@@ -595,7 +615,11 @@
                                  selebar baris, alamat yang panjang mendorong ikonnya
                                  menempel ke tepi kiri layar sementara teksnya di tengah —
                                  keduanya terlihat tidak berhubungan. --}}
-                            <span class="max-w-[15rem] sm:max-w-none">{{ config('orcha.alamat') }}</span>
+                            {{-- Bentuk pendek: alamat lengkap memakan delapan baris
+                                 di kolom sesempit ini dan menenggelamkan nomor
+                                 telepon serta surel di bawahnya. Yang lengkap tetap
+                                 dipakai data terstruktur di kepala halaman. --}}
+                            <span class="max-w-[15rem] sm:max-w-none">{{ config('orcha.alamat_singkat') }}</span>
                         </li>
                         <li class="flex items-center justify-center gap-3 sm:justify-start">
                             <x-heroicon-s-phone class="w-5 h-5 shrink-0 text-orcha-amber" />

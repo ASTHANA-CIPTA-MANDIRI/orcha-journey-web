@@ -60,9 +60,14 @@ new #[Layout('components.layouts.guest')] #[Title('Paket Wisata — Open Trip, P
     <x-page-hero :title="$judul" eyebrow="Paket Wisata" :subtitle="$keterangan"
         image="images/HERO/paket-wisata.webp" />
 
-    <section class="bg-white section-orcha">
-        <div class="container-orcha">
+    {{-- rak-panel: panel pertama NAIK MENINDIH kepala halaman, sama seperti
+         beranda dan Tentang Kami. Sebelumnya halaman ini memakai bagian putih
+         selebar layar yang berhenti rapi di bawah hero, jadi ada pita kosong
+         besar di antara keduanya dan kepala halaman terbaca terputus dari
+         isinya. --}}
+    <div class="container-orcha rak-panel pb-6 space-y-4 sm:space-y-5">
 
+        <section class="panel-orcha">
             {{-- Tab kategori: tiap kategori punya alamat halamannya sendiri --}}
             <div class="mb-10 tab-scroller">
                 <a href="{{ route('paket-wisata') }}"
@@ -96,33 +101,62 @@ new #[Layout('components.layouts.guest')] #[Title('Paket Wisata — Open Trip, P
                     @endforeach
                 </div>
             @endif
+        </section>
 
-            {{-- Penjelasan tiap kategori --}}
-            <div class="grid gap-5 mt-16 sm:grid-cols-3 sm:gap-6">
-                @foreach ([['Open Trip', 'o-users', 'Cocok untuk solo traveler, pasangan, atau rombongan kecil. Berangkat minimal 6 orang.'], ['Private Trip', 'o-sparkles', 'Cocok untuk keluarga, kantor, atau komunitas yang ingin rute dan jadwal sendiri.'], ['Study Tour', 'o-academic-cap', 'Cocok untuk sekolah dan kampus yang butuh kunjungan edukatif berskala besar.']] as [$nama, $ikon, $isi])
-                    <div class="p-6 card-orcha">
-                        <span
-                            class="flex items-center justify-center w-12 h-12 mb-4 text-white rounded-xl bg-gradient-to-br from-orcha-sky to-orcha-ocean">
-                            <x-dynamic-component :component="'heroicon-' . $ikon" class="w-6 h-6" />
-                        </span>
-                        <h3 class="font-bold font-heading text-orcha-navy">{{ $nama }}</h3>
-                        <p class="mt-2 text-sm leading-relaxed text-slate-600">{{ $isi }}</p>
-                    </div>
-                @endforeach
-            </div>
+        {{-- Panel ini dibentuk SAMA dengan "Kenapa Orcha" di Tentang
+                 Kami: panel gelap berwarna logo, ubin krem, angka besar toska
+                 di sudut kanan, dan cap air orca di latarnya.
 
-            <div
-                class="flex flex-col items-center gap-4 p-8 mt-12 text-center sm:flex-row sm:text-left sm:justify-between rounded-3xl bg-orcha-foam/70">
+                 Kunci 'gambar' bersifat pilihan: yang punya gambar tampil
+                 bergambar, sisanya tetap dengan ikon garisnya. --}}
+            <section class="relative overflow-hidden panel-orcha panel-orcha-gelap">
+                <img src="{{ asset('orcha-logo-only.png') }}" alt="" aria-hidden="true"
+                    loading="lazy" width="512" height="512" class="cap-orca">
+
+                <div class="relative max-w-2xl mb-6 sm:mb-8 reveal">
+                    <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Jenis Perjalanan</p>
+                    <h2 class="mt-3 judul-panel">Tiga cara berangkat bersama kami.</h2>
+                </div>
+
+                <div class="relative grid gap-3 sm:grid-cols-3 sm:gap-4">
+                    @foreach ([['Open Trip', 'o-users', 'open-trip', 'Cocok untuk solo traveler, pasangan, atau rombongan kecil. Berangkat minimal 6 orang.'], ['Private Trip', 'o-sparkles', 'private-trip', 'Cocok untuk keluarga, kantor, atau komunitas yang ingin rute dan jadwal sendiri.'], ['Study Tour', 'o-academic-cap', 'study-tour', 'Cocok untuk sekolah dan kampus yang butuh kunjungan edukatif berskala besar.']] as $urutanJenis => [$nama, $ikon, $gambar, $isi])
+                        {{-- .ubin-orcha tanpa -putih: ubinnya KREM di atas panel
+                             gelap, sama seperti ubin "Kenapa Orcha". --}}
+                        <div class="relative ubin-orcha reveal">
+                            <span aria-hidden="true"
+                                class="absolute z-0 text-7xl font-black leading-none select-none top-1 right-4 font-heading text-orcha-toska-samar">
+                                {{ $urutanJenis + 1 }}
+                            </span>
+
+                            @if ($gambar)
+                                <img src="{{ asset('images/paket/' . $gambar . '.webp') }}"
+                                    alt="" loading="lazy" decoding="async" width="440" height="440"
+                                    class="relative z-10 object-contain w-20 h-20 mb-2.5 -ml-1.5">
+                            @else
+                                <span class="relative z-10 gelembung-ikon">
+                                    <x-dynamic-component :component="'heroicon-' . $ikon" class="w-5 h-5" />
+                                </span>
+                            @endif
+
+                            <h3 class="relative z-10 mt-4 text-base font-bold font-heading text-orcha-navy">{{ $nama }}</h3>
+                            <p class="relative z-10 mt-2 text-sm leading-relaxed text-slate-600">{{ $isi }}</p>
+                        </div>
+                    @endforeach
+                </div>
+            </section>
+
+        <section class="panel-orcha panel-orcha-krem">
+            <div class="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left sm:justify-between">
                 <div>
                     <p class="text-lg font-bold font-heading text-orcha-navy">Belum ada yang pas?</p>
                     <p class="mt-1 text-sm text-slate-600">Sebutkan tujuan, tanggal, dan jumlah peserta — kami susunkan
                         paket khusus untuk Anda.</p>
                 </div>
-                <a href="{{ $wa }}" target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-primary">
+                <a href="{{ $wa }}" target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-sun">
                     <x-bi-whatsapp class="w-5 h-5" />
                     Minta Paket Khusus
                 </a>
             </div>
-        </div>
-    </section>
+        </section>
+    </div>
 </div>

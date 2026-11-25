@@ -13,7 +13,70 @@ return [
     'whatsapp' => env('ORCHA_WHATSAPP', '62895630279695'),
     'email' => env('ORCHA_EMAIL', 'halo@orchajourney.com'),
     'instagram' => env('ORCHA_INSTAGRAM', 'orcha_journey'),
-    'alamat' => env('ORCHA_ALAMAT', 'Perumahan GWI, Jl. Durian No. 115, Banguntapan, Bantul, Yogyakarta'),
+    // Nama pengguna TikTok memakai TITIK, bukan garis bawah seperti
+    // Instagram — keduanya akun berbeda dengan ejaan berbeda, jadi tidak
+    // bisa dirakit dari satu nilai.
+    'tiktok' => env('ORCHA_TIKTOK', 'orcha.journey'),
+    // Dan YouTube memakai huruf besar di tengah. Tiga akun, tiga ejaan
+    // berbeda untuk nama yang sama — masing-masing disimpan apa adanya.
+    'youtube' => env('ORCHA_YOUTUBE', 'OrchaJourney'),
+    /*
+    | Alamat kantor, sesuai daftar Google Bisnis Orcha Journey.
+    |
+    | Sebelumnya tertulis "Perumahan GWI, Jl. Durian No. 115, Banguntapan,
+    | Bantul" — Banguntapan ada di Bantul, sekitar 11 km dari tempatnya yang
+    | sebenarnya di Sinduadi, Mlati, Sleman. Dikoreksi 24 Nov 2026 atas
+    | keputusan pemilik setelah peta dan alamat tertulis ketahuan menunjuk dua
+    | kota berbeda.
+    |
+    | Satu nilai ini dibaca BANYAK tempat sekaligus: ubin Kontak, kaki tiap
+    | halaman, kwitansi, surat penggantian, surel tagihan, dan tiga tempat di
+    | jalur RAB. Jadi kalau berubah lagi, ia cukup diubah di sini.
+    */
+    'alamat' => env('ORCHA_ALAMAT', 'Jalan Durmo, Ngemplak Karangjati, RT.10/RW.38, Kutu Dukuh, Sinduadi, Kec. Mlati, Kabupaten Sleman, Daerah Istimewa Yogyakarta 55284'),
+
+    /*
+    | Bentuk PENDEK alamat, untuk dibaca sekilas di layar.
+    |
+    | Alamat lengkap di atas benar dan memang harus lengkap di kwitansi, surat
+    | penggantian, dan data terstruktur — di sanalah RT/RW dan kode pos
+    | berguna. Tetapi di kaki halaman ia memakan delapan baris dan menenggelamkan
+    | nomor telepon serta surel di bawahnya, dan di ubin "Kantor" halaman kontak
+    | ia jadi empat baris tebal yang mengalahkan judul ubinnya sendiri.
+    |
+    | Jadi dua bentuk: yang lengkap untuk dokumen dan mesin, yang pendek untuk
+    | mata. Keduanya harus menunjuk tempat yang sama — kalau yang satu berubah,
+    | yang lain ikut.
+    */
+    'alamat_singkat' => env('ORCHA_ALAMAT_SINGKAT', 'Jalan Durmo, Sinduadi, Mlati, Sleman, Yogyakarta'),
+
+    /*
+    | Titik PETA, sengaja TERPISAH dari 'alamat' di atas.
+    |
+    | Peta di halaman kontak dulu dirakit dari 'alamat', dan saat itu hasilnya
+    | salah: alamatnya menunjuk Banguntapan, Bantul, sedangkan tempatnya ada di
+    | Sinduadi, Mlati, Sleman. Alamat di atas sudah dikoreksi, jadi keduanya
+    | kini sejalan.
+    |
+    | Tetap dipisah. 'alamat' tulisan yang dibaca manusia dan ikut tercetak di
+    | kwitansi, surat penggantian, serta surel tagihan; yang di sini umpan
+    | untuk Google. Keduanya berubah karena alasan berbeda — merapikan ejaan
+    | alamat di kwitansi tidak boleh sampai menggeser titik petanya.
+    |
+    | Koordinatnya diikutkan supaya petanya mendarat tepat di tempatnya, bukan
+    | pada tebakan Google atas nama yang dicari.
+    |
+    | Namanya 'peta_kantor', bukan 'peta'. Kunci 'peta' SUDAH DIPAKAI di bawah
+    | berkas ini untuk pencarian lokasi lewat Nominatim — dan PHP tidak
+    | mengeluh soal kunci kembar, ia cuma memakai yang terakhir. Versi pertama
+    | catatan ini memakai 'peta', dan akibatnya config('orcha.peta.tempat')
+    | memulangkan null tanpa satu pun galat: alamat petanya jadi kosong.
+    */
+    'peta_kantor' => [
+        'tempat' => env('ORCHA_PETA_TEMPAT', 'Orcha Journey, Jalan Durmo, Ngemplak Karangjati, Sinduadi, Mlati, Sleman, Daerah Istimewa Yogyakarta 55284'),
+        'lat' => env('ORCHA_PETA_LAT', '-7.7660335'),
+        'lng' => env('ORCHA_PETA_LNG', '110.3646175'),
+    ],
 
     /*
     | Badan hukum di balik merek Orcha Journey, dipakai di baris hak cipta.

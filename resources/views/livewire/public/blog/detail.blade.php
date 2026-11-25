@@ -98,7 +98,14 @@ new #[Layout('components.layouts.guest')] class extends Component
          Sampul artikel TIDAK dipakai sebagai latar hero. Foto yang jadi latar
          harus diredupkan supaya judul di atasnya terbaca, sedangkan sampul
          artikel justru dipilih untuk dilihat — tempatnya di dalam artikel. --}}
-    <x-page-hero :title="$a->judul" eyebrow="{{ $a->kategori_label ?? 'Blog' }}"
+    {{-- :eyebrow, BUKAN eyebrow="{{ ... }}".
+
+         Ditulis sebagai atribut HTML biasa, isinya dikodekan Blade LEBIH DULU
+         ("Tips & Persiapan" jadi "Tips &amp; Persiapan"), lalu dikodekan sekali
+         lagi oleh {{ $eyebrow }} di dalam komponennya. Yang tercetak di layar
+         "TIPS &AMP; PERSIAPAN". Atribut terikat melewatkan nilainya apa adanya,
+         jadi pengodeannya terjadi satu kali saja. --}}
+    <x-page-hero :title="$a->judul" :eyebrow="$a->kategori_label ?? 'Blog'"
         image="images/HERO/blog.webp" posisi="center 88%" />
 
     <section class="pt-12 pb-16 bg-white sm:pt-16 sm:pb-20">
@@ -141,9 +148,25 @@ new #[Layout('components.layouts.guest')] class extends Component
                          Foto yang jadi latar harus diredupkan supaya judul di
                          atasnya terbaca — sedangkan sampul artikel justru dipilih
                          untuk dilihat, bukan untuk digelapkan. --}}
-                    <div class="orc-art-sampul">
-                        <img src="{{ $a->sampul_tampil }}" alt="{{ $a->judul }}" loading="lazy" decoding="async">
-                    </div>
+                    {{-- Hanya digambar bila artikelnya PUNYA sampul sendiri.
+
+                         Dulu yang tidak punya memakai foto hero /blog sebagai
+                         cadangan — foto yang sama persis dengan yang baru saja
+                         dilewati pembaca beberapa sentimeter di atasnya, jadi
+                         artikelnya terbaca seolah dibuka dua kali. Daftar
+                         /blog memakai bidang berlambang untuk keadaan yang
+                         sama; di sini bidang itu pun tidak perlu, karena
+                         kepala halaman sudah membawa gambarnya.
+
+                         onerror MENCOPOT seluruh bingkainya, bukan mengganti
+                         fotonya: berkas yang hilang berarti artikel ini tidak
+                         punya sampul yang bisa ditampilkan. --}}
+                    @if (filled($a->sampul))
+                        <div class="orc-art-sampul">
+                            <img src="{{ $a->sampul }}" alt="{{ $a->judul }}" loading="lazy" decoding="async"
+                                onerror="this.closest('.orc-art-sampul').remove();">
+                        </div>
+                    @endif
 
                     {{-- Ringkasan TIDAK ditampilkan di sini.
 
@@ -214,10 +237,11 @@ new #[Layout('components.layouts.guest')] class extends Component
 
                             @foreach ($lainnya as $lain)
                                 <a href="{{ route('blog.detail', $lain) }}" class="orc-samping-pos">
-                                    <span class="gambar">
-                                        <img src="{{ $lain->sampul_tampil }}" alt="{{ $lain->judul }}" loading="lazy"
-                                            decoding="async">
-                                    </span>
+                                    {{-- Bidang sampul yang SAMA dengan kartu di daftar
+                                         /blog: artikel tanpa sampul tampil sebagai
+                                         bidang berlambang, bukan foto pantai yang
+                                         diulang di ketiga barisnya. --}}
+                                    <x-blog.sampul :artikel="$lain" class="gambar" />
                                     <span class="teks">
                                         <span class="tanggal">{{ $lain->terbit_pada?->locale('id')->translatedFormat('j M Y') }}</span>
                                         <span class="nama">{{ Str::limit($lain->judul, 58) }}</span>

@@ -27,22 +27,27 @@ test('halaman formulir memakai kolom samping yang ikut menggulung', function (st
         ->assertSee('lg:sticky lg:top-24', false);
 })->with(['pendaftaran-open-trip', 'riwayat-kesehatan', 'pembatalan']);
 
-test('kepala halaman memakai aksen kaligrafi', function () {
-    // Kaligrafi Great Vibes tetap jadi tanda tangan rupa Orcha di kepala
-    // halaman yang dibuka foto gelap — di sana ia berdiri di atas foto dan
-    // memang terbaca sebagai aksen.
+test('kepala halaman memakai label yang sama dengan beranda', function () {
+    // Dulu kepala halaman dibuka kaligrafi Great Vibes, dan uji ini
+    // mewajibkannya. Aturan itu DICABUT: huruf sambung tersebut tidak dipakai
+    // di satu tempat pun di beranda, sehingga tiap halaman lain terbuka dengan
+    // gaya tulisan yang tidak pernah muncul lagi sesudahnya.
+    //
+    // Sekarang semua kepala halaman memakai .label-bagian — kapital kecil
+    // berjarak lebar berwarna emas — persis seperti label tiap bagian di
+    // beranda.
     $this->get(route('sewa-kendaraan'))
         ->assertOk()
-        ->assertSee('aksen-orcha', false)
-        ->assertSee('Great+Vibes', false);
-
-    // Beranda TIDAK memakainya: hero-nya berlatar krem terang dan mengikuti
-    // rancangan acuan, yang memakai kapital kecil berjarak lebar sebagai
-    // kepala. Hurufnya tetap ikut dimuat karena halaman lain memerlukannya.
-    $this->get('/')
-        ->assertOk()
-        ->assertSee('Great+Vibes', false)
+        ->assertSee('label-bagian', false)
         ->assertDontSee('aksen-orcha', false);
+
+    // Hurufnya ikut dilepas dari muatan: satu keluarga huruf utuh yang tidak
+    // dipakai siapa pun tetap diunduh setiap kunjungan.
+    foreach (['/', route('sewa-kendaraan'), route('tentang-kami')] as $alamat) {
+        $this->get($alamat)
+            ->assertOk()
+            ->assertDontSee('Great+Vibes', false);
+    }
 });
 
 test('hero sewa kendaraan memakai foto armada sendiri', function () {
@@ -151,7 +156,7 @@ test('kelas yang menetapkan display tidak disembunyikan dengan utilitas hidden',
      */
     $kelasBerdisplay = ['btn-orcha', 'tombol-bulat', 'menu-tombol', 'chip-orcha', 'ubin-orcha', 'kartu-destinasi'];
 
-    $berkas = collect(\Illuminate\Support\Facades\File::allFiles(resource_path('views')))
+    $berkas = collect(File::allFiles(resource_path('views')))
         ->filter(fn ($f) => str_ends_with($f->getFilename(), '.blade.php'));
 
     $pelanggaran = [];
@@ -224,17 +229,25 @@ test('keterangan galeri ikut tampil dan jadi alt gambarnya', function () {
      | Keterangannya dipakai dua kali. Sebagai alt: yang dibaca pembaca layar
      | dan mesin telusur, dan sebelum ini seragam "Dokumentasi perjalanan"
      | untuk SEMUA foto — tidak memberi tahu apa pun. Sebagai keterangan yang
-     | muncul saat tilenya disentuh: bukti bahwa yang dipajang rombongan
-     | sungguhan, bukan foto stok.
+     | tampil di foto: bukti bahwa yang dipajang rombongan sungguhan, bukan
+     | foto stok.
+     |
+     | Dulu uji ini mengunci nama kelas `galeri-selubung` dan susunan
+     | <span> milik rancangan pita berjalan. Galerinya kini korsel 3D dan
+     | keterangannya satu <figcaption>, jadi yang diperiksa dikembalikan ke
+     | PERILAKUNYA — keterangan dipakai sebagai alt dan digambar — bukan ke
+     | nama kelas yang kebetulan dipakai rancangan saat itu.
      */
     $isi = $this->get('/')->assertOk()->getContent();
     $galeri = substr($isi, strpos($isi, 'id="galeri"'));
 
     expect($galeri)
         ->toContain('alt="Rombongan SMA 1 di Kawah Ijen"')
-        // Pil kaca berlapis: selubung gradien, pil, lalu tulisannya.
-        ->toContain('galeri-selubung')
-        ->toContain('<span>Rombongan SMA 1 di Kawah Ijen</span>');
+        // <span> di dalamnya: pil keterangan pada tata letak DASAR, yaitu yang
+        // terlihat kalau JavaScript gagal dimuat. Saat korsel 3D hidup,
+        // keterangannya dipindah ke lajur kiri dan pil ini disembunyikan CSS —
+        // markahnya tetap ada karena ia juga sumber kalimat untuk lajur itu.
+        ->toContain('<figcaption><span>Rombongan SMA 1 di Kawah Ijen</span></figcaption>');
 });
 
 test('foto tanpa keterangan tidak menampilkan pita kosong', function () {
@@ -245,7 +258,8 @@ test('foto tanpa keterangan tidak menampilkan pita kosong', function () {
     $galeri = substr($isi, strpos($isi, 'id="galeri"'));
 
     expect($galeri)
-        ->not->toContain('galeri-selubung')
+        // Tanpa keterangan, <figcaption>-nya tidak digambar sama sekali.
+        ->not->toContain('<figcaption')
         // altnya kembali ke kalimat umum, bukan kosong.
         ->toContain('alt="Dokumentasi perjalanan Orcha Journey"');
 });

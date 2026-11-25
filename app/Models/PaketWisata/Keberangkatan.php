@@ -4,9 +4,9 @@ namespace App\Models\PaketWisata;
 
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Satu tanggal keberangkatan milik satu paket.

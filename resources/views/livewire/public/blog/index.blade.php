@@ -82,72 +82,121 @@ new #[Layout('components.layouts.guest')] #[Title('Blog — Panduan & Cerita Per
     }
 }; ?>
 
+@php
+    $wa = fn (string $pesan) => 'https://api.whatsapp.com/send?phone=' . config('orcha.whatsapp') . '&text=' . rawurlencode($pesan);
+@endphp
+
 <div>
     <x-page-hero title="Blog Orcha Journey" eyebrow="Panduan & Cerita"
         subtitle="Panduan perjalanan, cerita destinasi, dan tips persiapan dari tim yang mengantar rombongan setiap minggu."
         image="images/HERO/blog.webp" posisi="center 88%" />
 
-    <section class="bg-white section-orcha">
-        <div class="container-orcha">
+    {{-- rak-panel: panel pertama NAIK MENINDIH kepala halaman, sama seperti
+         beranda, Tentang Kami, Paket Wisata, Sewa Kendaraan, dan Destinasi.
+         Sebelumnya halaman ini memakai .section-orcha di atas latar putih,
+         sehingga ada pita putih kosong setinggi hampir 150px antara foto hero
+         dan isinya — satu-satunya halaman yang masih begitu. --}}
+    <div class="container-orcha rak-panel pb-6 space-y-4 sm:space-y-5">
 
-            {{-- ============ SOROTAN ============
-                 Kartu lebar berisi tulisan terbaru. Hanya muncul di daftar yang
-                 belum disaring; lihat alasannya di with(). --}}
-            @if ($sorotan)
-                <a href="{{ route('blog.detail', $sorotan) }}"
-                    class="grid gap-0 mb-12 overflow-hidden card-orcha group lg:grid-cols-2">
-                    <div class="overflow-hidden aspect-[16/10] lg:aspect-auto lg:h-full bg-orcha-navy">
-                        {{-- Sorotan berada di layar pertama, jadi prioritas
-                             tinggi — bukan lazy. Menundanya justru memperlambat
-                             yang paling ingin dilihat pembaca. --}}
-                        <img src="{{ $sorotan->sampul_tampil }}" alt="{{ $sorotan->judul }}" fetchpriority="high"
-                            decoding="async"
-                            class="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105">
-                    </div>
+        {{-- ============ SOROTAN ============
+             Panel GELAP, warna logo. Halaman ini tadinya putih dari atas sampai
+             bawah: kartu putih di atas latar putih, tanpa satu pun bidang yang
+             membawa warna perusahaan. Tulisan terbaru adalah yang paling pantas
+             memegang bidang itu — ia yang ingin dibaca lebih dulu.
 
-                    <div class="flex flex-col justify-center p-8 lg:p-12">
-                        <p class="eyebrow"><span class="w-8 h-px bg-orcha-wave"></span> Tulisan Terbaru</p>
+             Hanya muncul di daftar yang belum disaring; alasannya di with(). --}}
+        @if ($sorotan)
+            <section class="relative overflow-hidden panel-orcha panel-orcha-gelap">
+                {{-- Lambang orca sebagai cap air, sama seperti "Cara Pesan" di
+                     beranda. aria-hidden + alt kosong: ini hiasan. --}}
+                <img src="{{ asset('orcha-logo-only.png') }}" alt="" aria-hidden="true" loading="lazy"
+                    width="512" height="512" class="cap-orca">
 
-                        <h2 class="mt-3 text-2xl font-bold leading-tight text-orcha-navy sm:text-3xl">
-                            {{ $sorotan->judul }}
+                <div class="relative grid items-center gap-7 lg:grid-cols-[minmax(0,1.02fr)_minmax(0,1fr)] lg:gap-11">
+                    {{-- prioritas: sorotan berada di layar pertama, jadi fotonya
+                         tidak boleh lazy. Menundanya justru memperlambat yang
+                         paling ingin dilihat pembaca. --}}
+                    {{-- Sudut daun yang SAMA dengan kartu di daftar bawah —
+                         melengkung lebar di kiri-atas dan kanan-bawah, nyaris
+                         tajam di dua sudut lainnya. Tanpa ini sorotan tetap
+                         persegi panjang biasa sementara lima kartu di bawahnya
+                         sudah berbentuk, dan halaman terbaca seperti dua
+                         rancangan yang ditempel. --}}
+                    <a href="{{ route('blog.detail', $sorotan) }}" wire:navigate
+                        class="block group rounded-[3.1rem_0.8rem_3.1rem_0.8rem] overflow-hidden ring-1 ring-white/10">
+                        <x-blog.sampul :artikel="$sorotan" :prioritas="true" :terang="true" class="aspect-[16/10]" />
+                    </a>
+
+                    <div>
+                        <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Tulisan Terbaru</p>
+
+                        <h2 class="mt-3 judul-panel">
+                            <a href="{{ route('blog.detail', $sorotan) }}" wire:navigate
+                                class="transition hover:text-orcha-sun">
+                                {{ $sorotan->judul }}
+                            </a>
                         </h2>
 
-                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-4 text-xs text-slate-500">
+                        <div class="flex flex-wrap items-center mt-4 text-xs gap-x-3 gap-y-1 text-slate-400">
                             @if ($sorotan->kategori_label)
-                                <span
-                                    class="font-bold tracking-wide uppercase text-orcha-ocean">{{ $sorotan->kategori_label }}</span>
-                                <span class="text-orcha-mist" aria-hidden="true">•</span>
+                                <span class="font-bold tracking-wide uppercase text-orcha-sun">
+                                    {{ $sorotan->kategori_label }}
+                                </span>
+                                <span class="text-white/25" aria-hidden="true">&bull;</span>
                             @endif
-                            <time
-                                datetime="{{ $sorotan->terbit_pada?->toDateString() }}">{{ $sorotan->tanggal_terbit }}</time>
-                            <span class="text-orcha-mist" aria-hidden="true">•</span>
+                            <time datetime="{{ $sorotan->terbit_pada?->toDateString() }}">{{ $sorotan->tanggal_terbit }}</time>
+                            <span class="text-white/25" aria-hidden="true">&bull;</span>
                             <span>{{ $sorotan->lama_baca }} menit baca</span>
                         </div>
 
-                        <p class="mt-4 leading-relaxed text-slate-600">{{ $sorotan->ringkasan_tampil }}</p>
+                        <p class="mt-4 leading-relaxed text-slate-300">{{ $sorotan->ringkasan_tampil }}</p>
 
-                        <span
-                            class="inline-flex items-center gap-1.5 mt-6 text-sm font-bold text-orcha-ocean transition group-hover:gap-2.5">
+                        <a href="{{ route('blog.detail', $sorotan) }}" wire:navigate class="mt-6 btn-orcha btn-orcha-sun">
                             Baca selengkapnya
-                            <x-heroicon-o-arrow-right class="w-4 h-4" />
-                        </span>
+                            <x-heroicon-o-arrow-right class="w-5 h-5" />
+                        </a>
                     </div>
-                </a>
-            @endif
+                </div>
+            </section>
+        @endif
 
-            {{-- ============ PENYARING ============ --}}
-            <div class="flex flex-col gap-5 mb-10 lg:flex-row lg:items-center lg:justify-between">
-                <div class="tab-scroller">
-                    <button type="button" wire:click="$set('kategori', '')"
-                        class="tab-orcha {{ $kategoriAktif === null ? 'tab-orcha-active' : '' }}">
-                        Semua <span class="opacity-60">({{ $totalSemua }})</span>
-                    </button>
-                    @foreach ($kategoriArtikel as $kunci => $label)
-                        <button type="button" wire:click="$set('kategori', '{{ $kunci }}')"
-                            class="tab-orcha {{ $kategoriAktif === $kunci ? 'tab-orcha-active' : '' }}">
-                            {{ $label }} <span class="opacity-60">({{ $jumlahKategori[$kunci] }})</span>
-                        </button>
-                    @endforeach
+        {{-- ============ DAFTAR ============ --}}
+        <section class="panel-orcha">
+            <div class="flex flex-col gap-5 mb-7 lg:flex-row lg:items-end lg:justify-between">
+                {{-- Judulnya IKUT penyaring.
+
+                     Judul tetap "5 panduan dan cerita perjalanan." sementara
+                     barisnya di bawah berbunyi "1 tulisan cocok" terbaca saling
+                     membantah — dan yang lebih besar hurufnya justru angka yang
+                     tidak berlaku lagi. Saat disaring, judulnya menyebutkan apa
+                     yang sedang disaring; jumlahnya pindah ke baris kecil di
+                     bawahnya. --}}
+                @php
+                    $labelDaftar = $adaPenyaring ? 'Hasil Saringan' : 'Semua Tulisan';
+                    $judulDaftar = match (true) {
+                        $cari !== '' => 'Pencarian "' . $cari . '".',
+                        $kategoriAktif !== null => $kategoriArtikel[$kategoriAktif] . '.',
+                        $totalSemua > 0 => $totalSemua . ' panduan dan cerita perjalanan.',
+                        default => 'Panduan dan cerita perjalanan.',
+                    };
+                @endphp
+
+                <div>
+                    <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> {{ $labelDaftar }}</p>
+                    <h2 class="mt-3 judul-panel !text-[clamp(1.35rem,2.2vw,1.9rem)]">{{ $judulDaftar }}</h2>
+
+                    {{-- Jumlah hasil hanya ditulis saat penyaringnya menyala.
+                         Di daftar penuh angkanya sudah ada di judul tepat di
+                         atasnya, dan mengulanginya cuma menambah baris. --}}
+                    @if ($adaPenyaring)
+                        <p class="mt-2 text-sm text-slate-500">
+                            {{ $artikel->total() }} dari {{ $totalSemua }} tulisan.
+                            <button type="button" wire:click="bersihkan"
+                                class="font-semibold underline transition text-orcha-amber underline-offset-2 hover:text-orcha-sunset">
+                                Tampilkan semua
+                            </button>
+                        </p>
+                    @endif
                 </div>
 
                 {{-- Bentuknya disamakan dengan kotak cari di halaman destinasi dan
@@ -165,13 +214,30 @@ new #[Layout('components.layouts.guest')] #[Title('Blog — Panduan & Cerita Per
                     <span class="sr-only">Cari artikel</span>
                     <x-heroicon-o-magnifying-glass
                         class="absolute w-5 h-5 -translate-y-1/2 left-4 top-1/2 text-slate-400" />
-                    <input type="search" wire:model.live.debounce.400ms="cari"
-                        placeholder="Cari judul artikel…"
-                        class="w-full py-3 pr-4 text-sm bg-white border pl-11 rounded-2xl border-orcha-foam focus:border-orcha-sky focus:outline-none focus:ring-2 focus:ring-orcha-sky/25">
+                    <input type="search" wire:model.live.debounce.400ms="cari" placeholder="Cari judul artikel…"
+                        class="w-full py-3 pr-4 text-sm bg-white border pl-11 rounded-2xl border-orcha-foam focus:border-orcha-sun focus:outline-none focus:ring-2 focus:ring-orcha-sun/30">
                 </label>
             </div>
 
-            {{-- ============ DAFTAR ============ --}}
+            {{-- Deret kategori dipusatkan di layar lebar, sama seperti deret
+                 wilayah di halaman destinasi: baris di atasnya sudah terbagi
+                 kiri-kanan, jadi deret yang ikut rata kiri menggantung tanpa
+                 penyeimbang di kanannya. Di layar sempit tetap rata kiri —
+                 deretnya digulung mendatar, dan yang digulung harus mulai dari
+                 tepi. --}}
+            <div class="mb-8 tab-scroller lg:justify-center">
+                <button type="button" wire:click="$set('kategori', '')"
+                    class="tab-orcha {{ $kategoriAktif === null ? 'tab-orcha-active' : '' }}">
+                    Semua <span class="opacity-60">({{ $totalSemua }})</span>
+                </button>
+                @foreach ($kategoriArtikel as $kunci => $label)
+                    <button type="button" wire:click="$set('kategori', '{{ $kunci }}')"
+                        class="tab-orcha {{ $kategoriAktif === $kunci ? 'tab-orcha-active' : '' }}">
+                        {{ $label }} <span class="opacity-60">({{ $jumlahKategori[$kunci] }})</span>
+                    </button>
+                @endforeach
+            </div>
+
             @if ($artikel->isEmpty())
                 <div class="p-12 text-center card-orcha">
                     <x-heroicon-o-newspaper class="w-12 h-12 mx-auto text-orcha-mist" />
@@ -198,16 +264,35 @@ new #[Layout('components.layouts.guest')] #[Title('Blog — Panduan & Cerita Per
                     @endif
                 </div>
             @else
-                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 sm:gap-6">
                     @foreach ($artikel as $satu)
                         <x-blog.kartu :artikel="$satu" wire:key="artikel-{{ $satu->id }}" />
                     @endforeach
                 </div>
 
-                <div class="mt-12">
+                <div class="mt-10">
                     {{ $artikel->links('partials.paginasi-orcha') }}
                 </div>
             @endif
-        </div>
-    </section>
+        </section>
+
+        {{-- ============ AJAKAN ============
+             Penutup yang sama bentuknya dengan halaman destinasi: pembaca yang
+             sampai ke dasar halaman blog sedang menimbang berangkat, bukan
+             sedang mencari artikel kelima. --}}
+        <section class="panel-orcha panel-orcha-krem">
+            <div class="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left sm:justify-between">
+                <div>
+                    <p class="text-lg font-bold font-heading text-orcha-navy">Pertanyaannya belum terjawab di sini?</p>
+                    <p class="mt-1 text-sm text-slate-600">Tanyakan langsung ke tim kami — yang menulis artikel ini
+                        orang yang sama yang mengantar rombongan.</p>
+                </div>
+                <a href="{{ $wa('Halo Orcha Journey, saya baru membaca blog dan ingin bertanya soal perjalanan.') }}"
+                    target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-sun shrink-0">
+                    <x-bi-whatsapp class="w-5 h-5" />
+                    Tanya Lewat WhatsApp
+                </a>
+            </div>
+        </section>
+    </div>
 </div>

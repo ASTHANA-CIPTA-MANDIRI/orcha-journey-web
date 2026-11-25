@@ -119,11 +119,231 @@ function initAnchorOffset() {
     });
 }
 
+/* ==========================================================
+   KORSEL (galeri & testimoni)
+
+   Dua mode, satu mesin: "kipas" (galeri — satu foto besar di tengah,
+   tetangganya dimiringkan ke belakang) dan "tumpuk" (testimoni — kartu
+   aktif di depan, sisanya mundur seperti setumpuk kartu). Modenya dibaca
+   dari atribut data-korsel pada wadahnya.
+
+   Markahnya tanpa kelas .is-3d sampai fungsi ini jalan: kalau berkas ini
+   gagal dimuat, galerinya tetap berupa baris bergulir yang bisa digeser
+   jari. Itu sebabnya kelasnya dipasang DI SINI, bukan ditulis di Blade.
+========================================================== */
+function initKorsel() {
+    document.querySelectorAll("[data-korsel]").forEach((panggung) => {
+        if (panggung.dataset.korselSiap === "1") return;
+
+        const jalur = panggung.querySelector("[data-korsel-jalur]");
+        const kartu = Array.from(panggung.querySelectorAll("[data-korsel-kartu]"));
+        if (!jalur || kartu.length === 0) return;
+
+        panggung.dataset.korselSiap = "1";
+        panggung.classList.add("is-3d");
+        const mode = panggung.dataset.korsel || "kipas";
+
+        const wadahTitik = panggung.closest("section")?.querySelector("[data-korsel-titik]");
+        // Kendali dan keterangan berada di LUAR panggung (lajur kiri), jadi
+        // dicari dari bagian terdekat, bukan dari dalam panggungnya.
+        const bagian = panggung.closest("section") || document;
+        const wadahHitung = bagian.querySelector("[data-korsel-hitung]");
+        const wadahKeterangan = bagian.querySelector("[data-korsel-keterangan]");
+        const blokKeterangan = bagian.querySelector("[data-korsel-blok]");
+        const duaAngka = (n) => String(n).padStart(2, "0");
+        let aktif = 0;
+        let jeda = false;
+        let pewaktu = null;
+
+        // Jarak terpendek i ke kartu aktif, dihitung melingkar: kartu
+        // terakhir berjarak 1 dari kartu pertama, bukan n-1. Tanpa ini,
+        // perpindahan dari foto terakhir ke foto pertama terbaca seperti
+        // melempar seluruh deretnya balik ke awal.
+        const jarak = (i) => {
+            const n = kartu.length;
+            let d = i - aktif;
+            if (d * 2 > n) d -= n;
+            if (d * 2 < -n) d += n;
+            return d;
+        };
+
+        const gambar = () => {
+            kartu.forEach((el, i) => {
+                const d = jarak(i);
+                const jauh = Math.abs(d);
+                const terlihat = jauh < 3;
+
+                el.classList.toggle("is-aktif", d === 0);
+                el.style.zIndex = String(20 - jauh);
+                el.style.opacity = terlihat ? String(1 - jauh * (mode === "tumpuk" ? 0.45 : 0.28)) : "0";
+                el.style.pointerEvents = terlihat ? "auto" : "none";
+
+                if (mode === "tumpuk") {
+                    // TUMPUKAN: kartu aktif di depan, tetangganya mundur ke
+                    // belakang dan sedikit turun — seperti setumpuk kartu.
+                    //
+                    // Dipakai untuk testimoni, bukan kipas seperti galeri:
+                    // kartu kipas dimiringkan 30 derajat, dan tulisan yang
+                    // dimiringkan sebanyak itu tidak terbaca. Di sini yang
+                    // miring cuma 1,5 derajat, sekadar penanda bahwa ada
+                    // kartu lain di belakangnya.
+                    el.style.transform =
+                        "translateX(" + d * 7 + "%)" +
+                        " translateY(" + jauh * 18 + "px)" +
+                        " scale(" + (1 - jauh * 0.07) + ")" +
+                        " rotate(" + d * 1.5 + "deg)";
+                } else {
+                    // KIPAS: tetangganya didorong ke tepi dan dimiringkan,
+                    // supaya deretnya mengisi lebar panel.
+                    el.style.transform =
+                        "translateX(" + d * 64 + "%)" +
+                        " translateZ(" + jauh * -150 + "px)" +
+                        " rotateY(" + d * -30 + "deg)";
+                }
+                el.setAttribute("aria-hidden", d === 0 ? "false" : "true");
+            });
+
+            if (wadahTitik) {
+                Array.from(wadahTitik.children).forEach((t, i) => {
+                    t.setAttribute("aria-current", i === aktif ? "true" : "false");
+                });
+            }
+
+            if (wadahHitung) {
+                wadahHitung.textContent =
+                    "Foto " + duaAngka(aktif + 1) + " dari " + duaAngka(kartu.length);
+            }
+
+            if (wadahKeterangan) {
+                const ket = kartu[aktif].querySelector("figcaption");
+                wadahKeterangan.textContent = ket ? ket.textContent.trim() : "";
+            }
+
+            // Bloknya disembunyikan lewat atribut hidden di Blade dan baru
+            // dibuka di sini: tanpa JavaScript, blok berisi garis tegak dan
+            // label kosong hanya akan terbaca sebagai sisa yang lupa dibuang.
+            if (blokKeterangan) blokKeterangan.hidden = false;
+        };
+
+        const ke = (i) => {
+            aktif = (i + kartu.length) % kartu.length;
+            gambar();
+        };
+
+        // Titik navigasi dibuat di sini, bukan di Blade: jumlahnya selalu
+        // sama dengan jumlah kartu, dan tanpa JS titik itu tidak berguna.
+        if (wadahTitik) {
+            kartu.forEach((_, i) => {
+                const titik = document.createElement("button");
+                titik.type = "button";
+                titik.setAttribute("aria-label", "Foto ke-" + (i + 1));
+                titik.addEventListener("click", () => {
+                    ke(i);
+                    hidupkanUlang();
+                });
+                wadahTitik.appendChild(titik);
+            });
+        }
+
+        kartu.forEach((el, i) => {
+            el.addEventListener("click", () => {
+                ke(i);
+                hidupkanUlang();
+            });
+        });
+
+        bagian.querySelector("[data-korsel-maju]")?.addEventListener("click", () => {
+            ke(aktif + 1);
+            hidupkanUlang();
+        });
+        bagian.querySelector("[data-korsel-mundur]")?.addEventListener("click", () => {
+            ke(aktif - 1);
+            hidupkanUlang();
+        });
+
+        // Jalan sendiri hanya bila penggunanya tidak meminta gerak dikurangi,
+        // dan berhenti saat kursor berada di atasnya — galeri yang berganti
+        // tepat ketika seseorang sedang memperhatikan satu foto itu
+        // menyebalkan, bukan hidup.
+        function hidupkanUlang() {
+            if (pewaktu) clearInterval(pewaktu);
+            if (prefersReducedMotion || kartu.length < 2) return;
+            pewaktu = setInterval(() => {
+                if (!jeda && !document.hidden) ke(aktif + 1);
+            }, mode === "tumpuk" ? 6500 : 4200);
+        }
+
+        panggung.addEventListener("mouseenter", () => (jeda = true));
+        panggung.addEventListener("mouseleave", () => (jeda = false));
+
+        gambar();
+        hidupkanUlang();
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initReveal();
     initHeroParallax();
     initAnchorOffset();
+    initKorsel();
+    initPitaHalus();
 });
+
+// Livewire mengganti simpul DOM saat menggambar ulang; galeri yang baru
+// datang tanpa pengait apa pun. Penanda data-galeri-siap mencegah satu
+// panggung dipasangi dua kali.
+/* ==========================================================
+   PITA BERJALAN — rem halus saat kursor masuk
+   ==========================================================
+   Aturan CSS-nya memakai animation-play-state: paused, dan itu berhenti
+   seketika di tengah gerak: pitanya seperti tersentak. Di sini lajunya
+   direm bertahap memakai playbackRate animasi yang SAMA — bukan animasi
+   baru — jadi posisinya tidak pernah melompat, hanya kecepatannya yang
+   turun. Kalau peramban tidak punya updatePlaybackRate, fungsi ini
+   menyerah diam-diam dan rem mendadak CSS tetap bekerja. */
+function initPitaHalus() {
+    document.querySelectorAll(".marquee-wrap").forEach((wadah) => {
+        if (wadah.dataset.pitaSiap === "1") return;
+
+        const pita = wadah.querySelector(".marquee");
+        if (!pita || typeof pita.getAnimations !== "function") return;
+
+        const animasi = pita.getAnimations()[0];
+        if (!animasi || typeof animasi.updatePlaybackRate !== "function") return;
+
+        wadah.dataset.pitaSiap = "1";
+        wadah.classList.add("pita-halus");
+
+        // 0.12, bukan 0: pita yang benar-benar beku terasa seperti halaman
+        // yang menggantung. Merayap pelan tetap terbaca sebagai "menunggu".
+        const LAMBAT = 0.12;
+        let tujuan = 1;
+        let laju = 1;
+        let bingkai = null;
+
+        const langkah = () => {
+            laju += (tujuan - laju) * 0.12;
+            if (Math.abs(tujuan - laju) < 0.004) laju = tujuan;
+            animasi.updatePlaybackRate(laju);
+            bingkai = laju === tujuan ? null : requestAnimationFrame(langkah);
+        };
+
+        const menuju = (nilai) => {
+            tujuan = nilai;
+            if (bingkai === null) bingkai = requestAnimationFrame(langkah);
+        };
+
+        // pointerenter/leave, bukan mouseenter: ikut bekerja untuk pena
+        // digital, dan tidak ikut terpanggil oleh sentuhan layar.
+        wadah.addEventListener("pointerenter", () => menuju(LAMBAT));
+        wadah.addEventListener("pointerleave", () => menuju(1));
+        wadah.addEventListener("focusin", () => menuju(LAMBAT));
+        wadah.addEventListener("focusout", () => menuju(1));
+    });
+}
+
+document.addEventListener("livewire:navigated", initKorsel);
+document.addEventListener("livewire:navigated", initPitaHalus);
 
 /* ==========================================================
    5. GAMBAR ULANG SETELAH LIVEWIRE MENYEGARKAN HALAMAN

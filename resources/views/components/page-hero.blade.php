@@ -21,40 +21,108 @@
      memotong apa pun. Kelasnya ditulis lengkap di halaman pemanggil, bukan
      dirakit di sini — Tailwind membaca berkas sumber apa adanya, dan kelas
      yang dirangkai dari variabel tidak pernah ikut terbangun. --}}
-<section class="relative overflow-hidden bg-orcha-navy {{ $kelas }}">
-    {{-- JANGAN diberi loading="lazy".
+{{-- BENTUKNYA sama persis dengan hero beranda, memakai kelas yang sama
+     (.hero-kabin dan kawan-kawannya) — bukan tiruan yang kebetulan mirip.
+     Kalau bentuk itu diubah nanti, beranda dan 18 halaman ini ikut berubah
+     bersama.
 
-         Foto ini memenuhi layar pertama di setiap halaman yang memakainya, jadi
-         ia hampir selalu jadi elemen terbesar yang diukur LCP. Menandainya lazy
-         membuat peramban menundanya sampai tata letak selesai dihitung — halaman
-         justru terasa LEBIH lambat, kebalikan dari maksudnya. fetchpriority high
-         menaikkannya di antrean unduh, karena peramban tidak tahu sendiri bahwa
-         gambar berposisi absolut ini yang paling penting. --}}
-    <img src="{{ $gambarPenuh ?: asset($image) }}" alt=""
-        fetchpriority="high" decoding="async"
-        class="absolute inset-0 object-cover w-full h-full opacity-60"
-        style="object-position: {{ $posisi }};">
-    <div class="absolute inset-0 bg-gradient-to-br from-orcha-navy/85 via-orcha-navy/55 to-orcha-abyss/70"></div>
+     Yang berubah dari versi lama: dulu foto selebar layar diredam gelap
+     dengan tulisan putih di atasnya; sekarang latarnya krem, fotonya
+     menempati separuh kanan dengan tepi kiri dilebur topeng, dan tulisannya
+     gelap. --}}
+<section class="hero-kabin {{ $kelas }}">
+    <div class="hero-kabin-media">
+        {{-- JANGAN diberi loading="lazy".
 
-    <div class="relative container-orcha pt-32 pb-20 sm:pt-40 sm:pb-28">
-        <nav aria-label="Breadcrumb" class="mb-5 text-xs font-semibold tracking-wide text-slate-300">
-            <a href="{{ route('home') }}" class="transition hover:text-orcha-sky">Beranda</a>
-            <span class="mx-2 text-slate-500">/</span>
-            <span class="text-orcha-sun">{{ $title }}</span>
-        </nav>
-
-        @if ($eyebrow)
-            <p class="aksen-orcha">{{ $eyebrow }}</p>
-        @endif
-
-        <h1 class="title-orcha title-orcha-light {{ $eyebrow ? '-mt-1' : '' }}">{{ $title }}</h1>
-
-        @if ($subtitle)
-            <p class="max-w-2xl mt-4 text-slate-300 pengantar-orcha">{{ $subtitle }}</p>
-        @endif
+             Foto ini memenuhi layar pertama di setiap halaman yang memakainya,
+             jadi ia hampir selalu jadi elemen terbesar yang diukur LCP.
+             Menandainya lazy membuat peramban menundanya sampai tata letak
+             selesai dihitung — halaman justru terasa LEBIH lambat. --}}
+        <img src="{{ $gambarPenuh ?: asset($image) }}" alt=""
+            fetchpriority="high" decoding="async"
+            style="object-position: {{ $posisi }};">
     </div>
 
-    <svg class="wave-divider" viewBox="0 0 1440 120" preserveAspectRatio="none" fill="currentColor" aria-hidden="true">
-        <path d="M0,64 C180,110 360,20 540,36 C720,52 900,116 1080,104 C1200,96 1320,72 1440,44 L1440,120 L0,120 Z" />
-    </svg>
+        {{-- Kartu melayang di atas foto, memakai .hero-kabin-kartu — kartu
+             yang SAMA dengan hero beranda, lengkap dengan sisi tebal dan
+             miringnya. Di beranda isinya ajakan menjelajah; di halaman lain
+             isinya jalan pintas bertanya, karena orang yang membuka halaman
+             informasi biasanya sedang menimbang dan butuh bertanya.
+
+             Kelas itu sudah menyembunyikan dirinya sendiri di layar sempit —
+             di sana fotonya kecil dan kartunya menutupi isinya. --}}
+        <a href="https://api.whatsapp.com/send?phone={{ config('orcha.whatsapp') }}&text={{ rawurlencode('Halo Orcha Journey, saya ingin bertanya.') }}"
+            target="_blank" rel="noopener noreferrer"
+            class="hero-kabin-kartu kartu-tanya">
+            <span class="gelembung-ikon">
+                <x-bi-whatsapp class="w-5 h-5" />
+            </span>
+            <span class="block mt-4 text-sm text-[#9a9289]">Masih menimbang?</span>
+            <span class="block mt-0.5 text-[1.15rem] font-extrabold leading-[1.15] font-heading text-orcha-navy">
+                Tanya Dulu Saja
+            </span>
+            <span class="flex justify-end mt-3 text-orcha-navy">
+                <x-heroicon-o-arrow-right class="w-5 h-5 panah-blog" />
+            </span>
+        </a>
+
+    <div class="hero-kabin-tirai"></div>
+
+    <div class="relative container-orcha hero-kabin-isi">
+        <div class="max-w-xl">
+            <nav aria-label="Breadcrumb" class="mb-4 text-xs font-semibold tracking-wide text-slate-500">
+                <a href="{{ route('home') }}" class="transition hover:text-orcha-amber">Beranda</a>
+                <span class="mx-2 text-slate-400">/</span>
+                <span class="text-orcha-amber">{{ $title }}</span>
+            </nav>
+
+            @if ($eyebrow)
+                <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> {{ $eyebrow }}</p>
+            @endif
+
+            {{-- Ukuran, jarak huruf, dan pengaturan sumbu hurufnya disalin dari
+                 judul beranda; satu-satunya beda ukurannya sedikit lebih kecil,
+                 karena judul halaman ini pendek-pendek sementara judul beranda
+                 dua baris penuh. --}}
+            {{-- Kata TERAKHIR judul diberi warna emas, meniru "layak dikenang."
+                 di beranda. Judul satu warna penuh terbaca rata; satu kata
+                 berwarna memberi mata titik berhenti.
+
+                 Dipecah di PHP, bukan ditulis manual di tiap halaman: judulnya
+                 datang sebagai satu teks dari 18 pemanggil, dan menyuruh tiap
+                 halaman menandai sendiri kata terakhirnya hanya akan membuat
+                 sebagian lupa. --}}
+            @php
+                $kataJudul = preg_split('/\s+/', trim($title));
+                $kataAkhir = array_pop($kataJudul);
+                $awalJudul = implode(' ', $kataJudul);
+            @endphp
+            <h1 class="mt-3 font-heading font-extrabold text-orcha-navy leading-[1.04] tracking-[-0.018em]"
+                style="font-size: clamp(1.75rem, 4.2vw, 3rem); font-variation-settings: 'SOFT' 40, 'WONK' 1;">
+                {{ $awalJudul }}@if ($awalJudul) @endif<span class="sorot-kata">{{ $kataAkhir }}</span>
+            </h1>
+
+            @if ($subtitle)
+                <p class="max-w-lg mt-4 text-base leading-relaxed text-slate-600 sm:text-lg">{{ $subtitle }}</p>
+            @endif
+        </div>
+
+        {{-- Barisan jaminan yang SAMA PERSIS dengan hero beranda — isi, ikon,
+             dan kelasnya. Tanpa ini kepala halaman cuma berisi judul dan satu
+             kalimat, sementara separuh kanannya foto: bidang di bawah tulisan
+             menganga dan halaman terbaca kosong.
+
+             Berdiri DI LUAR kolom tulisan supaya ketiganya muat satu baris;
+             di dalam kolom selebar 36rem butir ketiga turun ke baris kedua. --}}
+        <div class="flex flex-wrap items-center max-w-3xl gap-x-8 gap-y-3 mt-9">
+            @foreach ([['paper-airplane', 'Destinasi pilihan'], ['user-group', 'Itinerary per rombongan'], ['shield-check', 'Berangkat tanpa repot']] as [$ikon, $teks])
+                <span class="flex items-center gap-2.5 text-sm text-slate-500">
+                    <span class="gelembung-ikon !w-9 !h-9 !rounded-xl">
+                        <x-dynamic-component :component="'heroicon-s-' . $ikon" class="w-4 h-4" />
+                    </span>
+                    {{ $teks }}
+                </span>
+            @endforeach
+        </div>
+    </div>
 </section>

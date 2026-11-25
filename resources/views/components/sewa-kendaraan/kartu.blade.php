@@ -5,10 +5,17 @@
 
     // Unit belum tentu punya foto. Daripada kotak kosong, tiap jenis dapat
     // latar gradasi sendiri supaya kartunya tetap terbaca dan tidak seragam.
+    // Ketiganya SATU keluarga warna (hijau tua), beda kepekatan saja.
+    //
+    // Sebelumnya 'mobil' memakai sky -> ocean dan 'hiace' memakai ocean -> sky.
+    // Dua nama itu peninggalan palet biru: sekarang sky bernilai #f59b57
+    // (jingga) dan ocean #4a5a52 (hijau zaitun), jadi gradasinya membentang dari
+    // jingga ke zaitun dan melewati cokelat kusam di tengah — itulah blok lumpur
+    // yang terlihat di kartu tanpa foto.
     $latar = match ($kendaraan->type) {
-        'bus' => 'from-orcha-navy to-orcha-ocean',
-        'hiace' => 'from-orcha-ocean to-orcha-sky',
-        default => 'from-orcha-sky to-orcha-ocean',
+        'bus' => 'from-orcha-navy to-orcha-abyss',
+        'hiace' => 'from-orcha-abyss to-orcha-ocean',
+        default => 'from-orcha-ocean to-orcha-abyss',
     };
 
     // Tarif selain harian. price_per_day selalu terisi (kolomnya wajib), jadi
@@ -49,7 +56,7 @@
              transmisi sudah disebut lagi di baris spesifikasi di bawah. --}}
         <div class="absolute inset-x-3 top-3 flex flex-wrap items-start justify-between gap-2">
             <span
-                class="px-3 py-1 text-xs font-bold tracking-wide uppercase rounded-full bg-white/90 text-orcha-ocean backdrop-blur">
+                class="px-3 py-1 text-xs font-bold tracking-wide uppercase rounded-full bg-white/90 text-orcha-amber backdrop-blur">
                 {{ $kendaraan->type_label }}
             </span>
 
@@ -64,7 +71,11 @@
         </div>
     </div>
 
-    <div class="flex flex-col flex-1 p-5 sm:p-6">
+    {{-- Panel berbahu yang menumpang tepi bawah foto — bentuk yang sama dengan
+         kartu destinasi dan kartu paket, supaya ketiga jenis kartu di beranda
+         terbaca sebagai satu keluarga. z-10 wajib: tanpa itu panelnya digambar
+         di bawah foto karena foto lebih dulu dalam urutan DOM. --}}
+    <div class="relative z-10 flex flex-col flex-1 p-5 -mt-5 sm:p-6 kartu-paket-isi">
         <h3 class="text-lg font-bold leading-snug font-heading text-orcha-navy">
             {{ $kendaraan->name }}
             @if ($kendaraan->varian)
@@ -88,7 +99,19 @@
 
              Penumpang di kiri, transmisi di kanan: tepi kanannya lurus dengan
              angka harga di bawahnya. --}}
-        <div class="flex flex-wrap justify-between py-3 my-auto text-sm gap-x-4 gap-y-1 text-slate-600">
+        {{-- DUA LAJUR TETAP, bukan baris lentur.
+
+             Dengan justify-between, letak keduanya berubah-ubah mengikuti panjang
+             tulisannya: "5 penumpang · Matic" muat satu baris lalu terlempar ke
+             dua tepi, sedangkan "7 penumpang · Manual & Matic" tidak muat lalu
+             menumpuk dua baris. Empat kartu bersebelahan jadi punya empat tata
+             letak berbeda. Titik pemisah pun dicoba dan gagal: begitu barisnya
+             patah, titiknya menggantung sendirian di ujung baris pertama.
+
+             Pada kisi dua lajur, penumpang SELALU di lajur kiri dan transmisi
+             SELALU di lajur kanan, berapa pun panjang tulisannya. 0,8rem supaya
+             "Manual & Matic" muat satu baris di lajur selebar ±116px. --}}
+        <div class="grid grid-cols-2 py-3 my-auto text-[0.8rem] gap-x-2 gap-y-1 text-slate-600">
             <span class="inline-flex items-center gap-1.5">
                 <x-heroicon-o-user-group class="w-4 h-4 shrink-0 text-orcha-sun" />
                 {{-- capacity berisi kursi PENUMPANG, jadi inilah angka yang boleh
@@ -114,12 +137,19 @@
             {{-- Tarif harian dijadikan angka utama. Sebelumnya ketiga satuan
                  ditulis sederajat sebagai daftar, sehingga mata tidak menemukan
                  harga mana yang harus dibaca lebih dulu. --}}
-            <div class="flex items-baseline justify-between gap-2">
-                <span class="text-xs font-semibold tracking-wide uppercase text-slate-500">Per hari (24 jam)</span>
-                <span class="text-2xl font-black leading-none font-heading text-orcha-navy tabular">
-                    {{ $rupiah($kendaraan->price_per_day) }}
-                </span>
-            </div>
+            {{-- Label DI ATAS angkanya, bukan di sampingnya.
+
+                 Berdampingan, keduanya berebut lebar kotak yang di kisi empat
+                 lajur cuma ±210px: labelnya patah jadi "PER HARI (24" / "JAM)"
+                 dan angkanya patah jadi "Rp" / "250.000". Ditumpuk, keduanya utuh
+                 dan angkanya boleh dibesarkan.
+
+                 whitespace-nowrap pada angka: "Rp 250.000" tidak pernah boleh
+                 patah di antara "Rp" dan nominalnya. --}}
+            <p class="text-[0.68rem] font-semibold tracking-wide uppercase text-slate-500">Per hari (24 jam)</p>
+            <p class="mt-0.5 text-2xl font-black leading-none whitespace-nowrap font-heading text-orcha-navy tabular">
+                {{ $rupiah($kendaraan->price_per_day) }}
+            </p>
 
             @if ($tarifLain->isNotEmpty() || $kendaraan->punya_tarif_luar_kota)
                 <div class="pt-2.5 mt-2.5 space-y-1.5 border-t border-white">

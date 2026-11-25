@@ -2,6 +2,7 @@
 
 namespace App\Models\OpenTrip;
 
+use App\Models\PaketWisata\Keberangkatan;
 use App\Models\PaketWisata\TravelPackage;
 use App\Support\KodePesanan;
 use App\Support\RincianBiaya;
@@ -244,7 +245,7 @@ class PendaftaranOpenTrip extends Model
      */
     public function keberangkatan(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\PaketWisata\Keberangkatan::class, 'keberangkatan_id');
+        return $this->belongsTo(Keberangkatan::class, 'keberangkatan_id');
     }
 
     /**

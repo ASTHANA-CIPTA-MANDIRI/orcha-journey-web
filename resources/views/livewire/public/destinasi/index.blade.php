@@ -91,26 +91,24 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
         subtitle="Dari Pulau Weh sampai Raja Ampat. Tempat-tempat yang paling sering diminta pelanggan kami, lengkap dengan jumlah pengunjung yang sudah kami antar."
         image="images/HERO/destinasi.webp" />
 
-    <section class="bg-white section-orcha">
-        <div class="container-orcha">
+    {{-- rak-panel: panel pertama NAIK MENINDIH kepala halaman, sama seperti
+         beranda, Tentang Kami, Paket Wisata, dan Sewa Kendaraan. --}}
+    <div class="container-orcha rak-panel pb-6 space-y-4 sm:space-y-5">
 
+        <section class="panel-orcha">
             {{-- Ringkasan + pencarian --}}
             <div class="flex flex-col gap-5 mb-8 lg:flex-row lg:items-center lg:justify-between">
+                {{-- Angka dulu ANGKA DI BAWAH LABEL dengan huruf label sebesar
+                     11px; yang pertama terbaca justru labelnya, padahal angkanya
+                     yang jadi isi. Sekarang angkanya di atas dan berwarna emas,
+                     labelnya di bawah — urutan baca mengikuti urutan penting. --}}
                 <div class="flex flex-wrap gap-3">
-                    <div class="px-5 py-3 rounded-2xl bg-orcha-foam/70">
-                        <p class="text-xs font-semibold tracking-wider uppercase text-slate-500">Destinasi</p>
-                        <p class="text-xl font-black font-heading text-orcha-navy">{{ $total }}</p>
-                    </div>
-                    <div class="px-5 py-3 rounded-2xl bg-orcha-foam/70">
-                        <p class="text-xs font-semibold tracking-wider uppercase text-slate-500">Provinsi</p>
-                        <p class="text-xl font-black font-heading text-orcha-navy">{{ $totalProvinsi }}</p>
-                    </div>
-                    <div class="px-5 py-3 rounded-2xl bg-orcha-foam/70">
-                        <p class="text-xs font-semibold tracking-wider uppercase text-slate-500">Total pengunjung
-                            diantar</p>
-                        <p class="text-xl font-black font-heading text-orcha-navy">
-                            {{ shortNumber($totalPengunjung) }}</p>
-                    </div>
+                    @foreach ([[$total, 'Destinasi'], [$totalProvinsi, 'Provinsi'], [shortNumber($totalPengunjung), 'Pengunjung diantar']] as [$angka, $labelAngka])
+                        <div class="px-5 py-3 border rounded-2xl border-orcha-foam bg-orcha-foam/60">
+                            <p class="text-2xl font-black leading-none font-heading text-orcha-amber">{{ $angka }}</p>
+                            <p class="mt-1.5 text-xs font-semibold tracking-wider uppercase text-slate-500">{{ $labelAngka }}</p>
+                        </div>
+                    @endforeach
                 </div>
 
                 <label class="relative w-full lg:max-w-sm">
@@ -119,7 +117,7 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                         class="absolute w-5 h-5 -translate-y-1/2 left-4 top-1/2 text-slate-400" />
                     <input type="search" wire:model.live.debounce.400ms="search"
                         placeholder="Cari nama destinasi atau provinsi..."
-                        class="w-full py-3 pr-4 text-sm bg-white border pl-11 rounded-2xl border-orcha-foam focus:border-orcha-sky focus:outline-none focus:ring-2 focus:ring-orcha-sky/25">
+                        class="w-full py-3 pr-4 text-sm bg-white border pl-11 rounded-2xl border-orcha-foam focus:border-orcha-sun focus:outline-none focus:ring-2 focus:ring-orcha-sun/30">
                 </label>
             </div>
 
@@ -154,8 +152,16 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                     @foreach ($destinations as $dest)
                         <article class="flex flex-col overflow-hidden card-orcha group">
             <div class="relative overflow-hidden aspect-[4/3]">
+                                {{-- onerror: BERKAS fotonya bisa hilang walau kolomnya
+                                     terisi — dan yang muncul ikon rusak bawaan
+                                     peramban di tengah kartu. `?:` di atas hanya
+                                     menangkap kolom yang KOSONG, bukan berkas yang
+                                     sudah tidak ada. Di sini fotonya diganti foto
+                                     cadangan, dan penangannya dilepas supaya tidak
+                                     berputar kalau cadangannya pun gagal. --}}
                                 <img src="{{ $dest->main_photo ?: asset('images/pantai-senja.webp') }}"
                                     alt="{{ $dest->destination_name }}" loading="lazy"
+                                    onerror="this.onerror=null; this.src='{{ asset('images/pantai-senja.webp') }}';"
                                     class="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110">
                                 <div
                                     class="absolute inset-0 bg-gradient-to-t from-orcha-navy/85 via-orcha-navy/10 to-transparent">
@@ -236,6 +242,12 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                         <div class="flex gap-2">
                                             @foreach (array_slice($dest->others_photo, 0, 4) as $thumb)
                                                 <img src="{{ $thumb }}" alt="" loading="lazy"
+                                                    {{-- Ubin foto yang berkasnya hilang MENYINGKIR,
+                                                         bukan diganti cadangan: deretan ini
+                                                         pratinjau galeri, dan menampilkan foto
+                                                         senja yang sama berkali-kali justru
+                                                         membohongi isinya. --}}
+                                                    onerror="this.remove();"
                                                     class="object-cover w-12 h-12 rounded-xl ring-1 ring-orcha-foam">
                                             @endforeach
                                         </div>
@@ -254,7 +266,7 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                      — pertanyaan yang jawabannya sudah ada di sini. --}}
                                 <div class="flex gap-2">
                                     <button type="button" wire:click="buka({{ $dest->id }})"
-                                        class="flex-1 btn-orcha btn-orcha-primary !py-2.5 !text-sm">
+                                        class="flex-1 btn-orcha btn-orcha-sun !py-2.5 !text-sm">
                                         <x-heroicon-o-photo class="w-4 h-4" />
                                         Lihat Detail
                                     </button>
@@ -277,21 +289,23 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                 </div>
             @endif
 
-            <div
-                class="flex flex-col items-center gap-4 p-8 mt-12 text-center sm:flex-row sm:text-left sm:justify-between rounded-3xl bg-orcha-foam/70">
+        </section>
+
+        <section class="panel-orcha panel-orcha-krem">
+            <div class="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left sm:justify-between">
                 <div>
                     <p class="text-lg font-bold font-heading text-orcha-navy">Punya destinasi impian sendiri?</p>
                     <p class="mt-1 text-sm text-slate-600">Sebutkan tempatnya — kami susun rute, armada, dan biayanya
                         untuk Anda.</p>
                 </div>
                 <a href="{{ $wa('Halo Orcha Journey, saya ingin membuat perjalanan ke destinasi pilihan saya.') }}"
-                    target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-primary">
+                    target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-sun">
                     <x-bi-whatsapp class="w-5 h-5" />
                     Rencanakan Sekarang
                 </a>
             </div>
-        </div>
-    </section>
+        </section>
+    </div>
 
     {{-- Jendela detail destinasi.
 
