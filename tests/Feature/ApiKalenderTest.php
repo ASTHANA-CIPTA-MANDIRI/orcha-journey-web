@@ -3,6 +3,7 @@
 use App\Models\OpenTrip\PendaftaranOpenTrip;
 use App\Models\PaketWisata\Keberangkatan;
 use App\Models\PaketWisata\TravelPackage;
+use App\Models\Rab\Rab;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 
 /**
@@ -228,9 +229,9 @@ test('tanpa kunci API jalurnya tertutup', function () {
 
 /* ----------------------------------------------- RAB yang sudah deal */
 
-function rabKalender(array $isi = []): \App\Models\Rab\Rab
+function rabKalender(array $isi = []): Rab
 {
-    return \App\Models\Rab\Rab::create(array_merge([
+    return Rab::create(array_merge([
         'judul' => 'Private Trip Dieng 2H1M',
         'nama_pelanggan' => 'Bu Sari',
         'jenis' => 'private',
@@ -306,4 +307,128 @@ test('trip yang sudah selesai tetap mengisi tanggalnya', function () {
     rabKalender(['status' => 'selesai']);
 
     expect(mintaKalender()->assertOk()->json('data'))->toHaveCount(1);
+});
+
+/* ------------------------------------ Jadwal yang sedang dijual di katalog */
+
+/*
+ | Sumber keempat: tanggal yang sudah dibuka untuk dijual, belum deal, dan
+ | belum ada yang bayar.
+ |
+ | Tiga sumber lain semuanya komitmen, sehingga tanggal yang open trip-nya
+ | sudah tayang untuk umum terlihat KOSONG — dan private trip lalu ditawarkan
+ | di tanggal yang armadanya sudah dialokasikan. Yang dijaga di sini dua hal:
+ | ia muncul dengan sumber sendiri (supaya bisa digambar berbeda), dan ia
+ | TIDAK muncul dua kali bersama sumber lain.
+ */
+function jualKalender(array $isi = [], ?TravelPackage $paket = null): Keberangkatan
+{
+    $paket = $paket ?: paketKalender('open_trip');
+
+    return Keberangkatan::create(array_merge([
+        'travel_package_id' => $paket->id,
+        'tanggal_berangkat' => '2026-12-05',
+        'tanggal_pulang' => '2026-12-06',
+        'kuota' => 20,
+        'aktif' => true,
+    ], $isi))->fresh();
+}
+
+test('tanggal yang sedang dijual muncul dengan sumber sendiri', function () {
+    jualKalender();
+
+    $isi = mintaKalender()->assertOk()->json('data');
+
+    expect($isi)->toHaveCount(1)
+        ->and($isi[0]['sumber'])->toBe('katalog')
+        ->and($isi[0]['status'])->toBe('dijual')
+        ->and($isi[0]['status_label'])->toBe('Dijual — belum ada pendaftar')
+        // Belum ada yang memesannya, jadi tidak boleh mengaku punya kode.
+        ->and($isi[0]['kode'])->toBeNull()
+        ->and($isi[0]['mulai'])->toBe('2026-12-05')
+        ->and($isi[0]['selesai'])->toBe('2026-12-06');
+});
+
+test('pendaftar yang belum bayar disebutkan jumlahnya, bukan disembunyikan', function () {
+    $paket = paketKalender('open_trip');
+    $kb = jualKalender([], $paket);
+
+    // 'baru' = belum bayar. Tanggalnya belum terkunci, tetapi ada yang antre.
+    daftarkanKalender([
+        'paket' => $paket, 'keberangkatan_id' => $kb->id,
+        'tanggal_berangkat' => '2026-12-05', 'status' => 'baru',
+    ]);
+
+    $isi = mintaKalender()->assertOk()->json('data');
+
+    expect($isi)->toHaveCount(1)
+        ->and($isi[0]['sumber'])->toBe('katalog')
+        ->and($isi[0]['jumlah_peserta'])->toBe(1)
+        ->and($isi[0]['status_label'])->toBe('Dijual — 1 pendaftar belum bayar');
+});
+
+test('tanggal yang sudah ada pendaftar berbayar TIDAK terhitung dua kali', function () {
+    $paket = paketKalender('open_trip');
+    $kb = jualKalender([], $paket);
+
+    daftarkanKalender([
+        'paket' => $paket, 'keberangkatan_id' => $kb->id,
+        'tanggal_berangkat' => '2026-12-05', 'status' => 'dp_masuk',
+    ]);
+
+    $isi = mintaKalender()->assertOk()->json('data');
+
+    // Hanya satu baris, dan yang menang sumber 'pendaftaran' — komitmen
+    // mengalahkan rencana.
+    expect($isi)->toHaveCount(1)
+        ->and($isi[0]['sumber'])->toBe('pendaftaran');
+});
+
+test('tanggal yang sudah diwakili RAB disetujui TIDAK terhitung dua kali', function () {
+    $paket = paketKalender('open_trip');
+    jualKalender([], $paket);
+
+    rabKalender([
+        'jenis' => 'open',
+        'tanggal_mulai' => '2026-12-05',
+        'jumlah_hari' => 2,
+        'travel_package_id' => $paket->id,
+        'status' => 'disetujui',
+    ]);
+
+    $isi = mintaKalender()->assertOk()->json('data');
+
+    expect($isi)->toHaveCount(1)
+        ->and($isi[0]['sumber'])->toBe('rab');
+});
+
+test('RAB untuk paket LAIN di tanggal sama tidak ikut menyembunyikan jadwal jualan', function () {
+    $paket = paketKalender('open_trip');
+    jualKalender([], $paket);
+
+    // Paket berbeda, tanggal sama: dua rombongan yang benar-benar berbeda.
+    rabKalender([
+        'jenis' => 'open',
+        'tanggal_mulai' => '2026-12-05',
+        'jumlah_hari' => 1,
+        'travel_package_id' => paketKalender('open_trip')->id,
+        'status' => 'disetujui',
+    ]);
+
+    $isi = collect(mintaKalender()->assertOk()->json('data'));
+
+    expect($isi)->toHaveCount(2)
+        ->and($isi->pluck('sumber')->sort()->values()->all())->toBe(['katalog', 'rab']);
+});
+
+test('keberangkatan yang ditutup dan paket yang belum terbit tidak dijual', function () {
+    jualKalender(['aktif' => false]);
+
+    $draf = TravelPackage::create([
+        'name' => 'Open Trip Draf', 'category' => 'open_trip',
+        'price' => 500000, 'status' => 'draf',
+    ]);
+    jualKalender(['tanggal_berangkat' => '2026-12-07', 'tanggal_pulang' => '2026-12-07'], $draf);
+
+    expect(mintaKalender()->assertOk()->json('data'))->toBe([]);
 });

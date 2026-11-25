@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Umum;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Models\OpenTrip\PendaftaranOpenTrip;
+use App\Models\PaketWisata\Keberangkatan;
 use App\Models\Rab\Rab;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use Illuminate\Http\JsonResponse;
@@ -86,6 +87,7 @@ class KalenderController extends ApiController
         $agenda = $this->keberangkatan($dari, $sampai)
             ->concat($this->rabDeal($dari, $sampai))
             ->concat($this->penyewaan($dari, $sampai))
+            ->concat($this->katalog($dari, $sampai))
             ->sortBy(['mulai', 'judul'])
             ->values()
             ->all();
@@ -231,6 +233,119 @@ class KalenderController extends ApiController
             })
             // values(): filter() meninggalkan kunci berlubang, dan concat()
             // pada koleksi berkunci menghasilkan urutan yang tidak terduga.
+            ->values();
+    }
+
+    /**
+     * Jadwal yang sedang DIJUAL di katalog — belum deal, belum ada yang bayar.
+     *
+     * Tiga sumber di atas semuanya komitmen: uang sudah masuk, atau pelanggan
+     * sudah setuju. Akibatnya tanggal yang open trip-nya sudah dibuka untuk
+     * umum terlihat KOSONG di kalender, dan private trip ditawarkan di
+     * tanggal yang armadanya sebenarnya sudah dialokasikan.
+     *
+     * Dipulangkan dengan sumber sendiri supaya lemon bisa menggambarnya samar
+     * dan berbeda: ini rencana, bukan komitmen, dan kalender yang menyamakan
+     * keduanya berhenti bisa dipakai memutuskan.
+     *
+     * Yang DIBUANG supaya tidak terhitung dua kali:
+     * - keberangkatan yang sudah punya pendaftar berbayar (sudah muncul lewat
+     *   sumber 'pendaftaran'),
+     * - keberangkatan yang tanggal dan paketnya sama persis dengan RAB yang
+     *   sudah disetujui (sudah muncul lewat sumber 'rab'). Dicocokkan lewat
+     *   travel_package_id DAN tanggal, bukan ditebak dari namanya.
+     */
+    private function katalog(Carbon $dari, Carbon $sampai)
+    {
+        /*
+         | Pasangan paket+tanggal yang sudah diwakili RAB disetujui.
+         |
+         | Dikumpulkan sekali di depan, bukan ditanyakan per baris: satu bulan
+         | bisa berisi puluhan keberangkatan, dan kueri di dalam map() adalah
+         | cara paling mudah membuat halaman kalender memanggil basis data
+         | seratus kali tanpa ada yang menyadarinya.
+         */
+        $sudahDiwakiliRab = Rab::query()
+            ->whereIn('status', self::STATUS_RAB)
+            ->whereNotNull('travel_package_id')
+            ->whereDate('tanggal_mulai', '<=', $sampai)
+            ->whereDate('tanggal_mulai', '>=', $dari->copy()->subDays(30))
+            ->get(['travel_package_id', 'tanggal_mulai'])
+            ->map(fn (Rab $r) => $r->travel_package_id.'|'.$r->tanggal_mulai->toDateString())
+            ->flip();
+
+        return Keberangkatan::query()
+            ->with(['paket:id,name,category,status'])
+            ->where('aktif', true)
+            ->whereDate('tanggal_berangkat', '<=', $sampai)
+            ->where(function ($q) use ($dari) {
+                $q->whereDate('tanggal_pulang', '>=', $dari)
+                    ->orWhere(fn ($w) => $w->whereNull('tanggal_pulang')
+                        ->whereDate('tanggal_berangkat', '>=', $dari));
+            })
+            // Jumlah pendaftar dihitung lewat withCount, bukan ditanyakan
+            // ulang per baris.
+            ->withCount([
+                'pendaftaran as pendaftar_semua',
+                'pendaftaran as pendaftar_bayar' => fn ($q) => $q->whereIn('status', self::STATUS_PENDAFTARAN),
+            ])
+            ->get()
+            ->filter(function (Keberangkatan $k) use ($sudahDiwakiliRab) {
+                // Paket yang belum terbit bukan "sedang dijual".
+                if (($k->paket?->status ?? null) !== 'terbit') {
+                    return false;
+                }
+
+                if ((int) $k->pendaftar_bayar > 0) {
+                    return false;
+                }
+
+                return ! $sudahDiwakiliRab->has(
+                    $k->travel_package_id.'|'.$k->tanggal_berangkat->toDateString()
+                );
+            })
+            ->map(function (Keberangkatan $k) {
+                $kategori = $k->paket?->category;
+                $pulang = $k->tanggal_pulang;
+                $menunggu = (int) $k->pendaftar_semua;
+
+                return [
+                    'sumber' => 'katalog',
+                    'kategori' => $kategori,
+                    'kategori_label' => config('orcha.kategori_paket')[$kategori] ?? 'Perjalanan',
+                    'id' => $k->id,
+                    // Keberangkatan katalog tidak punya kode pesanan — belum
+                    // ada yang memesannya.
+                    'kode' => null,
+                    'judul' => $k->paket?->name ?: 'Keberangkatan',
+                    'mulai' => $k->tanggal_berangkat->toDateString(),
+                    'selesai' => $pulang && $pulang->gte($k->tanggal_berangkat)
+                        ? $pulang->toDateString()
+                        : null,
+                    'pemesan' => null,
+                    /*
+                     | Jumlah pendaftar yang BELUM bayar, bukan kuota.
+                     |
+                     | Nol berarti benar-benar belum ada yang mendaftar;
+                     | di atas nol berarti ada yang antre tetapi uangnya belum
+                     | masuk — dua keadaan yang jauh berbeda artinya bagi yang
+                     | memutuskan apakah tanggal ini masih bebas.
+                     */
+                    'jumlah_peserta' => $menunggu ?: null,
+                    'titik_jemput' => null,
+                    'tujuan' => null,
+                    'kuota' => $k->kuota,
+                    // Supaya lemon bisa menaut ke borang paketnya. 'id' di
+                    // atas id KEBERANGKATAN, dan rute paket di lemon menerima
+                    // id paket — menautkannya dengan id yang salah akan
+                    // membuka paket milik orang lain.
+                    'paket_id' => (int) $k->travel_package_id,
+                    'status' => 'dijual',
+                    'status_label' => $menunggu > 0
+                        ? 'Dijual — '.$menunggu.' pendaftar belum bayar'
+                        : 'Dijual — belum ada pendaftar',
+                ];
+            })
             ->values();
     }
 
