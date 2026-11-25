@@ -10,6 +10,7 @@ use App\Models\SewaKendaraan\PenyewaanKendaraan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Agenda Orcha untuk kalender kegiatan di lemon.
@@ -278,6 +279,42 @@ class KalenderController extends ApiController
      *   sudah disetujui (sudah muncul lewat sumber 'rab'). Dicocokkan lewat
      *   travel_package_id DAN tanggal, bukan ditebak dari namanya.
      */
+    /**
+     * Rentang tanggal tiap RAB open trip yang disetujui, dikelompokkan per paket.
+     *
+     * Dipakai dua arah: menyatukan RAB dengan keberangkatan yang sebenarnya
+     * trip yang sama, dan melebarkan rentang keberangkatan itu ke rentang
+     * armada yang sesungguhnya.
+     *
+     * @return Collection<int, Collection<int, array<string, mixed>>>
+     */
+    private function rentangRabOpen(Carbon $dari, Carbon $sampai)
+    {
+        return Rab::query()
+            ->whereIn('status', self::STATUS_RAB)
+            ->where('jenis', 'open')
+            ->whereNull('kode_pendaftaran')
+            ->whereNotNull('tanggal_mulai')
+            ->whereNotNull('travel_package_id')
+            ->whereDate('tanggal_mulai', '<=', $sampai)
+            ->whereDate('tanggal_mulai', '>=', $dari->copy()->subDays(30))
+            ->get()
+            ->map(fn (Rab $r) => [
+                'paket' => (int) $r->travel_package_id,
+                'kode' => $r->kode,
+                'mulai' => $r->tanggal_mulai->copy()->startOfDay(),
+                'selesai' => $r->tanggal_mulai->copy()
+                    ->addDays(max(1, (int) $r->jumlah_hari) - 1)->startOfDay(),
+            ])
+            ->groupBy('paket');
+    }
+
+    /** Dua rentang hari bersinggungan — dipakai menyatukan trip yang sama. */
+    private function bersinggungan(Carbon $aMulai, Carbon $aSelesai, Carbon $bMulai, Carbon $bSelesai): bool
+    {
+        return $aMulai->lte($bSelesai) && $aSelesai->gte($bMulai);
+    }
+
     private function katalog(Carbon $dari, Carbon $sampai)
     {
         /*
@@ -288,6 +325,8 @@ class KalenderController extends ApiController
          | cara paling mudah membuat halaman kalender memanggil basis data
          | seratus kali tanpa ada yang menyadarinya.
          */
+        $rentangRab = $this->rentangRabOpen($dari, $sampai);
+
         $sudahDiwakiliRab = Rab::query()
             ->whereIn('status', self::STATUS_RAB)
             // Hanya RAB yang tampil sebagai "deal" yang boleh menutupi baris
@@ -332,10 +371,43 @@ class KalenderController extends ApiController
                     $k->travel_package_id.'|'.$k->tanggal_berangkat->toDateString()
                 );
             })
-            ->map(function (Keberangkatan $k) {
+            ->map(function (Keberangkatan $k) use ($rentangRab) {
                 $kategori = $k->paket?->category;
                 $pulang = $k->tanggal_pulang;
                 $menunggu = (int) $k->pendaftar_semua;
+
+                $mulai = $k->tanggal_berangkat->copy()->startOfDay();
+                $selesai = $pulang && $pulang->gte($k->tanggal_berangkat)
+                    ? $pulang->copy()->startOfDay()
+                    : $mulai->copy();
+
+                /*
+                 | Rentangnya DILEBARKAN oleh RAB yang bersinggungan.
+                 |
+                 | Trip bisa berangkat jam 23.00 malam sebelumnya tanpa
+                 | menginap: RAB-nya mencatat 12-13 Desember karena armadanya
+                 | memang sudah keluar sejak malam, sedangkan keberangkatan
+                 | katalog menjual "13 Desember" — hari jalannya, yang itulah
+                 | yang dicari pelanggan.
+                 |
+                 | Keduanya benar, dan keduanya satu trip. Tanpa penyatuan ini
+                 | ia terhitung DUA kali di tanggal 13, dan malam tanggal 12
+                 | hilang dari kalender justru saat armadanya sudah di jalan.
+                 |
+                 | Tidak ada kolom jam berangkat di keberangkatan, jadi RAB-lah
+                 | satu-satunya tempat kenyataan itu tercatat.
+                 */
+                $kodeRab = null;
+
+                foreach ($rentangRab->get((int) $k->travel_package_id, collect()) as $r) {
+                    if (! $this->bersinggungan($mulai, $selesai, $r['mulai'], $r['selesai'])) {
+                        continue;
+                    }
+
+                    $mulai = $mulai->min($r['mulai']);
+                    $selesai = $selesai->max($r['selesai']);
+                    $kodeRab = $r['kode'];
+                }
 
                 return [
                     'sumber' => 'katalog',
@@ -346,10 +418,14 @@ class KalenderController extends ApiController
                     // ada yang memesannya.
                     'kode' => null,
                     'judul' => $k->paket?->name ?: 'Keberangkatan',
-                    'mulai' => $k->tanggal_berangkat->toDateString(),
-                    'selesai' => $pulang && $pulang->gte($k->tanggal_berangkat)
-                        ? $pulang->toDateString()
-                        : null,
+                    'mulai' => $mulai->toDateString(),
+                    // null berarti sehari — jangan kirim tanggal yang sama
+                    // dua kali, layar menggambarnya sebagai rentang palsu.
+                    'selesai' => $selesai->gt($mulai) ? $selesai->toDateString() : null,
+                    // RAB yang menyumbang rentangnya, supaya admin bisa
+                    // menelusuri kenapa tanggalnya lebih lebar daripada yang
+                    // tertulis di borang paket.
+                    'rab' => $kodeRab,
                     'pemesan' => null,
                     /*
                      | Jumlah pendaftar yang BELUM bayar, bukan kuota.
@@ -400,12 +476,22 @@ class KalenderController extends ApiController
          | sumber 'pendaftaran', kalau tidak ia muncul lewat 'katalog'. Dua-
          | duanya sudah mewakili tanggal itu, dan RAB-nya tidak perlu ikut.
          */
-        $sudahPunyaTanggalJualan = Keberangkatan::query()
+        $rentangJualan = Keberangkatan::query()
             ->whereDate('tanggal_berangkat', '<=', $sampai)
             ->whereDate('tanggal_berangkat', '>=', $dari->copy()->subDays(30))
-            ->get(['travel_package_id', 'tanggal_berangkat'])
-            ->map(fn (Keberangkatan $k) => $k->travel_package_id.'|'.$k->tanggal_berangkat->toDateString())
-            ->flip();
+            ->get(['travel_package_id', 'tanggal_berangkat', 'tanggal_pulang'])
+            ->map(function (Keberangkatan $k) {
+                $mulai = $k->tanggal_berangkat->copy()->startOfDay();
+
+                return [
+                    'paket' => (int) $k->travel_package_id,
+                    'mulai' => $mulai,
+                    'selesai' => $k->tanggal_pulang && $k->tanggal_pulang->gte($k->tanggal_berangkat)
+                        ? $k->tanggal_pulang->copy()->startOfDay()
+                        : $mulai->copy(),
+                ];
+            })
+            ->groupBy('paket');
 
         return Rab::query()
             ->whereIn('status', self::STATUS_RAB)
@@ -415,16 +501,34 @@ class KalenderController extends ApiController
             ->whereDate('tanggal_mulai', '<=', $sampai)
             ->whereDate('tanggal_mulai', '>=', $dari->copy()->subDays(30))
             ->get()
-            ->filter(function (Rab $r) use ($dari, $sudahPunyaTanggalJualan) {
+            ->filter(function (Rab $r) use ($dari, $rentangJualan) {
                 $hari = max(1, (int) $r->jumlah_hari);
 
                 if (! $r->tanggal_mulai->copy()->addDays($hari - 1)->gte($dari->copy()->startOfDay())) {
                     return false;
                 }
 
-                return ! $sudahPunyaTanggalJualan->has(
-                    $r->travel_package_id.'|'.$r->tanggal_mulai->toDateString()
-                );
+                /*
+                 | BERSINGGUNGAN, bukan tanggal yang sama persis.
+                 |
+                 | Trip yang berangkat jam 23.00 malam sebelumnya tercatat
+                 | 12-13 Desember di RAB tetapi dijual sebagai "13 Desember".
+                 | Mencocokkan tanggal persis membuat keduanya lolos sebagai
+                 | dua baris — satu trip terhitung dua kali.
+                 |
+                 | Yang bersinggungan dibuang dari sini; baris katalognya yang
+                 | melebar untuk menutup rentang armada yang sesungguhnya.
+                 */
+                $mulai = $r->tanggal_mulai->copy()->startOfDay();
+                $selesai = $r->tanggal_mulai->copy()->addDays($hari - 1)->startOfDay();
+
+                foreach ($rentangJualan->get((int) $r->travel_package_id, collect()) as $k) {
+                    if ($this->bersinggungan($mulai, $selesai, $k['mulai'], $k['selesai'])) {
+                        return false;
+                    }
+                }
+
+                return true;
             })
             ->map(function (Rab $r) {
                 $hari = max(1, (int) $r->jumlah_hari);

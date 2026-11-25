@@ -553,3 +553,83 @@ test('RAB open trip yang tanggalnya sudah ada pendaftar berbayar tidak ikut lagi
     expect($isi)->toHaveCount(1)
         ->and($isi[0]['sumber'])->toBe('pendaftaran');
 });
+
+/* ------------------------------ Trip yang berangkat malam sebelumnya */
+
+/*
+ | Satu trip, dua tanggal berbeda — dan keduanya benar.
+ |
+ | Open Trip Dieng berangkat jam 23.00 tanggal 12 dan pulang sore tanggal 13,
+ | TANPA menginap. RAB-nya mencatat 12-13 Desember karena armadanya memang
+ | sudah keluar sejak malam; keberangkatan katalognya menjual "13 Desember",
+ | hari jalannya, yang itulah yang dicari pelanggan.
+ |
+ | Dulu pencocokan memakai tanggal yang SAMA PERSIS, jadi 12 != 13 lolos
+ | sebagai dua baris: satu trip terhitung dua kali di tanggal 13, dan malam
+ | tanggal 12 hilang dari kalender justru saat armadanya sudah di jalan.
+ */
+test('trip yang berangkat malam sebelumnya tidak terhitung dua kali', function () {
+    $paket = paketKalender('open_trip');
+
+    // Dijual sebagai "13 Desember", sehari, tanpa tanggal pulang.
+    jualKalender(['tanggal_berangkat' => '2026-12-13', 'tanggal_pulang' => null], $paket);
+
+    // RAB mencatat kenyataannya: berangkat 12 malam, dua hari di kalender.
+    $rab = rabKalender([
+        'jenis' => 'open',
+        'nama_pelanggan' => 'Umum',
+        'judul' => 'Open Trip Dieng 1 Hari',
+        'tanggal_mulai' => '2026-12-12',
+        'jumlah_hari' => 2,
+        'travel_package_id' => $paket->id,
+        'status' => 'disetujui',
+    ]);
+
+    $isi = collect(mintaKalender()->assertOk()->json('data'));
+
+    expect($isi)->toHaveCount(1)
+        ->and($isi[0]['sumber'])->toBe('katalog')
+        // Rentangnya melebar ke rentang armada yang sesungguhnya.
+        ->and($isi[0]['mulai'])->toBe('2026-12-12')
+        ->and($isi[0]['selesai'])->toBe('2026-12-13')
+        // RAB penyumbang rentangnya disebutkan, supaya bisa ditelusuri.
+        // Kodenya dibaca dari barisnya, bukan diketik ulang: kode RAB
+        // dibangkitkan sendiri dan tidak bisa ditebak dari sini.
+        ->and($isi[0]['rab'])->toBe($rab->kode);
+});
+
+test('RAB yang tidak bersinggungan tetap berdiri sendiri', function () {
+    $paket = paketKalender('open_trip');
+
+    jualKalender(['tanggal_berangkat' => '2026-12-13', 'tanggal_pulang' => null], $paket);
+
+    // Tanggal 5 Des: jauh dari 13 Des, bukan trip yang sama.
+    rabKalender([
+        'jenis' => 'open',
+        'nama_pelanggan' => 'Umum',
+        'judul' => 'Open Trip Dieng rencana lain',
+        'tanggal_mulai' => '2026-12-05',
+        'jumlah_hari' => 1,
+        'travel_package_id' => $paket->id,
+        'status' => 'disetujui',
+    ]);
+
+    $isi = collect(mintaKalender()->assertOk()->json('data'))->keyBy('sumber');
+
+    expect($isi->keys()->sort()->values()->all())->toBe(['katalog', 'rab_jual'])
+        // Yang katalog TIDAK ikut melebar oleh RAB yang tidak bersinggungan.
+        ->and($isi['katalog']['mulai'])->toBe('2026-12-13')
+        ->and($isi['katalog']['selesai'])->toBeNull()
+        ->and($isi['katalog']['rab'])->toBeNull();
+});
+
+test('keberangkatan sehari tanpa RAB tidak mengaku punya tanggal selesai', function () {
+    jualKalender(['tanggal_berangkat' => '2026-12-13', 'tanggal_pulang' => null]);
+
+    $isi = mintaKalender()->assertOk()->json('data');
+
+    // null, bukan tanggal yang sama dua kali — layar menggambarnya sebagai
+    // rentang palsu sepanjang satu hari.
+    expect($isi[0]['mulai'])->toBe('2026-12-13')
+        ->and($isi[0]['selesai'])->toBeNull();
+});
