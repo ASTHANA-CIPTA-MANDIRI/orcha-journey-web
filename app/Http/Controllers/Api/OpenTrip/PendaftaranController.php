@@ -1263,8 +1263,17 @@ class PendaftaranController extends ApiController
         $daftar = Rab::query()
             ->where('status', 'disetujui')
             ->orderByDesc('id')
-            ->get(['id', 'kode', 'judul', 'jenis', 'whatsapp', 'nama_pelanggan',
-                'tanggal_mulai', 'jumlah_hari', 'jumlah_peserta', 'travel_package_id', 'kode_pendaftaran'])
+            /*
+             | Barisnya diambil UTUH, tanpa daftar kolom.
+             |
+             | Memilih kolom di sini pernah memulangkan harga yang salah tanpa
+             | satu pun galat: HitungRab membaca harga_nego, margin_jenis,
+             | margin_nilai, pembulatan, dan harga_dasar — kolom yang tidak
+             | ikut terambil terbaca null, dan RAB nego Rp 395.000 tampil
+             | Rp 406.250 dengan untung Rp 0. Angka itulah yang dipakai admin
+             | memutuskan, jadi salahnya berakhir di tagihan pelanggan.
+             */
+            ->get()
             ->filter(fn (Rab $r) => NomorTelepon::angka($r->whatsapp) === $nomor)
             ->map(function (Rab $r) use ($pendaftaran) {
                 $angka = HitungRab::ringkas($r);

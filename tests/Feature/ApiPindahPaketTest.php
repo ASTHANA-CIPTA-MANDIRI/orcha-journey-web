@@ -534,3 +534,40 @@ test('daftar RAB yang cocok hanya berisi milik nomor yang sama', function () {
         ->and($isi[0]['modal_total'])->toBeGreaterThan(0)
         ->and($isi[0]['peserta_cocok'])->toBeTrue();
 });
+
+/*
+ | Daftar ini pernah memulangkan harga yang salah tanpa satu pun galat.
+ |
+ | Kuerinya memilih kolom seperlunya, sementara HitungRab membaca harga_nego,
+ | margin_jenis, margin_nilai, pembulatan, dan harga_dasar. Kolom yang tidak
+ | ikut terambil terbaca null, dan RAB nego Rp 395.000 tampil Rp 406.250
+ | dengan untung Rp 0 — persis angka yang dipakai admin memutuskan.
+ |
+ | Karena itu yang dibandingkan di sini BUKAN angka yang diketik ulang,
+ | melainkan jawaban HitungRab atas model yang utuh.
+ */
+test('harga nego ikut terbaca di daftar RAB, bukan dihitung ulang tanpa nego', function () {
+    $paket = paketPindah('Private Trip Dieng 1 Hari', 395_000, 'private_trip');
+    $eva = evaPindah($paket, berangkatPindah($paket, '2026-12-06'));
+
+    $rab = pindahRabPrivate($paket, ['harga_nego' => 395_000]);
+    $harap = HitungRab::ringkas($rab);
+
+    $isi = test()->getJson("/api/v1/pendaftaran/{$eva->id}/rab-cocok", kepalaPindah())
+        ->assertOk()->json('data');
+
+    expect($isi[0]['harga_jual'])->toBe(395_000)
+        ->and($isi[0]['harga_jual'])->toBe((int) $harap['untuk_pendaftaran']['harga_jual'])
+        ->and($isi[0]['untung'])->toBe((int) $harap['untung']);
+});
+
+test('harga nego juga yang dipakai saat pendaftarannya benar-benar dipindahkan', function () {
+    $paket = paketPindah('Private Trip Dieng 1 Hari', 999_000, 'private_trip');
+    $eva = evaPindah($paket, berangkatPindah($paket, '2026-12-06'));
+    $rab = pindahRabPrivate($paket, ['harga_nego' => 395_000]);
+
+    pindahkan($eva, ['rab_id' => $rab->id, 'kelebihan' => 'saldo'])->assertOk();
+
+    // Pelanggan ditagih harga yang DISEPAKATI, bukan harga hitungan.
+    expect((int) $eva->fresh()->harga_jual)->toBe(395_000);
+});
