@@ -384,12 +384,14 @@ test('tanggal yang sudah ada pendaftar berbayar TIDAK terhitung dua kali', funct
         ->and($isi[0]['sumber'])->toBe('pendaftaran');
 });
 
-test('tanggal yang sudah diwakili RAB disetujui TIDAK terhitung dua kali', function () {
+test('tanggal yang sudah diwakili RAB deal TIDAK terhitung dua kali', function () {
     $paket = paketKalender('open_trip');
     jualKalender([], $paket);
 
+    // RAB PRIVATE: satu rombongan menguasai tanggalnya, jadi baris katalog
+    // tidak perlu ikut. RAB open trip tidak begitu — lihat uji di bawah.
     rabKalender([
-        'jenis' => 'open',
+        'jenis' => 'private',
         'tanggal_mulai' => '2026-12-05',
         'jumlah_hari' => 2,
         'travel_package_id' => $paket->id,
@@ -408,7 +410,7 @@ test('RAB untuk paket LAIN di tanggal sama tidak ikut menyembunyikan jadwal jual
 
     // Paket berbeda, tanggal sama: dua rombongan yang benar-benar berbeda.
     rabKalender([
-        'jenis' => 'open',
+        'jenis' => 'private',
         'tanggal_mulai' => '2026-12-05',
         'jumlah_hari' => 1,
         'travel_package_id' => paketKalender('open_trip')->id,
@@ -431,4 +433,123 @@ test('keberangkatan yang ditutup dan paket yang belum terbit tidak dijual', func
     jualKalender(['tanggal_berangkat' => '2026-12-07', 'tanggal_pulang' => '2026-12-07'], $draf);
 
     expect(mintaKalender()->assertOk()->json('data'))->toBe([]);
+});
+
+/* ------------------- "Deal" hanya untuk rombongan yang punya nama */
+
+/*
+ | RAB open trip BUKAN deal.
+ |
+ | Terbaca di produksi 25 Nov 2026: tanggal 11-13 Des tertulis "Sudah Deal —
+ | 13 orang" padahal pendaftarnya NOL dan pelanggannya tertulis "Umum",
+ | sementara 4-6 Des yang keadaannya persis sama tertulis "Dijual". Dua warna
+ | untuk satu keadaan, dan yang membaca kalender tidak bisa tahu mana benar.
+ |
+ | Pada open trip yang disetujui cuma hitungan harganya, supaya paketnya bisa
+ | ditayangkan. Komitmennya datang dari pendaftaran, bukan dari RAB.
+ */
+test('RAB open trip tidak pernah tampil sebagai deal', function () {
+    $paket = paketKalender('open_trip');
+    jualKalender([], $paket);
+
+    rabKalender([
+        'jenis' => 'open',
+        'nama_pelanggan' => 'Umum',
+        'tanggal_mulai' => '2026-12-05',
+        'jumlah_hari' => 2,
+        'jumlah_peserta' => 13,
+        'travel_package_id' => $paket->id,
+        'status' => 'disetujui',
+    ]);
+
+    $isi = collect(mintaKalender()->assertOk()->json('data'));
+
+    // Satu baris saja, dan yang menang KATALOG — ia tahu berapa yang sudah
+    // mendaftar, sedangkan RAB cuma tahu targetnya.
+    expect($isi)->toHaveCount(1)
+        ->and($isi[0]['sumber'])->toBe('katalog')
+        ->and($isi->pluck('sumber'))->not->toContain('rab');
+});
+
+test('RAB open trip yang belum punya tanggal jualan tetap terlihat, sebagai rencana', function () {
+    $paket = paketKalender('open_trip');
+
+    // Tidak ada keberangkatan sama sekali di tanggal itu.
+    rabKalender([
+        'jenis' => 'open',
+        'nama_pelanggan' => 'Umum',
+        'judul' => 'Open Trip Dieng',
+        'tanggal_mulai' => '2026-12-05',
+        'jumlah_hari' => 1,
+        'jumlah_peserta' => 13,
+        'travel_package_id' => $paket->id,
+        'status' => 'disetujui',
+    ]);
+
+    $isi = mintaKalender()->assertOk()->json('data');
+
+    expect($isi)->toHaveCount(1)
+        ->and($isi[0]['sumber'])->toBe('rab_jual')
+        ->and($isi[0]['status'])->toBe('dijual')
+        /*
+         | Angkanya dikirim sebagai TARGET, dan jumlah_peserta dibiarkan null.
+         |
+         | Mengirimnya sebagai jumlah_peserta membuat layar menulis
+         | "13 orang" di tanggal yang pendaftarnya nol — kalimat yang persis
+         | menyesatkan pemiliknya sebelum ini.
+         */
+        ->and($isi[0]['jumlah_peserta'])->toBeNull()
+        ->and($isi[0]['target_peserta'])->toBe(13)
+        ->and($isi[0]['paket_id'])->toBe($paket->id);
+});
+
+test('RAB private tetap deal, dan tetap dibedakan dari yang sekadar dijual', function () {
+    $privat = rabKalender([
+        'jenis' => 'private',
+        'nama_pelanggan' => 'Bu Sari',
+        'tanggal_mulai' => '2026-12-05',
+        'jumlah_hari' => 1,
+    ]);
+
+    rabKalender([
+        'jenis' => 'open',
+        'nama_pelanggan' => 'Umum',
+        'tanggal_mulai' => '2026-12-07',
+        'jumlah_hari' => 1,
+        'travel_package_id' => paketKalender('open_trip')->id,
+        'status' => 'disetujui',
+    ]);
+
+    $isi = collect(mintaKalender()->assertOk()->json('data'))->keyBy('sumber');
+
+    expect($isi->keys()->sort()->values()->all())->toBe(['rab', 'rab_jual'])
+        ->and($isi['rab']['kode'])->toBe($privat->kode)
+        ->and($isi['rab']['pemesan'])->toBe('Bu Sari')
+        // Yang dijual tidak mengaku punya pemesan.
+        ->and($isi['rab_jual']['pemesan'])->toBeNull();
+});
+
+test('RAB open trip yang tanggalnya sudah ada pendaftar berbayar tidak ikut lagi', function () {
+    $paket = paketKalender('open_trip');
+    $kb = jualKalender([], $paket);
+
+    daftarkanKalender([
+        'paket' => $paket, 'keberangkatan_id' => $kb->id,
+        'tanggal_berangkat' => '2026-12-05', 'status' => 'dp_masuk',
+    ]);
+
+    rabKalender([
+        'jenis' => 'open',
+        'tanggal_mulai' => '2026-12-05',
+        'jumlah_hari' => 2,
+        'travel_package_id' => $paket->id,
+        'status' => 'disetujui',
+    ]);
+
+    $isi = mintaKalender()->assertOk()->json('data');
+
+    // Satu baris, dan yang menang pendaftaran: itu satu-satunya yang benar
+    // berisi orang.
+    expect($isi)->toHaveCount(1)
+        ->and($isi[0]['sumber'])->toBe('pendaftaran');
 });

@@ -88,6 +88,7 @@ class KalenderController extends ApiController
             ->concat($this->rabDeal($dari, $sampai))
             ->concat($this->penyewaan($dari, $sampai))
             ->concat($this->katalog($dari, $sampai))
+            ->concat($this->rabDijual($dari, $sampai))
             ->sortBy(['mulai', 'judul'])
             ->values()
             ->all();
@@ -178,6 +179,28 @@ class KalenderController extends ApiController
     {
         return Rab::query()
             ->whereIn('status', self::STATUS_RAB)
+            /*
+             | "Deal" hanya berlaku untuk rombongan yang punya NAMA.
+             |
+             | Pada private trip, RAB disetujui berarti satu rombongan sudah
+             | menyepakati satu tanggal — itu komitmen, dan tanggalnya tidak
+             | lagi bebas ditawarkan.
+             |
+             | Pada OPEN trip artinya sama sekali lain: pelanggannya tertulis
+             | "Umum", dan yang disetujui cuma hitungan harganya supaya
+             | paketnya bisa ditayangkan. Tidak ada seorang pun yang
+             | berkomitmen. Terbaca di produksi sebagai "Sudah Deal — 13 orang"
+             | di tanggal yang pendaftarnya NOL, sementara tanggal lain yang
+             | keadaannya persis sama tertulis "Dijual" — dua warna untuk satu
+             | keadaan, dan yang membaca kalender tidak bisa tahu mana yang
+             | benar.
+             |
+             | Open trip diurus rabDijual() di bawah. Ditulis '!= open', bukan
+             | '== private', supaya jenis baru yang mungkin ditambahkan kelak
+             | ikut diperlakukan sebagai komitmen — gagalnya ke arah yang
+             | aman, yaitu terlalu hati-hati menganggap tanggal terpakai.
+             */
+            ->where('jenis', '!=', 'open')
             ->whereNull('kode_pendaftaran')
             ->whereNotNull('tanggal_mulai')
             /*
@@ -267,6 +290,11 @@ class KalenderController extends ApiController
          */
         $sudahDiwakiliRab = Rab::query()
             ->whereIn('status', self::STATUS_RAB)
+            // Hanya RAB yang tampil sebagai "deal" yang boleh menutupi baris
+            // katalog. RAB open trip BUKAN deal — dan membiarkannya menutupi
+            // berarti membuang baris yang tahu berapa orang sudah mendaftar
+            // demi baris yang cuma tahu targetnya.
+            ->where('jenis', '!=', 'open')
             ->whereNotNull('travel_package_id')
             ->whereDate('tanggal_mulai', '<=', $sampai)
             ->whereDate('tanggal_mulai', '>=', $dari->copy()->subDays(30))
@@ -344,6 +372,89 @@ class KalenderController extends ApiController
                     'status_label' => $menunggu > 0
                         ? 'Dijual — '.$menunggu.' pendaftar belum bayar'
                         : 'Dijual — belum ada pendaftar',
+                ];
+            })
+            ->values();
+    }
+
+    /**
+     * RAB OPEN TRIP yang disetujui — rencana harga, bukan rombongan.
+     *
+     * Pelanggannya "Umum" dan tidak ada yang berkomitmen, jadi ia tidak boleh
+     * tampil sebagai deal. Hampir selalu sudah diwakili baris katalog di
+     * tanggal yang sama; yang dipulangkan di sini hanya SISANYA — RAB yang
+     * paketnya belum punya keberangkatan di tanggal itu.
+     *
+     * Sisanya tetap dipulangkan, tidak dibuang diam-diam: rencana yang sudah
+     * disetujui tetapi belum punya tanggal jualan adalah justru hal yang
+     * perlu dilihat — itu pekerjaan yang belum selesai, dan kalender yang
+     * menyembunyikannya membuat orang mengira semuanya sudah beres.
+     */
+    private function rabDijual(Carbon $dari, Carbon $sampai)
+    {
+        /*
+         | Pasangan paket+tanggal yang sudah punya keberangkatan.
+         |
+         | Keberadaannya saja yang diperiksa, bukan apakah keberangkatan itu
+         | akhirnya tampil: kalau ia punya pendaftar berbayar ia muncul lewat
+         | sumber 'pendaftaran', kalau tidak ia muncul lewat 'katalog'. Dua-
+         | duanya sudah mewakili tanggal itu, dan RAB-nya tidak perlu ikut.
+         */
+        $sudahPunyaTanggalJualan = Keberangkatan::query()
+            ->whereDate('tanggal_berangkat', '<=', $sampai)
+            ->whereDate('tanggal_berangkat', '>=', $dari->copy()->subDays(30))
+            ->get(['travel_package_id', 'tanggal_berangkat'])
+            ->map(fn (Keberangkatan $k) => $k->travel_package_id.'|'.$k->tanggal_berangkat->toDateString())
+            ->flip();
+
+        return Rab::query()
+            ->whereIn('status', self::STATUS_RAB)
+            ->where('jenis', 'open')
+            ->whereNull('kode_pendaftaran')
+            ->whereNotNull('tanggal_mulai')
+            ->whereDate('tanggal_mulai', '<=', $sampai)
+            ->whereDate('tanggal_mulai', '>=', $dari->copy()->subDays(30))
+            ->get()
+            ->filter(function (Rab $r) use ($dari, $sudahPunyaTanggalJualan) {
+                $hari = max(1, (int) $r->jumlah_hari);
+
+                if (! $r->tanggal_mulai->copy()->addDays($hari - 1)->gte($dari->copy()->startOfDay())) {
+                    return false;
+                }
+
+                return ! $sudahPunyaTanggalJualan->has(
+                    $r->travel_package_id.'|'.$r->tanggal_mulai->toDateString()
+                );
+            })
+            ->map(function (Rab $r) {
+                $hari = max(1, (int) $r->jumlah_hari);
+                $selesai = $r->tanggal_mulai->copy()->addDays($hari - 1);
+
+                return [
+                    'sumber' => 'rab_jual',
+                    'kategori' => 'open_trip',
+                    'kategori_label' => 'Open Trip',
+                    'id' => $r->id,
+                    'kode' => $r->kode,
+                    'judul' => $r->judul ?: ($r->daerah ?: $r->provinsi ?: 'Open Trip'),
+                    'mulai' => $r->tanggal_mulai->toDateString(),
+                    'selesai' => $hari > 1 ? $selesai->toDateString() : null,
+                    'pemesan' => null,
+                    /*
+                     | jumlah_peserta sengaja null, targetnya dikirim terpisah.
+                     |
+                     | Angka di RAB open trip adalah TARGET, bukan orang yang
+                     | ikut. Mengirimnya sebagai jumlah_peserta membuat layar
+                     | menulis "13 orang" di tanggal yang pendaftarnya nol —
+                     | kalimat yang persis menyesatkan pemiliknya sebelum ini.
+                     */
+                    'jumlah_peserta' => null,
+                    'target_peserta' => (int) $r->jumlah_peserta,
+                    'titik_jemput' => null,
+                    'tujuan' => trim(($r->daerah ? $r->daerah.', ' : '').($r->provinsi ?: ''), ', ') ?: null,
+                    'paket_id' => $r->travel_package_id ? (int) $r->travel_package_id : null,
+                    'status' => 'dijual',
+                    'status_label' => 'Harga disetujui — belum ada tanggal keberangkatan yang dijual',
                 ];
             })
             ->values();
