@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\SewaKendaraan;
 
 use App\Http\Controllers\Api\ApiController;
 use App\Http\Resources\SewaKendaraan\PenyewaanResource;
+use App\Models\SewaKendaraan\Car;
 use App\Models\SewaKendaraan\PenyewaanKendaraan;
+use App\Support\NomorTelepon;
 use App\Support\BerkasKwitansi;
 use App\Support\GambarWebp;
 use App\Support\KirimPemberitahuan;
@@ -17,6 +19,140 @@ use Illuminate\Http\Request;
 
 class PenyewaanController extends ApiController
 {
+    /**
+     * Mencatat penyewaan yang disepakati di luar situs — lewat telepon,
+     * WhatsApp, atau tamu yang datang langsung.
+     *
+     * Sebelum ini penyewaan HANYA bisa lahir dari borang publik, sehingga
+     * admin yang menerima pesanan lewat telepon harus mengisikan borang itu
+     * atas nama pelanggannya. Akibatnya pesanan tercatat dengan alamat IP
+     * kantor, kena pembatas laju yang sama dengan pengunjung umum, dan
+     * pelanggan menerima surel pemesanan yang tidak pernah ia minta.
+     *
+     * Yang TIDAK diulang dari borang publik, dan alasannya:
+     *
+     *   - Pembatas laju per IP. Di sini seluruh kantor memakai satu IP;
+     *     lima pesanan telepon berturut-turut akan memblokir yang keenam.
+     *     Penjaganya sudah kunci API, dan tiap tindakan tercatat di jejak.
+     *   - Surel kwitansi otomatis. Pelanggan telepon belum tentu punya surel,
+     *     dan admin biasanya ingin memeriksa dulu sebelum mengirim apa pun.
+     *     Kwitansinya tetap bisa diunduh dari halaman detailnya.
+     *   - Status selalu 'baru' di borang publik. Admin boleh langsung
+     *     menandai 'dikonfirmasi' atau 'dp_masuk', karena kesepakatan dan
+     *     uangnya memang sudah terjadi sebelum barisnya dibuat.
+     *
+     * Yang SAMA PERSIS, dan sengaja dipanggil dari model yang sama alih-alih
+     * disalin: tenggat pengembalian (hitungSelesai), estimasi biaya, modal,
+     * dan kedua perinciannya. Menyalinnya ke sini berarti dua rumus harga
+     * sejajar yang suatu saat berbeda jawabannya — dan yang pertama ketahuan
+     * biasanya keuntungan yang tidak pernah cocok.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'car_id' => ['required', 'integer', 'exists:cars,id'],
+            'nama' => ['required', 'string', 'min:3', 'max:120'],
+            'whatsapp' => ['required', 'string', 'max:25', fn ($a, $nilai, $gagal) => NomorTelepon::sah($nilai)
+                ? null
+                : $gagal('Nomor WhatsApp belum benar. Contoh: 0812-3456-7890.')],
+            'email' => ['nullable', 'email', 'max:150'],
+            'transmisi' => ['required', 'in:Manual,Matic'],
+            'satuan' => ['required', 'in:'.implode(',', array_keys(config('orcha.satuan_sewa')))],
+            'durasi' => ['required', 'integer', 'min:1', 'max:30'],
+            'tanggal_mulai' => ['required', 'date'],
+            'jam_mulai' => ['required', 'date_format:H:i'],
+            'dengan_sopir' => ['required', 'boolean'],
+            'luar_kota' => ['required', 'boolean'],
+            'lokasi_antar' => ['required', 'string', 'min:4', 'max:191'],
+            'lokasi_kembali' => ['nullable', 'string', 'min:4', 'max:191'],
+            'tujuan' => ['nullable', 'string', 'min:3', 'max:191'],
+            'catatan' => ['nullable', 'string', 'max:1000'],
+            'status' => ['nullable', 'in:'.implode(',', array_keys(config('orcha.status_penyewaan')))],
+        ]);
+
+        $mobil = Car::findOrFail($data['car_id']);
+
+        /*
+         | Pemeriksaan yang tidak bisa diungkapkan sebagai aturan validasi
+         | biasa, karena jawabannya bergantung pada unit yang dipilih.
+         |
+         | Dijalankan di SINI, bukan dipercayakan ke tampilan lemon:
+         | menyembunyikan pilihan di layar tidak menghalangi permintaan yang
+         | dirakit tangan, dan aturan harga unit adalah keputusan yang
+         | diambil di halaman armada — bukan di borang pemesanan.
+         */
+        if ($mobil->tarif($data['satuan']) === null) {
+            return response()->json([
+                'message' => 'Unit ini tidak disewakan dengan satuan '.$data['satuan'].'.',
+            ], 422);
+        }
+
+        if (! in_array($data['transmisi'], $mobil->transmisi_tersedia_list, true)) {
+            return response()->json([
+                'message' => 'Transmisi '.$data['transmisi'].' tidak tersedia untuk unit ini.',
+            ], 422);
+        }
+
+        if (! $data['dengan_sopir'] && ! $mobil->lepas_kunci) {
+            return response()->json([
+                'message' => $mobil->type_label.' hanya disewakan bersama sopir kami.',
+            ], 422);
+        }
+
+        $denganSopir = (bool) $data['dengan_sopir'];
+        $luarKota = (bool) $data['luar_kota'];
+        $durasi = (int) $data['durasi'];
+
+        // Dihitung sekali lalu DISIMPAN, tidak dihitung ulang saat dibaca:
+        // mengubah aturan durasi kelak akan diam-diam menggeser tenggat
+        // pesanan yang sudah berjalan, dan denda keterlambatan ikut bergeser.
+        $selesai = PenyewaanKendaraan::hitungSelesai(
+            $data['tanggal_mulai'], $data['jam_mulai'], $data['satuan'], $durasi
+        );
+
+        $sewa = PenyewaanKendaraan::create([
+            'car_id' => $mobil->id,
+            'nama_kendaraan' => $mobil->name,
+            'nama' => $data['nama'],
+            'whatsapp' => $data['whatsapp'],
+            'email' => $data['email'] ?? null,
+            'transmisi' => $data['transmisi'],
+            'satuan' => $data['satuan'],
+            'durasi' => $durasi,
+            'tanggal_mulai' => $data['tanggal_mulai'],
+            'jam_mulai' => $data['jam_mulai'],
+            'tanggal_selesai' => $selesai->toDateString(),
+            'jam_selesai' => $selesai->format('H:i'),
+            'dengan_sopir' => $denganSopir,
+            'luar_kota' => $luarKota,
+            'lokasi_antar' => $data['lokasi_antar'],
+            // Diisi dari titik penjemputan bila kosong, sama seperti borang
+            // publik: pada sewa bersopir unitnya tidak diserahkan ke siapa
+            // pun, jadi tidak ada yang mengembalikan apa-apa — tetapi
+            // catatannya tetap harus utuh.
+            'lokasi_kembali' => $data['lokasi_kembali'] ?? $data['lokasi_antar'],
+            'tujuan' => $denganSopir ? ($data['tujuan'] ?? null) : null,
+            'estimasi_biaya' => $mobil->estimasiBiaya($data['satuan'], $durasi, $denganSopir, $luarKota),
+            'rincian_estimasi' => $mobil->rincianEstimasi($data['satuan'], $durasi, $denganSopir, $luarKota) ?: null,
+            // Vendor dan modal disalin saat ini juga: harga vendor berubah,
+            // dan pesanan yang sudah jalan tidak boleh ikut berubah untungnya.
+            'vendor_id' => $mobil->milik_sendiri ? null : $mobil->vendor_id,
+            'modal' => $mobil->modalEstimasi($data['satuan'], $durasi, $denganSopir, $luarKota),
+            'rincian_modal' => $mobil->rincianModal($data['satuan'], $durasi, $denganSopir, $luarKota) ?: null,
+            'catatan' => $data['catatan'] ?? null,
+            'status' => $data['status'] ?? 'baru',
+        ]);
+
+        $this->catat($request, 'Penyewaan dicatat dari lemon', [
+            'kode' => $sewa->kode,
+            'unit' => $mobil->name,
+            'mulai' => $sewa->tanggal_mulai?->toDateString(),
+            'ke' => $sewa->status,
+        ]);
+
+        return response()->json(['data' => new PenyewaanResource($sewa->fresh())], 201);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $daftar = PenyewaanKendaraan::query()

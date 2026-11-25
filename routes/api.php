@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\SewaKendaraan\KeuntunganSewaController;
 use App\Http\Controllers\Api\SewaKendaraan\PenyewaanController;
 use App\Http\Controllers\Api\Umum\DashboardController;
 use App\Http\Controllers\Api\Umum\JejakAuditController;
+use App\Http\Controllers\Api\Umum\KalenderController;
 use App\Http\Controllers\Api\Umum\MetaController;
 use Illuminate\Support\Facades\Route;
 
@@ -56,6 +57,16 @@ Route::prefix('v1')
         Route::get('/menu', [MetaController::class, 'menu']);
         Route::get('/rujukan', [MetaController::class, 'rujukan']);
         Route::get('/dashboard', DashboardController::class);
+
+        /*
+         | Agenda untuk Kalender Kegiatan di lemon.
+         |
+         | Keberangkatan rombongan dan penyewaan kendaraan dalam satu rentang
+         | tanggal. Lemon menggambarnya di kalendernya sendiri; di sini cuma
+         | datanya. Sengaja TIDAK di-paginasi — kalender yang menerima halaman
+         | pertama saja akan diam-diam menyembunyikan keberangkatan.
+         */
+        Route::get('/kalender', KalenderController::class);
 
         /*
          | Jejak audit — HANYA membaca.
@@ -184,6 +195,15 @@ Route::prefix('v1')
 
         /* --------------------------- SEWA KENDARAAN --------------------------- */
         Route::get('/penyewaan', [PenyewaanController::class, 'index']);
+        /*
+         | Mencatat penyewaan yang disepakati lewat telepon atau WhatsApp.
+         |
+         | Sebelumnya penyewaan hanya bisa lahir dari borang publik, sehingga
+         | admin harus mengisikan borang itu atas nama pelanggannya — tercatat
+         | dengan IP kantor, kena pembatas laju pengunjung umum, dan pelanggan
+         | menerima surel yang tidak pernah ia minta.
+         */
+        Route::post('/penyewaan', [PenyewaanController::class, 'store']);
         // Sebelum /{penyewaan}: tanpa ini "perhatian" terbaca sebagai nomor.
         Route::get('/penyewaan/perhatian', [PenyewaanController::class, 'perhatian']);
 
