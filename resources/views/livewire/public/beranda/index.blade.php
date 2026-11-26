@@ -597,9 +597,30 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                     <div class="grid flex-1 gap-0 p-2 sm:grid-cols-2 sm:p-2.5">
                         {{-- Berbingkai, bukan rata tepi: kartu unggulan pada rancangan
                              acuan menyisakan pias putih tipis mengelilingi fotonya. --}}
-                        <div class="relative min-h-[14rem] overflow-hidden rounded-[1.1rem]">
+                        {{-- object-CONTAIN, bukan cover — dan di sini itu bukan selera.
+
+                             Sampul paket sering berupa POSTER dengan tulisan yang sudah
+                             menyatu di gambarnya: judul besar, "Rp 350.000 /pax · All In",
+                             titik jemput. object-cover memotong tepinya, dan yang pertama
+                             hilang justru harga dan titik jemput karena keduanya duduk di
+                             pinggir. Memotong foto berarti kehilangan pemandangan;
+                             memotong poster berarti kehilangan kalimat.
+
+                             Pita kosong yang muncul karena contain ditutup SALINAN
+                             gambar yang sama, diburamkan dan dibesarkan sedikit. Dengan
+                             begitu panelnya tetap terisi penuh tanpa satu huruf pun
+                             terpotong, dan warnanya selalu cocok dengan posternya sendiri
+                             — latar polos akan terlihat seperti gambar yang gagal dimuat.
+
+                             scale-110 pada lapis buram itu wajib: blur menarik piksel dari
+                             luar tepi, dan tanpa dibesarkan sisinya menipis jadi garis
+                             pucat di keempat pinggir. --}}
+                        <div class="relative min-h-[14rem] overflow-hidden rounded-[1.1rem] bg-orcha-navy">
+                            <img src="{{ $paketSorot->sampul }}" alt="" aria-hidden="true"
+                                loading="lazy" decoding="async"
+                                class="absolute inset-0 object-cover w-full h-full scale-110 blur-xl opacity-70">
                             <img src="{{ $paketSorot->sampul }}" alt="{{ $paketSorot->name }}" loading="lazy"
-                                class="absolute inset-0 object-cover w-full h-full">
+                                class="absolute inset-0 object-contain w-full h-full">
                         </div>
 
                         <div class="flex flex-col p-5 sm:p-6">
