@@ -608,22 +608,27 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                         style="top: 33px; right: 31px; width: 10px; height: 5px;
                                box-shadow: inset 0 2px 2.5px rgb(30 18 8 / 0.65);"></span>
 
-                    {{-- BERTUMPUK, bukan dua lajur bersebelahan.
+                    {{-- DUA LAJUR, dan gambarnya IKUT TINGGI lajur tulisan.
 
-                         Dengan dua lajur, tinggi lajur tulisan berubah mengikuti
-                         lebar layar — keterangannya muat 3 baris di 1680px dan
-                         jadi 4 baris di 1440px — sedangkan tinggi gambar
-                         ditentukan rasionya. Keduanya tidak akan pernah selalu
-                         sama, dan selisihnya muncul sebagai pita kosong (kalau
-                         gambarnya diregangkan) atau putih menganga di bawah
-                         gambar (kalau tidak).
+                         Tinggi lajur tulisan berubah mengikuti lebar layar —
+                         keterangannya 3 baris di 1680px, 4 baris di 1440px —
+                         sedangkan tinggi gambar ditentukan rasionya. Keduanya
+                         tidak pernah sama, dan selisihnya harus pergi ke suatu
+                         tempat.
 
-                         Bertumpuk menghapus pertanyaannya: tidak ada lagi dua
-                         lajur yang harus sama tinggi, jadi tidak ada selisih di
-                         lebar mana pun. Posternya melebar penuh selebar kartu
-                         dengan rasio 16:10 — terisi penuh tanpa celah sekaligus
-                         tanpa terpotong. --}}
-                    <div class="flex flex-col flex-1 gap-0 p-2 sm:p-2.5">
+                         Dibiarkan jadi PUTIH di bawah gambar, ia terbaca
+                         seperti kartu yang rusak. Diisi salinan poster yang
+                         diburamkan, ia terbaca sebagai bagian dari gambarnya
+                         sendiri — warnanya selalu cocok karena diambil dari
+                         poster itu juga.
+
+                         Yang membuatnya dulu mencolok BUKAN selisih ini,
+                         melainkan regangan dari panel "Kenapa Orcha" di
+                         sebelahnya (lihat self-start pada pembungkus kartu).
+                         Tanpa regangan itu sisanya tinggal ±38px di atas dan
+                         bawah, bukan ±75px, dan besarnya tidak lagi berubah
+                         mengikuti tinggi panel tetangga. --}}
+                    <div class="grid flex-1 gap-0 p-2 sm:grid-cols-2 sm:p-2.5">
                         {{-- Berbingkai, bukan rata tepi: kartu unggulan pada rancangan
                              acuan menyisakan pias putih tipis mengelilingi fotonya. --}}
                         {{-- object-CONTAIN, bukan cover — dan di sini itu bukan selera.
@@ -644,30 +649,22 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                              scale-110 pada lapis buram itu wajib: blur menarik piksel dari
                              luar tepi, dan tanpa dibesarkan sisinya menipis jadi garis
                              pucat di keempat pinggir. --}}
-                        {{-- self-start: kotaknya TIDAK ikut tinggi kolom tulisan.
+                        {{-- min-h-[14rem]: lantai, bukan tinggi tetap.
 
-                             Sel kisi meregang setinggi barisnya, jadi kotak ini
-                             dulu ikut kolom tulisan (±560px) sementara posternya
-                             pada lebar itu cuma ±485px — selisih 75px itulah yang
-                             terbaca sebagai celah atas-bawah.
-
-                             Dengan self-start tingginya ditentukan gambarnya
-                             sendiri, jadi terisi penuh tanpa celah dan tanpa
-                             terpotong. Ruang di bawahnya jadi latar putih kartu,
-                             terbaca sebagai jarak biasa, bukan pita buram.
-
-                             min-h-[14rem] dibuang: pada kartu sempit ia justru
-                             memaksa kotaknya lebih tinggi daripada gambarnya dan
-                             mengembalikan celah yang sama. --}}
-                        <div class="relative overflow-hidden rounded-[1.1rem] bg-orcha-navy">
+                             Kotak ini MEREGANG setinggi lajur tulisan (sel kisi
+                             memang begitu), dan itu yang dikehendaki — selisih
+                             tingginya diisi lapis buram di bawah, bukan putih.
+                             Lantainya menjaga kartu yang tulisannya sangat
+                             pendek tetap punya sampul yang layak dilihat. --}}
+                        <div class="relative min-h-[14rem] overflow-hidden rounded-[1.1rem] bg-orcha-navy">
                             <img src="{{ $paketSorot->sampul }}" alt="" aria-hidden="true"
                                 loading="lazy" decoding="async"
                                 class="absolute inset-0 object-cover w-full h-full scale-110 blur-xl opacity-70">
-                            {{-- Aliran biasa + rasionya sendiri: gambar inilah yang
-                                 menentukan tinggi kotaknya. relative supaya ia
-                                 menimpa lapis buram yang berposisi absolut. --}}
+                            {{-- Mengisi kotaknya, bukan menentukan tingginya: kotak
+                                 ini meregang ikut lajur tulisan, dan posternya
+                                 duduk utuh di tengahnya. --}}
                             <img src="{{ $paketSorot->sampul }}" alt="{{ $paketSorot->name }}" loading="lazy"
-                                class="relative block w-full aspect-[16/10] object-contain">
+                                class="absolute inset-0 object-contain w-full h-full">
                         </div>
 
                         <div class="flex flex-col p-5 sm:p-6">
