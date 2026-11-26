@@ -113,31 +113,48 @@
         <img src="{{ $paket->sampul }}" alt="{{ $paket->name }}" loading="lazy"
             class="relative block w-full aspect-[16/10] object-contain">
 
-        <span
-            class="absolute top-4 left-4 px-3 py-1 text-[0.7rem] font-bold tracking-wider uppercase rounded-full bg-white/90 text-orcha-amber backdrop-blur">
-            {{ $paket->category_label }}
-        </span>
+        {{-- KEDUA lencana duduk di sudut KANAN, dalam satu deret.
 
-        @if ($unggulan)
-            {{-- Bunyinya tetap "Terlaris", tidak dinaikkan jadi "paling banyak
-                 dipesan".
+             Dulu lencana kategori ada di kiri atas, dan di situ ia menimpa
+             LOGO yang sudah tercetak di posternya sendiri — dua tanda merek
+             bertumpuk di titik yang sama. Sudut kanan atas poster-poster ini
+             berisi langit, jadi di sana tidak ada yang tertutup.
 
-                 Sempat saya tulis begitu supaya klaimnya terdengar berdasar —
-                 dan justru itu kesalahannya: kalimat yang menyebut angka bisa
-                 dibantah angka. Penanda ini dipasang admin di halaman
-                 pengelolaan, tidak dihitung dari jumlah pendaftaran, dan saat
-                 diperiksa paket yang tertandai memang ada yang pendaftarannya
-                 nol. Yang disorot dibedakan ukurannya, bukan ditambahi klaim
-                 yang tidak dijamin datanya. --}}
+             Dibungkus satu wadah flex, bukan dua span absolut: lencana
+             "Terlaris" dulu juga memakai right-4, jadi memindahkan kategori
+             ke kanan tanpa wadah ini akan membuat keduanya saling menimpa
+             pada paket yang tertandai terlaris.
+
+             Urutannya Terlaris dulu, kategori belakangan, supaya kategori
+             tetap duduk persis di sudut — kebalikan cermin dari letaknya yang
+             dulu. --}}
+        <div class="absolute flex items-center gap-2 top-4 right-4">
+            @if ($unggulan)
+                {{-- Bunyinya tetap "Terlaris", tidak dinaikkan jadi "paling banyak
+                     dipesan".
+
+                     Sempat saya tulis begitu supaya klaimnya terdengar berdasar —
+                     dan justru itu kesalahannya: kalimat yang menyebut angka bisa
+                     dibantah angka. Penanda ini dipasang admin di halaman
+                     pengelolaan, tidak dihitung dari jumlah pendaftaran, dan saat
+                     diperiksa paket yang tertandai memang ada yang pendaftarannya
+                     nol. Yang disorot dibedakan ukurannya, bukan ditambahi klaim
+                     yang tidak dijamin datanya. --}}
+                <span
+                    class="inline-flex items-center gap-1.5 rounded-full bg-orcha-sun text-orcha-navy font-black uppercase tracking-wider
+                        {{ $sorot ? 'px-4 py-1.5 text-xs shadow-lg shadow-orcha-sun/40' : 'px-3 py-1 text-[0.7rem]' }}">
+                    @if ($sorot)
+                        <x-heroicon-s-fire class="w-4 h-4" />
+                    @endif
+                    Terlaris
+                </span>
+            @endif
+
             <span
-                class="absolute top-4 right-4 inline-flex items-center gap-1.5 rounded-full bg-orcha-sun text-orcha-navy font-black uppercase tracking-wider
-                    {{ $sorot ? 'px-4 py-1.5 text-xs shadow-lg shadow-orcha-sun/40' : 'px-3 py-1 text-[0.7rem]' }}">
-                @if ($sorot)
-                    <x-heroicon-s-fire class="w-4 h-4" />
-                @endif
-                Terlaris
+                class="px-3 py-1 text-[0.7rem] font-bold tracking-wider uppercase rounded-full bg-white/90 text-orcha-amber backdrop-blur">
+                {{ $paket->category_label }}
             </span>
-        @endif
+        </div>
     </div>
 
     {{-- Badan kartu = PANEL BERBAHU yang menumpang tepi bawah foto, bentuk yang
