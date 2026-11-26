@@ -115,7 +115,12 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
             ->withCount('pendaftaran')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->limit(3)
+            /*
+             | LIMA, bukan tiga: satu dipakai kartu sorotan dan EMPAT sisanya
+             | mengisi penggeser di bawahnya. Dengan tiga, penggesernya hanya
+             | berisi dua kartu dan tidak ada yang bisa digeser.
+             */
+            ->limit(5)
             ->get();
 
         // HANYA SATU yang disorot, dan itu inti permintaannya: mata harus
@@ -814,12 +819,27 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                     <p class="mt-1 text-sm text-slate-500">Hubungi kami untuk penawaran khusus.</p>
                 </div>
             @else
-                {{-- Jumlah lajurnya ikut jumlah paketnya: dua paket di dalam
-                     kisi tiga lajur menyisakan satu sel menganga selebar
-                     sepertiga panel. --}}
-                <div class="grid gap-4 sm:grid-cols-2 {{ $paketLain->count() >= 3 ? 'xl:grid-cols-3' : '' }}">
-                    @foreach ($paketLain as $package)
-                        <x-paket-wisata.kartu :paket="$package" :lencana-unggulan="false" class="reveal" />
+                {{-- DERET YANG DIGESER, bukan kisi.
+
+                     Kisinya dulu membungkus barisnya ke bawah dan jumlah
+                     lajurnya ikut jumlah paket, supaya tidak ada sel menganga.
+                     Sekarang kartunya berjajar satu baris dan digeser mendatar:
+                     empat paket terbaru saja, selebihnya lewat "Semua Paket".
+
+                     Lebarnya dipatok di kartunya (lihat .geser-paket-item),
+                     bukan dibiarkan ikut lebar panel — kartu selebar panel
+                     membuat sampul 16/10-nya menjulang, persis yang ditahan
+                     max-h-64 di komponen kartunya.
+
+                     Tanpa JavaScript pun tetap bisa digeser: overflow-x milik
+                     peramban sudah menanganinya lewat trackpad, roda tetikus
+                     mendatar, dan sentuhan. Skrip penyeretnya hanya menambah
+                     seret-dengan-tetikus, yang tidak dipunyai peramban. --}}
+                <div class="geser-paket" data-geser
+                    role="region" aria-label="Paket wisata terbaru, bisa digeser mendatar" tabindex="0">
+                    @foreach ($paketLain->take(4) as $package)
+                        <x-paket-wisata.kartu :paket="$package" :lencana-unggulan="false"
+                            class="reveal geser-paket-item" />
                     @endforeach
                 </div>
             @endif

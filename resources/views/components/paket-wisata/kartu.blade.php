@@ -45,12 +45,18 @@
 
          Memakai foto unggahan admin; bila paket belum punya foto, otomatis
          jatuh ke ilustrasi bawaan sehingga kartunya tidak pernah kosong. --}}
-    {{-- Tinggi DIPATOK, tidak lagi mengikuti lebar (aspect-[16/10]).
+    {{-- aspect-[16/10] DENGAN BATAS TINGGI (max-h-64).
 
-         Terukur di beranda: kartunya 591px lebar, jadi sampulnya 368px — hampir
-         separuh tinggi kartu habis untuk satu foto, dan kartunya jadi 789px.
-         Dengan tinggi tetap, sampulnya sama besar di kisi dua lajur maupun tiga,
-         dan kartunya tidak ikut membengkak saat lajurnya melebar.
+         Dulu tingginya dipatok h-44/sm:h-52 justru untuk menghindari kartu
+         yang membengkak: terukur, kartu 591px lebar dengan rasio 16/10 punya
+         sampul 368px dan kartunya jadi 789px. Peringatan itu benar dan tidak
+         dibuang — ia dipindahkan ke max-h-64.
+
+         Rasionya dipakai karena sampul paket sering POSTER, dan 16/10 hampir
+         persis rasio posternya, jadi pada kartu sempit ia terisi pas tanpa
+         pita kosong. Batas 256px menahan kartu lebar (kisi dua lajur di
+         halaman daftar) supaya tidak menjulang; di situ posternya mengecil
+         dan sisanya diisi latar buram — tetap tidak ada yang terpotong.
 
          Sampul TANPA tulisan apa pun di atasnya.
 
@@ -58,13 +64,33 @@
          dua kerugian sekaligus: selubungnya menutupi sepertiga foto, dan judul
          yang panjang — "Open Trip Pantai Gunungkidul" sudah dua baris — menutup
          makin banyak. Judulnya sekarang turun ke badan kartu, jadi fotonya utuh
-         dan judulnya tidak pernah menimpa apa pun.
+         dan judulnya tidak pernah menimpa apa pun. --}}
+    <div class="relative aspect-[16/10] max-h-64 overflow-hidden bg-orcha-navy">
+        {{-- LATAR: salinan sampul yang diburamkan, mengisi pita kosong.
 
-         Tingginya h-44/sm:h-52 karena panel tulisan di bawahnya MENINDIH foto
-         setinggi 20px + bahu 11px; yang benar-benar terlihat tinggal ±140px. --}}
-    <div class="relative h-44 sm:h-52 overflow-hidden bg-orcha-navy">
+             Dialah yang membesar saat disentuh tetikus, bukan posternya:
+             memperbesar gambar ber-object-contain membuatnya melewati tepi
+             dan terpotong lagi — justru yang mau dihindari di sini. --}}
+        <img src="{{ $paket->sampul }}" alt="" aria-hidden="true" loading="lazy" decoding="async"
+            class="absolute inset-0 object-cover w-full h-full scale-110 blur-xl opacity-70
+                   transition-transform duration-700 group-hover:scale-125">
+
+        {{-- object-CONTAIN, dan kotaknya berhenti 20px di atas dasar.
+
+             Sampul paket sering berupa POSTER dengan tulisannya menyatu di
+             gambar: judul, harga, titik jemput. Dua hal memotongnya sebelum
+             ini — object-cover membuang sisi kiri-kanan, dan panel badan
+             kartu yang menindih 20px menutupi baris paling bawah posternya.
+             Terukur pada poster yang tayang: 1585x992 (rasio 1,60).
+
+             bottom-5 menjauhkan poster dari panel itu; latar buram di
+             belakangnya tetap penuh, jadi yang tertindih warna, bukan huruf.
+
+             aspect-[16/10] menggantikan tinggi tetap h-44/sm:h-52: rasio itu
+             hampir persis rasio posternya, sehingga pita kosongnya nyaris
+             tidak ada sekaligus tidak ada yang terpotong. --}}
         <img src="{{ $paket->sampul }}" alt="{{ $paket->name }}" loading="lazy"
-            class="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105">
+            class="absolute inset-0 object-contain w-full h-full pb-5">
 
         <span
             class="absolute top-4 left-4 px-3 py-1 text-[0.7rem] font-bold tracking-wider uppercase rounded-full bg-white/90 text-orcha-amber backdrop-blur">
