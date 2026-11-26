@@ -281,83 +281,12 @@ function initKorsel() {
     });
 }
 
-/* ==========================================================
-   PENGGESER PAKET — seret dengan tetikus
-   ==========================================================
-   Peramban sudah bisa menggeser overflow-x lewat trackpad, roda mendatar,
-   sentuhan, dan papan ketik. Yang TIDAK dipunyainya cuma satu: menyeret
-   dengan tombol kiri tetikus, dan justru itu yang dicoba orang pertama
-   kali pada deret kartu.
-
-   Pointer Events dipakai, bukan mouse/touch terpisah: sentuhan sudah
-   ditangani peramban, dan memasang penangan sendiri di atasnya membuat
-   geseran jari berjalan dua kali.
-
-   AMBANG 6px sebelum dianggap seretan. Tanpa ambang, klik biasa yang
-   bergeser satu-dua piksel ikut terbaca sebagai seretan, dan tombol
-   "Lihat Detail" berhenti bisa diklik. */
-function initGeser() {
-    document.querySelectorAll("[data-geser]").forEach((jalur) => {
-        if (jalur.dataset.geserSiap === "1") return;
-        jalur.dataset.geserSiap = "1";
-
-        let turun = false;
-        let menyeret = false;
-        let mulaiX = 0;
-        let mulaiGulir = 0;
-
-        jalur.addEventListener("pointerdown", (e) => {
-            // Sentuhan & pena dilewati: peramban menanganinya sendiri.
-            if (e.pointerType !== "mouse" || e.button !== 0) return;
-            turun = true;
-            menyeret = false;
-            mulaiX = e.clientX;
-            mulaiGulir = jalur.scrollLeft;
-        });
-
-        jalur.addEventListener("pointermove", (e) => {
-            if (!turun) return;
-            const geser = e.clientX - mulaiX;
-
-            if (!menyeret) {
-                if (Math.abs(geser) < 6) return;
-                menyeret = true;
-                jalur.classList.add("is-diseret");
-                // Baru ditangkap SESUDAH ambang terlewati, supaya klik biasa
-                // tidak pernah kehilangan sasarannya.
-                jalur.setPointerCapture(e.pointerId);
-            }
-
-            e.preventDefault();
-            jalur.scrollLeft = mulaiGulir - geser;
-        });
-
-        const lepas = (e) => {
-            if (!turun) return;
-            turun = false;
-            if (!menyeret) return;
-            menyeret = false;
-            jalur.classList.remove("is-diseret");
-            if (e && jalur.hasPointerCapture?.(e.pointerId)) {
-                jalur.releasePointerCapture(e.pointerId);
-            }
-        };
-
-        jalur.addEventListener("pointerup", lepas);
-        jalur.addEventListener("pointercancel", lepas);
-        // Tetikus yang dilepas di luar jendela: tanpa ini kelas is-diseret
-        // tertinggal dan seluruh tautan kartu mati sampai halaman dimuat ulang.
-        window.addEventListener("blur", () => lepas(null));
-    });
-}
-
 document.addEventListener("DOMContentLoaded", () => {
     initReveal();
     initHeroParallax();
     initAnchorOffset();
     initKorsel();
     initPitaHalus();
-    initGeser();
 });
 
 // Livewire mengganti simpul DOM saat menggambar ulang; galeri yang baru
@@ -415,7 +344,6 @@ function initPitaHalus() {
 
 document.addEventListener("livewire:navigated", initKorsel);
 document.addEventListener("livewire:navigated", initPitaHalus);
-document.addEventListener("livewire:navigated", initGeser);
 
 /* ==========================================================
    5. GAMBAR ULANG SETELAH LIVEWIRE MENYEGARKAN HALAMAN

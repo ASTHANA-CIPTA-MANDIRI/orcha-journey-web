@@ -1452,66 +1452,6 @@ a:hover > .gelembung-ikon {
     display: none;
 }
 
-/* ----------------------------------------------------------
-   PENGGESER PAKET — satu baris kartu yang digeser mendatar
-   ---------------------------------------------------------- */
-.geser-paket {
-    display: flex;
-    gap: 1rem;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x proximity;
-    /* Padding, BUKAN margin: kartu sorot punya cahaya & bayangan yang
-       keluar dari kotaknya, dan overflow-x memotong apa pun yang melewati
-       tepi penggeser. Tanpa ruang ini bayangannya terpangkas rata. */
-    padding: 0.35rem 0.35rem 1rem;
-    scroll-padding-left: 0.35rem;
-    -webkit-overflow-scrolling: touch;
-}
-
-.geser-paket-item {
-    /* Lebar DIPATOK supaya sampul 16/10-nya tidak menjulang di layar lebar,
-       dan supaya kartu berikutnya selalu mengintip di tepi kanan — itulah
-       yang memberi tahu bahwa deretnya masih bisa digeser. */
-    flex: 0 0 clamp(16.5rem, 80vw, 21rem);
-    scroll-snap-align: start;
-}
-
-/* Batangnya dibiarkan TERLIHAT, tidak disembunyikan seperti .tab-scroller:
-   di sini yang digeser kartu berisi harga dan tombol, dan deret yang tidak
-   kelihatan bisa digeser akan dikira deret yang terpotong. */
-.geser-paket::-webkit-scrollbar {
-    height: 6px;
-}
-
-.geser-paket::-webkit-scrollbar-track {
-    background: color-mix(in srgb, var(--color-orcha-navy) 8%, transparent);
-    border-radius: 999px;
-}
-
-.geser-paket::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--color-orcha-navy) 32%, transparent);
-    border-radius: 999px;
-}
-
-.geser-paket {
-    scrollbar-width: thin;
-    scrollbar-color: color-mix(in srgb, var(--color-orcha-navy) 32%, transparent) transparent;
-}
-
-/* Saat diseret dengan tetikus: kursor berubah dan pilihan teks dimatikan,
-   kalau tidak seretannya menyorot tulisan kartu alih-alih menggeser. */
-.geser-paket.is-diseret {
-    cursor: grabbing;
-    user-select: none;
-    scroll-snap-type: none;
-}
-
-.geser-paket.is-diseret a,
-.geser-paket.is-diseret button {
-    pointer-events: none;
-}
-
 /* ==========================================================
    6. HERO
 ========================================================== */

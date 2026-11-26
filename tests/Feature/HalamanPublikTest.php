@@ -118,7 +118,7 @@ test('halaman destinasi menampilkan data dan bisa dicari', function () {
         ->assertDontSee('Pantai Contoh');
 });
 
-test('beranda menampilkan lima paket TERBARU dan menaut ke halaman lengkap', function () {
+test('beranda menampilkan tiga paket TERBARU dan menaut ke halaman lengkap', function () {
     foreach (range(1, 9) as $i) {
         TravelPackage::create([
             'name' => "Paket Nomor $i", 'category' => 'open_trip', 'price' => 100000 * $i,
@@ -130,19 +130,12 @@ test('beranda menampilkan lima paket TERBARU dan menaut ke halaman lengkap', fun
     // Harganya sengaja menaik mengikuti nomornya. Dengan urutan lama — termurah
     // dulu — yang tampil justru Nomor 1, 2, 3; jadi kalau uji ini hijau untuk
     // 9, 8, 7, yang teruji memang urutan TERBARU, bukan kebetulan.
-    /*
-     | LIMA, bukan tiga: satu mengisi kartu sorotan dan EMPAT sisanya mengisi
-     | penggeser mendatar di bawahnya. Dengan tiga, penggesernya cuma berisi
-     | dua kartu dan tidak ada yang bisa digeser.
-     */
     $this->get(route('home'))
         ->assertOk()
         ->assertSee('Paket Nomor 9')
         ->assertSee('Paket Nomor 8')
         ->assertSee('Paket Nomor 7')
-        ->assertSee('Paket Nomor 6')
-        ->assertSee('Paket Nomor 5')
-        ->assertDontSee('Paket Nomor 4')
+        ->assertDontSee('Paket Nomor 6')
         ->assertDontSee('Paket Nomor 1')
         // Jalan ke daftar lengkapnya sekarang berupa tab di kepala tiap panel,
         // bukan tombol panjang di bawahnya. Yang diuji tetap hal yang sama:
@@ -167,17 +160,10 @@ test('hanya satu paket yang diangkat jadi kartu sorotan, berapa pun yang ditanda
 
     $isi = $this->get(route('home'))->assertOk()->getContent();
 
-    /*
-     | Satu kartu sorotan, dan hanya satu: yang lain berjajar sebagai kartu
-     | biasa di penggeser di bawahnya.
-     |
-     | TIGA "Lihat Detail", bukan dua: empat paket dibuat di sini dan beranda
-     | kini mengambil lima, jadi keempatnya tampil — satu jadi sorotan,
-     | tiga sisanya jadi kartu biasa. Angkanya mengikuti jumlah paket yang
-     | dibuat uji ini, bukan batas pengambilannya.
-     */
+    // Satu kartu sorotan, dan hanya satu: yang lain berjajar sebagai kartu
+    // biasa di panel di bawahnya.
     expect(substr_count($isi, 'Paket Sorotan'))->toBe(1)
-        ->and(substr_count($isi, 'Lihat Detail'))->toBe(3);
+        ->and(substr_count($isi, 'Lihat Detail'))->toBe(2);
 });
 
 test('paket yang disorot DIANGKAT ke kartu sorotan, bukan diulang di daftar bawahnya', function () {
@@ -229,24 +215,7 @@ test('halaman tentang kami memakai slogan', function () {
         ->assertSee('Teman Setia Perjalanan Anda', false);
 });
 
-/* ------------------------- Penggeser paket & sampul yang tidak terpotong */
-
-test('paket di beranda berjajar dalam penggeser, empat kartu saja', function () {
-    foreach (range(1, 9) as $i) {
-        TravelPackage::create([
-            'name' => "Paket Geser $i", 'category' => 'open_trip', 'price' => 100000 * $i,
-            'original_price' => 0, 'discount_percentage' => null, 'is_best_choice' => false,
-            'destination_list' => ['Destinasi'],
-        ]);
-    }
-
-    $isi = $this->get(route('home'))->assertOk()->getContent();
-
-    expect(substr_count($isi, 'geser-paket-item'))->toBe(4)
-        ->and($isi)->toContain('data-geser')
-        // Kartu kelima dan seterusnya lewat "Semua Paket", bukan penggeser.
-        ->and(substr_count($isi, 'Lihat Detail'))->toBe(4);
-});
+/* ------------------------------- Sampul yang tidak terpotong */
 
 /*
  | Sampul paket TIDAK boleh dipotong.
@@ -275,5 +244,8 @@ test('sampul kartu paket memakai contain, bukan cover', function () {
         ->and($isi)->toContain('blur-xl')
         // pb-5 menjauhkan poster dari panel badan kartu yang menindih 20px;
         // tanpa itu baris paling bawah posternya tertutup.
-        ->and($isi)->toContain('aspect-[16/10]');
+        ->and($isi)->toContain('aspect-[16/10]')
+        // max-h-64 sempat dipasang lalu dilepas: pada kartu lebar ia menyisakan
+        // pita buram ~105px di kiri-kanan, terbaca seperti video salah ukuran.
+        ->and($isi)->not->toContain('aspect-[16/10] max-h-64');
 });

@@ -45,18 +45,23 @@
 
          Memakai foto unggahan admin; bila paket belum punya foto, otomatis
          jatuh ke ilustrasi bawaan sehingga kartunya tidak pernah kosong. --}}
-    {{-- aspect-[16/10] DENGAN BATAS TINGGI (max-h-64).
+    {{-- aspect-[16/10], TANPA batas tinggi.
 
-         Dulu tingginya dipatok h-44/sm:h-52 justru untuk menghindari kartu
-         yang membengkak: terukur, kartu 591px lebar dengan rasio 16/10 punya
-         sampul 368px dan kartunya jadi 789px. Peringatan itu benar dan tidak
-         dibuang — ia dipindahkan ke max-h-64.
+         Dulu tingginya dipatok h-44/sm:h-52 untuk menghindari kartu yang
+         membengkak: terukur, kartu 591px lebar dengan rasio 16/10 punya sampul
+         368px dan kartunya jadi 789px. Itu memang jadi lebih tinggi, dan itu
+         yang dipilih — karena memotong posternya lebih mahal daripada kartu
+         yang memanjang.
 
-         Rasionya dipakai karena sampul paket sering POSTER, dan 16/10 hampir
-         persis rasio posternya, jadi pada kartu sempit ia terisi pas tanpa
-         pita kosong. Batas 256px menahan kartu lebar (kisi dua lajur di
-         halaman daftar) supaya tidak menjulang; di situ posternya mengecil
-         dan sisanya diisi latar buram — tetap tidak ada yang terpotong.
+         Batas max-h-64 sempat dipasang lalu DILEPAS: pada kartu selebar 620px
+         batas 256px membuat rasio panelnya jadi 2,4 sementara posternya 1,60,
+         sehingga tersisa pita buram ~105px di kiri dan kanan. Panel
+         berkotak-hitam begitu terbaca seperti video yang salah ukuran. Dengan
+         rasio dibiarkan utuh, poster 1,60 mengisi panelnya nyaris pas: yang
+         tersisa cuma ~16px di tiap sisi, akibat pb-5 di bawah.
+
+         Rasio 16/10 dipilih karena hampir persis rasio poster yang dipakai
+         (1585x992 = 1,60), jadi di lebar kartu mana pun pita kosongnya tipis.
 
          Sampul TANPA tulisan apa pun di atasnya.
 
@@ -65,7 +70,7 @@
          yang panjang — "Open Trip Pantai Gunungkidul" sudah dua baris — menutup
          makin banyak. Judulnya sekarang turun ke badan kartu, jadi fotonya utuh
          dan judulnya tidak pernah menimpa apa pun. --}}
-    <div class="relative aspect-[16/10] max-h-64 overflow-hidden bg-orcha-navy">
+    <div class="relative aspect-[16/10] overflow-hidden bg-orcha-navy">
         {{-- LATAR: salinan sampul yang diburamkan, mengisi pita kosong.
 
              Dialah yang membesar saat disentuh tetikus, bukan posternya:
