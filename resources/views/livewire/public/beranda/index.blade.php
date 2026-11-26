@@ -615,12 +615,30 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                              scale-110 pada lapis buram itu wajib: blur menarik piksel dari
                              luar tepi, dan tanpa dibesarkan sisinya menipis jadi garis
                              pucat di keempat pinggir. --}}
-                        <div class="relative min-h-[14rem] overflow-hidden rounded-[1.1rem] bg-orcha-navy">
+                        {{-- self-start: kotaknya TIDAK ikut tinggi kolom tulisan.
+
+                             Sel kisi meregang setinggi barisnya, jadi kotak ini
+                             dulu ikut kolom tulisan (±560px) sementara posternya
+                             pada lebar itu cuma ±485px — selisih 75px itulah yang
+                             terbaca sebagai celah atas-bawah.
+
+                             Dengan self-start tingginya ditentukan gambarnya
+                             sendiri, jadi terisi penuh tanpa celah dan tanpa
+                             terpotong. Ruang di bawahnya jadi latar putih kartu,
+                             terbaca sebagai jarak biasa, bukan pita buram.
+
+                             min-h-[14rem] dibuang: pada kartu sempit ia justru
+                             memaksa kotaknya lebih tinggi daripada gambarnya dan
+                             mengembalikan celah yang sama. --}}
+                        <div class="relative self-start overflow-hidden rounded-[1.1rem] bg-orcha-navy">
                             <img src="{{ $paketSorot->sampul }}" alt="" aria-hidden="true"
                                 loading="lazy" decoding="async"
                                 class="absolute inset-0 object-cover w-full h-full scale-110 blur-xl opacity-70">
+                            {{-- Aliran biasa + rasionya sendiri: gambar inilah yang
+                                 menentukan tinggi kotaknya. relative supaya ia
+                                 menimpa lapis buram yang berposisi absolut. --}}
                             <img src="{{ $paketSorot->sampul }}" alt="{{ $paketSorot->name }}" loading="lazy"
-                                class="absolute inset-0 object-contain w-full h-full">
+                                class="relative block w-full aspect-[16/10] object-contain">
                         </div>
 
                         <div class="flex flex-col p-5 sm:p-6">

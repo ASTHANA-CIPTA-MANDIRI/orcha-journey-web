@@ -238,14 +238,23 @@ test('sampul kartu paket memakai contain, bukan cover', function () {
 
     $isi = $this->get(route('paket-wisata'))->assertOk()->getContent();
 
-    expect($isi)->toContain('object-contain w-full h-full pb-5')
-        // Latar buram pengisi pita kosong — tanpa itu panelnya berlubang dan
-        // terbaca seperti gambar yang gagal dimuat.
+    expect($isi)
+        /*
+         | Rasionya ada di GAMBARNYA, bukan di kotaknya.
+         |
+         | Saat rasio dipasang di kotak dan gambarnya diberi pb-5, kotak ISI-nya
+         | jadi lebar x (lebar/1,6 - 20) — bukan 1,60 lagi — dan poster 1,60
+         | menyisakan celah TEPAT 16px di kiri dan kanan, berapa pun lebar
+         | kartunya.
+         */
+        ->toContain('block w-full aspect-[16/10] object-contain')
+        // 20px untuk panel yang menindih kini padding KOTAKNYA.
+        ->and($isi)->toContain('relative pb-5 overflow-hidden')
+        // Latar buram pengisi pita kosong untuk sampul yang rasionya lain —
+        // tanpa itu panelnya berlubang dan terbaca seperti gambar gagal muat.
         ->and($isi)->toContain('blur-xl')
-        // pb-5 menjauhkan poster dari panel badan kartu yang menindih 20px;
-        // tanpa itu baris paling bawah posternya tertutup.
-        ->and($isi)->toContain('aspect-[16/10]')
-        // max-h-64 sempat dipasang lalu dilepas: pada kartu lebar ia menyisakan
-        // pita buram ~105px di kiri-kanan, terbaca seperti video salah ukuran.
+        // Dua bentuk lama yang TIDAK boleh kembali: object-cover memotong
+        // posternya, dan rasio-di-kotak + pb-5 mengembalikan celah 16px.
+        ->and($isi)->not->toContain('object-contain w-full h-full pb-5')
         ->and($isi)->not->toContain('aspect-[16/10] max-h-64');
 });

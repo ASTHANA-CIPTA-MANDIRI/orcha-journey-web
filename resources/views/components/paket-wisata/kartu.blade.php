@@ -70,7 +70,20 @@
          yang panjang — "Open Trip Pantai Gunungkidul" sudah dua baris — menutup
          makin banyak. Judulnya sekarang turun ke badan kartu, jadi fotonya utuh
          dan judulnya tidak pernah menimpa apa pun. --}}
-    <div class="relative aspect-[16/10] overflow-hidden bg-orcha-navy">
+    {{-- Rasionya ada di GAMBARNYA, bukan di kotak ini.
+
+         Dulu kotak ini yang ber-aspect-[16/10] dan gambarnya diberi pb-5
+         untuk menghindari panel yang menindih. Akibatnya kotak ISI-nya
+         menjadi lebar x (lebar/1,6 - 20) — rasionya bukan 1,60 lagi, dan
+         poster 1,60 menyisakan celah TEPAT 16px di kiri dan kanan,
+         berapa pun lebar kartunya:
+           (lebar - (lebar/1,6 - 20) x 1,6) / 2 = 32/2 = 16px
+
+         Sekarang gambarnya berdiri di aliran biasa dengan rasionya sendiri,
+         dan 20px untuk panel yang menindih jadi padding KOTAK ini. Tinggi
+         kotak = tinggi gambar + 20px, jadi kotak gambarnya 1,60 persis dan
+         posternya terisi penuh tanpa celah sekaligus tanpa terpotong. --}}
+    <div class="relative pb-5 overflow-hidden bg-orcha-navy">
         {{-- LATAR: salinan sampul yang diburamkan, mengisi pita kosong.
 
              Dialah yang membesar saat disentuh tetikus, bukan posternya:
@@ -94,8 +107,11 @@
              aspect-[16/10] menggantikan tinggi tetap h-44/sm:h-52: rasio itu
              hampir persis rasio posternya, sehingga pita kosongnya nyaris
              tidak ada sekaligus tidak ada yang terpotong. --}}
+        {{-- relative: lapis buram di atas berposisi absolut, dan elemen
+             berposisi selalu menimpa isi aliran biasa. Tanpa relative,
+             posternya tertimbun latarnya sendiri. --}}
         <img src="{{ $paket->sampul }}" alt="{{ $paket->name }}" loading="lazy"
-            class="absolute inset-0 object-contain w-full h-full pb-5">
+            class="relative block w-full aspect-[16/10] object-contain">
 
         <span
             class="absolute top-4 left-4 px-3 py-1 text-[0.7rem] font-bold tracking-wider uppercase rounded-full bg-white/90 text-orcha-amber backdrop-blur">
