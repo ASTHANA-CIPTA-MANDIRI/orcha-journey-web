@@ -1132,7 +1132,23 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                  dalamnya. Pola yang sama dipakai paku payung di kartu Paket
                  Sorotan. --}}
             <div class="relative">
-                <section class="relative h-full overflow-hidden panel-orcha panel-orcha-gelap reveal">
+                {{-- z-20 pada SECTION, z-10 pada lapis daun di luarnya.
+
+                     Tanpa ini lapis daun selalu menang: ia sesudah <section>
+                     dalam DOM, jadi pada z yang sama ia yang digambar
+                     belakangan. Menaikkan z-index tulisan di DALAM section
+                     tidak menolong — .reveal memakai
+                     `animation: reveal-muncul forwards` pada translate, dan
+                     animasi yang menyentuh transform MENGUNCI konteks
+                     penumpukan selamanya, juga sesudah animasinya selesai.
+                     Jadi z berapa pun di dalam section tetap terkurung.
+
+                     Daun yang tertutup section tidak hilang: lapis DALAM
+                     (pohon utuh) menggambar daun yang sama persis di titik
+                     yang sama. Yang hanya dipunyai lapis luar adalah bagian
+                     yang menjorok KELUAR kartu, dan itu tetap terlihat karena
+                     di luar sana tidak ada yang menutupinya. --}}
+                <section class="relative z-20 h-full overflow-hidden panel-orcha panel-orcha-gelap reveal">
                 {{-- Panorama sebagai LATAR panel, dengan tirai hijau tua di atasnya.
 
                      Panel ini sebelumnya berlatar foto pantai beropasitas 25% —
@@ -1175,43 +1191,54 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                      dipasang di luar section, sesudah </section>. --}}
                 <img src="{{ asset('images/pohon-sudut.webp') }}" alt="" aria-hidden="true"
                     loading="lazy" decoding="async" width="820" height="552"
-                    class="absolute z-10 w-3/4 max-w-64 pointer-events-none select-none -top-7 -left-10 sm:w-4/5 sm:-top-9">
+                    class="absolute z-10 w-3/4 pointer-events-none select-none -top-7 -left-10 sm:w-4/5 sm:-top-9">
 
 
-                {{-- pt-24/32: tulisannya dimulai DI BAWAH tajuk pohon.
+                {{-- JARAK ATASNYA PERSENTASE, bukan rem.
 
-                     Tanpa itu label "Siap Berangkat?" dan baris pertama judul
-                     jatuh tepat di dedaunan paling terang, dan dua-duanya nyaris
-                     tidak terbaca. Menurunkan tulisannya lebih baik daripada
-                     meredupkan pohonnya: yang diminta justru warnanya hidup.
+                     Tulisannya harus mulai DI BAWAH tajuk pohon; kalau tidak,
+                     label "Siap Berangkat?" dan baris pertama judul jatuh di
+                     dedaunan paling terang dan nyaris tidak terbaca.
+                     Menurunkan tulisannya lebih baik daripada meredupkan
+                     pohonnya: yang diminta justru warnanya hidup.
 
-                     z-30 ADALAH JARING PENGAMAN, bukan penyelesaiannya.
-
-                     Sebabnya: hiasannya IKUT MELEBAR bersama panel (w-3/4 /
-                     w-4/5) sementara jaraknya TETAP. Pada panel ~1050px
-                     pohonnya jadi 840px dan daunnya turun sampai y=388px,
+                     Dulu jaraknya pt-24/32 — TETAP — sementara pohonnya IKUT
+                     MELEBAR bersama panel (w-3/4 / w-4/5). Jadi ia cukup di
+                     panel sempit dan gagal total di panel lebar: pada panel
+                     1000px pohonnya 800px dan daunnya turun sampai ~368px,
                      jauh melewati 128px.
 
-                     Terukur dari berkasnya, bukan ditaksir: daun paling bawah
-                     ada di baris 414 dari 552 — 75% tinggi berkas. Jadi
-                     daun terendah = (lebar x 0,5049) dikurangi geseran atas.
-                     Pada 256px: 129 - 36 = 93px, aman di bawah pt-32 (128px);
-                     di lebar ponsel geserannya 28px, jadi 101px di bawah
-                     pt-28 (112px).
+                     Terukur dari berkasnya, bukan ditaksir dari potret: daun
+                     paling bawah ada di baris 414 dari 552 — 75% tinggi
+                     berkas. Jadi daun terendah = (lebar x 0,5049) dikurangi
+                     geseran atas:
+                       panel 1000px -> 800 x 0,5049 - 36 = 368px,
+                                       44% dari lebar isi (~950px) = 418px  OK
+                       panel  400px -> 300 x 0,5049 - 28 = 123px,
+                                       44% dari ~346px = 152px              OK
 
                      Catatan: pada panel 491px yang dulu diukur pun angkanya
-                     sudah 162px, jadi tulisannya SELALU tertutup sebagian —
-                     klaim "tulisan dimulai di bawah tajuk" tidak pernah
-                     terbukti, hanya tidak pernah diperiksa.
+                     sudah 162px lawan pt-32 (128px). Jadi tulisannya SELALU
+                     tertutup sebagian — klaim lama "tulisan dimulai di bawah
+                     tajuk" tidak pernah terbukti, hanya tidak pernah
+                     diperiksa.
 
-                     z-30 ditambahkan supaya kegagalan serupa tidak pernah lagi
-                     MENYEMBUNYIKAN tulisan: paling buruk tulisannya duduk di
-                     atas daun, masih terbaca, bukan hilang di belakangnya.
-                     Angkanya 30 karena lapis daun di luar <section> ber-z-20,
-                     dan .panel-orcha hanya position:relative tanpa z-index
-                     maupun isolation — jadi ia tidak membuat konteks
-                     penumpukan yang akan mengurung z-30 ini di dalamnya. --}}
-                <div class="relative z-30 pt-28 sm:pt-32">
+                     z-30 di sini JARING PENGAMAN, dan baru benar-benar bekerja
+                     setelah <section> diberi z-20 di atas lapis daun luar.
+                     Sebelumnya ia sia-sia: .reveal memakai
+                     `animation: reveal-muncul forwards` pada translate, dan
+                     animasi yang menyentuh transform mengunci konteks
+                     penumpukan selamanya, sehingga z berapa pun di dalam
+                     section tidak pernah bisa melewati lapis di luarnya. --}}
+                {{-- text-center menengahkan SEMUANYA di panel ini, termasuk
+                     label "Siap Berangkat?".
+
+                     Labelnya ber-.label-bagian yang display:inline-flex —
+                     kotak inline, jadi text-align induknya memang
+                     menengahkannya. Kalau suatu saat kelas itu diubah jadi
+                     flex (block), labelnya akan balik rata kiri sendiri dan
+                     butuh justify-center. --}}
+                <div class="relative z-30 pt-[44%] text-center">
                     <p class="label-bagian !text-orcha-sun">Siap Berangkat?</p>
                     <h2 class="mt-3 text-xl font-bold leading-snug text-white font-heading sm:text-2xl">
                         Perjalanan Anda berikutnya cuma sejauh satu pesan.
@@ -1256,7 +1283,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                      yang menyembul. --}}
                 <img src="{{ asset('images/pohon-daun.webp') }}" alt="" aria-hidden="true"
                     loading="lazy" decoding="async" width="820" height="552"
-                    class="absolute z-20 w-3/4 max-w-64 pointer-events-none select-none -top-7 -left-10 sm:w-4/5 sm:-top-9">
+                    class="absolute z-10 w-3/4 pointer-events-none select-none -top-7 -left-10 sm:w-4/5 sm:-top-9">
             </div>
         </div>
 
