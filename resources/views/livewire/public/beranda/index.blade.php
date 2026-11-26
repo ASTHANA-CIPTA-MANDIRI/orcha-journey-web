@@ -1212,10 +1212,21 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                      paling bawah ada di baris 414 dari 552 — 75% tinggi
                      berkas. Jadi daun terendah = (lebar x 0,5049) dikurangi
                      geseran atas:
-                       panel 1000px -> 800 x 0,5049 - 36 = 368px,
-                                       44% dari lebar isi (~950px) = 418px  OK
-                       panel  400px -> 300 x 0,5049 - 28 = 123px,
-                                       44% dari ~346px = 152px              OK
+                     Yang dipakai BUKAN daun paling bawah di seluruh berkas,
+                     melainkan daun terendah di pita yang benar-benar ditempati
+                     tulisan. Tulisannya rata tengah, sedangkan daun paling
+                     bawah (baris 421) menggantung di ujung KIRI berkas, jauh
+                     dari tulisan — memakainya membuat jaraknya kelewat lebar
+                     dan panelnya kosong melompong di tengah.
+
+                     Profil terukur, batas kiri diukur sebagai pecahan lebar
+                     gambar yang TERGAMBAR (bukan piksel berkas):
+                       x >= 15% -> baris 412     x >= 25% -> baris 369
+                       x >= 20% -> baris 405     x >= 30% -> baris 329
+
+                     Tepi kiri judul jatuh di sekitar 20-23% pada panel lebar,
+                     jadi yang mengikat baris ~405: 0,5385 x lebar x (405/552)
+                     dikurangi geseran atas, dibagi lebar isi -> ~38%.
 
                      Catatan: pada panel 491px yang dulu diukur pun angkanya
                      sudah 162px lawan pt-32 (128px). Jadi tulisannya SELALU
@@ -1238,7 +1249,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                      menengahkannya. Kalau suatu saat kelas itu diubah jadi
                      flex (block), labelnya akan balik rata kiri sendiri dan
                      butuh justify-center. --}}
-                <div class="relative z-30 pt-[44%] text-center">
+                <div class="relative z-30 pt-[38%] text-center">
                     <p class="label-bagian !text-orcha-sun">Siap Berangkat?</p>
                     <h2 class="mt-3 text-xl font-bold leading-snug text-white font-heading sm:text-2xl">
                         Perjalanan Anda berikutnya cuma sejauh satu pesan.
