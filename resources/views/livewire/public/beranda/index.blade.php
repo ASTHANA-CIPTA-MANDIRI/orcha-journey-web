@@ -1175,7 +1175,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                      dipasang di luar section, sesudah </section>. --}}
                 <img src="{{ asset('images/pohon-sudut.webp') }}" alt="" aria-hidden="true"
                     loading="lazy" decoding="async" width="820" height="552"
-                    class="absolute z-10 w-3/4 pointer-events-none select-none -top-7 -left-10 sm:w-4/5 sm:-top-9">
+                    class="absolute z-10 w-3/4 max-w-64 pointer-events-none select-none -top-7 -left-10 sm:w-4/5 sm:-top-9">
 
 
                 {{-- pt-24/32: tulisannya dimulai DI BAWAH tajuk pohon.
@@ -1183,8 +1183,35 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                      Tanpa itu label "Siap Berangkat?" dan baris pertama judul
                      jatuh tepat di dedaunan paling terang, dan dua-duanya nyaris
                      tidak terbaca. Menurunkan tulisannya lebih baik daripada
-                     meredupkan pohonnya: yang diminta justru warnanya hidup. --}}
-                <div class="relative pt-24 sm:pt-32">
+                     meredupkan pohonnya: yang diminta justru warnanya hidup.
+
+                     z-30 ADALAH JARING PENGAMAN, bukan penyelesaiannya.
+
+                     Sebabnya: hiasannya IKUT MELEBAR bersama panel (w-3/4 /
+                     w-4/5) sementara jaraknya TETAP. Pada panel ~1050px
+                     pohonnya jadi 840px dan daunnya turun sampai y=388px,
+                     jauh melewati 128px.
+
+                     Terukur dari berkasnya, bukan ditaksir: daun paling bawah
+                     ada di baris 414 dari 552 — 75% tinggi berkas. Jadi
+                     daun terendah = (lebar x 0,5049) dikurangi geseran atas.
+                     Pada 256px: 129 - 36 = 93px, aman di bawah pt-32 (128px);
+                     di lebar ponsel geserannya 28px, jadi 101px di bawah
+                     pt-28 (112px).
+
+                     Catatan: pada panel 491px yang dulu diukur pun angkanya
+                     sudah 162px, jadi tulisannya SELALU tertutup sebagian —
+                     klaim "tulisan dimulai di bawah tajuk" tidak pernah
+                     terbukti, hanya tidak pernah diperiksa.
+
+                     z-30 ditambahkan supaya kegagalan serupa tidak pernah lagi
+                     MENYEMBUNYIKAN tulisan: paling buruk tulisannya duduk di
+                     atas daun, masih terbaca, bukan hilang di belakangnya.
+                     Angkanya 30 karena lapis daun di luar <section> ber-z-20,
+                     dan .panel-orcha hanya position:relative tanpa z-index
+                     maupun isolation — jadi ia tidak membuat konteks
+                     penumpukan yang akan mengurung z-30 ini di dalamnya. --}}
+                <div class="relative z-30 pt-28 sm:pt-32">
                     <p class="label-bagian !text-orcha-sun">Siap Berangkat?</p>
                     <h2 class="mt-3 text-xl font-bold leading-snug text-white font-heading sm:text-2xl">
                         Perjalanan Anda berikutnya cuma sejauh satu pesan.
@@ -1229,7 +1256,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                      yang menyembul. --}}
                 <img src="{{ asset('images/pohon-daun.webp') }}" alt="" aria-hidden="true"
                     loading="lazy" decoding="async" width="820" height="552"
-                    class="absolute z-20 w-3/4 pointer-events-none select-none -top-7 -left-10 sm:w-4/5 sm:-top-9">
+                    class="absolute z-20 w-3/4 max-w-64 pointer-events-none select-none -top-7 -left-10 sm:w-4/5 sm:-top-9">
             </div>
         </div>
 
