@@ -538,8 +538,22 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                      h-full pada section: pembungkus ini yang kini jadi anak grid dan
                      meregang setinggi baris, jadi section-nya perlu disuruh ikut
                      setinggi pembungkusnya. --}}
-                <div class="relative">
-                <section id="paket-sorotan" class="relative h-full overflow-hidden panel-orcha !p-0 !flex !flex-col scroll-mt-28 reveal">
+                {{-- self-start: kartu ini TIDAK ikut tinggi panel di sebelahnya.
+
+                     Kisi luar meregangkan tiap selnya setinggi baris, jadi kartu
+                     ini dulu dipaksa setinggi panel "Kenapa Orcha". Selama
+                     fotonya ikut meregang, itu tidak terlihat. Begitu fotonya
+                     berhenti di rasionya sendiri (supaya tidak ada pita kosong
+                     di atas-bawahnya), sisa tinggi itu muncul sebagai putih
+                     menganga di bawah foto — dan besarnya berubah-ubah mengikuti
+                     tinggi panel tetangganya, jadi terlihat seperti kartunya
+                     tidak responsif.
+
+                     Sekarang tingginya ditentukan isinya sendiri. Kedua panel
+                     jadi boleh berbeda tinggi, dan itu memang bentuk kisi kartu
+                     pada umumnya. --}}
+                <div class="relative self-start">
+                <section id="paket-sorotan" class="relative overflow-hidden panel-orcha !p-0 !flex !flex-col scroll-mt-28 reveal">
                     {{-- Paku payung yang MENANCAP ke kartu ini.
 
                          DI DALAM kartu, bukan menjorok keluar pojoknya: section ini
@@ -594,7 +608,22 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                         style="top: 33px; right: 31px; width: 10px; height: 5px;
                                box-shadow: inset 0 2px 2.5px rgb(30 18 8 / 0.65);"></span>
 
-                    <div class="grid flex-1 gap-0 p-2 sm:grid-cols-2 sm:p-2.5">
+                    {{-- BERTUMPUK, bukan dua lajur bersebelahan.
+
+                         Dengan dua lajur, tinggi lajur tulisan berubah mengikuti
+                         lebar layar — keterangannya muat 3 baris di 1680px dan
+                         jadi 4 baris di 1440px — sedangkan tinggi gambar
+                         ditentukan rasionya. Keduanya tidak akan pernah selalu
+                         sama, dan selisihnya muncul sebagai pita kosong (kalau
+                         gambarnya diregangkan) atau putih menganga di bawah
+                         gambar (kalau tidak).
+
+                         Bertumpuk menghapus pertanyaannya: tidak ada lagi dua
+                         lajur yang harus sama tinggi, jadi tidak ada selisih di
+                         lebar mana pun. Posternya melebar penuh selebar kartu
+                         dengan rasio 16:10 — terisi penuh tanpa celah sekaligus
+                         tanpa terpotong. --}}
+                    <div class="flex flex-col flex-1 gap-0 p-2 sm:p-2.5">
                         {{-- Berbingkai, bukan rata tepi: kartu unggulan pada rancangan
                              acuan menyisakan pias putih tipis mengelilingi fotonya. --}}
                         {{-- object-CONTAIN, bukan cover — dan di sini itu bukan selera.
@@ -630,7 +659,7 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                              min-h-[14rem] dibuang: pada kartu sempit ia justru
                              memaksa kotaknya lebih tinggi daripada gambarnya dan
                              mengembalikan celah yang sama. --}}
-                        <div class="relative self-start overflow-hidden rounded-[1.1rem] bg-orcha-navy">
+                        <div class="relative overflow-hidden rounded-[1.1rem] bg-orcha-navy">
                             <img src="{{ $paketSorot->sampul }}" alt="" aria-hidden="true"
                                 loading="lazy" decoding="async"
                                 class="absolute inset-0 object-cover w-full h-full scale-110 blur-xl opacity-70">
