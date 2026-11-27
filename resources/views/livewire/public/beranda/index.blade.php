@@ -538,22 +538,8 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                      h-full pada section: pembungkus ini yang kini jadi anak grid dan
                      meregang setinggi baris, jadi section-nya perlu disuruh ikut
                      setinggi pembungkusnya. --}}
-                {{-- self-start: kartu ini TIDAK ikut tinggi panel di sebelahnya.
-
-                     Kisi luar meregangkan tiap selnya setinggi baris, jadi kartu
-                     ini dulu dipaksa setinggi panel "Kenapa Orcha". Selama
-                     fotonya ikut meregang, itu tidak terlihat. Begitu fotonya
-                     berhenti di rasionya sendiri (supaya tidak ada pita kosong
-                     di atas-bawahnya), sisa tinggi itu muncul sebagai putih
-                     menganga di bawah foto — dan besarnya berubah-ubah mengikuti
-                     tinggi panel tetangganya, jadi terlihat seperti kartunya
-                     tidak responsif.
-
-                     Sekarang tingginya ditentukan isinya sendiri. Kedua panel
-                     jadi boleh berbeda tinggi, dan itu memang bentuk kisi kartu
-                     pada umumnya. --}}
-                <div class="relative self-start">
-                <section id="paket-sorotan" class="relative overflow-hidden panel-orcha !p-0 !flex !flex-col scroll-mt-28 reveal">
+                <div class="relative">
+                <section id="paket-sorotan" class="relative h-full overflow-hidden panel-orcha !p-0 !flex !flex-col scroll-mt-28 reveal">
                     {{-- Paku payung yang MENANCAP ke kartu ini.
 
                          DI DALAM kartu, bukan menjorok keluar pojoknya: section ini
@@ -622,12 +608,13 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                          sendiri — warnanya selalu cocok karena diambil dari
                          poster itu juga.
 
-                         Yang membuatnya dulu mencolok BUKAN selisih ini,
-                         melainkan regangan dari panel "Kenapa Orcha" di
-                         sebelahnya (lihat self-start pada pembungkus kartu).
-                         Tanpa regangan itu sisanya tinggal ±38px di atas dan
-                         bawah, bukan ±75px, dan besarnya tidak lagi berubah
-                         mengikuti tinggi panel tetangga. --}}
+                         Besarnya ikut tinggi panel "Kenapa Orcha" di sebelahnya,
+                         karena kartu ini memang disuruh setinggi baris kisi
+                         luarnya (h-full pada section). Sempat dicoba
+                         dilepas dengan self-start supaya tingginya ditentukan
+                         isinya sendiri, dan DICABUT lagi atas permintaan
+                         pemilik: kedua panel yang berbeda tinggi lebih
+                         mengganggu daripada pita buramnya. --}}
                     <div class="grid flex-1 gap-0 p-2 sm:grid-cols-2 sm:p-2.5">
                         {{-- Berbingkai, bukan rata tepi: kartu unggulan pada rancangan
                              acuan menyisakan pias putih tipis mengelilingi fotonya. --}}
