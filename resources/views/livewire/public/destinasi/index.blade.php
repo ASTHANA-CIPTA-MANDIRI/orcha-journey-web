@@ -84,6 +84,53 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
 
 @php
     $wa = fn (string $pesan) => 'https://api.whatsapp.com/send?phone=' . config('orcha.whatsapp') . '&text=' . rawurlencode($pesan);
+
+    /*
+     | Lengkung pemisah foto dan isi.
+     |
+     | viewBox dipatok 400x48 dengan preserveAspectRatio="none",
+     | jadi SATU jalur yang sama meregang mengikuti lebar kartu:
+     | kartu sorot yang dua kali lebih lebar tidak perlu jalur
+     | sendiri, dan lengkungnya tetap setinggi yang sama.
+     |
+     | 'isi' diberi warna kartu, jadi isinya seolah naik
+     | menerobos foto. 'garis' hanya tepi atasnya, dipakai
+     | sebagai goresan tipis berwarna aksen.
+     |
+     | Dasar 'isi' sengaja ditarik sampai y=64, JAUH melewati
+     | dasar viewBox yang 48. Kalau ia berhenti pas di 48,
+     | tepi bawah jalurnya berimpit dengan tepi elemen — dan
+     | karena tinggi elemennya pecahan (clamp), Safari
+     | membulatkan isian itu ke DALAM dan menyisakan satu
+     | baris piksel foto yang bocor melintang penuh selebar
+     | kartu. Terukur di potret pengguna 27 Nov 2026: satu
+     | baris warna foto di antara dua baris putih bersih.
+     | Chrome tidak pernah memperlihatkannya, jadi ini TIDAK
+     | bisa diuji dengan potret Chrome. Kelebihannya dipotong
+     | <svg> sendiri (overflow:hidden bawaan).
+     | Keduanya jalur terpisah karena goresannya digambar
+     | SESUDAH isinya — kalau satu jalur, warna isi akan menutupi
+     | separuh goresannya sendiri.
+     */
+    $lengkungDest = [
+        [
+            'isi' => 'M0,64 L0,26 C76,2 158,4 228,18 C296,31 350,40 400,33 L400,64 Z',
+            'garis' => 'M0,26 C76,2 158,4 228,18 C296,31 350,40 400,33',
+        ],
+        [
+            'isi' => 'M0,64 L0,33 C62,47 112,9 182,13 C252,17 304,43 400,19 L400,64 Z',
+            'garis' => 'M0,33 C62,47 112,9 182,13 C252,17 304,43 400,19',
+        ],
+        [
+            'isi' => 'M0,64 L0,41 C124,41 252,8 400,5 L400,64 Z',
+            'garis' => 'M0,41 C124,41 252,8 400,5',
+        ],
+    ];
+
+    // Dua warna saja, bukan satu untuk tiap wilayah: warna di
+    // sini HIASAN, dan warna hiasan yang berbeda-beda terbaca
+    // sebagai penggolongan yang ternyata tidak berarti apa-apa.
+    $aksenDest = ['var(--color-orcha-toska)', 'var(--color-orcha-sun)'];
 @endphp
 
 <div>
@@ -175,54 +222,6 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                      dengan pas: 1 besar + 8 kecil memenuhi kisi dua lajur
                      maupun tiga lajur tanpa menyisakan petak kosong.
                 --}}
-                @php
-                    /*
-                     | Lengkung pemisah foto dan isi.
-                     |
-                     | viewBox dipatok 400x48 dengan preserveAspectRatio="none",
-                     | jadi SATU jalur yang sama meregang mengikuti lebar kartu:
-                     | kartu sorot yang dua kali lebih lebar tidak perlu jalur
-                     | sendiri, dan lengkungnya tetap setinggi yang sama.
-                     |
-                     | 'isi' diberi warna kartu, jadi isinya seolah naik
-                     | menerobos foto. 'garis' hanya tepi atasnya, dipakai
-                     | sebagai goresan tipis berwarna aksen.
-                     |
-                     | Dasar 'isi' sengaja ditarik sampai y=64, JAUH melewati
-                     | dasar viewBox yang 48. Kalau ia berhenti pas di 48,
-                     | tepi bawah jalurnya berimpit dengan tepi elemen — dan
-                     | karena tinggi elemennya pecahan (clamp), Safari
-                     | membulatkan isian itu ke DALAM dan menyisakan satu
-                     | baris piksel foto yang bocor melintang penuh selebar
-                     | kartu. Terukur di potret pengguna 27 Nov 2026: satu
-                     | baris warna foto di antara dua baris putih bersih.
-                     | Chrome tidak pernah memperlihatkannya, jadi ini TIDAK
-                     | bisa diuji dengan potret Chrome. Kelebihannya dipotong
-                     | <svg> sendiri (overflow:hidden bawaan).
-                     | Keduanya jalur terpisah karena goresannya digambar
-                     | SESUDAH isinya — kalau satu jalur, warna isi akan menutupi
-                     | separuh goresannya sendiri.
-                     */
-                    $lengkungDest = [
-                        [
-                            'isi' => 'M0,64 L0,26 C76,2 158,4 228,18 C296,31 350,40 400,33 L400,64 Z',
-                            'garis' => 'M0,26 C76,2 158,4 228,18 C296,31 350,40 400,33',
-                        ],
-                        [
-                            'isi' => 'M0,64 L0,33 C62,47 112,9 182,13 C252,17 304,43 400,19 L400,64 Z',
-                            'garis' => 'M0,33 C62,47 112,9 182,13 C252,17 304,43 400,19',
-                        ],
-                        [
-                            'isi' => 'M0,64 L0,41 C124,41 252,8 400,5 L400,64 Z',
-                            'garis' => 'M0,41 C124,41 252,8 400,5',
-                        ],
-                    ];
-
-                    // Dua warna saja, bukan satu untuk tiap wilayah: warna di
-                    // sini HIASAN, dan warna hiasan yang berbeda-beda terbaca
-                    // sebagai penggolongan yang ternyata tidak berarti apa-apa.
-                    $aksenDest = ['var(--color-orcha-toska)', 'var(--color-orcha-sun)'];
-                @endphp
 
                 <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 sm:gap-6">
                     @foreach ($destinations as $dest)
@@ -437,27 +436,61 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
          kembali. Keadaan terbukanya tetap ikut di alamat, jadi tautannya bisa
          dibagikan dan tombol kembali peramban menutupnya. --}}
     @if ($detail)
-        <div class="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6"
+        @php
+            $galeri = array_values(array_filter(array_merge(
+                [$detail->main_photo],
+                $detail->others_photo ?? [],
+            )));
+
+            // Rupa lengkung dan warna aksen dipatok pada ID destinasinya, bukan
+            // diacak: satu destinasi harus selalu tampil dengan rupa yang sama
+            // setiap kali dibuka, termasuk lewat tautan yang dibagikan.
+            $rupa = $lengkungDest[$detail->id % 3];
+            $warna = $aksenDest[$detail->id % 2];
+        @endphp
+
+        {{-- z-[950], bukan z-50.
+
+             Tata lapis halaman ini sudah dipakai jauh di atas 50: tombol
+             WhatsApp mengambang di z-[800], kepala halaman di z-[900], dan
+             layar muat di z-[999]. Dengan z-50, tirainya memang menggelapkan
+             halaman TETAPI kepala halaman dan tombol mengambang tetap duduk
+             di atasnya — tajam, bisa diklik, dan jendelanya jadi tidak
+             terbaca sebagai jendela yang mengunci. Tidak ada galat apa pun;
+             yang terlihat hanya "kok navigasinya masih tajam".
+
+             950 dipilih supaya tetap DI BAWAH layar muat: saat halaman
+             sedang dimuat ulang, layar muat memang harus menutup segalanya. --}}
+        <div class="fixed inset-0 z-[950] flex items-end justify-center p-0 sm:items-center sm:p-6"
             role="dialog" aria-modal="true" aria-labelledby="judul-destinasi" wire:key="detail-{{ $detail->id }}">
             {{-- Latar gelap ikut menutup: itu yang pertama dicoba orang saat
                  ingin keluar, sebelum mencari tombol silang. --}}
             <button type="button" wire:click="tutupDetail" aria-label="Tutup detail"
-                class="absolute inset-0 bg-orcha-navy/70 backdrop-blur-sm"></button>
+                class="absolute inset-0 tirai-dest bg-orcha-navy/70 backdrop-blur-sm"></button>
 
-            @php
-                $galeri = array_values(array_filter(array_merge(
-                    [$detail->main_photo],
-                    $detail->others_photo ?? [],
-                )));
-            @endphp
-
-            <div x-data="{ aktif: 0 }" @keydown.escape.window="$wire.tutupDetail()"
-                class="relative w-full max-w-3xl overflow-hidden bg-white shadow-2xl rounded-t-3xl sm:rounded-3xl max-h-[92vh] overflow-y-auto">
+            {{-- Tombol panah DAN papan ketik menggerakkan foto yang sama.
+                 Panah kiri/kanan dipasang di window, bukan di jendelanya,
+                 karena fokus biasanya masih tertinggal di tombol yang tadi
+                 ditekan — pendengar yang menempel di jendela tidak akan
+                 pernah menerimanya. --}}
+            <div x-data="{ aktif: 0, jumlah: {{ max(count($galeri), 1) }} }" @keydown.escape.window="$wire.tutupDetail()"
+                @keydown.arrow-right.window="aktif = (aktif + 1) % jumlah"
+                @keydown.arrow-left.window="aktif = (aktif - 1 + jumlah) % jumlah"
+                class="relative w-full max-w-3xl overflow-hidden bg-white shadow-2xl jendela-dest rounded-t-3xl sm:rounded-3xl max-h-[92vh] overflow-y-auto"
+                style="--aksen: {{ $warna }}">
 
                 <div class="relative bg-orcha-foam aspect-[16/10]">
                     @forelse ($galeri as $urutan => $foto)
+                        {{-- Berkas foto bisa hilang walau kolomnya terisi.
+                             DISEMBUNYIKAN, bukan diganti foto cadangan: ini
+                             jendela SATU destinasi, dan memajang foto senja
+                             milik tempat lain di sini bukan sekadar hiasan
+                             yang salah — ia menyesatkan. Yang tampil latar
+                             krem kosong, sama seperti saat destinasinya
+                             memang belum berfoto. --}}
                         <img src="{{ $foto }}" alt="{{ $detail->destination_name }}"
                             x-show="aktif === {{ $urutan }}" x-cloak loading="lazy" decoding="async"
+                            onerror="this.style.visibility='hidden';"
                             class="absolute inset-0 object-cover w-full h-full">
                     @empty
                         <div class="flex items-center justify-center w-full h-full text-slate-400">
@@ -465,20 +498,58 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                         </div>
                     @endforelse
 
-                    <div class="absolute inset-x-0 bottom-0 h-32 pointer-events-none bg-gradient-to-t from-orcha-navy/90 to-transparent">
-                    </div>
+                    {{-- inset-0, bukan tinggi tetap.
+
+                         Selubung setinggi 11rem di atas foto setinggi 30rem
+                         memampatkan seluruh gradasinya ke sepertiga bawah —
+                         dan bagian paling gelapnya justru jatuh di bawah
+                         lengkung putih, tempat yang tidak terlihat sama
+                         sekali. Judulnya lalu berdiri di atas nada tengah
+                         pasir terang: masih terbaca, tapi tanpa tumpuan.
+                         Dengan inset-0 perbandingannya sama seperti di
+                         kartu, berapa pun tinggi fotonya. --}}
+                    <div class="absolute inset-0 pointer-events-none selubung-dest"></div>
 
                     <button type="button" wire:click="tutupDetail" aria-label="Tutup detail"
-                        class="absolute flex items-center justify-center w-9 h-9 rounded-full top-4 right-4 bg-white/90 text-orcha-navy backdrop-blur hover:bg-white">
+                        class="absolute z-10 flex items-center justify-center rounded-full tombol-jendela-dest w-11 h-11 top-4 right-4">
                         <x-heroicon-o-x-mark class="w-5 h-5" />
                     </button>
 
-                    <span class="absolute inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full top-4 left-4 text-orcha-navy bg-orcha-sun">
+                    <span
+                        class="absolute inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full top-4 left-4 text-orcha-navy bg-orcha-sun">
                         <x-heroicon-s-user-group class="w-4 h-4" />
                         {{ shortNumber($detail->total_visitor) }} pengunjung diantar
                     </span>
 
-                    <div class="absolute inset-x-0 bottom-0 p-5 sm:p-7">
+                    {{-- Panah hanya muncul kalau memang ada foto lain. Panah
+                         yang tidak mengubah apa pun terbaca sebagai tombol
+                         rusak, bukan sebagai "sudah habis". --}}
+                    @if (count($galeri) > 1)
+                        {{-- top-[38%] di layar sempit, bukan setengah.
+
+                             Fotonya di sana cuma ~244px (nisbah 16/10 dari
+                             390px), dan panah yang duduk tepat di tengah
+                             jatuh persis di atas judul destinasinya — huruf
+                             pertama namanya tertutup tombol bundar putih.
+                             Di layar lebar fotonya dua kali lebih tinggi dan
+                             tengah tetap tempat yang benar. --}}
+                        <button type="button" @click="aktif = (aktif - 1 + jumlah) % jumlah"
+                            aria-label="Foto sebelumnya"
+                            class="absolute z-10 flex items-center justify-center -translate-y-1/2 rounded-full tombol-jendela-dest w-11 h-11 left-4 top-[38%] sm:top-1/2">
+                            <x-heroicon-o-chevron-left class="w-5 h-5" />
+                        </button>
+                        <button type="button" @click="aktif = (aktif + 1) % jumlah" aria-label="Foto berikutnya"
+                            class="absolute z-10 flex items-center justify-center -translate-y-1/2 rounded-full tombol-jendela-dest w-11 h-11 right-4 top-[38%] sm:top-1/2">
+                            <x-heroicon-o-chevron-right class="w-5 h-5" />
+                        </button>
+                    @endif
+
+                    {{-- bottom-16: lengkung di bawah setinggi 3,5rem; judul yang
+                         duduk lebih rendah akan tertelan separuh, dan karena
+                         lengkungnya putih seperti badan jendela, potongannya
+                         tidak terbaca sebagai cacat — hanya sebagai huruf yang
+                         hilang. --}}
+                    <div class="absolute inset-x-0 px-5 bottom-16 sm:px-7">
                         <h2 id="judul-destinasi" class="text-2xl font-bold text-white font-heading sm:text-3xl">
                             {{ $detail->destination_name }}
                         </h2>
@@ -495,37 +566,64 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                             </span>
                         </p>
                     </div>
+
+                    <svg class="absolute left-0 w-full lengkung-jendela-dest" viewBox="0 0 400 48"
+                        preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                        <path d="{{ $rupa['isi'] }}" fill="#fff" />
+                        <path d="{{ $rupa['garis'] }}" fill="none" stroke="var(--aksen)" stroke-width="2.5"
+                            stroke-linecap="round" vector-effect="non-scaling-stroke" />
+                    </svg>
                 </div>
 
-                {{-- Foto lain dipilih di sisi peramban: mengganti gambar tidak
-                     mengubah apa pun di server, dan perjalanan bolak-balik ke
-                     server hanya membuat galerinya terasa berat. --}}
-                @if (count($galeri) > 1)
-                    <div class="flex gap-2 px-5 pt-4 overflow-x-auto sm:px-7">
-                        @foreach ($galeri as $urutan => $foto)
-                            <button type="button" @click="aktif = {{ $urutan }}"
-                                :class="aktif === {{ $urutan }} ? 'ring-2 ring-orcha-ocean' : 'ring-1 ring-orcha-foam opacity-70'"
-                                class="overflow-hidden rounded-xl shrink-0"
-                                aria-label="Lihat foto {{ $urutan + 1 }}">
-                                <img src="{{ $foto }}" alt="" loading="lazy" decoding="async"
-                                    class="object-cover w-16 h-16">
-                            </button>
-                        @endforeach
-                    </div>
-                @endif
+                <div class="relative p-5 sm:p-7">
+                    <span class="semburat-dest" aria-hidden="true"></span>
 
-                <div class="p-5 sm:p-7">
-                    @if ($detail->deskripsi)
-                        <p class="text-sm leading-relaxed text-slate-600">{{ $detail->deskripsi }}</p>
-                    @else
-                        <p class="text-sm text-slate-400">Keterangan destinasi ini belum ditulis.</p>
+                    {{-- Foto lain dipilih di sisi peramban: mengganti gambar tidak
+                         mengubah apa pun di server, dan perjalanan bolak-balik ke
+                         server hanya membuat galerinya terasa berat.
+
+                         Penghitungnya DIBERI ANGKA, bukan sekadar deretan ubin:
+                         tanpa itu tidak ada yang memberi tahu bahwa masih ada
+                         foto di luar yang terlihat saat deretnya harus digulung. --}}
+                    @if (count($galeri) > 1)
+                        <div class="relative mb-6">
+                            <div class="flex items-center justify-between gap-3 mb-3">
+                                <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Galeri</p>
+                                <p class="text-xs font-semibold tracking-wider uppercase text-slate-400">
+                                    Foto <span
+                                        x-text="String(aktif + 1).padStart(2, '0')">01</span>
+                                    dari {{ str_pad(count($galeri), 2, '0', STR_PAD_LEFT) }}
+                                </p>
+                            </div>
+
+                            <div class="flex gap-2 pb-1 overflow-x-auto">
+                                @foreach ($galeri as $urutan => $foto)
+                                    <button type="button" @click="aktif = {{ $urutan }}"
+                                        :class="aktif === {{ $urutan }} ? 'ubin-dest-aktif' : 'opacity-60 hover:opacity-100'"
+                                        class="overflow-hidden transition rounded-xl shrink-0"
+                                        aria-label="Lihat foto {{ $urutan + 1 }}">
+                                        <img src="{{ $foto }}" alt="" loading="lazy" decoding="async"
+                                            onerror="this.style.visibility='hidden';"
+                                            class="object-cover w-20 h-16">
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
                     @endif
+
+                    <div class="relative">
+                        @if ($detail->deskripsi)
+                            <p class="text-[0.95rem] leading-relaxed text-slate-600">{{ $detail->deskripsi }}</p>
+                        @else
+                            <p class="text-sm text-slate-400">Keterangan destinasi ini belum ditulis.</p>
+                        @endif
+                    </div>
 
                     {{-- Dua jalan lanjut yang berbeda: rombongan yang butuh paket
                          lengkap, dan yang hanya perlu kendaraannya. Sebelumnya
                          hanya WhatsApp, sehingga yang sudah tahu ingin menyewa
                          unit tetap harus bertanya dulu. --}}
-                    <div class="grid gap-2 mt-6 sm:grid-cols-2">
+                    <div class="relative grid gap-2 mt-6 sm:grid-cols-2">
                         <a href="{{ $wa("Halo Orcha Journey, saya ingin ke {$detail->destination_name}. Ada paket atau armadanya?") }}"
                             target="_blank" rel="noopener noreferrer"
                             class="btn-orcha btn-orcha-primary !py-2.5 !text-sm">

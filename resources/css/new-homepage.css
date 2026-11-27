@@ -3487,3 +3487,93 @@ input[type="radio"] {
     bottom: auto;
     top: -3rem;
 }
+
+/* ----------------------------------------------------------
+   Jendela detail destinasi
+
+   Jendelanya memakai bahasa rupa yang sama dengan kartunya — lengkung,
+   warna aksen, semburat — supaya menekan "Lihat Detail" terasa membesarkan
+   kartu yang barusan dilihat, bukan berpindah ke layar milik orang lain.
+   Sebelumnya jendelanya kotak putih polos, dan justru itu yang membuatnya
+   terbaca hambar di tengah halaman yang sudah berirama.
+---------------------------------------------------------- */
+
+/* Lengkung di jendela sedikit lebih tinggi daripada di kartu: lebarnya
+   hampir tiga kali lipat, dan lengkung setinggi kartu akan terbaca nyaris
+   lurus pada lebar segitu. Dasarnya digeser -1px dengan alasan yang sama
+   seperti .lengkung-dest — lihat keterangan di sana. */
+.lengkung-jendela-dest {
+    display: block;
+    height: 3.5rem;
+    bottom: -1px;
+}
+
+/* Tombol di atas foto: silang dan dua panah.
+
+   Satu kelas untuk ketiganya. Sebelumnya tombol silangnya 36px dengan latar
+   putih tipis — di atas foto terang ia nyaris tidak terlihat, dan 36px di
+   bawah anjuran 44px untuk sasaran sentuh. */
+.tombol-jendela-dest {
+    background: rgb(255 255 255 / 0.92);
+    color: var(--color-orcha-navy);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 10px 24px -14px rgb(22 33 28 / 0.9);
+    transition:
+        background-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+@media (hover: hover) {
+    .tombol-jendela-dest:hover {
+        background: #fff;
+        transform: scale(1.06);
+    }
+}
+
+/* Ubin foto yang sedang tampil. Dipakai lewat :class Alpine, jadi warnanya
+   ikut --aksen jendelanya tanpa menuliskan warna di markah. */
+.ubin-dest-aktif {
+    box-shadow:
+        0 0 0 2px #fff,
+        0 0 0 4px var(--aksen);
+}
+
+/* Jendela dan tirainya muncul, tidak melompat jadi.
+
+   Jendela yang hadir seketika terbaca seperti halaman yang berganti, bukan
+   seperti lapisan yang naik di atas daftar — dan pembacanya kehilangan jejak
+   kartu mana yang tadi ditekan. */
+.jendela-dest {
+    animation: jendela-dest-muncul 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.tirai-dest {
+    animation: tirai-dest-muncul 0.3s ease both;
+}
+
+@keyframes jendela-dest-muncul {
+    from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes tirai-dest-muncul {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .jendela-dest,
+    .tirai-dest {
+        animation: none;
+    }
+}

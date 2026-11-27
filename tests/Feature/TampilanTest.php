@@ -609,3 +609,34 @@ test('isi lengkung kartu destinasi melewati dasar viewBox', function () {
 
     expect($cocok[1])->toMatch('/bottom:\s*-1px\s*;/');
 });
+
+test('jendela detail destinasi menutupi kepala halaman dan tombol mengambang', function () {
+    /*
+     | Tata lapis halaman publik sudah dipakai jauh di atas 50: tombol
+     | WhatsApp mengambang dan kepala halaman duduk di ratusan. Jendela
+     | detail yang memakai z-50 tetap menggelapkan halaman — tirainya
+     | bekerja — TETAPI kepala halaman dan tombol mengambang tetap tajam di
+     | atasnya dan masih bisa diklik. Tidak ada galat, halaman tetap 200,
+     | dan yang terlihat cuma "kok navigasinya tidak ikut redup".
+     */
+    $blade = file_get_contents(resource_path('views/livewire/public/destinasi/index.blade.php'));
+
+    expect(preg_match('/class="fixed inset-0 z-\[(\d+)\][^"]*"\s*\n\s*role="dialog"/', $blade, $cocok))
+        ->toBe(1, 'wadah jendela detail tidak lagi memakai z-[angka]');
+
+    $jendela = (int) $cocok[1];
+
+    // Dibandingkan dengan angka yang BENAR-BENAR ada di tata letaknya, bukan
+    // angka yang ditulis ulang di sini: kalau suatu saat kepala halaman
+    // dinaikkan, uji ini ikut naik sendiri dan tetap berarti.
+    preg_match_all('/z-\[(\d+)\]/', file_get_contents(resource_path('views/components/layouts/guest.blade.php')), $tata);
+
+    expect($tata[1])->not->toBeEmpty()
+        ->and($jendela)->toBeGreaterThan(max(array_map('intval', $tata[1])));
+
+    // Tetapi tetap DI BAWAH layar muat: saat halaman sedang dimuat ulang,
+    // layar muat memang harus menutup segalanya, termasuk jendela ini.
+    preg_match('/z-\[(\d+)\]/', file_get_contents(resource_path('views/components/loading-spinner.blade.php')), $muat);
+
+    expect($jendela)->toBeLessThan((int) $muat[1]);
+});
