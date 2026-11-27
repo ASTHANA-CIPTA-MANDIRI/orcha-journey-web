@@ -915,3 +915,74 @@ test('peringatan pembayaran berlatar padat, tidak bisa ditembus apa pun di belak
     expect($cocok)->not->toBeEmpty('aturan .peringatan-bayar hilang')
         ->and($cocok[1])->toMatch('/background:\s*#[0-9a-fA-F]{6}\s*;/');
 });
+
+test('sesudah mendaftar, pembayaran jadi tindakan utama dan riwayat kesehatan menyusul', function () {
+    /*
+     | Urutan lama: isi riwayat kesehatan dulu, pembayaran menyusul setelah
+     | tim mengonfirmasi kursi. Yang paling sering terjadi karenanya:
+     | pendaftar mengisi riwayat kesehatan untuk SELURUH rombongan — pekerjaan
+     | terberat di alur ini — lalu berhenti, dan kursinya tidak pernah
+     | terkunci. Padahal aturan di halaman yang sama sudah berbunyi "kursi
+     | dikunci setelah DP masuk".
+     |
+     | Sekarang pembayaran yang jadi tindakan utama, dan riwayat kesehatan
+     | diminta sesudah pembayarannya berhasil — halaman pembayaran-selesai
+     | memang sudah menawarkannya di sana.
+     */
+    $html = \Livewire\Volt\Volt::test('public.open-trip.pendaftaran')
+        ->set('kodeTerdaftar', 'OT-2711-UJICOBA')
+        ->html();
+
+    // Tombol utamanya pembayaran, memakai tombol ajakan utama beranda.
+    expect(preg_match('/<a\b[^>]*>(?:(?!<\/a>).)*Bayar Uang Muka Sekarang(?:(?!<\/a>).)*<\/a>/s', $html, $cocok))
+        ->toBe(1, 'tombol bayar uang muka tidak tergambar');
+
+    expect($cocok[0])->toContain('btn-orcha-sun')
+        ->and($cocok[0])->toContain('konfirmasi-pembayaran');
+
+    // Riwayat kesehatan TETAP bisa dibuka — yang membayar lewat transfer
+    // manual tidak pernah melewati halaman "pembayaran berhasil" yang
+    // menawarkannya — tetapi tidak lagi sebagai tombol.
+    expect($html)->toContain('riwayat-kesehatan');
+
+    expect(preg_match('/<a\b[^>]*btn-orcha[^>]*>(?:(?!<\/a>).)*Isi Riwayat Kesehatan(?:(?!<\/a>).)*<\/a>/s', $html))
+        ->toBe(0, 'riwayat kesehatan kembali jadi tombol di layar sesudah mendaftar');
+
+    // Langkah pertama menyebut uang muka, bukan riwayat kesehatan.
+    preg_match('/Langkah berikutnya.*?<li>(.*?)<\/li>/s', $html, $langkah);
+
+    expect($langkah)->not->toBeEmpty()
+        ->and($langkah[1])->toContain('uang muka')
+        ->and($langkah[1])->not->toContain('riwayat kesehatan');
+});
+
+test('kartu tercatat memakai bentuk abstrak yang sama dengan kartu artikel', function () {
+    /*
+     | Ini satu-satunya layar yang muncul sesudah kerja mengisi formulir
+     | selesai. Sebagai kotak putih biasa ia terbaca sebagai halaman lain yang
+     | kebetulan terbuka, bukan sebagai hasil.
+     |
+     | Yang diperiksa sudut daunnya SAMA dengan .kartu-artikel, bukan sekadar
+     | "ada border-radius": dua bentuk membulat yang berbeda-beda di satu
+     | situs justru membuatnya terbaca seperti beberapa rancangan yang
+     | ditempel berdampingan — persis yang hendak dihindari.
+     */
+    $css = preg_replace('#/\*.*?\*/#s', '', file_get_contents(resource_path('css/new-homepage.css')));
+
+    preg_match('/\.kartu-artikel \{(.*?)\n\}/s', $css, $artikel);
+    preg_match('/\.kartu-tercatat \{(.*?)\n\}/s', $tercatat = $css, $kartu);
+
+    expect($artikel)->not->toBeEmpty()
+        ->and($kartu)->not->toBeEmpty('aturan .kartu-tercatat hilang');
+
+    preg_match('/border-radius:\s*([^;]+);/', $artikel[1], $radiusArtikel);
+    preg_match('/border-radius:\s*([^;]+);/', $kartu[1], $radiusKartu);
+
+    expect(trim($radiusKartu[1]))->toBe(trim($radiusArtikel[1]));
+
+    // Ombak di kaki pita kepalanya, bukan garis lurus.
+    $blade = file_get_contents(resource_path('views/livewire/public/open-trip/pendaftaran.blade.php'));
+
+    expect($blade)->toContain('ombak-tercatat')
+        ->and($blade)->toContain('karcis-kode');
+});

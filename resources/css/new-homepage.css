@@ -3903,3 +3903,85 @@ input[type="radio"] {
     background: #fdf4e6;
     border-color: rgb(232 163 58 / 0.5);
 }
+
+/* ----------------------------------------------------------
+   Kartu "Pendaftaran Anda tercatat"
+
+   Satu-satunya layar yang muncul sesudah kerja mengisi formulir selesai.
+   Sebelumnya ia kotak putih biasa — terbaca sebagai halaman lain yang
+   kebetulan terbuka, bukan sebagai HASIL dari yang barusan dikerjakan.
+
+   Bentuknya meminjam bahasa rupa kartu artikel: sudut daun, bayangan padat
+   yang menggeser, dan kaki pita berupa ombak. Alasan bentuk itu ada di
+   komentar .kartu-artikel; yang penting di sini keduanya memakai bentuk
+   yang SAMA, supaya situs ini tidak terbaca seperti beberapa rancangan
+   yang ditempel berdampingan.
+---------------------------------------------------------- */
+.kartu-tercatat {
+    position: relative;
+    overflow: hidden;
+    background: #fffdfa;
+    border: 1px solid #f1e8dc;
+    border-radius: 3.1rem 0.8rem 3.1rem 0.8rem;
+    box-shadow:
+        6px 8px 0 0 #efe4d3,
+        0 26px 42px -28px rgb(40 28 18 / 0.45);
+}
+
+/* Pita kepala. Toska, bukan emas: emas di halaman ini sudah memegang tombol
+   kirim dan tombol bayar, dan kabar "tercatat" bukan ajakan menekan apa pun
+   — ia pemberitahuan. */
+.kepala-tercatat {
+    position: relative;
+    overflow: hidden;
+    padding: 2.75rem 1.5rem 3.6rem;
+    color: #fff;
+    background:
+        radial-gradient(120% 90% at 82% 0%, rgb(255 255 255 / 0.16), transparent 62%),
+        linear-gradient(145deg, #2fa894 0%, var(--color-orcha-toska) 58%, #185f54 100%);
+}
+
+.centang-tercatat {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.18);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.4);
+    backdrop-filter: blur(4px);
+}
+
+/* Ombak di kaki pita, berwarna badan kartunya. left/right -1px dan lebar
+   +2px: tanpa itu tepi kiri-kanannya menyisakan sepersekian piksel warna
+   pita di bawah lengkungnya — cacat yang sama seperti di .lengkung-dest. */
+.ombak-tercatat {
+    position: absolute;
+    left: -1px;
+    right: -1px;
+    bottom: -1px;
+    width: calc(100% + 2px);
+    height: 2.6rem;
+    display: block;
+    color: #fffdfa;
+    pointer-events: none;
+}
+
+/* Kode pesanan sebagai potongan karcis.
+
+   Kode ini dipakai di tiga halaman lain, jadi ia barang yang harus DISIMPAN
+   — bukan sekadar tulisan di layar. Garis putus-putus dan latar krem
+   memberinya rupa benda yang disobek dan disimpan, dan itu yang membuat
+   orang menyalinnya alih-alih menutup tab lalu mencarinya lagi nanti. */
+.karcis-kode {
+    padding: 0.85rem 1.5rem;
+    border: 2px dashed var(--color-orcha-mist);
+    border-radius: 1rem;
+    background: var(--color-orcha-foam);
+    color: var(--color-orcha-navy);
+    font-family: var(--font-heading);
+    font-weight: 900;
+    font-size: clamp(1.35rem, 3.2vw, 1.75rem);
+    letter-spacing: 0.14em;
+}

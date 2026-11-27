@@ -631,13 +631,43 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                 {{-- Formulir --}}
                 <div class="lg:col-span-8">
                     @if ($kodeTerdaftar)
-                        <div class="p-8 text-center card-orcha sm:p-10">
-                            <x-heroicon-s-check-circle class="w-16 h-16 mx-auto text-orcha-sky" />
-                            <h2 class="mt-4 text-2xl font-bold font-heading text-orcha-navy">Pendaftaran Anda tercatat
-                            </h2>
-                            <p class="mt-2 text-sm text-slate-600">Simpan kode di bawah ini. Kode dipakai untuk mengisi
-                                formulir riwayat kesehatan peserta.</p>
+                        {{-- Kartu "tercatat" memakai bahasa rupa kartu artikel:
+                             sudut daun (lebar di kiri-atas dan kanan-bawah, nyaris
+                             tajam di dua sudut lain), bayangan padat yang menggeser,
+                             dan kaki pita berupa ombak. Bentuknya sengaja TIDAK
+                             persegi panjang — ini satu-satunya layar yang muncul
+                             sesudah kerja mengisi formulir selesai, dan kotak putih
+                             biasa membuatnya terbaca sebagai halaman lain yang
+                             kebetulan terbuka, bukan sebagai hasil. --}}
+                        <div class="kartu-tercatat">
+                            <div class="kepala-tercatat">
+                                {{-- Cap air lambang orca, sama seperti panel sorotan
+                                     blog dan "Cara Pesan" di beranda. Hiasan: aria-hidden
+                                     dan alt kosong. --}}
+                                <img src="{{ asset('orcha-logo-only.png') }}" alt="" aria-hidden="true"
+                                    loading="lazy" width="512" height="512" class="cap-orca">
 
+                                <div class="relative text-center">
+                                    <span class="centang-tercatat">
+                                        <x-heroicon-s-check class="w-9 h-9" />
+                                    </span>
+                                    <h2 class="mt-4 text-2xl font-bold text-white font-heading sm:text-3xl">
+                                        Pendaftaran Anda tercatat
+                                    </h2>
+                                    <p class="max-w-md mx-auto mt-2 text-sm text-white/80">
+                                        Simpan kodenya, lalu lanjutkan ke pembayaran uang muka untuk mengunci
+                                        kursi Anda.
+                                    </p>
+                                </div>
+
+                                <svg class="ombak-tercatat" viewBox="0 0 400 44" preserveAspectRatio="none"
+                                    aria-hidden="true">
+                                    <path d="M0 44V20c54-17 104 11 168 5s108-29 164-16 50 9 68 4v31z"
+                                        fill="currentColor" />
+                                </svg>
+                            </div>
+
+                            <div class="px-6 pt-2 pb-8 text-center sm:px-9 sm:pb-10">
                             {{-- Kode + tombol salin.
 
                                  Kodenya dipakai di tiga tempat lain — formulir riwayat
@@ -679,10 +709,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                         setTimeout(() => this.keadaan = 'diam', 2500);
                                     }
                                 }">
-                                <p
-                                    class="px-6 py-3 text-2xl font-black tracking-widest rounded-2xl font-heading bg-orcha-foam text-orcha-navy">
-                                    {{ $kodeTerdaftar }}
-                                </p>
+                                <p class="karcis-kode">{{ $kodeTerdaftar }}</p>
 
                                 <button type="button" x-on:click="salin()"
                                     class="inline-flex items-center gap-2 px-4 py-3 text-sm font-bold transition border rounded-2xl border-orcha-mist text-orcha-ocean hover:border-orcha-sky hover:bg-orcha-foam/60"
@@ -708,36 +735,67 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                 </button>
                             </div>
 
-                            <div class="p-4 mt-6 text-sm text-left rounded-2xl bg-orcha-foam/60 text-slate-600">
+                            {{-- Urutannya: BAYAR dulu, riwayat kesehatan sesudahnya.
+
+                                 Dulu riwayat kesehatan diminta lebih dulu, lalu
+                                 pembayaran menyusul setelah tim mengonfirmasi kursi.
+                                 Akibatnya yang paling sering terjadi: pendaftar
+                                 mengisi riwayat kesehatan untuk seluruh rombongan,
+                                 lalu berhenti — kursinya tidak pernah terkunci karena
+                                 tidak ada yang menguncinya kecuali uang muka, dan
+                                 aturan di halaman ini memang sudah berbunyi "kursi
+                                 dikunci setelah DP masuk".
+
+                                 Dengan urutan baru, pekerjaan terberat (mendata tiap
+                                 peserta) baru diminta setelah kursinya benar-benar
+                                 aman. --}}
+                            <div class="p-5 mt-6 text-sm text-left rounded-2xl bg-orcha-foam/60 text-slate-600">
                                 <p class="font-bold text-orcha-navy">Langkah berikutnya</p>
-                                <ol class="mt-2 space-y-1 list-decimal list-inside">
-                                    <li>Isi <strong>formulir riwayat kesehatan</strong> untuk tiap peserta.</li>
-                                    <li>Tim kami menghubungi Anda untuk konfirmasi kursi.</li>
-                                    <li>Bayar uang muka {{ $dp }}% paling lambat {{ $batasDp }} jam setelah
-                                        konfirmasi, lalu pelunasan paling lambat
+                                <ol class="mt-2 space-y-1.5 list-decimal list-inside">
+                                    <li>Bayar <strong>uang muka {{ $dp }}%</strong> untuk mengunci kursi Anda.</li>
+                                    <li>Setelah pembayaran berhasil, isi
+                                        <strong>formulir riwayat kesehatan</strong> tiap peserta.</li>
+                                    <li>Tim kami menghubungi Anda lewat WhatsApp. Pelunasan paling lambat
                                         <strong>H-{{ $pelunasan }}</strong> sebelum keberangkatan.</li>
                                 </ol>
                             </div>
 
                             <x-peringatan-pembayaran class="mt-4 text-left" />
 
-                            <div class="flex flex-col justify-center gap-3 mt-6 sm:flex-row">
-                                <a href="{{ route('riwayat-kesehatan', ['kode' => $kodeTerdaftar]) }}"
-                                    class="btn-orcha btn-orcha-primary">
-                                    <x-heroicon-o-heart class="w-5 h-5" />
-                                    Isi Riwayat Kesehatan
-                                </a>
+                            {{-- SATU tindakan utama, bukan tiga tombol sejajar.
+
+                                 Tiga tombol dengan bobot yang sama memaksa orang yang
+                                 baru saja selesai mengisi formulir memilih lagi —
+                                 padahal cuma ada satu yang mengunci kursinya. --}}
+                            <div class="mt-7">
                                 <a href="{{ route('konfirmasi-pembayaran', ['kode' => $kodeTerdaftar]) }}"
-                                    class="btn-orcha btn-orcha-outline">
+                                    class="w-full btn-orcha btn-orcha-sun !py-4 !text-base">
                                     <x-heroicon-o-banknotes class="w-5 h-5" />
-                                    Konfirmasi Pembayaran
+                                    Bayar Uang Muka Sekarang
+                                    <x-heroicon-o-arrow-right class="w-5 h-5" />
                                 </a>
+
                                 <a href="{{ $wa("Halo Orcha Journey, saya sudah mendaftar open trip dengan kode $kodeTerdaftar.") }}"
-                                    target="_blank" rel="noopener noreferrer" class="btn-orcha btn-orcha-outline">
+                                    target="_blank" rel="noopener noreferrer"
+                                    class="w-full mt-3 btn-orcha btn-orcha-outline">
                                     <x-bi-whatsapp class="w-5 h-5" />
-                                    Konfirmasi via WhatsApp
+                                    Tanya dulu lewat WhatsApp
                                 </a>
                             </div>
+
+                            {{-- Riwayat kesehatan tetap BISA dibuka dari sini, hanya
+                                 tidak lagi jadi tombol utama.
+
+                                 Yang membayar lewat transfer manual di luar gerbang
+                                 tidak pernah melewati halaman "pembayaran berhasil"
+                                 yang menawarkannya, jadi mencabut tautan ini sama saja
+                                 menutup satu-satunya jalan mereka ke formulir itu. --}}
+                            <p class="mt-5 text-sm text-slate-600">
+                                Sudah membayar lewat transfer?
+                                <a href="{{ route('riwayat-kesehatan', ['kode' => $kodeTerdaftar]) }}"
+                                    class="font-semibold text-orcha-ocean hover:underline">Isi riwayat kesehatan
+                                    peserta</a>.
+                            </p>
 
                             {{-- Disebut di sini, saat kodenya masih di layar.
 
@@ -756,6 +814,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                 class="mt-5 text-sm font-semibold text-orcha-ocean hover:underline">
                                 Daftarkan rombongan lain
                             </button>
+                            </div>
                         </div>
                     @elseif ($paketOpenTrip->isEmpty())
                         <div class="p-10 text-center card-orcha">
