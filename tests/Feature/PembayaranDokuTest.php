@@ -318,7 +318,7 @@ test('ganti pilihan mengembalikan ke kartu harga', function () {
         ->assertSee('Total yang harus dibayar')
         ->call('ulangi')
         ->assertDontSee('Total yang harus dibayar')
-        ->assertSee('Pilih Pembayaran');
+        ->assertSee('Pilih pembayaran.');
 });
 
 test('nominal yang ditagihkan dihitung server, termasuk kode uniknya', function () {

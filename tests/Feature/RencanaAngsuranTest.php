@@ -264,14 +264,14 @@ test('jadwal tampil seluruhnya di halaman pembayaran', function () {
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $pesanan->kode)
         ->set('empatDigit', '7890')
-        ->assertSee('Jadwal Angsuran Anda')
+        ->assertSee('Jadwal angsuran Anda.')
         ->assertSee('Uang muka')
         ->assertSee('Angsuran ke-1')
         ->assertSee('Angsuran ke-2')
         ->assertSee('Rp 858.000')
         // Satu tombol saja: termin berikutnya. "Bayar lunas" di sebelahnya
         // membatalkan gunanya keringanan.
-        ->assertSee('Bayar Termin Berikutnya')
+        ->assertSee('Bayar termin berikutnya.')
         ->assertDontSee('Bayar Lunas');
 });
 
@@ -402,7 +402,7 @@ test('pesanan yang sudah lunas tidak lagi disodori jadwalnya', function () {
     Volt::test('public.open-trip.konfirmasi-pembayaran')
         ->set('kode', $pesanan->kode)
         ->set('empatDigit', '7890')
-        ->assertDontSee('Jadwal Angsuran Anda')
+        ->assertDontSee('Jadwal angsuran Anda.')
         ->assertDontSee('Belum dibayar')
         ->assertDontSee('sisa Rp');
 });

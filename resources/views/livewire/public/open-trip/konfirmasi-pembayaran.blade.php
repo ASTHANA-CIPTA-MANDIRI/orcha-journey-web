@@ -435,7 +435,9 @@ new #[Layout('components.layouts.guest')] #[Title('Bayar Pesanan — Orcha Journ
 
                                     <div class="mb-7">
                                         <div class="flex flex-wrap items-baseline justify-between gap-2">
-                                            <h2 class="text-xl font-bold font-heading text-orcha-navy">Jadwal Angsuran Anda</h2>
+                                            <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span>
+                                                Angsuran</p>
+                                            <h2 class="mt-3 judul-panel-kecil">Jadwal angsuran Anda.</h2>
 
                                             {{-- Ringkasan sebelum daftarnya.
 
@@ -550,8 +552,13 @@ new #[Layout('components.layouts.guest')] #[Title('Bayar Pesanan — Orcha Journ
                                 @endif
 
                                 <div>
-                                    <h2 class="text-xl font-bold font-heading text-orcha-navy">
-                                        {{ $jadwalAngsuran ? 'Bayar Termin Berikutnya' : 'Pilih Pembayaran' }}
+                                    {{-- Kepala bagian berbentuk sama dengan panel beranda. Judul
+                                         telanjang di tengah panel yang kepalanya berlabel membuat
+                                         bagian ini terbaca seperti potongan dari halaman lain. --}}
+                                    <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span>
+                                        {{ $jadwalAngsuran ? 'Termin' : 'Nominal' }}</p>
+                                    <h2 class="mt-3 judul-panel-kecil">
+                                        {{ $jadwalAngsuran ? 'Bayar termin berikutnya.' : 'Pilih pembayaran.' }}
                                     </h2>
 
                                     {{-- Kartu, bukan dropdown.

@@ -1480,3 +1480,71 @@ test('halaman bayar memakai rak panel yang sama dengan beranda', function () {
         ->and($nyala)->toContain('judul-panel-kecil')
         ->and($nyala)->not->toContain('kartu-alihan');
 });
+
+test('panel pencari pesanan: isian dua kolom, ubin ikon di luar label, dan "belum ketemu" menunggu dua isian', function () {
+    /*
+     | Tiga hal yang masing-masing tidak akan memerahkan apa pun:
+     |
+     | 1. Ubin ikon harus DI LUAR <label>. .label-orcha memasang display:
+     |    block, dan aturan itu di LUAR @layer sedangkan utilitas Tailwind di
+     |    dalamnya — `flex` yang ditempel pada <label> kalah tanpa galat, dan
+     |    ubinnya berdiri sendiri di baris atas seperti gambar yang lupa
+     |    ditaruh.
+     |
+     | 2. "Kode ini belum kami temukan" hanya muncul setelah KEDUA isian
+     |    terisi. Dengan syarat lama (kode saja >= 6 huruf) kotak itu muncul
+     |    begitu kodenya selesai diketik, sementara empat digitnya memang
+     |    belum diisi — orang yang baru mengetik separuh formulir diberi tahu
+     |    pesanannya tidak ada padahal kodenya benar.
+     |
+     | 3. Kotak "ketemu" tidak boleh sewarna kotak "belum ketemu". Yang lama
+     |    memakai border-orcha-sky dan text-orcha-ocean — peubah palet LAMA
+     |    yang ditimpa palet hangat jadi emas pucat dan abu kehijauan, persis
+     |    nada kotak "belum ketemu" di bawahnya.
+     */
+    $blade = preg_replace(
+        '/\{\{--.*?--\}\}/s',
+        '',
+        file_get_contents(resource_path('views/livewire/public/open-trip/partials/pencari-pesanan.blade.php'))
+    );
+
+    // 1. Tidak ada <label> yang mencoba jadi flex.
+    expect(preg_match('/<label[^>]*class="[^"]*\bflex\b[^"]*"/', $blade))
+        ->toBe(0, 'ubin ikon kembali dimasukkan ke dalam <label> yang display-nya block');
+
+    expect($blade)->toContain('ubin-toska');
+
+    // 2. Syarat "belum ketemu" menyebut kedua isian.
+    /*
+     | Pola memakai `.*`, BUKAN `[^)]*`: syaratnya sendiri memuat tanda kurung
+     | — strlen(trim($kode)) — jadi [^)]* berhenti di kurung penutup trim()
+     | dan tidak pernah sampai ke $empatDigit. Ujinya merah sambil menuduh
+     | syarat yang sebenarnya sudah benar.
+     */
+    expect($blade)->toMatch('/@elseif \(.*\$kode.*\$empatDigit.*\)/');
+
+    // 3. Dua kotak hasil, dua rupa.
+    expect($blade)->toContain('kotak-temuan')
+        ->and($blade)->toContain('kotak-nihil')
+        ->and($blade)->not->toContain('border-orcha-sky')
+        ->and($blade)->not->toContain('text-orcha-ocean');
+
+    // Isiannya dua kolom di layar lebar.
+    expect($blade)->toContain('sm:grid-cols-5')
+        ->and($blade)->toContain('sm:col-span-3')
+        ->and($blade)->toContain('sm:col-span-2');
+
+    $css = preg_replace('#/\*.*?\*/#s', '', file_get_contents(resource_path('css/new-homepage.css')));
+
+    foreach (['.kotak-temuan', '.kotak-nihil'] as $kelas) {
+        preg_match('/'.preg_quote($kelas, '/').' \{(.*?)\n\}/s', $css, $cocok);
+
+        expect($cocok)->not->toBeEmpty("aturan {$kelas} hilang");
+    }
+
+    config()->set('doku.aktif', true);
+    config()->set('doku.client_id', 'UJI');
+    config()->set('doku.secret_key', 'UJI');
+
+    $this->get(route('konfirmasi-pembayaran'))->assertOk()->assertSee('Pesanan yang dibayar.');
+});

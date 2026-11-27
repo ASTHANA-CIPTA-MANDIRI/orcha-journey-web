@@ -4517,3 +4517,62 @@ input[type="radio"] {
 .lencana-aman svg {
     flex: 0 0 auto;
 }
+
+/* ----------------------------------------------------------
+   Panel "Pesanan yang dibayar"
+
+   Dua isian bertumpuk, dua paragraf abu di bawahnya, dan satu kotak hasil
+   tanpa ikon. Semuanya selebar panel dan setinggi sama, jadi matanya tidak
+   punya tempat berhenti — dan ini layar pertama yang ditemui orang yang
+   sedang ingin membayar.
+
+   Yang diubah bukan sekadar warnanya: isiannya dijadikan DUA KOLOM (kode
+   panjang, empat digit pendek — lebarnya kini sesuai isinya), tiap label
+   diberi ubin ikon, dan kedua kotak hasil diberi rupa yang berbeda tegas
+   antara "ketemu" dan "belum ketemu".
+----------------------------------------------------------- */
+
+.catatan-isian {
+    margin-top: 0.4rem;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    /* Abu HANGAT. text-slate-500 itu abu kebiruan — satu-satunya nada dingin
+       di panel yang seluruhnya hangat. */
+    color: #8d8378;
+}
+
+.catatan-isian strong {
+    font-weight: 800;
+    color: #6f6459;
+}
+
+/* Kotak "pesanan ditemukan". */
+.kotak-temuan {
+    position: relative;
+    overflow: hidden;
+    padding: 1.15rem;
+    border-radius: 1.5rem 0.6rem 1.5rem 0.6rem;
+    border: 1px solid rgb(31 125 110 / 0.26);
+    background: rgb(31 125 110 / 0.07);
+}
+
+/* Kotak "belum ketemu". Emas, bukan merah: kode yang belum cocok bukan
+   kesalahan yang perlu ditakuti — biasanya cuma salah ketik, dan kotak
+   merah membuat orang menyangka pesanannya hilang. */
+.kotak-nihil {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 1.15rem;
+    border-radius: 0.6rem 1.5rem 0.6rem 1.5rem;
+    border: 1px solid rgb(232 163 58 / 0.45);
+    background: #fdf4e6;
+}
+
+/* Garis pemisah di dalam kotak temuan. border-white/70 di atas latar krem
+   nyaris tidak terlihat; putus-putus seirama kartu biaya. */
+.pisah-temuan {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed rgb(31 125 110 / 0.3);
+}
