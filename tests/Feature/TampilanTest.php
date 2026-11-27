@@ -511,3 +511,66 @@ test('kipas galeri dipangkas di kiri supaya tidak menindih judulnya', function (
     // tidak ada tulisan di samping foto yang perlu dilindungi.
     expect($css)->toContain('@media (min-width: 1024px)');
 });
+
+/*
+ |--------------------------------------------------------------------------
+ | Kartu destinasi berirama
+ |--------------------------------------------------------------------------
+ | Halaman /destinasi tadinya sembilan persegi yang sama persis. Yang
+ | membuatnya datar bukan isinya, melainkan tidak adanya satu pun perbedaan
+ | bentuk antarkartu. Iramanya kini datang dari tiga hal yang berganti pada
+ | laju berbeda — ukuran, lengkung, dan warna aksen — dan ketiganya gampang
+ | hilang tanpa menimbulkan galat: halamannya tetap 200, hanya kembali datar.
+ */
+
+test('kartu destinasi berganti bentuk dan warna pada laju berbeda', function () {
+    $blade = file_get_contents(resource_path('views/livewire/public/destinasi/index.blade.php'));
+
+    // TIGA rupa lengkung, bukan satu. Menyisakan satu saja tetap merender
+    // halaman yang benar — hanya kisinya yang kembali seragam.
+    expect(substr_count($blade, "'isi' =>"))->toBe(3)
+        ->and(substr_count($blade, "'garis' =>"))->toBe(3);
+
+    // Tiga dan dua sengaja TIDAK sama: kalau keduanya dibuat % 3, rupa dan
+    // warna berganti bersamaan dan polanya berulang tiap tiga kartu — pas
+    // satu baris kisi, sehingga tiap baris terbaca sebagai salinan baris
+    // sebelumnya. Justru itu yang hendak dihindari.
+    expect($blade)->toContain('$loop->index % 3')
+        ->and($blade)->toContain('$loop->index % 2');
+
+    // Kartu sorot: dua lajur, dan dua baris di layar lebar.
+    expect($blade)->toContain('sm:col-span-2 xl:row-span-2');
+});
+
+test('foto kartu destinasi tidak pernah memakai tinggi aslinya', function () {
+    /*
+     | Kartu sorot tidak punya tinggi tetap — tingginya datang dari petak
+     | kisi lewat xl:flex-1. Pada wadah yang tingginya auto, `height:100%`
+     | luruh jadi auto juga, dan <img> memakai TINGGI ASLINYA: kartunya
+     | memanjang sampai 800px, mendorong dua kartu di sebelahnya ikut
+     | menjulang, dan halamannya tetap 200 tanpa satu pun galat.
+     |
+     | Obatnya gambar diposisikan absolut dengan keempat sisi DAN w/h penuh:
+     | dengan begitu ia tidak ikut menghitung tinggi wadahnya sama sekali.
+     */
+    $blade = file_get_contents(resource_path('views/livewire/public/destinasi/index.blade.php'));
+
+    expect($blade)->toContain('absolute inset-0 object-cover w-full h-full transition-transform')
+        // Bentuk lamanya tidak boleh kembali diam-diam.
+        ->and($blade)->not->toContain('class="object-cover w-full h-full transition-transform');
+});
+
+test('lengkung kartu destinasi punya tinggi sendiri', function () {
+    /*
+     | SVG ber-viewBox dengan preserveAspectRatio="none" tidak punya tinggi
+     | bawaan yang berguna. Tanpa tinggi eksplisit peramban memberinya 150px
+     | — lengkung putih setinggi itu menutupi lebih dari separuh foto kartu,
+     | termasuk judul destinasinya.
+     */
+    $css = file_get_contents(resource_path('css/new-homepage.css'));
+
+    preg_match('/\.lengkung-dest \{(.*?)\}/s', $css, $cocok);
+
+    expect($cocok)->not->toBeEmpty('aturan tinggi lengkung kartu destinasi hilang')
+        ->and($cocok[1])->toMatch('/height:\s*clamp\(/');
+});

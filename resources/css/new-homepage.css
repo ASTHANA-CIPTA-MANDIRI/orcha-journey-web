@@ -3366,3 +3366,108 @@ input[type="radio"] {
         height: 5.6rem;
     }
 }
+
+/* ==========================================================
+   KARTU DESTINASI BERIRAMA
+
+   Halaman /destinasi tadinya sembilan persegi yang sama persis dalam kisi
+   3x3. Yang membuatnya datar bukan isinya — tiap destinasinya menarik —
+   melainkan tidak adanya satu pun perbedaan bentuk antarkartu, sehingga
+   mata selesai membaca kartu pertama lalu menganggap sisanya sudah
+   diketahui.
+
+   Iramanya dibuat dari tiga hal yang berganti pada laju berbeda: UKURAN
+   (satu kartu sorot per halaman), BENTUK (tiga rupa lengkung, bergilir
+   tiap kartu), dan WARNA (dua warna aksen, bergilir tiap kartu). Tiga dan
+   dua berulang bersama tiap ENAM kartu — lebih panjang daripada satu baris
+   kisi, jadi tidak ada baris yang terbaca sebagai pengulangan baris
+   sebelumnya.
+
+   Warna aksennya datang dari markah lewat peubah --aksen pada tiap kartu,
+   bukan dari kelas warna: yang memakainya ada tiga tempat berbeda (goresan
+   SVG, semburat, dan bingkai saat disentuh), dan satu peubah membuat
+   ketiganya tidak pernah bisa berbeda warna.
+========================================================== */
+
+/* Dipakai .card-orcha sebagai pengapit supaya bobotnya (0,2,0) menang atas
+   .card-orcha sendiri yang juga memasang border-radius dan border-color.
+   Tanpa itu sudut membulatnya kembali seragam tanpa satu pun galat. */
+.card-orcha.kartu-dest-v1 {
+    border-radius: 2.25rem 1.5rem 1.5rem 1.5rem;
+}
+
+.card-orcha.kartu-dest-v2 {
+    border-radius: 1.5rem 2.25rem 1.5rem 1.5rem;
+}
+
+.card-orcha.kartu-dest-v3 {
+    border-radius: 1.5rem 1.5rem 1.5rem 2.25rem;
+}
+
+/* Bingkai saat disentuh ikut warna aksen kartunya, bukan satu warna kabut
+   untuk semua — sentuhan jadi menegaskan kartu MANA yang sedang dibaca. */
+.card-orcha.kartu-dest:hover {
+    border-color: var(--aksen);
+}
+
+/* Selubung gelap di atas foto.
+
+   Dibuat kelas, bukan susunan utilitas: judulnya sekarang duduk 3,5rem di
+   atas dasar foto supaya tidak tertelan lengkung, jadi bagian gelapnya
+   harus ikut naik. Selubung yang hanya menebal di dasar justru menebal di
+   bagian yang TERTUTUP lengkung, dan judulnya tetap tanpa penopang. */
+.selubung-dest {
+    background: linear-gradient(
+        to top,
+        rgb(22 33 28 / 0.9) 0%,
+        rgb(22 33 28 / 0.78) 30%,
+        rgb(22 33 28 / 0.28) 62%,
+        rgb(22 33 28 / 0) 100%
+    );
+}
+
+/* Tinggi lengkung dipatok di sini, bukan di markah: SVG ber-viewBox dengan
+   preserveAspectRatio="none" tidak punya tinggi sendiri, dan tanpa tinggi
+   eksplisit peramban memberinya tinggi bawaan 150px — foto kartunya
+   tertutup lebih dari separuh. */
+.lengkung-dest {
+    display: block;
+    height: clamp(1.9rem, 3.2vw, 3rem);
+}
+
+/* Semburat warna di sudut isi kartu.
+
+   Bidang putih di bawah foto yang ramai terbaca kosong, dan kekosongan itu
+   yang paling terasa saat sembilan kartu berjajar. Bentuknya sengaja tidak
+   bulat: empat jari-jari yang berbeda membuatnya terbaca sebagai bidang
+   warna, bukan sebagai lingkaran yang lupa dipotong.
+
+   opacity dipakai alih-alih color-mix supaya warnanya tetap ikut --aksen
+   tanpa bergantung pada dukungan color-mix. */
+.semburat-dest {
+    position: absolute;
+    right: -3.5rem;
+    bottom: -4rem;
+    width: 12rem;
+    height: 12rem;
+    border-radius: 46% 54% 38% 62% / 52% 44% 56% 48%;
+    background: radial-gradient(circle at 36% 34%, var(--aksen), transparent 70%);
+    opacity: 0.17;
+    pointer-events: none;
+}
+
+/* Titik beratnya bergilir mengikuti rupa lengkungnya. Kalau semua semburat
+   duduk di sudut yang sama, lengkung yang berbeda-beda tetap terbaca
+   sebagai satu pola — justru bagian bawah kartunya yang menyeragamkan
+   kembali apa yang sudah dibedakan di atas. */
+.kartu-dest-v2 .semburat-dest {
+    right: auto;
+    left: -4rem;
+    bottom: -4.5rem;
+}
+
+.kartu-dest-v3 .semburat-dest {
+    right: -4.5rem;
+    bottom: auto;
+    top: -3rem;
+}

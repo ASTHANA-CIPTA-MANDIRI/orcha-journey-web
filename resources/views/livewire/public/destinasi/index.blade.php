@@ -148,10 +148,78 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                         kami.</p>
                 </div>
             @else
+                {{-- ==========================================================
+                     KARTU DESTINASI BERIRAMA
+
+                     Sebelumnya sembilan kartu di halaman ini berbentuk sama
+                     persis: satu kisi 3x3 berisi persegi yang hanya berbeda
+                     isinya. Mata membaca kartu pertama lalu menganggap delapan
+                     sisanya sudah diketahui — daftarnya terasa datar walaupun
+                     tiap destinasinya menarik.
+
+                     Iramanya dibuat dari TIGA hal sekaligus, bukan satu:
+
+                     1. UKURAN — kartu pertama tiap halaman mengambil dua lajur
+                        (dan dua baris di layar lebar), jadi halaman ini punya
+                        satu titik masuk yang jelas, bukan sembilan yang setara.
+                     2. BENTUK — batas foto dan isi bukan garis lurus melainkan
+                        lengkung, dan lengkungnya bergilir tiga rupa.
+                     3. WARNA — aksen bergilir dua warna merek (toska dan emas),
+                        dipakai pada goresan di lengkung, semburat di sudut isi,
+                        dan bingkai kartu saat disentuh kursor.
+
+                     Tiga dan dua berganti bersama, jadi polanya baru berulang
+                     tiap ENAM kartu — lebih panjang daripada satu baris kisi,
+                     sehingga tidak ada baris yang terbaca sebagai pengulangan.
+                     Sembilan kartu per halaman juga mengisi kedua tata letak
+                     dengan pas: 1 besar + 8 kecil memenuhi kisi dua lajur
+                     maupun tiga lajur tanpa menyisakan petak kosong.
+                --}}
+                @php
+                    /*
+                     | Lengkung pemisah foto dan isi.
+                     |
+                     | viewBox dipatok 400x48 dengan preserveAspectRatio="none",
+                     | jadi SATU jalur yang sama meregang mengikuti lebar kartu:
+                     | kartu sorot yang dua kali lebih lebar tidak perlu jalur
+                     | sendiri, dan lengkungnya tetap setinggi yang sama.
+                     |
+                     | 'isi' menutup sampai dasar dan diberi warna kartu, jadi
+                     | isinya seolah naik menerobos foto. 'garis' hanya tepi
+                     | atasnya, dipakai sebagai goresan tipis berwarna aksen.
+                     | Keduanya jalur terpisah karena goresannya digambar
+                     | SESUDAH isinya — kalau satu jalur, warna isi akan menutupi
+                     | separuh goresannya sendiri.
+                     */
+                    $lengkungDest = [
+                        [
+                            'isi' => 'M0,48 L0,26 C76,2 158,4 228,18 C296,31 350,40 400,33 L400,48 Z',
+                            'garis' => 'M0,26 C76,2 158,4 228,18 C296,31 350,40 400,33',
+                        ],
+                        [
+                            'isi' => 'M0,48 L0,33 C62,47 112,9 182,13 C252,17 304,43 400,19 L400,48 Z',
+                            'garis' => 'M0,33 C62,47 112,9 182,13 C252,17 304,43 400,19',
+                        ],
+                        [
+                            'isi' => 'M0,48 L0,41 C124,41 252,8 400,5 L400,48 Z',
+                            'garis' => 'M0,41 C124,41 252,8 400,5',
+                        ],
+                    ];
+
+                    // Dua warna saja, bukan satu untuk tiap wilayah: warna di
+                    // sini HIASAN, dan warna hiasan yang berbeda-beda terbaca
+                    // sebagai penggolongan yang ternyata tidak berarti apa-apa.
+                    $aksenDest = ['var(--color-orcha-toska)', 'var(--color-orcha-sun)'];
+                @endphp
+
                 <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 sm:gap-6">
                     @foreach ($destinations as $dest)
-                        <article class="flex flex-col overflow-hidden card-orcha group">
-            <div class="relative overflow-hidden aspect-[4/3]">
+                        <article
+                            class="kartu-dest kartu-dest-v{{ $loop->index % 3 + 1 }} flex flex-col overflow-hidden card-orcha group {{ $loop->first ? 'sm:col-span-2 xl:row-span-2' : '' }}"
+                            style="--aksen: {{ $aksenDest[$loop->index % 2] }}">
+
+                            <div
+                                class="relative overflow-hidden {{ $loop->first ? 'h-56 sm:h-72 xl:h-auto xl:flex-1 xl:min-h-[24rem]' : 'h-52 sm:h-56' }}">
                                 {{-- onerror: BERKAS fotonya bisa hilang walau kolomnya
                                      terisi — dan yang muncul ikon rusak bawaan
                                      peramban di tengah kartu. `?:` di atas hanya
@@ -162,10 +230,21 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                 <img src="{{ $dest->main_photo ?: asset('images/pantai-senja.webp') }}"
                                     alt="{{ $dest->destination_name }}" loading="lazy"
                                     onerror="this.onerror=null; this.src='{{ asset('images/pantai-senja.webp') }}';"
-                                    class="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110">
-                                <div
-                                    class="absolute inset-0 bg-gradient-to-t from-orcha-navy/85 via-orcha-navy/10 to-transparent">
-                                </div>
+                                    {{-- absolute + inset-0 + w-full + h-full, bukan sekadar
+                                         h-full: di kartu sorot wadahnya tidak punya tinggi
+                                         sendiri (xl:flex-1), jadi `height:100%` luruh jadi
+                                         auto dan gambarnya memakai TINGGI ASLINYA — kartunya
+                                         memanjang sampai 800px tanpa satu pun galat. Dengan
+                                         absolute, gambar tidak ikut menghitung tinggi wadah
+                                         sama sekali; tingginya murni dari petak kisi. --}}
+                                    class="absolute inset-0 object-cover w-full h-full transition-transform duration-700 group-hover:scale-110">
+
+                                {{-- Selubungnya dibuat kelas, bukan utilitas bertingkat:
+                                     judulnya kini duduk LEBIH TINGGI supaya tidak
+                                     tertutup lengkung, jadi bagian gelapnya harus naik
+                                     ikut judulnya — bukan hanya menebal di dasar yang
+                                     justru tertutup lengkung. --}}
+                                <div class="absolute inset-0 selubung-dest"></div>
 
                                 {{-- Nol pengunjung bukan bukti apa-apa; ia justru membaca
                                      terbalik dari maksud lencananya. Destinasi yang baru
@@ -195,7 +274,12 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                     {{ $dest->wilayah_label }}
                                 </span>
 
-                                <div class="absolute bottom-4 left-4 right-4">
+                                {{-- bottom-14: lengkung di bawah setinggi paling banyak
+                                     3rem, jadi judul yang duduk di bawah angka itu akan
+                                     tertelan separuh — dan karena lengkungnya berwarna
+                                     putih seperti kartunya, potongannya tidak terbaca
+                                     sebagai cacat, hanya sebagai huruf yang hilang. --}}
+                                <div class="absolute bottom-14 left-4 right-4">
                                     {{-- Namanya tautan sungguhan ke halaman destinasinya.
 
                                          Tombol "Lihat Detail" di bawah membuka panel di halaman
@@ -203,7 +287,8 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                          tombol bukan tautan: mesin pencari tidak menekannya,
                                          sehingga tanpa <a> di sini tidak ada satu pun jalan
                                          menuju halaman destinasi selain peta situs. --}}
-                                    <h2 class="text-xl font-bold leading-tight text-white font-heading sm:text-2xl">
+                                    <h2
+                                        class="font-bold leading-tight text-white font-heading {{ $loop->first ? 'text-2xl sm:text-3xl xl:text-4xl' : 'text-xl sm:text-2xl' }}">
                                         <a href="{{ route('destinasi.detail', $dest) }}" wire:navigate
                                             class="transition hover:text-orcha-sun">
                                             {{ $dest->destination_name }}
@@ -220,15 +305,35 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                         </p>
                                     @endif
                                 </div>
+
+                                {{-- vector-effect="non-scaling-stroke" wajib: viewBox-nya
+                                     diregangkan tidak seimbang (preserveAspectRatio="none"),
+                                     dan tanpa itu goresannya ikut melar — tebal di kartu
+                                     sorot, tipis di kartu biasa. --}}
+                                <svg class="absolute bottom-0 left-0 w-full lengkung-dest" viewBox="0 0 400 48"
+                                    preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                                    <path d="{{ $lengkungDest[$loop->index % 3]['isi'] }}" fill="#fff" />
+                                    <path d="{{ $lengkungDest[$loop->index % 3]['garis'] }}" fill="none"
+                                        stroke="var(--aksen)" stroke-width="2.5" stroke-linecap="round"
+                                        vector-effect="non-scaling-stroke" />
+                                </svg>
                             </div>
 
-                            <div class="flex flex-col flex-1 p-5 sm:p-6">
+                            <div
+                                class="relative flex flex-col p-5 sm:p-6 {{ $loop->first ? 'xl:flex-none' : 'flex-1' }}">
+                                {{-- Semburat warna di sudut: bidang putih sebesar ini di
+                                     bawah foto yang ramai akan terbaca kosong. Letaknya
+                                     bergilir mengikuti rupa lengkungnya supaya kartu
+                                     bersebelahan tidak punya titik berat yang sama. --}}
+                                <span class="semburat-dest" aria-hidden="true"></span>
+
                                 {{-- Dipotong di tiga baris dan tingginya dipatok. Keterangan
                                      yang panjangnya berbeda-beda menggeser galeri kecil di
                                      bawahnya ke ketinggian yang berbeda pula, dan sebaris
                                      kartu jadi terbaca berantakan walaupun tiap kartunya
                                      rapi. --}}
-                                <p class="min-h-[4.1rem] mb-4 text-sm leading-relaxed line-clamp-3 text-slate-600">
+                                <p
+                                    class="relative min-h-[4.1rem] mb-4 text-sm leading-relaxed line-clamp-3 text-slate-600 {{ $loop->first ? 'sm:max-w-2xl' : '' }}">
                                     {{ $dest->deskripsi }}
                                 </p>
 
@@ -236,48 +341,53 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                      dasar kartu. Dipisah, galerinya mengikuti panjang
                                      keterangan sementara tombolnya menempel ke dasar — dua
                                      ketinggian berbeda dalam satu baris kartu. --}}
-                                <div class="mt-auto">
-                                @if (!empty($dest->others_photo))
-                                    <div class="flex items-center justify-between gap-2 mb-4">
-                                        <div class="flex gap-2">
-                                            @foreach (array_slice($dest->others_photo, 0, 4) as $thumb)
-                                                <img src="{{ $thumb }}" alt="" loading="lazy"
-                                                    {{-- Ubin foto yang berkasnya hilang MENYINGKIR,
+                                {{-- Lebar tindakan kartu sorot DIPATOK. Tanpa itu tombol
+                                     "Lihat Detail" meregang sampai 640px — tombol selebar
+                                     itu tidak terbaca sebagai tombol lagi, melainkan sebagai
+                                     pita; dan jarak antara tulisannya dan ikon WhatsApp di
+                                     ujung kanan jadi sejauh mata harus melompat. --}}
+                                <div class="relative mt-auto {{ $loop->first ? 'sm:max-w-sm' : '' }}">
+                                    @if (!empty($dest->others_photo))
+                                        <div class="flex items-center justify-between gap-2 mb-4">
+                                            <div class="flex gap-2">
+                                                @foreach (array_slice($dest->others_photo, 0, 4) as $thumb)
+                                                    <img src="{{ $thumb }}" alt="" loading="lazy"
+                                                        {{-- Ubin foto yang berkasnya hilang MENYINGKIR,
                                                          bukan diganti cadangan: deretan ini
                                                          pratinjau galeri, dan menampilkan foto
                                                          senja yang sama berkali-kali justru
                                                          membohongi isinya. --}}
-                                                    onerror="this.remove();"
-                                                    class="object-cover w-12 h-12 rounded-xl ring-1 ring-orcha-foam">
-                                            @endforeach
-                                        </div>
+                                                        onerror="this.remove();"
+                                                        class="object-cover w-12 h-12 rounded-xl ring-1 ring-orcha-foam">
+                                                @endforeach
+                                            </div>
 
-                                        {{-- Rata kanan, seimbang dengan gambarnya di kiri:
+                                            {{-- Rata kanan, seimbang dengan gambarnya di kiri:
                                              yang kiri contoh, yang kanan berapa banyak. --}}
-                                        <span class="text-xs font-semibold whitespace-nowrap text-slate-400">
-                                            {{ count($dest->others_photo) + 1 }} foto
-                                        </span>
-                                    </div>
-                                @endif
+                                            <span class="text-xs font-semibold whitespace-nowrap text-slate-400">
+                                                {{ count($dest->others_photo) + 1 }} foto
+                                            </span>
+                                        </div>
+                                    @endif
 
-                                {{-- Dua tindakan berdampingan: melihat dulu, atau langsung
+                                    {{-- Dua tindakan berdampingan: melihat dulu, atau langsung
                                      bertanya. Sebelumnya hanya ada tombol WhatsApp, sehingga
                                      satu-satunya cara mengetahui lebih banyak adalah menanyakannya
                                      — pertanyaan yang jawabannya sudah ada di sini. --}}
-                                <div class="flex gap-2">
-                                    <button type="button" wire:click="buka({{ $dest->id }})"
-                                        class="flex-1 btn-orcha btn-orcha-sun !py-2.5 !text-sm">
-                                        <x-heroicon-o-photo class="w-4 h-4" />
-                                        Lihat Detail
-                                    </button>
+                                    <div class="flex gap-2">
+                                        <button type="button" wire:click="buka({{ $dest->id }})"
+                                            class="flex-1 btn-orcha btn-orcha-sun !py-2.5 !text-sm">
+                                            <x-heroicon-o-photo class="w-4 h-4" />
+                                            Lihat Detail
+                                        </button>
 
-                                    <a href="{{ $wa("Halo Orcha Journey, saya ingin ke {$dest->destination_name}. Ada paket atau armadanya?") }}"
-                                        target="_blank" rel="noopener noreferrer"
-                                        class="btn-orcha btn-orcha-outline !py-2.5 !text-sm !px-4"
-                                        aria-label="Tanya paket ke {{ $dest->destination_name }} lewat WhatsApp">
-                                        <x-bi-whatsapp class="w-4 h-4" />
-                                    </a>
-                                </div>
+                                        <a href="{{ $wa("Halo Orcha Journey, saya ingin ke {$dest->destination_name}. Ada paket atau armadanya?") }}"
+                                            target="_blank" rel="noopener noreferrer"
+                                            class="btn-orcha btn-orcha-outline !py-2.5 !text-sm !px-4"
+                                            aria-label="Tanya paket ke {{ $dest->destination_name }} lewat WhatsApp">
+                                            <x-bi-whatsapp class="w-4 h-4" />
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </article>
