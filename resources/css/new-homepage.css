@@ -4452,3 +4452,68 @@ input[type="radio"] {
         transition: none;
     }
 }
+
+/* ----------------------------------------------------------
+   Kartu "pembayaran online sedang tidak tersedia"
+
+   Layar ini muncul pada orang yang SEDANG INGIN MEMBAYAR, dan yang
+   ditemuinya adalah kabar buruk. Yang lama: kotak putih rata, ikon kunci
+   inggris emas setinggi 4rem di tengahnya, dua paragraf abu, satu tombol.
+   Ikon perkakas raksasa membuatnya terbaca "rusak", dan yang membaca
+   "rusak" di halaman pembayaran menutup tab.
+
+   Jalurnya sebenarnya tidak hilang — hanya berpindah lewat tim kami. Jadi
+   kartunya dibentuk sebagai JALAN KELUAR yang berlangkah, bukan sebagai
+   pengumuman kerusakan: ubin ikon percakapan, satu janji yang menenangkan,
+   tiga langkah bernomor, kode pesanan yang harus disebut, lalu tombolnya.
+----------------------------------------------------------- */
+
+.kartu-alihan {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(1.5rem, 4vw, 2.5rem);
+    background: #fffdfa;
+    border: 1px solid #f1e8dc;
+    /* Seirama .kartu-biaya dan .kartu-ditetapkan, sedikit lebih besar karena
+       bidangnya pun lebih besar. */
+    border-radius: 2.25rem 0.8rem 2.25rem 0.8rem;
+    box-shadow: 0 22px 40px -30px rgb(40 28 18 / 0.5);
+}
+
+.kartu-alihan::before {
+    content: '';
+    position: absolute;
+    right: -5rem;
+    top: -5rem;
+    width: 15rem;
+    height: 15rem;
+    border-radius: 54% 46% 62% 38% / 44% 52% 48% 56%;
+    background: radial-gradient(circle at 50% 50%, var(--color-orcha-toska), transparent 60%);
+    opacity: 0.14;
+    pointer-events: none;
+}
+
+.kartu-alihan > * {
+    position: relative;
+}
+
+/* Satu janji yang menenangkan, dijadikan lencana supaya tidak tenggelam di
+   antara kalimat lain. Ini kalimat yang paling ditunggu orang yang baru
+   membaca "tidak tersedia": kursinya aman atau tidak. */
+.lencana-aman {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.95rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(31 125 110 / 0.24);
+    background: rgb(31 125 110 / 0.1);
+    color: #185f54;
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.lencana-aman svg {
+    flex: 0 0 auto;
+}

@@ -1388,3 +1388,46 @@ test('tiap tulisan yang menerangkan jalur gerbang menyebut nama merchant-nya', f
 
     expect($kwitansi)->toMatch('/@unless \(\$lewatGerbang\)(?:(?!@endunless).)*Satu-satunya nama penerima yang sah/s');
 });
+
+test('layar cadangan pembayaran menawarkan jalan keluar berlangkah, bukan pengumuman kerusakan', function () {
+    /*
+     | Layar ini menemui orang yang SEDANG INGIN MEMBAYAR. Yang lama memajang
+     | ikon kunci inggris setinggi 4rem di tengah kartu putih rata: perkakas
+     | raksasa terbaca "rusak", dan yang membaca "rusak" di halaman pembayaran
+     | menutup tab — padahal jalurnya tidak hilang, hanya berpindah lewat tim.
+     |
+     | Yang dijaga di sini bukan rupanya, melainkan dua hal yang menentukan
+     | apakah orangnya jadi membayar atau tidak:
+     |
+     | 1. Janji "kursinya tidak hilang" ada dan menonjol. Sebagai kalimat
+     |    ketiga di paragraf abu ia terbaca belakangan, padahal justru itu yang
+     |    menahan orang menutup tab.
+     | 2. Langkahnya tetap tiga dan tetap bernomor.
+     |
+     | Dan satu larangan lama yang tidak boleh kembali: formulir unggah bukti
+     | TIDAK dihidupkan lagi di sini. Memunculkannya diam-diam saat gerbang
+     | bermasalah memulihkan persis yang hendak dihilangkan — pembayaran yang
+     | dinyatakan lewat gambar, dicek manusia, sementara kursinya menggantung.
+     */
+    config()->set('doku.aktif', false);
+
+    $html = $this->get(route('konfirmasi-pembayaran'))->assertOk()->getContent();
+
+    expect($html)->toContain('kartu-alihan')
+        ->and($html)->toContain('lencana-aman')
+        ->and($html)->toContain('kursinya tidak hilang')
+        ->and(substr_count($html, 'langkah-nomor'))->toBe(3);
+
+    // Tidak ada jalan mengunggah bukti di layar ini.
+    expect($html)->not->toContain('type="file"');
+
+    // Kode pesanan dipajang sebagai potongan karcis — barang yang disalin ke
+    // percakapan WhatsApp, bukan disebut di tengah kalimat.
+    $blade = preg_replace(
+        '/\{\{--.*?--\}\}/s',
+        '',
+        file_get_contents(resource_path('views/livewire/public/open-trip/konfirmasi-pembayaran.blade.php'))
+    );
+
+    expect($blade)->toMatch('/@if \(\$pesanan\)(?:(?!@endif).)*karcis-kode/s');
+});

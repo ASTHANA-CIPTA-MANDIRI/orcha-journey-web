@@ -643,25 +643,67 @@ new #[Layout('components.layouts.guest')] #[Title('Bayar Pesanan — Orcha Journ
                              Yang ditampilkan: kabar jujur berikut jalan keluarnya. Admin
                              tetap bisa mencatatkan pembayaran dari sisi dalam, dan jalur
                              itu memang sengaja tidak bisa ditempuh tanpa admin. --}}
-                        <div class="p-8 text-center card-orcha sm:p-10">
-                            <x-heroicon-s-wrench-screwdriver class="w-16 h-16 mx-auto text-orcha-sun" />
-                            <h2 class="mt-4 text-2xl font-bold font-heading text-orcha-navy">
-                                Pembayaran online sedang tidak tersedia
-                            </h2>
-                            <p class="max-w-lg mx-auto mt-2 text-slate-600">
-                                Kami sedang tidak bisa memproses pembayaran daring untuk sementara.
-                                Pesanan Anda tetap tersimpan dan kursinya tidak hilang.
-                            </p>
-                            <p class="max-w-lg mx-auto mt-2 text-slate-600">
-                                Hubungi kami lewat WhatsApp dengan menyebutkan kode pesanan Anda —
-                                tim kami akan menuntun pembayarannya dan mencatatkannya langsung.
-                            </p>
+                        {{-- Dibentuk sebagai JALAN KELUAR yang berlangkah, bukan sebagai
+                             pengumuman kerusakan.
 
-                            <a href="{{ $wa }}" target="_blank" rel="noopener"
-                                class="inline-flex mt-6 btn-orcha btn-orcha-primary">
-                                <x-bi-whatsapp class="w-5 h-5" />
-                                Hubungi Kami
-                            </a>
+                             Yang lama memajang ikon kunci inggris setinggi 4rem di tengah
+                             kartu putih rata. Perkakas raksasa terbaca "rusak", dan yang
+                             membaca "rusak" di halaman pembayaran menutup tab — padahal
+                             jalurnya tidak hilang, hanya berpindah lewat tim kami. --}}
+                        <div class="kartu-alihan">
+                            <div class="text-center">
+                                <span
+                                    class="grid mx-auto w-14 h-14 place-items-center rounded-2xl ubin-toska">
+                                    <x-heroicon-o-chat-bubble-left-right class="w-7 h-7" />
+                                </span>
+
+                                <h2 class="mt-4 text-2xl font-bold font-heading text-orcha-navy">
+                                    Pembayaran online sedang tidak tersedia
+                                </h2>
+                                <p class="max-w-lg mx-auto mt-2 text-slate-600">
+                                    Untuk sementara pembayarannya kami selesaikan bersama tim, lewat
+                                    WhatsApp. Jalurnya tetap ada.
+                                </p>
+
+                                {{-- Kalimat yang paling ditunggu orang yang baru membaca "tidak
+                                     tersedia": kursinya aman atau tidak. Sebagai kalimat ketiga di
+                                     paragraf abu, ia terbaca belakangan — padahal justru ini yang
+                                     menahan orang menutup tab. --}}
+                                <p class="mt-4 lencana-aman">
+                                    <x-heroicon-s-lock-closed class="w-4 h-4" />
+                                    <span>Pesanan Anda tetap tersimpan — kursinya tidak hilang.</span>
+                                </p>
+                            </div>
+
+                            <ol class="grid gap-5 mt-8 text-left sm:grid-cols-3">
+                                @foreach ([
+        'Tekan tombol WhatsApp di bawah.',
+        'Sebutkan kode pesanan Anda.',
+        'Tim kami menuntun pembayarannya dan mencatatnya langsung.',
+    ] as $i => $langkah)
+                                    <li class="langkah-daftar">
+                                        <span class="langkah-nomor">{{ $i + 1 }}</span>
+                                        <span class="text-sm leading-relaxed text-slate-600">{{ $langkah }}</span>
+                                    </li>
+                                @endforeach
+                            </ol>
+
+                            {{-- Kodenya dipajang sebagai potongan karcis, bukan disebut di dalam
+                                 kalimat: ia barang yang harus DISALIN ke percakapan WhatsApp. --}}
+                            @if ($pesanan)
+                                <div class="mt-8 text-center">
+                                    <p class="label-fakta">Kode pesanan Anda</p>
+                                    <p class="inline-block mt-2 karcis-kode">{{ $pesanan->kode }}</p>
+                                </div>
+                            @endif
+
+                            <div class="mt-8 text-center">
+                                <a href="{{ $wa }}" target="_blank" rel="noopener"
+                                    class="inline-flex btn-orcha btn-orcha-sun">
+                                    <x-bi-whatsapp class="w-5 h-5" />
+                                    Hubungi Kami
+                                </a>
+                            </div>
                         </div>
                     @endif
                 </div>
