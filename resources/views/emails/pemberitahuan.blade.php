@@ -201,10 +201,13 @@
                                                 Hati-hati Penipuan
                                             </p>
                                             <p style="margin:0;font-size:13px;line-height:1.7;color:#7f1d1d;">
-                                                Pembayaran hanya sah ke rekening atas nama
-                                                <strong>{{ config('orcha.pembayaran.atas_nama') }}</strong>.
-                                                Nama selain itu — termasuk rekening pribadi yang mengatasnamakan kami —
-                                                adalah penipuan. Kami juga tidak pernah meminta kode OTP atau
+                                                Pembayaran hanya sah atas nama
+                                                <strong>{{ config('orcha.pembayaran.atas_nama_gerbang') }}</strong>
+                                                di halaman pembayaran kami, atau
+                                                <strong>{{ config('orcha.pembayaran.atas_nama') }}</strong>
+                                                bila Anda transfer ke rekening kami.
+                                                Nama selain dua itu — termasuk rekening pribadi yang mengatasnamakan
+                                                kami — adalah penipuan. Kami juga tidak pernah meminta kode OTP atau
                                                 kata sandi apa pun.
                                             </p>
                                         </td>

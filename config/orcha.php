@@ -1071,11 +1071,34 @@ return [
         'pelunasan_hari_sebelum' => 5,
         'pelunasan_sewa_kendaraan' => 'saat unit diserahkan',
         /*
-         | SATU-SATUNYA nama penerima yang sah. Dipajang di semua halaman yang
-         | menyinggung pembayaran supaya pelanggan punya patokan memeriksa
+         | Nama penerima yang sah untuk TRANSFER KE REKENING BANK. Huruf besar
+         | semua karena harus persis seperti tertulis di rekening: tugasnya
+         | jadi patokan yang bisa dicek sendiri pelanggan di aplikasi banknya
          | sebelum mentransfer — penipu biasanya memakai rekening pribadi.
          */
         'atas_nama' => 'PT ASTHANA CIPTA MANDIRI',
+
+        /*
+         | Nama penerima yang sah untuk pembayaran LEWAT HALAMAN PEMBAYARAN
+         | (gerbang DOKU). BUKAN nama badan hukumnya.
+         |
+         | Yang dilihat pembayar di halaman DOKU, di nama virtual account, dan
+         | di mutasi banknya adalah nama merchant yang terdaftar di DOKU — dan
+         | di sana merek yang dipakai, bukan badan hukumnya. Jadi ada DUA nama
+         | yang sama-sama sah, masing-masing untuk jalur yang berbeda.
+         |
+         | Keduanya WAJIB disebut berdampingan di tiap peringatan penipuan,
+         | lengkap dengan jalurnya. Menyebut satu saja membuat peringatan itu
+         | menuduh pembayaran yang sah: pelanggan yang membayar lewat halaman
+         | DOKU melihat "Orcha Journey" sementara situs bersikeras hanya "PT
+         | ASTHANA CIPTA MANDIRI" yang sah — dan peringatan yang bertentangan
+         | dengan kenyataan melatih orang mengabaikan peringatan berikutnya,
+         | termasuk yang benar.
+         |
+         | Kalau pendaftaran merchant di DOKU diubah, ubah nilai ini supaya
+         | persis sama dengan yang tampil di sana.
+         */
+        'atas_nama_gerbang' => 'Orcha Journey',
 
         /*
          | Nomor rekening sengaja TIDAK dipajang di website. Nomor yang

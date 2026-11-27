@@ -7,6 +7,7 @@
      cukup NAMA penerimanya, dan nama itu tidak bisa dipalsukan di mesin bank. --}}
 @php
     $atasNama = config('orcha.pembayaran.atas_nama');
+    $atasNamaGerbang = config('orcha.pembayaran.atas_nama_gerbang');
     $waLink = 'https://api.whatsapp.com/send?phone=' . config('orcha.whatsapp');
 
     /*
@@ -41,16 +42,31 @@
         <x-heroicon-s-shield-check class="w-6 h-6 shrink-0 text-orcha-sun" />
 
         <div class="text-sm text-slate-700">
+            {{-- DUA nama, masing-masing dengan jalurnya.
+
+                 Lewat halaman pembayaran, yang dilihat pembayar di nama virtual
+                 account dan di mutasi banknya adalah nama merchant yang
+                 terdaftar di DOKU — merek, bukan badan hukumnya. Menyebut badan
+                 hukumnya saja membuat peringatan ini MENUDUH pembayaran yang
+                 sah, dan peringatan yang bertentangan dengan kenyataan melatih
+                 orang mengabaikan peringatan berikutnya. --}}
             <p class="font-bold text-orcha-navy">
-                Pembayaran hanya sah atas nama <span class="text-orcha-ocean">{{ $atasNama }}</span>
+                @if ($gerbang)
+                    Pembayaran hanya sah atas nama
+                    <span class="text-orcha-toska">{{ $atasNamaGerbang }}</span> di halaman pembayaran kami,
+                    atau <span class="text-orcha-toska">{{ $atasNama }}</span> bila Anda transfer ke rekening kami
+                @else
+                    Pembayaran hanya sah atas nama <span class="text-orcha-toska">{{ $atasNama }}</span>
+                @endif
             </p>
 
             @unless ($ringkas)
                 @if ($gerbang)
                     <p class="mt-1.5">
                         Pembayaran diselesaikan di <strong>halaman pembayaran resmi kami</strong>, lewat
-                        bank, QRIS, atau dompet digital. Kami <strong>tidak pernah</strong> meminta
-                        transfer ke rekening pribadi atas nama perorangan, dan tidak pernah meminta
+                        bank, QRIS, atau dompet digital. Di aplikasi bank Anda, penerimanya tertulis
+                        <strong>{{ $atasNamaGerbang }}</strong> — itu kami. Kami <strong>tidak pernah</strong>
+                        meminta transfer ke rekening pribadi atas nama perorangan, dan tidak pernah meminta
                         PIN, OTP, atau nomor kartu Anda lewat pesan apa pun.
                     </p>
                     <p class="mt-1.5">

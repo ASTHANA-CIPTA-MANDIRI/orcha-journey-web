@@ -1298,3 +1298,93 @@ test('centang "tercatat" digoreskan, dan tetap utuh bagi yang mematikan gerak', 
     expect($diam)->not->toBeEmpty('blok kurangi-gerak untuk centang hilang')
         ->and($diam[0])->toContain('stroke-dashoffset: 0');
 });
+
+test('peringatan penipuan menyebut nama penerima yang benar untuk tiap jalur', function (bool $gerbangNyala) {
+    /*
+     | ADA DUA nama penerima yang sah, dan keduanya berbeda:
+     |
+     | - Lewat halaman pembayaran (DOKU), yang dilihat pembayar di nama virtual
+     |   account dan di mutasi banknya adalah nama MERCHANT yang terdaftar di
+     |   DOKU — mereknya, "Orcha Journey".
+     | - Lewat transfer ke rekening kami, yang tertulis badan hukumnya,
+     |   "PT ASTHANA CIPTA MANDIRI".
+     |
+     | Peringatan penipuan yang hanya menyebut badan hukumnya MENUDUH
+     | pembayaran yang sah: pelanggan yang membayar lewat DOKU melihat nama
+     | yang menurut situs ini bukan kami. Peringatan yang bertentangan dengan
+     | kenyataan melatih orang mengabaikan peringatan berikutnya, termasuk yang
+     | benar — dan itu persis kerugian yang hendak dicegah peringatan ini.
+     |
+     | Tidak ada galat untuk kekeliruan ini. Halamannya tetap 200, kalimatnya
+     | tetap utuh, hanya isinya yang salah.
+     */
+    config()->set('doku.aktif', $gerbangNyala);
+    config()->set('doku.client_id', $gerbangNyala ? 'UJI-CLIENT' : null);
+    config()->set('doku.secret_key', $gerbangNyala ? 'UJI-SECRET' : null);
+
+    $badanHukum = config('orcha.pembayaran.atas_nama');
+    $merek = config('orcha.pembayaran.atas_nama_gerbang');
+
+    expect($merek)->not->toBeEmpty('nama penerima jalur gerbang belum disetel')
+        ->and($merek)->not->toBe($badanHukum);
+
+    $html = $this->get(route('ketentuan-pembayaran'))->assertOk()->getContent();
+
+    // Badan hukumnya SELALU disebut: jalur transfer tidak pernah hilang.
+    expect($html)->toContain($badanHukum);
+
+    if ($gerbangNyala) {
+        expect($html)->toContain($merek);
+    }
+
+    // Peringatan di halaman pendaftaran ikut menyesuaikan.
+    $daftar = $this->get(route('pendaftaran-open-trip'))->assertOk()->getContent();
+
+    expect($daftar)->toContain($badanHukum);
+
+    if ($gerbangNyala) {
+        expect($daftar)->toContain($merek);
+    }
+})->with([true, false]);
+
+test('tiap tulisan yang menerangkan jalur gerbang menyebut nama merchant-nya', function () {
+    /*
+     | Enam tempat menyinggung pembayaran. Yang menerangkan jalur gerbang WAJIB
+     | menyebut nama merchant DOKU, karena itulah yang dilihat pembayar.
+     |
+     | Dua yang TIDAK ikut, dan memang benar begitu:
+     |
+     | - kwitansi.blade.php — kotak "satu-satunya nama penerima yang sah" di
+     |   sana sudah dibungkus @unless ($lewatGerbang), jadi ia hanya tampil
+     |   pada pembayaran yang memang lewat transfer.
+     | - kebijakan-pengembalian.blade.php — dana kembali dikirim DARI rekening
+     |   kami, dan rekening itu memang atas nama badan hukumnya.
+     */
+    foreach ([
+        'views/components/peringatan-pembayaran.blade.php',
+        'views/emails/tagihan.blade.php',
+        'views/emails/pemberitahuan.blade.php',
+        'views/livewire/public/informasi/faq.blade.php',
+        'views/livewire/public/informasi/ketentuan-pembayaran.blade.php',
+        'views/pdf/rab-penawaran.blade.php',
+    ] as $berkas) {
+        $isi = preg_replace('/\{\{--.*?--\}\}/s', '', file_get_contents(resource_path($berkas)));
+
+        /*
+         | assertStringContainsString, BUKAN expect()->toContain($isi, $pesan):
+         | toContain() menerima BANYAK jarum, jadi kalimat pesannya ikut dicari
+         | sebagai jarum kedua. Ujinya merah sambil mengeluh tidak menemukan
+         | kalimat pesannya sendiri — bukan menemukan cacat yang dicarinya.
+         */
+        $this->assertStringContainsString(
+            'atas_nama_gerbang',
+            $isi,
+            "{$berkas} menerangkan pembayaran tanpa menyebut nama penerima jalur gerbang"
+        );
+    }
+
+    // Kotak nama tunggal di kuitansi tetap hanya untuk pembayaran transfer.
+    $kwitansi = file_get_contents(resource_path('views/pdf/kwitansi.blade.php'));
+
+    expect($kwitansi)->toMatch('/@unless \(\$lewatGerbang\)(?:(?!@endunless).)*Satu-satunya nama penerima yang sah/s');
+});

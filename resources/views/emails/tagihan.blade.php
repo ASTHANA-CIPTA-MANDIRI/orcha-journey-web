@@ -114,9 +114,13 @@
                                             style="margin:0 0 6px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#8496a8;font-weight:bold;">
                                             Ditagihkan oleh
                                         </p>
-                                        {{-- Nama penerima dana ditulis lengkap, bukan "Orcha Journey".
-                                             Itulah nama yang nanti dilihat pelanggan di mesin bank, dan
-                                             satu-satunya patokan yang bisa ia cek sendiri. --}}
+                                        {{-- Di sini BADAN HUKUMNYA, bukan mereknya: yang menagih adalah
+                                             perusahaan, dan surel ini dokumen tagihan.
+
+                                             Nama ini sekaligus yang dilihat pelanggan di mesin bank BILA ia
+                                             transfer ke rekening kami. Yang membayar lewat halaman pembayaran
+                                             melihat nama merchant DOKU — mereknya — dan itu disebut di blok
+                                             "Hati-hati Penipuan" di bawah, bukan di sini. --}}
                                         <p style="margin:0;font-size:14px;color:{{ $navy }};font-weight:bold;">
                                             {{ config('orcha.pembayaran.atas_nama') }}
                                         </p>
@@ -324,10 +328,13 @@
                                             Hati-hati Penipuan
                                         </p>
                                         <p style="margin:0;font-size:13px;line-height:1.7;color:#7f1d1d;">
-                                            Pembayaran hanya sah lewat halaman pembayaran resmi kami, atas nama
-                                            <strong>{{ config('orcha.pembayaran.atas_nama') }}</strong>. Kami tidak
-                                            pernah meminta transfer ke rekening pribadi atas nama perorangan, dan
-                                            tidak pernah meminta PIN, OTP, atau nomor kartu Anda lewat pesan apa pun.
+                                            Pembayaran hanya sah atas nama
+                                            <strong>{{ config('orcha.pembayaran.atas_nama_gerbang') }}</strong> di halaman
+                                            pembayaran resmi kami, atau
+                                            <strong>{{ config('orcha.pembayaran.atas_nama') }}</strong> bila Anda transfer
+                                            ke rekening kami. Nama selain dua itu bukan kami. Kami tidak pernah meminta
+                                            transfer ke rekening pribadi atas nama perorangan, dan tidak pernah meminta
+                                            PIN, OTP, atau nomor kartu Anda lewat pesan apa pun.
                                         </p>
                                     </td>
                                 </tr>

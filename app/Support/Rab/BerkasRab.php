@@ -77,6 +77,11 @@ class BerkasRab
             $data['dp_persen'] = (int) config('orcha.pembayaran.dp_persen', 30);
             $data['pelunasan_hari'] = (int) config('orcha.pembayaran.pelunasan_hari_sebelum', 5);
             $data['atas_nama'] = config('orcha.pembayaran.atas_nama', 'PT ASTHANA CIPTA MANDIRI');
+            // Nama penerima di jalur gerbang berbeda dari badan hukumnya: yang
+            // dilihat pembayar di nama virtual account adalah nama merchant yang
+            // terdaftar di DOKU, yaitu mereknya. Penawaran yang hanya menyebut
+            // badan hukumnya akan menuduh pembayaran yang sah.
+            $data['atas_nama_gerbang'] = config('orcha.pembayaran.atas_nama_gerbang', 'Orcha Journey');
             $view = 'pdf.rab-penawaran';
         }
 

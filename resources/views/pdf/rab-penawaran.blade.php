@@ -453,7 +453,7 @@
         <ul class="syarat">
             <li>Uang muka <b>{{ $dp_persen }}%</b> untuk mengunci jadwal, armada, dan akomodasi.</li>
             <li>Pelunasan paling lambat <b>H-{{ $pelunasan_hari }}</b> sebelum keberangkatan.</li>
-            <li>Pembayaran hanya sah bila ditujukan atas nama&nbsp;<b>{{ $atas_nama }}</b>. Kami tidak pernah meminta transfer ke rekening pribadi.</li>
+            <li>Pembayaran hanya sah atas nama&nbsp;<b>{{ $atas_nama_gerbang }}</b> di halaman pembayaran kami, atau&nbsp;<b>{{ $atas_nama }}</b> bila ditransfer ke rekening kami. Nama selain dua itu bukan kami, dan kami tidak pernah meminta transfer ke rekening pribadi.</li>
             <li>Harga dihitung untuk {{ $rab->jumlah_peserta }} peserta. Perubahan jumlah peserta dapat mengubah harga per orang.</li>
         </ul>
     </div>

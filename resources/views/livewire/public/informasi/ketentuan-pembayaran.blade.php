@@ -44,6 +44,15 @@ new #[Layout('components.layouts.guest')] #[Title('Ketentuan Pembayaran & DP —
         $atasNama = config('orcha.pembayaran.atas_nama');
 
         /*
+         | Nama penerima di jalur gerbang BERBEDA dari nama badan hukumnya:
+         | yang dilihat pembayar di nama virtual account dan di mutasi banknya
+         | adalah nama merchant yang terdaftar di DOKU, yaitu mereknya.
+         | Menyebut badan hukumnya saja di sini membuat halaman ketentuan
+         | menuduh pembayaran yang sah.
+         */
+        $atasNamaGerbang = config('orcha.pembayaran.atas_nama_gerbang');
+
+        /*
          | Halaman ini menerangkan jalur yang BENAR-BENAR berlaku, bukan yang
          | direncanakan.
          |
@@ -69,7 +78,7 @@ new #[Layout('components.layouts.guest')] #[Title('Ketentuan Pembayaran & DP —
             : collect($metode)->map(fn ($m) => "<li>{$m}</li>")->implode('');
 
         $blokRekening = $gerbang
-            ? "<p>Pembayaran diselesaikan di <strong>halaman pembayaran resmi kami</strong>, dan pilihan metode yang tersedia ditampilkan di halaman itu — daftar di atas adalah gambaran umumnya. Penerima dananya tetap satu: <strong>{$atasNama}</strong>.</p>"
+            ? "<p>Pembayaran diselesaikan di <strong>halaman pembayaran resmi kami</strong>, dan pilihan metode yang tersedia ditampilkan di halaman itu — daftar di atas adalah gambaran umumnya. Di aplikasi bank Anda, penerimanya tertulis <strong>{$atasNamaGerbang}</strong> — itu kami. Bila Anda transfer langsung ke rekening kami, namanya <strong>{$atasNama}</strong>. Nama selain dua itu bukan kami.</p>"
                 .'<p>Kami <strong>tidak pernah</strong> meminta transfer ke rekening pribadi atas nama perorangan. Bila ada yang mengirimi Anda nomor rekening pribadi mengatasnamakan kami, hentikan dan konfirmasikan dulu ke nomor resmi kami.</p>'
             : (empty($rekening)
             ? "<p>Seluruh pembayaran hanya sah ke rekening atas nama <strong>{$atasNama}</strong>. Nama selain itu <strong>bukan kami</strong> — jangan ditransfer.</p>"
