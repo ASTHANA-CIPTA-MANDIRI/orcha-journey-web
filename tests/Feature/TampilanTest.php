@@ -1431,3 +1431,52 @@ test('layar cadangan pembayaran menawarkan jalan keluar berlangkah, bukan pengum
 
     expect($blade)->toMatch('/@if \(\$pesanan\)(?:(?!@endif).)*karcis-kode/s');
 });
+
+test('halaman bayar memakai rak panel yang sama dengan beranda', function () {
+    /*
+     | Halaman ini dulu berdiri sendiri: `section-orcha` di atas latar putih,
+     | dan kotak-kotaknya memakai .card-orcha — sudut lebih tajam, bingkai
+     | kebiruan, dan jarak atas clamp(4rem, 9vw, 8.5rem) yang di layar lebar
+     | menyisakan bidang kosong setinggi 130px antara kepala halaman dan isi
+     | pertama. Berdampingan dengan beranda dan halaman paket, halaman inilah
+     | yang terbaca "belum selesai dirapikan".
+     |
+     | Tidak ada galat untuk ini, dan tidak ada yang merah. Yang dijaga: rak
+     | panelnya ada, .card-orcha tidak kembali, dan kepala panelnya berbentuk
+     | sama dengan panel beranda (label-bagian di atas judul-panel-kecil).
+     */
+    $blade = preg_replace(
+        '/\{\{--.*?--\}\}/s',
+        '',
+        file_get_contents(resource_path('views/livewire/public/open-trip/konfirmasi-pembayaran.blade.php'))
+    );
+
+    expect($blade)->toContain('container-orcha rak-panel')
+        ->and($blade)->not->toContain('card-orcha')
+        ->and($blade)->not->toContain('section-orcha');
+
+    $partial = preg_replace(
+        '/\{\{--.*?--\}\}/s',
+        '',
+        file_get_contents(resource_path('views/livewire/public/open-trip/partials/pencari-pesanan.blade.php'))
+    );
+
+    expect($partial)->toContain('label-bagian')
+        ->and($partial)->toContain('judul-panel-kecil');
+
+    // Dan dua jalurnya sama-sama masih tergambar.
+    config()->set('doku.aktif', false);
+    $mati = $this->get(route('konfirmasi-pembayaran'))->assertOk()->getContent();
+
+    expect($mati)->toContain('kartu-alihan')
+        ->and($mati)->toContain('rak-panel');
+
+    config()->set('doku.aktif', true);
+    config()->set('doku.client_id', 'UJI');
+    config()->set('doku.secret_key', 'UJI');
+    $nyala = $this->get(route('konfirmasi-pembayaran'))->assertOk()->getContent();
+
+    expect($nyala)->toContain('panel-orcha')
+        ->and($nyala)->toContain('judul-panel-kecil')
+        ->and($nyala)->not->toContain('kartu-alihan');
+});

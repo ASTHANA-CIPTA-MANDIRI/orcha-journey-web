@@ -327,13 +327,21 @@ new #[Layout('components.layouts.guest')] #[Title('Bayar Pesanan — Orcha Journ
         subtitle="Bayar uang muka atau pelunasan langsung di sini — lewat transfer bank, QRIS, atau dompet digital."
         image="images/HERO/form-konfirmasi-pembayaran.webp" />
 
-    <section class="bg-white section-orcha">
-        <div class="container-orcha">
-            <div class="grid gap-6 lg:grid-cols-12">
+    {{-- rak-panel + panel-orcha: bahasa rupa yang SAMA dengan beranda dan
+         halaman paket.
+
+         Sebelumnya halaman ini berdiri sendiri: `section-orcha` di atas latar
+         putih memberi jarak atas clamp(4rem, 9vw, 8.5rem) — pada layar lebar
+         itu bidang kosong setinggi 130px antara kepala halaman dan isi
+         pertama — dan kotak-kotaknya memakai .card-orcha yang sudutnya lebih
+         tajam dan bingkainya kebiruan. Berdampingan dengan halaman lain,
+         halaman inilah yang terbaca "belum selesai dirapikan". --}}
+    <div class="container-orcha rak-panel pb-6">
+        <div class="grid gap-4 sm:gap-5 lg:grid-cols-12">
 
                 <div class="lg:col-span-8">
                     @if ($gerbangAktif)
-                        <div class="p-6 card-orcha sm:p-8 space-y-7">
+                        <div class="panel-orcha reveal space-y-7">
                             @include('livewire.public.open-trip.partials.pencari-pesanan')
 
                             @if ($galatBayar)
@@ -650,7 +658,7 @@ new #[Layout('components.layouts.guest')] #[Title('Bayar Pesanan — Orcha Journ
                              kartu putih rata. Perkakas raksasa terbaca "rusak", dan yang
                              membaca "rusak" di halaman pembayaran menutup tab — padahal
                              jalurnya tidak hilang, hanya berpindah lewat tim kami. --}}
-                        <div class="kartu-alihan">
+                        <div class="kartu-alihan reveal">
                             <div class="text-center">
                                 <span
                                     class="grid mx-auto w-14 h-14 place-items-center rounded-2xl ubin-toska">
@@ -709,8 +717,8 @@ new #[Layout('components.layouts.guest')] #[Title('Bayar Pesanan — Orcha Journ
                 </div>
 
                 <aside class="lg:col-span-4">
-                    <div class="space-y-6 lg:sticky lg:top-24">
-                        <x-peringatan-pembayaran />
+                    <div class="space-y-4 sm:space-y-5 lg:sticky lg:top-24">
+                        <x-peringatan-pembayaran class="reveal" />
 
                         {{-- Langkah-langkahnya hanya ditampilkan saat memang bisa
                              ditempuh. Daftar "pilih uang muka → diarahkan ke DOKU"
@@ -718,13 +726,17 @@ new #[Layout('components.layouts.guest')] #[Title('Bayar Pesanan — Orcha Journ
                              mati adalah dua kalimat yang saling membantah di layar
                              yang sama. --}}
                         @if ($gerbangAktif)
-                            <div class="p-6 card-orcha sm:p-7">
-                                <h2 class="text-lg font-bold font-heading text-orcha-navy">Bagaimana prosesnya</h2>
-                                <ol class="mt-4 space-y-3 text-sm text-slate-600">
+                            <div class="panel-orcha reveal">
+                                <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Alurnya</p>
+                                <h2 class="mt-3 judul-panel-kecil">Bagaimana prosesnya.</h2>
+                                <ol class="mt-5 space-y-3 text-sm text-slate-600">
                                     @foreach (['Masukkan kode pesanan dan 4 digit terakhir WhatsApp Anda.', 'Pilih uang muka atau bayar lunas.', 'Bayar lewat bank, QRIS, atau dompet digital.', 'Pembayaran tercatat sendiri dalam hitungan detik — tanpa menunggu dicek.'] as $i => $langkah)
                                         <li class="flex gap-3">
+                                            {{-- .ubin-toska, bukan bg-orcha-ocean: peubah itu ditimpa
+                                                 palet hangat beranda jadi #4a5a52, abu kehijauan yang
+                                                 terbaca seperti bulatan mati. --}}
                                             <span
-                                                class="flex items-center justify-center w-6 h-6 text-xs font-bold text-white rounded-full shrink-0 bg-orcha-ocean">{{ $i + 1 }}</span>
+                                                class="flex items-center justify-center w-6 h-6 text-xs font-bold rounded-full shrink-0 ubin-toska">{{ $i + 1 }}</span>
                                             <span>{{ $langkah }}</span>
                                         </li>
                                     @endforeach
@@ -736,16 +748,15 @@ new #[Layout('components.layouts.guest')] #[Title('Bayar Pesanan — Orcha Journ
                                     lewat pesan apa pun.
                                 </p>
 
-                                <a href="{{ route('ketentuan-pembayaran') }}"
-                                    class="inline-block mt-3 text-sm font-semibold text-orcha-ocean hover:underline">
-                                    Lihat ketentuan pembayaran
+                                <a href="{{ route('ketentuan-pembayaran') }}" class="mt-3 tautan-lanjut">
+                                    <span>Lihat ketentuan pembayaran</span>
+                                    <x-heroicon-s-arrow-right class="w-4 h-4" />
                                 </a>
                             </div>
                         @endif
                     </div>
                 </aside>
-            </div>
         </div>
-    </section>
+    </div>
 
 </div>

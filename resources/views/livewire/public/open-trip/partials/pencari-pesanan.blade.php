@@ -9,9 +9,14 @@
 --}}
 
 <div>
-    <h2 class="text-xl font-bold font-heading text-orcha-navy">Pesanan yang Dibayar</h2>
+    {{-- label-bagian + judul-panel-kecil: kepala panel yang sama dengan
+         beranda dan halaman paket. Judul telanjang tanpa label di atasnya
+         adalah satu-satunya kepala panel yang berbeda bentuk di halaman ini,
+         dan beda sendiri itu yang terbaca "belum dirapikan". --}}
+    <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Pesanan Anda</p>
+    <h2 class="mt-3 judul-panel-kecil">Pesanan yang dibayar.</h2>
 
-    <div class="mt-4">
+    <div class="mt-5">
         <label for="kb-kode" class="label-orcha">Kode pesanan <x-wajib /></label>
         <input id="kb-kode" type="text" required maxlength="30" wire:model.live.debounce.500ms="kode"
             placeholder="OT-1508-A7K3 atau SK-1508-B2M9"
