@@ -574,3 +574,38 @@ test('lengkung kartu destinasi punya tinggi sendiri', function () {
     expect($cocok)->not->toBeEmpty('aturan tinggi lengkung kartu destinasi hilang')
         ->and($cocok[1])->toMatch('/height:\s*clamp\(/');
 });
+
+test('isi lengkung kartu destinasi melewati dasar viewBox', function () {
+    /*
+     | Satu baris piksel foto bocor melintang penuh di bawah lengkung, di
+     | SELURUH kartu. Terbukti dari potret pengguna 27 Nov 2026: pada y=755
+     | sebelas titik contoh selebar kartu semuanya berwarna foto, sementara
+     | y=754 dan y=756 putih bersih — jadi bukan bayangan atau pembulatan
+     | warna, melainkan tepat satu baris yang tidak tertutup.
+     |
+     | Sebabnya tepi bawah jalur isian berimpit dengan tepi elemen <svg>,
+     | dan keduanya jatuh di posisi piksel PECAHAN karena tinggi wadah dan
+     | tinggi lengkung sama-sama dari clamp(). Safari membulatkan isiannya ke
+     | dalam; Chrome tidak. Karena itu cacat ini TIDAK bisa dijaga dengan
+     | potret Chrome — yang dijaga sumbernya.
+     |
+     | Dua hal yang menahannya, dan keduanya harus ada:
+     |   1. jalur isian ditarik sampai y=64, jauh melewati dasar viewBox (48)
+     |   2. elemennya digeser bottom: -1px
+     */
+    $blade = file_get_contents(resource_path('views/livewire/public/destinasi/index.blade.php'));
+
+    preg_match_all("/'isi' => '([^']+)'/", $blade, $jalur);
+
+    expect($jalur[1])->toHaveCount(3);
+
+    foreach ($jalur[1] as $d) {
+        expect($d)->toStartWith('M0,64 ')
+            ->and($d)->toEndWith('L400,64 Z');
+    }
+
+    $css = file_get_contents(resource_path('css/new-homepage.css'));
+    preg_match('/\.lengkung-dest \{(.*?)\}/s', $css, $cocok);
+
+    expect($cocok[1])->toMatch('/bottom:\s*-1px\s*;/');
+});

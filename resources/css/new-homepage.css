@@ -3433,6 +3433,22 @@ input[type="radio"] {
 .lengkung-dest {
     display: block;
     height: clamp(1.9rem, 3.2vw, 3rem);
+    /* -1px, bukan 0.
+
+       Dua tepi bertemu di sini: dasar <svg> dan dasar wadah fotonya. Keduanya
+       jatuh di posisi piksel PECAHAN (tinggi wadah dan tinggi lengkung
+       sama-sama dari clamp), dan Safari membulatkan isian jalurnya ke dalam —
+       menyisakan tepat SATU baris piksel foto yang bocor, melintang penuh
+       selebar kartu, di antara dua baris putih bersih. Terukur dari potret
+       pengguna 27 Nov 2026 pada y=755: sebelas titik contoh, nol putih.
+
+       Chrome TIDAK pernah memperlihatkannya (diperiksa pada skala 1 dan 2),
+       jadi cacat ini tidak bisa dibuktikan hilang lewat potret Chrome. Yang
+       bisa dijamin: dengan dasar jalur ditarik sampai y=64 dan elemennya
+       digeser 1px ke bawah, tidak ada lagi tepi isian yang berimpit dengan
+       tepi mana pun yang terlihat — kelebihannya dipotong wadah fotonya yang
+       overflow-hidden. */
+    bottom: -1px;
 }
 
 /* Semburat warna di sudut isi kartu.

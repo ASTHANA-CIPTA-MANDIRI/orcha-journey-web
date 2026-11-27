@@ -184,24 +184,36 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                      | kartu sorot yang dua kali lebih lebar tidak perlu jalur
                      | sendiri, dan lengkungnya tetap setinggi yang sama.
                      |
-                     | 'isi' menutup sampai dasar dan diberi warna kartu, jadi
-                     | isinya seolah naik menerobos foto. 'garis' hanya tepi
-                     | atasnya, dipakai sebagai goresan tipis berwarna aksen.
+                     | 'isi' diberi warna kartu, jadi isinya seolah naik
+                     | menerobos foto. 'garis' hanya tepi atasnya, dipakai
+                     | sebagai goresan tipis berwarna aksen.
+                     |
+                     | Dasar 'isi' sengaja ditarik sampai y=64, JAUH melewati
+                     | dasar viewBox yang 48. Kalau ia berhenti pas di 48,
+                     | tepi bawah jalurnya berimpit dengan tepi elemen — dan
+                     | karena tinggi elemennya pecahan (clamp), Safari
+                     | membulatkan isian itu ke DALAM dan menyisakan satu
+                     | baris piksel foto yang bocor melintang penuh selebar
+                     | kartu. Terukur di potret pengguna 27 Nov 2026: satu
+                     | baris warna foto di antara dua baris putih bersih.
+                     | Chrome tidak pernah memperlihatkannya, jadi ini TIDAK
+                     | bisa diuji dengan potret Chrome. Kelebihannya dipotong
+                     | <svg> sendiri (overflow:hidden bawaan).
                      | Keduanya jalur terpisah karena goresannya digambar
                      | SESUDAH isinya — kalau satu jalur, warna isi akan menutupi
                      | separuh goresannya sendiri.
                      */
                     $lengkungDest = [
                         [
-                            'isi' => 'M0,48 L0,26 C76,2 158,4 228,18 C296,31 350,40 400,33 L400,48 Z',
+                            'isi' => 'M0,64 L0,26 C76,2 158,4 228,18 C296,31 350,40 400,33 L400,64 Z',
                             'garis' => 'M0,26 C76,2 158,4 228,18 C296,31 350,40 400,33',
                         ],
                         [
-                            'isi' => 'M0,48 L0,33 C62,47 112,9 182,13 C252,17 304,43 400,19 L400,48 Z',
+                            'isi' => 'M0,64 L0,33 C62,47 112,9 182,13 C252,17 304,43 400,19 L400,64 Z',
                             'garis' => 'M0,33 C62,47 112,9 182,13 C252,17 304,43 400,19',
                         ],
                         [
-                            'isi' => 'M0,48 L0,41 C124,41 252,8 400,5 L400,48 Z',
+                            'isi' => 'M0,64 L0,41 C124,41 252,8 400,5 L400,64 Z',
                             'garis' => 'M0,41 C124,41 252,8 400,5',
                         ],
                     ];
@@ -310,7 +322,7 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                      diregangkan tidak seimbang (preserveAspectRatio="none"),
                                      dan tanpa itu goresannya ikut melar — tebal di kartu
                                      sorot, tipis di kartu biasa. --}}
-                                <svg class="absolute bottom-0 left-0 w-full lengkung-dest" viewBox="0 0 400 48"
+                                <svg class="absolute left-0 w-full lengkung-dest" viewBox="0 0 400 48"
                                     preserveAspectRatio="none" aria-hidden="true" focusable="false">
                                     <path d="{{ $lengkungDest[$loop->index % 3]['isi'] }}" fill="#fff" />
                                     <path d="{{ $lengkungDest[$loop->index % 3]['garis'] }}" fill="none"
