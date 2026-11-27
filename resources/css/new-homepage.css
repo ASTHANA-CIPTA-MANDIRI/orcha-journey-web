@@ -4196,3 +4196,143 @@ input[type="radio"] {
     font-weight: 500;
     color: #8d8378;
 }
+
+/* ----------------------------------------------------------
+   Kartu "sudah ditetapkan" di formulir pendaftaran
+
+   Empat keterangan yang tidak bisa diubah pemesan: tanggal, titik jemput,
+   durasi, minimal berangkat. Sebelumnya empat pasang label-nilai yang
+   seragam di dalam kotak krem rata, dengan dua warna yang sudah berganti
+   arti diam-diam:
+
+   - text-orcha-ocean pada judul dan pada tautan itinerary. Pada palet lama
+     itu biru; palet hangat beranda menimpanya jadi #4a5a52, hijau keabuan —
+     judulnya terbaca abu kusam dan TAUTANNYA tidak terbaca sebagai tautan
+     sama sekali.
+   - text-slate-500 pada keempat labelnya: abu KEBIRUAN, satu-satunya nada
+     dingin di kartu yang seluruhnya hangat.
+
+   Tidak ada galat untuk keduanya. Lihat juga keterangan di .ubin-toska.
+
+   Sekarang tiap keterangan punya ubin ikonnya sendiri, sehingga keempatnya
+   terbaca sebagai empat hal yang berbeda, bukan satu blok tulisan.
+----------------------------------------------------------- */
+
+.kartu-ditetapkan {
+    position: relative;
+    overflow: hidden;
+    padding: 1.25rem;
+    background: #fbf6ef;
+    border: 1px solid #efe4d3;
+    /* Sudut CERMIN .kartu-biaya: dua kartu dalam satu formulir, berirama
+       tanpa mengulang bentuk yang sama persis. */
+    border-radius: 0.7rem 1.75rem 0.7rem 1.75rem;
+    box-shadow: 0 18px 32px -28px rgb(40 28 18 / 0.45);
+}
+
+/* Semburat toska, bukan emas: emas di halaman ini memegang tombol kirim,
+   tombol bayar, dan segel DP. Kartu ini keterangan, bukan ajakan. */
+.kartu-ditetapkan::before {
+    content: '';
+    position: absolute;
+    left: -4rem;
+    top: -4.5rem;
+    width: 11rem;
+    height: 11rem;
+    border-radius: 54% 46% 62% 38% / 44% 52% 48% 56%;
+    /* Pusat gradasi di TENGAH bidangnya dan habis sebelum tepinya (60%).
+       Dengan pusat yang bergeser, tepi kiri-atas bidang masih kebagian
+       warna — dan karena sudut kartunya memotongnya, yang tergambar
+       sebuah busur bertepi tegas di belakang lencana, bukan semburat. */
+    background: radial-gradient(circle at 50% 50%, var(--color-orcha-toska), transparent 60%);
+    opacity: 0.16;
+    pointer-events: none;
+}
+
+.kartu-ditetapkan > * {
+    position: relative;
+}
+
+/* align-items: FLEX-START, bukan center.
+
+   Kalimatnya pecah dua baris di layar ponsel, dan dengan gembok yang
+   dipusatkan ia berdiri di antara dua baris — terbaca seperti ikon yang
+   lupa diberi tempat. Di atas, ia jelas menandai awal kalimatnya. */
+.lencana-ditetapkan {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+    line-height: 1.5;
+    padding: 0.35rem 0.8rem 0.35rem 0.6rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(31 125 110 / 0.24);
+    background: rgb(31 125 110 / 0.1);
+    color: #185f54;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.lencana-ditetapkan svg {
+    flex: 0 0 auto;
+    margin-top: 0.15rem;
+}
+
+.label-fakta {
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: #8d8378;
+}
+
+.nilai-fakta {
+    margin-top: 0.15rem;
+    font-weight: 800;
+    font-size: 0.95rem;
+    line-height: 1.35;
+    color: var(--color-orcha-navy);
+}
+
+/* Garis putus-putus, seirama garis sobek di kartu biaya tepat di bawahnya.
+   Yang lama border-white/70 di atas latar krem — nyaris tidak terlihat. */
+.kaki-ditetapkan {
+    margin-top: 1.15rem;
+    padding-top: 1rem;
+    border-top: 1px dashed #e4d7c3;
+}
+
+.catatan-ditetapkan {
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: #6f6459;
+}
+
+.tautan-itinerary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--color-orcha-toska);
+}
+
+.tautan-itinerary:hover {
+    color: #185f54;
+}
+
+.tautan-itinerary svg {
+    transition: transform 0.25s ease;
+}
+
+.tautan-itinerary:hover svg {
+    transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tautan-itinerary svg {
+        transition: none;
+    }
+}

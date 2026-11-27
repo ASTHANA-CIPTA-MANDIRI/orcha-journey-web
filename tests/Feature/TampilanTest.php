@@ -1086,3 +1086,62 @@ test('takik kuitansi sewarna panel di belakang kartunya, bukan sewarna kartunya'
         ->and(strtolower($warnaTakik[1]))->toBe(strtolower($warnaPanel[1]))
         ->and($kartu[1])->toContain('overflow: hidden');
 });
+
+test('kartu "sudah ditetapkan" memberi tiap keterangan ikonnya sendiri, tanpa warna palet lama', function () {
+    /*
+     | Empat pasang label-nilai yang seragam di dalam kotak krem rata, dengan
+     | DUA warna yang sudah berganti arti diam-diam:
+     |
+     | - text-orcha-ocean pada judul dan pada tautan itinerary. Pada palet
+     |   lama biru; palet hangat beranda menimpanya jadi #4a5a52, dan
+     |   tautannya tidak terbaca sebagai tautan sama sekali.
+     | - text-slate-500 pada keempat labelnya — abu KEBIRUAN, satu-satunya
+     |   nada dingin di kartu yang seluruhnya hangat.
+     |
+     | Tidak ada galat untuk keduanya; halamannya tetap 200 dan tidak ada
+     | bidang yang kosong. Lihat uji "gradasi peninggalan palet biru" untuk
+     | jebakan yang sama pada gradasi.
+     */
+    $blade = preg_replace(
+        '/\{\{--.*?--\}\}/s',
+        '',
+        file_get_contents(resource_path('views/livewire/public/open-trip/pendaftaran.blade.php'))
+    );
+
+    $awal = strpos($blade, 'class="kartu-ditetapkan"');
+    $akhir = strpos($blade, 'Lihat itinerary lengkap', $awal ?: 0);
+
+    expect($awal)->not->toBeFalse('kartu "sudah ditetapkan" hilang')
+        ->and($akhir)->not->toBeFalse();
+
+    $potongan = substr($blade, $awal, $akhir - $awal);
+
+    // Empat keterangan, empat ubin ikon, empat label hangat.
+    expect(substr_count($potongan, 'label-fakta'))->toBe(4)
+        ->and(substr_count($potongan, 'nilai-fakta'))->toBe(4)
+        ->and(substr_count($potongan, 'ubin-toska'))->toBe(4);
+
+    // Warna yang artinya bisa berganti tidak dipakai lagi di dalam kartu ini.
+    expect($potongan)->not->toContain('text-orcha-ocean')
+        ->and($potongan)->not->toContain('text-slate-');
+
+    // Dan kartunya benar-benar tergambar, bukan cuma ada di berkasnya.
+    $paket = \App\Models\PaketWisata\TravelPackage::create([
+        'name' => 'Open Trip Uji Kartu Ditetapkan',
+        'category' => 'open_trip',
+        'status' => 'terbit',
+        'duration' => '2 Hari 1 Malam',
+        'price' => 800_000,
+        'kuota' => 20,
+        'titik_jemput' => 'Jogja, Magelang',
+        'minimal_peserta' => 6,
+    ]);
+
+    $html = $this->get(route('pendaftaran-open-trip', ['paket' => $paket->uuid]))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)->toContain('kartu-ditetapkan')
+        ->and($html)->toContain('tautan-itinerary')
+        ->and(substr_count($html, 'label-fakta'))->toBe(4);
+});

@@ -922,42 +922,66 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
 
                             {{-- Jadwal & titik jemput: ditetapkan, tidak bisa dipilih peserta --}}
                             @if ($paketTerpilih)
-                                <div class="p-5 rounded-2xl bg-orcha-foam/70">
-                                    <p class="flex items-center gap-2 text-xs font-bold tracking-wider uppercase text-orcha-ocean">
-                                        <x-heroicon-s-lock-closed class="w-4 h-4" />
-                                        Sudah ditetapkan oleh Orcha Journey
+                                <div class="kartu-ditetapkan">
+                                    <p class="lencana-ditetapkan">
+                                        <x-heroicon-s-lock-closed class="w-3.5 h-3.5" />
+                                        <span>Sudah ditetapkan oleh Orcha Journey</span>
                                     </p>
 
-                                    <dl class="grid gap-4 mt-4 sm:grid-cols-2">
-                                        <div>
-                                            <dt class="text-xs font-semibold tracking-wider uppercase text-slate-500">
+                                    {{-- Tiap keterangan diberi ubin ikonnya sendiri.
+
+                                         Empat pasang label-nilai yang seragam terbaca sebagai satu
+                                         blok tulisan yang harus dibaca seluruhnya; ikonnya membuat
+                                         yang dicari — biasanya tanggal, atau titik jemput —
+                                         ketemu tanpa membaca tiga yang lain. --}}
+                                    <dl class="grid mt-4 gap-x-4 gap-y-4 sm:grid-cols-2">
+                                        <div class="flex gap-3">
+                                            <span class="grid w-9 h-9 shrink-0 place-items-center rounded-xl ubin-toska">
+                                                <x-heroicon-o-calendar-days class="w-5 h-5" />
+                                            </span>
+                                            <div class="min-w-0">
+                                            <dt class="label-fakta">
                                                 Tanggal berangkat</dt>
                                             {{-- Tanggal yang DIPILIH, bukan jadwal_label milik paket.
 
                                                  jadwal_label memulangkan rombongan terdekat; pada
                                                  paket dengan beberapa tanggal, itu bukan tanggal
                                                  yang sedang dipesan orang ini. --}}
-                                            <dd class="font-bold text-orcha-navy">
+                                            <dd class="nilai-fakta">
                                                 {{ $this->keberangkatanTerpilih()?->rentang_tanggal
                                                     ?? ($paketTerpilih->jadwal_label ?? 'Menyusul, akan kami kabari') }}</dd>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <dt class="text-xs font-semibold tracking-wider uppercase text-slate-500">
-                                                Titik jemput</dt>
-                                            <dd class="font-bold text-orcha-navy">
-                                                {{ $paketTerpilih->titik_jemput ?? 'Dikonfirmasi tim kami' }}</dd>
+
+                                        <div class="flex gap-3">
+                                            <span class="grid w-9 h-9 shrink-0 place-items-center rounded-xl ubin-toska">
+                                                <x-heroicon-o-map-pin class="w-5 h-5" />
+                                            </span>
+                                            <div class="min-w-0">
+                                                <dt class="label-fakta">Titik jemput</dt>
+                                                <dd class="nilai-fakta">
+                                                    {{ $paketTerpilih->titik_jemput ?? 'Dikonfirmasi tim kami' }}</dd>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <dt class="text-xs font-semibold tracking-wider uppercase text-slate-500">
-                                                Durasi</dt>
-                                            <dd class="font-bold text-orcha-navy">
-                                                {{ $paketTerpilih->duration ?? '—' }}</dd>
+
+                                        <div class="flex gap-3">
+                                            <span class="grid w-9 h-9 shrink-0 place-items-center rounded-xl ubin-toska">
+                                                <x-heroicon-o-clock class="w-5 h-5" />
+                                            </span>
+                                            <div class="min-w-0">
+                                                <dt class="label-fakta">Durasi</dt>
+                                                <dd class="nilai-fakta">{{ $paketTerpilih->duration ?? '—' }}</dd>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <dt class="text-xs font-semibold tracking-wider uppercase text-slate-500">
-                                                Minimal berangkat</dt>
-                                            <dd class="font-bold text-orcha-navy">
-                                                {{ $paketTerpilih->minimal_peserta }} orang</dd>
+
+                                        <div class="flex gap-3">
+                                            <span class="grid w-9 h-9 shrink-0 place-items-center rounded-xl ubin-toska">
+                                                <x-heroicon-o-user-group class="w-5 h-5" />
+                                            </span>
+                                            <div class="min-w-0">
+                                                <dt class="label-fakta">Minimal berangkat</dt>
+                                                <dd class="nilai-fakta">{{ $paketTerpilih->minimal_peserta }} orang</dd>
+                                            </div>
                                         </div>
                                     </dl>
 
@@ -976,7 +1000,8 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                             ?? ($keberangkatanId === '' ? null : $paketTerpilih->batas_pelunasan);
                                     @endphp
 
-                                    <p class="pt-4 mt-4 text-xs border-t border-white/70 text-slate-600">
+                                    <div class="kaki-ditetapkan">
+                                    <p class="catatan-ditetapkan">
                                         Uang muka {{ $dp }}% saat pemesanan, pelunasan paling lambat
                                         @if ($batasBayar)
                                             <strong class="text-orcha-navy">
@@ -988,10 +1013,16 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                         @endif
                                     </p>
 
+                                    {{-- Tautan ini dulu text-orcha-ocean: pada palet hangat itu
+                                         #4a5a52, abu kehijauan yang tidak terbaca sebagai tautan
+                                         sama sekali. Toska beserta panahnya membuatnya jelas bisa
+                                         ditekan tanpa perlu digarisbawahi terus-menerus. --}}
                                     <a href="{{ route('paket-detail', $paketTerpilih->uuid) }}"
-                                        class="inline-block mt-3 text-sm font-semibold text-orcha-ocean hover:underline">
-                                        Lihat itinerary lengkap
+                                        class="tautan-itinerary">
+                                        <span>Lihat itinerary lengkap</span>
+                                        <x-heroicon-s-arrow-right class="w-4 h-4" />
                                     </a>
+                                    </div>
                                 </div>
                             @endif
 
