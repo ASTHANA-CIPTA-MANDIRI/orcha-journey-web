@@ -640,3 +640,202 @@ test('jendela detail destinasi menutupi kepala halaman dan tombol mengambang', f
 
     expect($jendela)->toBeLessThan((int) $muat[1]);
 });
+
+test('halaman detail paket memakai panel seperti halaman lain, bukan kotak sendiri', function () {
+    /*
+     | Halaman ini satu-satunya halaman publik yang masih berdiri di luar
+     | bahasa rupa yang lain: .card-orcha di atas latar putih, dengan jarak
+     | section-orcha yang pada layar lebar menyisakan ~130px bidang kosong
+     | antara kepala halaman dan isi pertama. Tidak ada galat apa pun — hanya
+     | halaman yang terbaca belum selesai dirapikan, justru di halaman yang
+     | dibaca orang saat sedang memutuskan membayar.
+     */
+    $blade = file_get_contents(resource_path('views/livewire/public/paket-wisata/detail.blade.php'));
+
+    // Panel pertama naik menindih kepala halaman, seperti beranda dan
+    // destinasi. Tanpa rak-panel, celah itu kembali.
+    expect($blade)->toContain('container-orcha rak-panel')
+        ->and($blade)->toContain('panel-orcha');
+
+    // Kotak lama tidak boleh kembali diam-diam. Disaring dari komentar dulu:
+    // keterangan yang menjelaskan larangannya sendiri jangan sampai memerahkan
+    // ujinya.
+    $tanpaKomentar = preg_replace('/\{\{--.*?--\}\}/s', '', $blade);
+
+    expect($tanpaKomentar)->not->toContain('card-orcha')
+        ->and($tanpaKomentar)->not->toContain('bg-white section-orcha');
+});
+
+test('termasuk dan tidak termasuk satu panel, tetapi dua daftar yang tidak bercampur', function () {
+    /*
+     | Keduanya menjawab satu pertanyaan — "apa yang saya dapat dengan uang
+     | ini?" — jadi dijawab di satu panel, bukan dua panel berurutan yang
+     | memaksa pembaca mengingat isi panel pertama.
+     |
+     | TETAPI daftarnya tidak boleh pernah bercampur. Kalau keduanya disatukan
+     | jadi satu daftar, "Tiket masuk wisata" terbaca sebagai yang DIDAPAT —
+     | kebalikan dari maksudnya, dan itulah yang paling sering berakhir jadi
+     | keluhan di lokasi. Karena itu yang diperiksa bukan cuma keduanya
+     | tampil, melainkan masing-masing punya kepalanya sendiri.
+     */
+    $paket = \App\Models\PaketWisata\TravelPackage::create([
+        'name' => 'Open Trip Uji Fasilitas',
+        'category' => 'open-trip',
+        // 'terbit', bukan 'published': sedang_tayang memeriksa kata itu
+        // persis, dan nilai yang salah memulangkan 404 — bukan halaman yang
+        // salah rupa, melainkan halaman yang tidak ada.
+        'status' => 'terbit',
+        'duration' => '2 Hari 1 Malam',
+        'price' => 900_000,
+        'fasilitas' => ['Transport AC', 'Makan 3x'],
+        'tidak_termasuk' => ['Tiket masuk wisata', 'Pengeluaran pribadi'],
+    ]);
+
+    $this->get(route('paket-detail', $paket->uuid))
+        ->assertOk()
+        ->assertSee('Sudah termasuk', false)
+        ->assertSee('Disiapkan sendiri', false)
+        ->assertSee('Transport AC', false)
+        ->assertSee('Tiket masuk wisata', false)
+        // Pemisah dua lajurnya ada: tanpa itu keduanya menempel jadi satu
+        // kolom panjang di layar lebar.
+        ->assertSee('sm:border-l', false);
+});
+
+test('kepala harga tampil utuh dengan maupun tanpa diskon', function (bool $pakaiDiskon) {
+    /*
+     | Dua jalur yang berbeda bentuknya: dengan diskon ada harga coret, segel
+     | persen, dan pil penghematan; tanpa diskon ketiganya hilang dan yang
+     | tersisa cuma angka beserta satuannya. Jalur kedua paling jarang dilihat
+     | saat mengerjakan rupa — semua paket di komputer ini kebetulan berdiskon
+     | — jadi justru itu yang paling mudah rusak tanpa ketahuan.
+     */
+    $paket = \App\Models\PaketWisata\TravelPackage::create(array_merge([
+        'name' => 'Open Trip Uji Harga',
+        'category' => 'open-trip',
+        'status' => 'terbit',
+        'duration' => '2 Hari 1 Malam',
+        'price' => 985_000,
+    ], $pakaiDiskon ? ['original_price' => 1_200_000] : []));
+
+    $hal = $this->get(route('paket-detail', $paket->uuid))->assertOk();
+
+    // Angka dan satuannya selalu ada, apa pun jalurnya.
+    $hal->assertSee('Rp 985.000', false)
+        ->assertSee('per orang', false)
+        ->assertSee('angka-harga', false);
+
+    if ($pakaiDiskon) {
+        $hal->assertSee('Rp 1.200.000', false)
+            ->assertSee('segel-hemat', false)
+            ->assertSee('pita-hemat', false);
+    } else {
+        // Tanpa diskon ketiganya TIDAK boleh tergambar. Segel "Hemat 0%" atau
+        // pil penghematan kosong lebih buruk daripada tidak ada apa-apa.
+        $hal->assertDontSee('segel-hemat', false)
+            ->assertDontSee('pita-hemat', false)
+            ->assertDontSee('harga-coret', false);
+    }
+})->with([true, false]);
+
+test('pil penghematan tidak memakai flex yang membuang spasinya', function () {
+    /*
+     | .pita-hemat berisi kalimat biasa dengan <strong> di tengahnya. Kalau
+     | pembungkusnya inline-flex, tiap potongan tulisan jadi item flex sendiri
+     | dan SPASI DI ANTARANYA DIBUANG — kalimatnya tercetak
+     | "Lebih hematRp 215.000per orang". Tidak ada galat, hurufnya semua ada,
+     | hanya spasinya lenyap; dan di layar sempit kalimatnya masih terbaca
+     | separuh benar sehingga gampang terlewat.
+     */
+    // Komentar CSS DIBUANG dulu. Keterangan di dalam aturan itu menjelaskan
+    // larangannya sendiri dan menyebut kata "inline-flex" — tanpa disaring,
+    // justru keterangan itu yang memerahkan ujinya.
+    $css = preg_replace('#/\*.*?\*/#s', '', file_get_contents(resource_path('css/new-homepage.css')));
+
+    preg_match('/\.pita-hemat \{(.*?)\n\}/s', $css, $cocok);
+
+    expect($cocok)->not->toBeEmpty('aturan .pita-hemat hilang')
+        ->and($cocok[1])->not->toContain('inline-flex')
+        ->and($cocok[1])->not->toMatch('/display:\s*flex/');
+});
+
+test('tombol Daftar Sekarang memakai tombol ajakan utama yang sama dengan beranda', function () {
+    /*
+     | Daftar Sekarang adalah SATU-SATUNYA tindakan utama di halaman detail
+     | paket; tombol di bawahnya hanya bertanya lewat WhatsApp. Keduanya
+     | tampil dengan bobot yang sama membuat pengunjung yang sudah siap
+     | mendaftar tetap memilih bertanya dulu — jalan yang jauh lebih panjang
+     | bagi keduanya, dan tidak ada apa pun yang memberi tahu bahwa itu
+     | terjadi.
+     |
+     | .btn-orcha-primary dan .btn-orcha-sun sama-sama emas, jadi tertukar
+     | tidak akan terlihat sekilas. Yang membedakan: .btn-orcha-sun punya
+     | badan padat di bawahnya, kilau di tepi atas, dan gerak turun saat
+     | ditekan — itulah tombol yang dipakai beranda untuk ajakan utamanya.
+     */
+    $paket = \App\Models\PaketWisata\TravelPackage::create([
+        'name' => 'Open Trip Uji Tombol',
+        // Garis bawah, bukan tanda hubung: nilai inilah yang tersimpan di
+        // basis data, dan halamannya memeriksa kata ini persis. Dengan
+        // 'open-trip' tombol Daftar Sekarang tidak pernah tergambar sama
+        // sekali — halamannya tetap 200 dan tidak ada yang merah.
+        'category' => 'open_trip',
+        'status' => 'terbit',
+        'duration' => '2 Hari 1 Malam',
+        'price' => 750_000,
+        'kuota' => 20,
+    ]);
+
+    $html = $this->get(route('paket-detail', $paket->uuid))->assertOk()->getContent();
+
+    expect(preg_match('/<a\b[^>]*>(?:(?!<\/a>).)*Daftar Sekarang(?:(?!<\/a>).)*<\/a>/s', $html, $cocok))
+        ->toBe(1, 'tombol Daftar Sekarang tidak tergambar');
+
+    expect($cocok[0])->toContain('btn-orcha-sun')
+        ->and($cocok[0])->not->toContain('btn-orcha-primary');
+
+    // Dibandingkan dengan beranda, bukan dengan nama kelas yang dihafal di
+    // sini: kalau suatu saat beranda berganti tombol ajakan, uji ini ikut
+    // menuntut halaman paket berganti bersamanya.
+    expect(file_get_contents(resource_path('views/livewire/public/beranda/index.blade.php')))
+        ->toContain('btn-orcha btn-orcha-sun');
+});
+
+test('tampilan publik tidak memakai gradasi peninggalan palet biru', function () {
+    /*
+     | from-orcha-sky ke to-orcha-ocean ditulis saat palet masih BIRU: sky
+     | biru langit, ocean biru laut. Palet beranda kemudian menimpa kedua
+     | peubah itu dengan warna hangat — sky jadi emas pucat (#eab766), ocean
+     | jadi hijau keabuan (#4a5a52) — sehingga gradasinya kini membentang
+     | dari emas ke abu dan melewati cokelat kusam di tengah.
+     |
+     | Yang berbahaya dari cacat ini: kelasnya MASIH ADA dan MASIH
+     | menghasilkan warna. Tidak ada galat, tidak ada bidang kosong, tidak
+     | ada yang merah — hanya warna lumpur yang baru ketahuan kalau ada yang
+     | memandangi layarnya. Karena itu ia kambuh di lima tempat berbeda
+     | sebelum dicari sekaligus.
+     |
+     | Panel admin SENGAJA tidak ikut diperiksa: palet hangat itu milik
+     | halaman publik, dan layar admin tidak memuat new-homepage.css yang
+     | menimpa peubahnya.
+     */
+    $pelanggar = [];
+
+    foreach (\Symfony\Component\Finder\Finder::create()->files()
+        ->in([
+            resource_path('views/livewire/public'),
+            resource_path('views/components'),
+            resource_path('views/partials'),
+        ])
+        ->name('*.blade.php') as $berkas) {
+        // Komentar Blade dibuang dulu: keterangan yang menjelaskan larangan
+        // ini menyebut nama kelasnya sendiri.
+        $isi = preg_replace('/\{\{--.*?--\}\}/s', '', $berkas->getContents());
+
+        if (preg_match('/orcha-sky\s+to-orcha-ocean|orcha-ocean\s+to-orcha-sky/', $isi)) {
+            $pelanggar[] = str_replace(resource_path('views/'), '', $berkas->getPathname());
+        }
+    }
+
+    expect($pelanggar)->toBe([], 'Pakai .ubin-toska atau .bilah-nilai: '.implode(', ', $pelanggar));
+});

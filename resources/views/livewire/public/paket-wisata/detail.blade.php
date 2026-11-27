@@ -257,19 +257,37 @@ new #[Layout('components.layouts.guest')] class extends Component
 
     <script type="application/ld+json">{!! \App\Support\SkemaJson::tag($skemaPaket) !!}</script>
 
+    {{-- Foto PAKETNYA sendiri di kepala halaman, bukan ilustrasi yang sama
+         untuk semua paket.
+
+         Dipakai $paket->foto, bukan $paket->sampul: accessor sampul punya
+         cadangan sendiri yang jatuh ke foto pantai umum, dan pantai umum itu
+         JUSTRU lebih buruk daripada kolase "paket-trip" yang memang dirancang
+         untuk kepala halaman ini. Jadi cadangannya tetap kolase, dan foto
+         paket dipakai hanya kalau adminnya benar-benar mengunggah satu. --}}
     <x-page-hero :title="$paket->name" :eyebrow="$paket->category_label"
         :subtitle="$paket->jadwal_label ? 'Keberangkatan ' . $paket->jadwal_label : $paket->duration"
+        :gambarPenuh="filled($paket->foto) ? $paket->foto : null"
         image="images/HERO/paket-trip.webp" />
 
-    <section class="bg-white section-orcha">
-        <div class="container-orcha">
-            <div class="grid gap-6 lg:grid-cols-12">
+    {{-- rak-panel + panel-orcha: bahasa rupa yang SAMA dengan beranda,
+         Tentang Kami, Paket Wisata, Destinasi, dan Sewa Kendaraan.
+
+         Sebelumnya halaman ini berdiri sendiri: `section-orcha` di atas latar
+         putih memberi jarak atas clamp(4rem, 9vw, 8.5rem) — pada layar lebar
+         itu 130px bidang kosong antara kepala halaman dan isi pertama, dan
+         kotak-kotaknya memakai .card-orcha yang sudutnya lebih tajam dan
+         bingkainya kebiruan. Berdampingan dengan halaman lain, halaman
+         inilah yang terbaca "belum selesai dirapikan". --}}
+    <div class="container-orcha rak-panel pb-6">
+        <div class="grid gap-4 sm:gap-5 lg:grid-cols-12">
 
                 <div class="space-y-6 lg:col-span-8">
 
                     {{-- Ringkasan perjalanan --}}
-                    <div class="p-6 card-orcha sm:p-8">
-                        <h2 class="text-xl font-bold font-heading text-orcha-navy">Ringkasan Perjalanan</h2>
+                    <div class="panel-orcha reveal">
+                        <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Sekilas</p>
+                        <h2 class="mt-3 judul-panel-kecil">Ringkasan perjalanan.</h2>
 
                         <dl class="grid gap-5 mt-5 sm:grid-cols-2">
                             @php
@@ -285,14 +303,30 @@ new #[Layout('components.layouts.guest')] class extends Component
                                 ], fn ($baris) => filled($baris[2]));
                             @endphp
 
+                            {{-- Ubin ikon dan labelnya memakai kelas sendiri, bukan
+                                 utilitas warna.
+
+                                 Yang lama: bg-gradient-to-br from-orcha-sky
+                                 to-orcha-ocean. Gradasi itu ditulis untuk palet LAMA
+                                 yang biru — sky biru langit ke ocean biru laut. Palet
+                                 beranda kemudian menimpa kedua peubah itu dengan warna
+                                 hangat: sky jadi emas pucat (#eab766) dan ocean jadi
+                                 hijau keabuan (#4a5a52). Gradasi emas-ke-abu itulah
+                                 yang terlihat sekarang — warna lumpur, dan tidak ada
+                                 satu pun galat yang menyebutnya karena kelasnya memang
+                                 masih ada dan masih menghasilkan warna.
+
+                                 Labelnya juga: text-slate-400 itu abu KEBIRUAN di
+                                 halaman yang seluruhnya hangat, dan kontrasnya cuma
+                                 2,8:1 di atas putih. --}}
                             @foreach ($ringkasan as [$ikon, $label, $nilai])
                                 <div class="flex items-start gap-3">
                                     <span
-                                        class="flex items-center justify-center w-10 h-10 text-white shrink-0 rounded-xl bg-gradient-to-br from-orcha-sky to-orcha-ocean">
+                                        class="flex items-center justify-center w-10 h-10 shrink-0 rounded-xl ubin-toska">
                                         <x-dynamic-component :component="'heroicon-' . $ikon" class="w-5 h-5" />
                                     </span>
                                     <div>
-                                        <dt class="text-xs font-semibold tracking-wider uppercase text-slate-400">
+                                        <dt class="text-xs font-semibold tracking-wider uppercase label-ringkas">
                                             {{ $label }}</dt>
                                         <dd class="font-bold text-orcha-navy">{{ $nilai }}</dd>
                                     </div>
@@ -372,8 +406,9 @@ new #[Layout('components.layouts.guest')] class extends Component
 
                     {{-- Destinasi --}}
                     @if (!empty($paket->destination_list))
-                        <div class="p-6 card-orcha sm:p-8">
-                            <h2 class="text-xl font-bold font-heading text-orcha-navy">Destinasi yang Dikunjungi</h2>
+                        <div class="panel-orcha reveal">
+                            <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Rute</p>
+                            <h2 class="mt-3 judul-panel-kecil">Tempat yang dikunjungi.</h2>
                             <ul class="grid gap-3 mt-5 sm:grid-cols-2">
                                 @foreach ($paket->destination_list as $destinasi)
                                     <li class="flex items-start gap-2 text-sm text-slate-600">
@@ -385,50 +420,85 @@ new #[Layout('components.layouts.guest')] class extends Component
                         </div>
                     @endif
 
-                    {{-- Fasilitas --}}
-                    @if (!empty($paket->fasilitas))
-                        <div class="p-6 card-orcha sm:p-8">
-                            <h2 class="text-xl font-bold font-heading text-orcha-navy">Fasilitas Termasuk</h2>
-                            <ul class="grid gap-3 mt-5 sm:grid-cols-2">
-                                @foreach ($paket->fasilitas as $fasilitas)
-                                    <li class="flex items-start gap-2 text-sm text-slate-600">
-                                        <x-heroicon-s-check-circle class="w-5 h-5 shrink-0 text-orcha-sky" />
-                                        <span>{{ $fasilitas }}</span>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    @endif
+                    {{-- Termasuk dan tidak termasuk: SATU panel, dua lajur.
 
-                    {{-- Tidak termasuk.
+                         Dulu dua panel berurutan, dan itu membuat pertanyaan
+                         yang sebenarnya satu — "apa yang saya dapat dengan
+                         uang ini?" — harus dijawab dengan menggulung dua kali
+                         dan mengingat isi panel pertama saat membaca yang
+                         kedua.
 
-                         Berdiri sebagai daftarnya SENDIRI, bukan diselipkan
-                         sebagai catatan kecil di bawah fasilitas: yang
-                         membacanya sedang memutuskan membayar, dan tiket
-                         masuk atau pengeluaran pribadi yang baru ketahuan di
-                         lokasi selalu berakhir jadi keluhan — bukan karena
-                         harganya, melainkan karena tidak pernah disebut. --}}
-                    @if (!empty($paket->tidak_termasuk))
-                        <div class="p-6 card-orcha sm:p-8">
-                            <h2 class="text-xl font-bold font-heading text-orcha-navy">Tidak Termasuk</h2>
-                            <p class="mt-1 text-sm text-slate-500">
-                                Yang ini disiapkan sendiri oleh peserta.
-                            </p>
-                            <ul class="grid gap-3 mt-5 sm:grid-cols-2">
-                                @foreach ($paket->tidak_termasuk as $luar)
-                                    <li class="flex items-start gap-2 text-sm text-slate-600">
-                                        <x-heroicon-s-x-circle class="w-5 h-5 shrink-0 text-slate-400" />
-                                        <span>{{ $luar }}</span>
-                                    </li>
-                                @endforeach
-                            </ul>
+                         Yang TIDAK boleh berubah: kedua daftarnya tetap
+                         terpisah tegas, berkepala sendiri, berwarna sendiri,
+                         dan tidak pernah berselang-seling. Kalau keduanya
+                         dicampur jadi satu daftar, "Tiket masuk wisata"
+                         terbaca sebagai yang DIDAPAT — justru kebalikan dari
+                         maksudnya, dan itulah yang paling sering berakhir
+                         jadi keluhan di lokasi.
+
+                         Satu lajur saja bila salah satunya belum diisi: kisi
+                         dua lajur dengan satu sisi kosong terbaca sebagai
+                         daftar yang gagal dimuat. --}}
+                    @php
+                        $adaFasilitas = ! empty($paket->fasilitas);
+                        $adaTidakTermasuk = ! empty($paket->tidak_termasuk);
+                    @endphp
+
+                    @if ($adaFasilitas || $adaTidakTermasuk)
+                        <div class="panel-orcha reveal">
+                            <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Fasilitas</p>
+                            <h2 class="mt-3 judul-panel-kecil">Yang sudah termasuk, dan yang belum.</h2>
+
+                            <div
+                                class="grid gap-6 mt-6 sm:gap-8 {{ $adaFasilitas && $adaTidakTermasuk ? 'sm:grid-cols-2' : '' }}">
+                                @if ($adaFasilitas)
+                                    <div>
+                                        <p class="kepala-daftar-paket kepala-daftar-paket-ya">
+                                            <x-heroicon-s-check-circle class="w-4 h-4" />
+                                            Sudah termasuk
+                                        </p>
+                                        {{-- Satu daftar sendirian jadi DUA lajur. Tanpa ini
+                                             enam fasilitas berbaris menurun di lajur kiri dan
+                                             separuh kanan panel menganga kosong — persis
+                                             keadaan yang dihindari saat kisinya tidak dipakai
+                                             untuk dua daftar. --}}
+                                        <ul class="mt-4 space-y-2.5 {{ $adaTidakTermasuk ? '' : 'sm:grid sm:grid-cols-2 sm:gap-x-8 sm:space-y-0 sm:gap-y-2.5' }}">
+                                            @foreach ($paket->fasilitas as $fasilitas)
+                                                <li class="flex items-start gap-2.5 text-sm text-slate-600">
+                                                    <x-heroicon-s-check-circle class="w-5 h-5 mt-px shrink-0 ikon-ya-paket" />
+                                                    <span>{{ $fasilitas }}</span>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                @endif
+
+                                @if ($adaTidakTermasuk)
+                                    <div
+                                        class="{{ $adaFasilitas ? 'sm:pl-8 sm:border-l sm:border-orcha-foam' : '' }}">
+                                        <p class="kepala-daftar-paket kepala-daftar-paket-tidak">
+                                            <x-heroicon-s-x-circle class="w-4 h-4" />
+                                            Disiapkan sendiri
+                                        </p>
+                                        <ul class="mt-4 space-y-2.5 {{ $adaFasilitas ? '' : 'sm:grid sm:grid-cols-2 sm:gap-x-8 sm:space-y-0 sm:gap-y-2.5' }}">
+                                            @foreach ($paket->tidak_termasuk as $luar)
+                                                <li class="flex items-start gap-2.5 text-sm text-slate-600">
+                                                    <x-heroicon-s-x-circle class="w-5 h-5 mt-px shrink-0 text-slate-400" />
+                                                    <span>{{ $luar }}</span>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                     @endif
 
                     {{-- Galeri foto paket --}}
                     @if (!empty($paket->foto_galeri))
-                        <div class="p-6 card-orcha sm:p-8">
-                            <h2 class="text-xl font-bold font-heading text-orcha-navy">Galeri Perjalanan</h2>
+                        <div class="panel-orcha reveal">
+                            <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Foto</p>
+                            <h2 class="mt-3 judul-panel-kecil">Galeri perjalanan.</h2>
                             <div class="grid gap-3 mt-5 sm:grid-cols-3">
                                 @foreach ($paket->foto_galeri as $urutan => $foto)
                                     <a href="{{ $foto }}" target="_blank" rel="noopener"
@@ -445,8 +515,9 @@ new #[Layout('components.layouts.guest')] class extends Component
 
                     {{-- Itinerary --}}
                     @if (!empty($paket->itinerary))
-                        <div class="p-6 card-orcha sm:p-8">
-                            <h2 class="text-xl font-bold font-heading text-orcha-navy">Itinerary</h2>
+                        <div class="panel-orcha reveal">
+                            <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Hari per hari</p>
+                            <h2 class="mt-3 judul-panel-kecil">Susunan acaranya.</h2>
 
                             <div class="mt-6 space-y-6">
                                 @foreach ($paket->itinerary as $hari)
@@ -460,7 +531,7 @@ new #[Layout('components.layouts.guest')] class extends Component
                                              supaya sekilas terlihat padat-tidaknya acara. --}}
                                         <div class="flex flex-wrap items-center justify-between gap-3">
                                             <span
-                                                class="inline-block px-4 py-1.5 text-sm font-bold text-white rounded-full bg-gradient-to-r from-orcha-abyss to-orcha-ocean">
+                                                class="inline-block px-4 py-1.5 text-sm font-bold text-white rounded-full pita-hari">
                                                 {{ $hari['hari'] ?? 'Hari' }}
                                             </span>
 
@@ -512,7 +583,7 @@ new #[Layout('components.layouts.guest')] class extends Component
                 {{-- Sisi kanan: harga & pendaftaran --}}
                 <aside class="lg:col-span-4">
                     <div class="space-y-6 lg:sticky lg:top-24">
-                        <div class="overflow-hidden card-orcha">
+                        <div class="overflow-hidden panel-orcha !p-0">
                             @php
                                 $adaDiskon = $paket->ada_diskon;
                                 $hemat = $paket->hemat_rupiah;
@@ -522,11 +593,23 @@ new #[Layout('components.layouts.guest')] class extends Component
                             {{-- Sisi kanan panel harga dulu kosong. Diisi hal yang memang
                                  berguna — besar potongannya — bukan sekadar hiasan. Bila
                                  tidak ada diskon, yang tampil cuma sapuan ombak samar. --}}
-                            <div
-                                class="relative overflow-hidden p-6 text-white bg-gradient-to-br from-orcha-navy to-orcha-abyss sm:p-7">
+                            {{-- Kepala harga.
+
+                                 Ini bidang yang paling lama dipandang di seluruh
+                                 halaman — orang menggulung ke sini untuk satu
+                                 pertanyaan: berapa. Sebelumnya ia bidang gelap
+                                 rata dengan tepi bawah lurus, angka coret
+                                 keabu-abuan, dan lencana hemat yang nyaris
+                                 tembus pandang; semuanya benar isinya tetapi
+                                 tidak ada yang menarik mata ke angkanya.
+
+                                 pb-16: tepi bawahnya kini lengkung, dan tulisan
+                                 yang duduk di bawah angka itu akan tertelan
+                                 kalau ruang bawahnya tidak ditambah. --}}
+                            <div class="relative overflow-hidden p-6 pb-16 text-white kepala-harga sm:p-7 sm:pb-[4.5rem]">
                                 {{-- Ombak selebar panel, bukan cahaya di satu sudut: sudut
                                      yang menyala membuat sisi kiri terlihat gelap sebelah. --}}
-                                <svg class="absolute inset-x-0 bottom-0 w-full h-28 pointer-events-none text-white/[.06]"
+                                <svg class="absolute inset-x-0 bottom-0 w-full h-28 pointer-events-none text-white/[.07]"
                                     viewBox="0 0 400 100" preserveAspectRatio="none" fill="none" aria-hidden="true">
                                     <path d="M0 62c33-20 66-20 100 0s67 20 100 0 67-20 100 0 67 20 100 0" stroke="currentColor"
                                         stroke-width="5" stroke-linecap="round" />
@@ -544,32 +627,40 @@ new #[Layout('components.layouts.guest')] class extends Component
                                         @endif
 
                                         @if ($adaDiskon)
-                                            <p class="text-sm line-through text-slate-400">
-                                                {{ $rupiah($paket->original_price) }}</p>
+                                            <p class="harga-coret">{{ $rupiah($paket->original_price) }}</p>
                                         @endif
 
-                                        <p class="text-3xl font-black font-heading text-orcha-sun">
-                                            {{ $rupiah($paket->price) }}</p>
-                                        <p class="text-sm text-slate-300">per orang</p>
+                                        <p class="angka-harga">{{ $rupiah($paket->price) }}</p>
+                                        <p class="label-harga">per orang</p>
                                     </div>
 
                                     @if ($adaDiskon && $persen > 0)
-                                        <div
-                                            class="flex flex-col items-center justify-center text-center shrink-0 w-[4.75rem] h-[4.75rem] rounded-full bg-orcha-sun/15 ring-1 ring-orcha-sun/40">
-                                            <span
-                                                class="text-[.6rem] font-bold tracking-wider uppercase text-orcha-sun/80">Hemat</span>
-                                            <span
-                                                class="text-lg font-black leading-none font-heading text-orcha-sun">{{ $persen }}%</span>
+                                        <div class="segel-hemat">
+                                            <span class="segel-hemat-label">Hemat</span>
+                                            <span class="segel-hemat-angka">{{ $persen }}%</span>
                                         </div>
                                     @endif
                                 </div>
 
                                 @if ($adaDiskon)
-                                    <p class="relative mt-3 text-xs text-slate-300">
-                                        Lebih hemat <strong class="text-white">{{ $rupiah($hemat) }}</strong> per orang
-                                        dari harga normal.
+                                    <p class="pita-hemat">
+                                        Lebih hemat <strong>{{ $rupiah($hemat) }}</strong> per orang dari harga normal.
                                     </p>
                                 @endif
+
+                                {{-- Tepi bawah lengkung, lengkung yang SAMA seperti di kartu
+                                     destinasi dan jendela detailnya. Jalurnya ditarik sampai
+                                     y=64 melewati dasar viewBox dengan alasan yang sama:
+                                     tepi isian yang berimpit dengan tepi elemen menyisakan
+                                     satu baris piksel bidang gelap di Safari. --}}
+                                <svg class="lengkung-harga" viewBox="0 0 400 48" preserveAspectRatio="none"
+                                    aria-hidden="true" focusable="false">
+                                    <path d="M0,64 L0,30 C84,6 168,8 244,20 C306,30 352,38 400,31 L400,64 Z"
+                                        fill="#fffdfb" />
+                                    <path d="M0,30 C84,6 168,8 244,20 C306,30 352,38 400,31" fill="none"
+                                        stroke="var(--color-orcha-sun)" stroke-width="2.5" stroke-linecap="round"
+                                        vector-effect="non-scaling-stroke" />
+                                </svg>
                             </div>
 
                             <div class="p-6 space-y-3 sm:p-7">
@@ -757,10 +848,31 @@ new #[Layout('components.layouts.guest')] class extends Component
                                             </a>
                                         </div>
                                     @else
+                                        {{-- btn-orcha-sun, bukan btn-orcha-primary.
+
+                                             Keduanya sama-sama emas, jadi di layar admin
+                                             perbedaannya nyaris tidak terasa — tetapi
+                                             .btn-orcha-sun itulah tombol yang dipakai beranda
+                                             untuk ajakan utamanya, dan ia punya badan padat di
+                                             bawahnya, kilau tipis di tepi atas, serta gerak
+                                             turun saat ditekan. .btn-orcha-primary rata tanpa
+                                             ketiganya.
+
+                                             Ini SATU-SATUNYA tindakan utama di halaman ini:
+                                             tombol di bawahnya hanya bertanya lewat WhatsApp.
+                                             Keduanya tampil dengan bobot yang sama membuat
+                                             pengunjung yang sudah siap mendaftar tetap memilih
+                                             bertanya dulu — jalan yang jauh lebih panjang bagi
+                                             keduanya.
+
+                                             !py-4 dan !text-base: sedikit lebih besar daripada
+                                             tombol lain di panel ini, supaya bobotnya terbaca
+                                             sebelum tulisannya dibaca. --}}
                                         <a href="{{ route('pendaftaran-open-trip', ['paket' => $paket->uuid]) }}"
-                                            class="w-full btn-orcha btn-orcha-primary">
+                                            class="w-full btn-orcha btn-orcha-sun !py-4 !text-base">
                                             <x-heroicon-o-pencil-square class="w-5 h-5" />
                                             Daftar Sekarang
+                                            <x-heroicon-o-arrow-right class="w-5 h-5" />
                                         </a>
                                     @endif
                                 @endif
@@ -817,7 +929,7 @@ new #[Layout('components.layouts.guest')] class extends Component
                         </div>
 
                         @if ($paketLain->isNotEmpty())
-                            <div class="p-6 card-orcha sm:p-7">
+                            <div class="panel-orcha reveal">
                                 <h2 class="text-lg font-bold font-heading text-orcha-navy">
                                     {{ $paket->category_label }} lainnya</h2>
                                 <div class="mt-4 space-y-3">
@@ -837,5 +949,5 @@ new #[Layout('components.layouts.guest')] class extends Component
                 </aside>
             </div>
         </div>
-    </section>
+    </div>
 </div>

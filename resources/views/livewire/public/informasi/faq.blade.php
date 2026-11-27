@@ -168,8 +168,12 @@ new #[Layout('components.layouts.guest')] #[Title('FAQ — Pertanyaan yang Serin
                     @foreach ($kelompok as $grup)
                         <section id="{{ $grup['slug'] }}" class="mb-12 scroll-mt-28 last:mb-0">
                             <div class="flex items-center gap-3 mb-5">
+                                {{-- .ubin-toska: gradasi sky->ocean di sini peninggalan
+                                     palet biru, dan pada palet hangat sekarang ia
+                                     membentang dari emas ke abu — warna lumpur, tanpa
+                                     satu pun galat yang menyebutnya. --}}
                                 <span
-                                    class="flex items-center justify-center w-10 h-10 text-white rounded-xl bg-gradient-to-br from-orcha-sky to-orcha-ocean">
+                                    class="flex items-center justify-center w-10 h-10 rounded-xl ubin-toska">
                                     <x-dynamic-component :component="'heroicon-' . $grup['icon']" class="w-5 h-5" />
                                 </span>
                                 <h2 class="text-xl font-bold font-heading text-orcha-navy sm:text-2xl">

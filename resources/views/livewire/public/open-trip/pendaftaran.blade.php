@@ -1189,8 +1189,17 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                             <ol class="mt-4 space-y-4">
                                 @foreach ([['Konfirmasi kursi', 'Kami cek ketersediaan lalu menghubungi Anda lewat WhatsApp.'], ['Riwayat kesehatan', 'Tiap peserta mengisi formulir kesehatan memakai kode pendaftaran.'], ['Uang muka & pelunasan', "Kursi dikunci setelah DP $dp% masuk. Pelunasan paling lambat H-$pelunasan sebelum keberangkatan."], ['Berangkat', 'Jam kumpul di titik jemput dikirim H-1 sebelum keberangkatan.']] as $i => [$judul, $isi])
                                     <li class="flex gap-3">
+                                        {{-- .ubin-toska, bukan gradasi sky->ocean.
+
+                                             Dua nama itu peninggalan palet BIRU. Palet
+                                             sekarang menimpa keduanya dengan warna hangat —
+                                             sky jadi emas pucat, ocean jadi hijau keabuan —
+                                             jadi gradasinya membentang dari emas ke abu dan
+                                             melewati cokelat kusam di tengah. Kelasnya tetap
+                                             ada dan tetap menghasilkan warna, jadi tidak ada
+                                             satu pun galat yang menyebutnya. --}}
                                         <span
-                                            class="flex items-center justify-center w-8 h-8 text-sm font-bold text-white rounded-full shrink-0 bg-gradient-to-br from-orcha-sky to-orcha-ocean">
+                                            class="flex items-center justify-center w-8 h-8 text-sm font-bold rounded-full shrink-0 ubin-toska">
                                             {{ $i + 1 }}
                                         </span>
                                         <div>

@@ -162,7 +162,13 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                                     <x-heroicon-s-star class="w-4 h-4 text-orcha-sun" />
                                 </span>
                                 <div class="flex-1 h-2 overflow-hidden rounded-full bg-orcha-foam">
-                                    <div class="h-full rounded-full bg-gradient-to-r from-orcha-sky to-orcha-ocean"
+                                    {{-- EMAS, bukan toska seperti ubin ikon di halaman lain.
+
+                                         Bilah ini berdiri sebaris dengan bintang emas di
+                                         kirinya dan menghitung hal yang sama. Bilah toska di
+                                         samping bintang emas terbaca sebagai dua ukuran yang
+                                         berbeda, padahal keduanya satu. --}}
+                                    <div class="h-full rounded-full bilah-nilai"
                                         style="width: {{ $total > 0 ? round($baris['jumlah'] / $total * 100) : 0 }}%">
                                     </div>
                                 </div>
