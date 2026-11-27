@@ -1018,7 +1018,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                          sama sekali. Toska beserta panahnya membuatnya jelas bisa
                                          ditekan tanpa perlu digarisbawahi terus-menerus. --}}
                                     <a href="{{ route('paket-detail', $paketTerpilih->uuid) }}"
-                                        class="tautan-itinerary">
+                                        class="mt-3 tautan-lanjut">
                                         <span>Lihat itinerary lengkap</span>
                                         <x-heroicon-s-arrow-right class="w-4 h-4" />
                                     </a>

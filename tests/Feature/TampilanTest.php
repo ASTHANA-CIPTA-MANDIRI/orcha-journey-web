@@ -1142,6 +1142,56 @@ test('kartu "sudah ditetapkan" memberi tiap keterangan ikonnya sendiri, tanpa wa
         ->getContent();
 
     expect($html)->toContain('kartu-ditetapkan')
-        ->and($html)->toContain('tautan-itinerary')
+        ->and($html)->toContain('tautan-lanjut')
         ->and(substr_count($html, 'label-fakta'))->toBe(4);
+});
+
+test('tautan lanjutan tidak digarisbawahi, ditandai warna dan panah yang maju', function () {
+    /*
+     | Tautan yang BERDIRI SENDIRI — "Lihat Semua" di kepala bagian testimoni,
+     | "Lihat itinerary lengkap" di kartu pendaftaran — tidak digarisbawahi,
+     | juga saat disentuh. Penandanya warna toska, huruf tebal, dan panah yang
+     | maju sedikit.
+     |
+     | Yang DI TENGAH KALIMAT sengaja dibiarkan tetap bergaris bawah saat
+     | disentuh: di sana garisnya satu-satunya penanda bahwa potongan kalimat
+     | itu berbeda dari kalimat di sekitarnya. Jadi uji ini TIDAK menyapu
+     | hover:underline dari seluruh tampilan publik.
+     */
+    $css = preg_replace('#/\*.*?\*/#s', '', file_get_contents(resource_path('css/new-homepage.css')));
+
+    preg_match('/\.tautan-lanjut \{(.*?)\n\}/s', $css, $aturan);
+
+    expect($aturan)->not->toBeEmpty('aturan .tautan-lanjut hilang')
+        ->and($aturan[1])->toContain('text-decoration: none');
+
+    // Jaraknya TIDAK dipatok di kelasnya: aturan ini di luar @layer, jadi
+    // margin-top di sini mengalahkan mt-* mana pun di markah tanpa satu pun
+    // galat, dan jaraknya jadi tidak bisa diatur per tempat.
+    expect($aturan[1])->not->toContain('margin-top');
+
+    /*
+     | Tulisannya dicari LENGKAP DENGAN <span>-nya. Dicari sebagai tulisan
+     | telanjang, "Lihat Semua" juga cocok dengan tombol "Lihat Semua
+     | Destinasi" yang muncul lebih dulu di beranda — tombol yang memang
+     | bukan tautan lanjutan — dan ujinya merah karena memeriksa elemen yang
+     | salah.
+     */
+    foreach ([
+        'views/livewire/public/beranda/index.blade.php' => '<span>Lihat Semua</span>',
+        'views/livewire/public/open-trip/pendaftaran.blade.php' => '<span>Lihat itinerary lengkap</span>',
+    ] as $berkas => $tulisan) {
+        $blade = preg_replace('/\{\{--.*?--\}\}/s', '', file_get_contents(resource_path($berkas)));
+
+        // Potongan anchor yang memuat tulisannya.
+        preg_match('/<a\b[^>]*>(?:(?!<\/a>).)*'.preg_quote($tulisan, '/').'(?:(?!<\/a>).)*<\/a>/s', $blade, $tautan);
+
+        expect($tautan)->not->toBeEmpty("tautan \"{$tulisan}\" tidak ketemu di {$berkas}")
+            ->and($tautan[0])->toContain('tautan-lanjut')
+            ->and($tautan[0])->not->toContain('hover:underline')
+            // Panahnya elemen sendiri, bukan &rarr; di dalam tulisannya:
+            // hanya begitu ia bisa bergerak saat disentuh.
+            ->and($tautan[0])->toContain('arrow-right')
+            ->and($tautan[0])->not->toContain('&rarr;');
+    }
 });

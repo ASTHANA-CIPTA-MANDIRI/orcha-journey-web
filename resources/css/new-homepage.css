@@ -4309,30 +4309,48 @@ input[type="radio"] {
     color: #6f6459;
 }
 
-.tautan-itinerary {
+/* Tautan lanjutan: "Lihat itinerary lengkap", "Lihat Semua".
+
+   TANPA garis bawah, juga saat disentuh. Yang menandainya bisa ditekan:
+   warna toska, huruf tebal, dan panah yang maju sedikit. Garis bawah pada
+   tautan yang berdiri sendiri — bukan di tengah kalimat — menambah satu
+   garis lagi ke halaman yang sudah penuh garis, dan tidak menerangkan apa
+   pun yang belum diterangkan warnanya.
+
+   Tautan DI TENGAH KALIMAT tetap digarisbawahi saat disentuh; di sana
+   garisnya justru satu-satunya penanda bahwa potongan kalimat itu berbeda
+   dari kalimat di sekitarnya.
+
+   TANPA margin-top. Aturan ini tidak berada di dalam @layer, sedangkan
+   utilitas Tailwind ada di dalamnya — margin-top di sini akan menang atas
+   mt-* mana pun yang ditempel di markah, dan jaraknya jadi tidak bisa
+   diatur per tempat. */
+.tautan-lanjut {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    margin-top: 0.75rem;
     font-size: 0.875rem;
     font-weight: 700;
     color: var(--color-orcha-toska);
+    text-decoration: none;
 }
 
-.tautan-itinerary:hover {
+.tautan-lanjut:hover {
     color: #185f54;
+    text-decoration: none;
 }
 
-.tautan-itinerary svg {
+.tautan-lanjut svg {
+    flex: 0 0 auto;
     transition: transform 0.25s ease;
 }
 
-.tautan-itinerary:hover svg {
+.tautan-lanjut:hover svg {
     transform: translateX(3px);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .tautan-itinerary svg {
+    .tautan-lanjut svg {
         transition: none;
     }
 }

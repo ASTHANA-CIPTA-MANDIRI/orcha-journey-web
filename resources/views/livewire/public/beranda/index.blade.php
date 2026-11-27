@@ -1048,9 +1048,14 @@ new #[Layout('components.layouts.guest')] #[Title('Orcha Journey — Open Trip, 
                         </div>
                         {{-- Toska, warna logo: tautan sekunder di seluruh beranda memakai warna
                              ini supaya warna perusahaan muncul berulang, bukan sekali di
-                             sudut kiri atas. --}}
-                        <a href="{{ route('testimoni') }}" class="text-sm font-bold text-orcha-toska hover:underline">
-                            Lihat Semua &rarr;
+                             sudut kiri atas.
+
+                             Panahnya elemen sendiri, bukan &rarr; di dalam tulisannya: hanya
+                             begitu ia bisa maju sedikit saat disentuh — gerak itulah yang
+                             menggantikan garis bawah sebagai penanda bisa ditekan. --}}
+                        <a href="{{ route('testimoni') }}" class="tautan-lanjut">
+                            <span>Lihat Semua</span>
+                            <x-heroicon-s-arrow-right class="w-4 h-4" />
                         </a>
                     </div>
 
