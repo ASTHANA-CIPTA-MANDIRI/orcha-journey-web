@@ -352,14 +352,24 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                      dasar kartu. Dipisah, galerinya mengikuti panjang
                                      keterangan sementara tombolnya menempel ke dasar — dua
                                      ketinggian berbeda dalam satu baris kartu. --}}
-                                {{-- Lebar tindakan kartu sorot DIPATOK. Tanpa itu tombol
-                                     "Lihat Detail" meregang sampai 640px — tombol selebar
-                                     itu tidak terbaca sebagai tombol lagi, melainkan sebagai
-                                     pita; dan jarak antara tulisannya dan ikon WhatsApp di
-                                     ujung kanan jadi sejauh mata harus melompat. --}}
-                                <div class="relative mt-auto {{ $loop->first ? 'sm:max-w-sm' : '' }}">
+                                {{-- Kartu sorot: galeri kecil dan tombolnya SEBARIS, galeri di
+                                     kanan.
+
+                                     Tombol "Lihat Detail" memang tidak boleh meregang
+                                     selebar kartu — selebar itu ia tidak terbaca sebagai
+                                     tombol lagi, melainkan sebagai pita. Jalan keluar yang
+                                     lama mematok seluruh kelompok tindakan di 24rem, dan
+                                     itu memindahkan masalahnya: di kartu selebar 791px,
+                                     405px di kanan tombol WhatsApp jadi kosong melompong.
+
+                                     Yang dipatok sekarang cukup tombolnya saja; sisa
+                                     lebarnya dipakai galeri kecil beserta hitungan fotonya.
+                                     Di kartu biasa (sempit) keduanya tetap bertumpuk. --}}
+                                <div
+                                    class="relative mt-auto {{ $loop->first ? 'sm:flex sm:flex-row-reverse sm:items-center sm:justify-between sm:gap-6' : '' }}">
                                     @if (!empty($dest->others_photo))
-                                        <div class="flex items-center justify-between gap-2 mb-4">
+                                        <div
+                                            class="flex items-center justify-between gap-2 mb-4 {{ $loop->first ? 'sm:mb-0 sm:justify-end sm:gap-3' : '' }}">
                                             <div class="flex gap-2">
                                                 @foreach (array_slice($dest->others_photo, 0, 4) as $thumb)
                                                     <img src="{{ $thumb }}" alt="" loading="lazy"
@@ -385,9 +395,9 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
                                      bertanya. Sebelumnya hanya ada tombol WhatsApp, sehingga
                                      satu-satunya cara mengetahui lebih banyak adalah menanyakannya
                                      — pertanyaan yang jawabannya sudah ada di sini. --}}
-                                    <div class="flex gap-2">
+                                    <div class="flex gap-2 {{ $loop->first ? 'sm:flex-none' : '' }}">
                                         <button type="button" wire:click="buka({{ $dest->id }})"
-                                            class="flex-1 btn-orcha btn-orcha-sun !py-2.5 !text-sm">
+                                            class="flex-1 btn-orcha btn-orcha-sun !py-2.5 !text-sm {{ $loop->first ? 'sm:flex-none sm:!px-8' : '' }}">
                                             <x-heroicon-o-photo class="w-4 h-4" />
                                             Lihat Detail
                                         </button>

@@ -1195,3 +1195,54 @@ test('tautan lanjutan tidak digarisbawahi, ditandai warna dan panah yang maju', 
             ->and($tautan[0])->not->toContain('&rarr;');
     }
 });
+
+test('kaki kartu destinasi sorot memakai seluruh lebarnya, bukan dipatok 24rem', function () {
+    /*
+     | Tombol "Lihat Detail" memang tidak boleh meregang selebar kartu sorot —
+     | selebar itu ia tidak terbaca sebagai tombol lagi, melainkan sebagai
+     | pita. Jalan keluar yang lama mematok SELURUH kelompok tindakan di
+     | sm:max-w-sm (24rem), dan itu memindahkan masalahnya, bukan
+     | menyelesaikannya: terukur di layar 1440px, kartunya 791px sedangkan
+     | kelompok tindakannya 384px — 405px di kanan tombol WhatsApp kosong
+     | melompong.
+     |
+     | Yang dipatok sekarang cukup tombolnya (sm:flex-none); sisa lebarnya
+     | dipakai galeri kecil beserta hitungan fotonya, yang naik jadi sebaris.
+     |
+     | Kartu biasa yang sempit TIDAK ikut berubah: di sana keduanya memang
+     | harus bertumpuk.
+     */
+    $blade = preg_replace(
+        '/\{\{--.*?--\}\}/s',
+        '',
+        file_get_contents(resource_path('views/livewire/public/destinasi/index.blade.php'))
+    );
+
+    // Patokan lama benar-benar hilang, bukan sekadar ditimpa.
+    expect($blade)->not->toContain('sm:max-w-sm');
+
+    // Kelompok tindakannya jadi baris terbalik di kartu sorot: tombol di
+    // kiri, galeri kecil di kanan.
+    preg_match('/<div\s+class="relative mt-auto \{\{ \$loop->first \? \x27([^\x27]*)\x27/', $blade, $kelompok);
+
+    expect($kelompok)->not->toBeEmpty('kelompok tindakan kartu destinasi berubah bentuk')
+        ->and($kelompok[1])->toContain('sm:flex-row-reverse')
+        ->and($kelompok[1])->toContain('sm:justify-between');
+
+    /*
+     | Dan tombolnya berhenti meregang justru di kartu sorot.
+     |
+     | Dicari dari wire:click sampai tulisannya, BUKAN dengan <button[^>]*>:
+     | atribut kelasnya memuat {{ $loop->first ? ... }}, dan tanda ">" di
+     | dalam "$loop->first" menghentikan [^>]* di tengah tag. Pencocokannya
+     | pulang kosong walaupun tombolnya ada — persis jebakan ">" sesudah
+     | direktif yang sudah tercatat di proyek ini.
+     */
+    preg_match('/wire:click="buka\(.*?Lihat Detail/s', $blade, $tombol);
+
+    expect($tombol)->not->toBeEmpty()
+        ->and($tombol[0])->toContain('flex-1')
+        ->and($tombol[0])->toContain('sm:flex-none');
+
+    $this->get(route('destinasi'))->assertOk();
+});
