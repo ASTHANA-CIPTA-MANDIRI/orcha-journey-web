@@ -477,3 +477,37 @@ test('klaim di tentang kami benar: nama penerima memang dipajang ke pelanggan', 
         ->assertOk()
         ->assertSee(config('orcha.pembayaran.atas_nama'), false);
 })->with(['/ketentuan-pembayaran', '/konfirmasi-pembayaran', '/faq']);
+
+test('kipas galeri dipangkas di kiri supaya tidak menindih judulnya', function () {
+    /*
+     | Kartu terjauh pada kipas galeri berdiri 1,28 kali lebarnya sendiri di
+     | kiri kartu tengah. Pada SETIAP lebar layar besar itu lebih jauh ke kiri
+     | daripada tepi panggungnya, jadi fotonya menyeberang ke lajur tulisan dan
+     | menutupi judul "Momen perjalanan pelanggan kami." Terukur di halaman
+     | hidup 27 Nov 2026: 118px pada 1024px, 124px pada 1280px, 128px pada
+     | 1536px, dan 47px pada 1920px.
+     |
+     | z-index tidak bisa menolong: lajur tulisannya memakai .reveal, yang
+     | memasang animation ... forwards pada translate dan karena itu mengunci
+     | konteks penumpukan sendiri. Yang menahannya adalah clip-path.
+     */
+    $css = file_get_contents(resource_path('css/new-homepage.css'));
+
+    preg_match('/\.galeri-panggung\.is-3d\[data-korsel="kipas"\] \{(.*?)\}/s', $css, $cocok);
+
+    expect($cocok)->not->toBeEmpty('aturan pemangkas kipas galeri hilang');
+
+    /*
+     | Nilai KEEMPAT inset() — sisi kiri — wajib 0, dan hanya itu. Tiga sisi
+     | lainnya sengaja -100% supaya deret foto tetap boleh menerobos tepi kanan
+     | panel; itu memang rancangannya. Kalau sisi kiri suatu saat ikut dibuat
+     | -100%, aturannya tetap ada dan pemeriksaan "ada clip-path" tetap hijau
+     | sementara fotonya kembali menutupi judul — jadi yang diperiksa angkanya,
+     | bukan keberadaan propertinya.
+     */
+    expect($cocok[1])->toMatch('/clip-path:\s*inset\([^)]*\s0\)\s*;/');
+
+    // Hanya dari 1024px ke atas: di bawah itu tata letaknya satu lajur dan
+    // tidak ada tulisan di samping foto yang perlu dilindungi.
+    expect($css)->toContain('@media (min-width: 1024px)');
+});

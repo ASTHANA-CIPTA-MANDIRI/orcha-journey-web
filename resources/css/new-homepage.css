@@ -1205,6 +1205,58 @@ a:hover > .gelembung-ikon {
     cursor: pointer;
 }
 
+/* ---------- Kipas galeri tidak boleh menyeberang ke lajur tulisan ----------
+
+   Di mode kipas, kartu terjauh berdiri 1,28 kali lebarnya sendiri di kiri
+   kartu tengah. Pada SEMUA lebar layar besar itu lebih jauh ke kiri daripada
+   tepi panggungnya sendiri, jadi ia masuk ke lajur tulisan dan menindih judul
+   galeri. Terukur di halaman hidup (27 Nov 2026): judul tertindih 118px pada
+   1024px, 124px pada 1280px, 128px pada 1536px, dan 47px pada 1920px — jadi
+   ini bukan soal satu lebar tertentu, melainkan selalu terjadi. Yang membuat
+   pengguna baru melihatnya di layar sempit cuma panjang baris judulnya: makin
+   sempit lajurnya, makin jauh ke kanan kata terakhirnya sampai.
+
+   z-index TIDAK bisa menolong di sini. Lajur tulisan memakai .reveal, yang
+   memasang animation ... forwards pada translate — itu mengunci konteks
+   penumpukan sendiri, sehingga z-index apa pun di dalamnya terkurung di bawah
+   panggung yang berdiri sesudahnya di DOM. (Jebakan yang sama pernah terjadi
+   di panel ajakan.) Jadi yang diperbaiki letaknya, bukan urutan tumpuknya.
+
+   clip-path memangkas HANYA sisi kiri; atas, bawah, dan kanan dibiarkan
+   melebar -100% supaya deret foto tetap boleh menerobos tepi kanan panel —
+   itu memang disengaja, sebab deretnya harus terbaca berlanjut keluar layar.
+
+   Hanya dari 1024px ke atas: di bawah itu tata letaknya satu lajur, tidak ada
+   tulisan di samping foto, dan pemangkasan sisi kiri justru membuat
+   potongannya tidak seimbang dengan sisi kanan.
+
+   Dibatasi ke [data-korsel="kipas"] — korsel testimoni memakai kelas panggung
+   yang sama dengan mode "tumpuk", dan kartunya tidak pernah melebar sejauh
+   ini. */
+@media (min-width: 1024px) {
+    .galeri-panggung.is-3d[data-korsel="kipas"] {
+        clip-path: inset(-100% -100% -100% 0);
+    }
+
+    /* Supaya potongannya tidak terbaca sebagai garis lurus yang tiba-tiba,
+       tepi kirinya ditutup selubung warna panel yang melandai. Warnanya
+       dipatok sama dengan latar .panel-orcha (#fffdfb), bukan transparan
+       putih, supaya tidak ada beda nada di tepinya.
+
+       z-index 30 di atas kartu (skrip memberi kartu z-index 18-20), dan
+       pointer-events none supaya ia tidak memakan klik ke foto. */
+    .galeri-panggung.is-3d[data-korsel="kipas"]::before {
+        content: '';
+        position: absolute;
+        inset: -2rem auto -2rem 0;
+        width: clamp(2.5rem, 4vw, 5rem);
+        z-index: 30;
+        pointer-events: none;
+        background: linear-gradient(to right, #fffdfb 25%, rgb(255 253 251 / 0));
+    }
+}
+
+
 /* Di mode 3D keterangannya DIPINDAH ke lajur kiri, jadi pita di atas foto
    dimatikan — dua tempat menampilkan kalimat yang sama hanya menyita foto
    tanpa menambah keterangan. Markahnya tetap ada (dipakai pada tata letak
