@@ -1246,3 +1246,55 @@ test('kaki kartu destinasi sorot memakai seluruh lebarnya, bukan dipatok 24rem',
 
     $this->get(route('destinasi'))->assertOk();
 });
+
+test('centang "tercatat" digoreskan, dan tetap utuh bagi yang mematikan gerak', function () {
+    /*
+     | Layar ini muncul sekali, tepat setelah pekerjaan mengisi formulir
+     | selesai, dan tidak ada tanda lain bahwa kiriman tadi berhasil.
+     |
+     | Dua hal yang kalau rusak TIDAK memerahkan apa pun dan tidak kelihatan
+     | sampai ada yang memandanginya:
+     |
+     | 1. Ikonnya harus yang BERGARIS (o-check). Centang padat (s-check)
+     |    digambar dengan fill, dan stroke-dasharray tidak berpengaruh apa pun
+     |    padanya — goresannya tidak jalan dan centangnya muncul utuh sejak
+     |    awal, persis seperti sebelum ada animasinya.
+     | 2. Yang mematikan gerak harus melihat centang UTUH. Tanpa
+     |    stroke-dashoffset: 0 di blok prefers-reduced-motion, yang tersisa
+     |    bagi mereka adalah centang yang tidak pernah tergambar sama sekali —
+     |    cakram kosong di layar yang seharusnya mengabarkan keberhasilan.
+     */
+    $blade = preg_replace(
+        '/\{\{--.*?--\}\}/s',
+        '',
+        file_get_contents(resource_path('views/livewire/public/open-trip/pendaftaran.blade.php'))
+    );
+
+    preg_match('/<span class="centang-tercatat">(.*?)<\/span>/s', $blade, $centang);
+
+    expect($centang)->not->toBeEmpty('centang tercatat hilang')
+        ->and($centang[1])->toContain('heroicon-o-check')
+        ->and($centang[1])->not->toContain('heroicon-s-check');
+
+    $css = preg_replace('#/\*.*?\*/#s', '', file_get_contents(resource_path('css/new-homepage.css')));
+
+    preg_match('/\.centang-tercatat svg \{(.*?)\n\}/s', $css, $goresan);
+
+    expect($goresan)->not->toBeEmpty('aturan .centang-tercatat svg hilang')
+        ->and($goresan[1])->toContain('stroke-dasharray')
+        ->and($goresan[1])->toContain('animation');
+
+    // Riaknya berhenti. Lingkaran yang berdenyut selamanya menarik mata
+    // kembali terus-menerus, padahal yang harus dibaca di bawahnya langkah
+    // pembayaran.
+    preg_match('/\.centang-tercatat::before,\s*\n\.centang-tercatat::after \{(.*?)\n\}/s', $css, $riak);
+
+    expect($riak)->not->toBeEmpty('aturan riak centang hilang')
+        ->and($riak[1])->not->toContain('infinite');
+
+    // Dan blok "kurangi gerak" memulangkan centang yang UTUH.
+    preg_match('/@media \(prefers-reduced-motion: reduce\) \{(?:(?!\n\}).)*centang-tercatat(?:(?!\n\}).)*\n\}/s', $css, $diam);
+
+    expect($diam)->not->toBeEmpty('blok kurangi-gerak untuk centang hilang')
+        ->and($diam[0])->toContain('stroke-dashoffset: 0');
+});

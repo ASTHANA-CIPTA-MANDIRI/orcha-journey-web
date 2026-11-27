@@ -3941,7 +3941,23 @@ input[type="radio"] {
         linear-gradient(145deg, #2fa894 0%, var(--color-orcha-toska) 58%, #185f54 100%);
 }
 
+/* Centang "tercatat" beserta geraknya.
+
+   Layar ini muncul SEKALI, tepat setelah pekerjaan mengisi formulir
+   selesai, dan tidak ada tanda lain bahwa kiriman tadi berhasil —
+   halamannya hanya berganti isi. Centang yang langsung terpasang diam
+   terbaca seperti gambar hiasan yang kebetulan ada di situ; yang digoreskan
+   di depan mata terbaca sebagai sesuatu yang BARU SAJA terjadi.
+
+   Tiga gerak, berurutan: cakramnya melenting masuk, centangnya digoreskan,
+   lalu dua riak melebar keluar dua kali.
+
+   Ikonnya WAJIB yang bergaris (o-check), bukan yang padat (s-check):
+   centang padat digambar dengan fill, dan stroke-dasharray tidak berpengaruh
+   apa pun padanya — goresannya tidak akan jalan, tanpa galat, dan centangnya
+   cuma muncul utuh sejak awal. */
 .centang-tercatat {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -3951,6 +3967,88 @@ input[type="radio"] {
     background: rgb(255 255 255 / 0.18);
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.4);
     backdrop-filter: blur(4px);
+    animation: centang-muncul 0.62s cubic-bezier(0.2, 0.9, 0.25, 1.25) both;
+}
+
+/* Dua riak melebar, bergiliran. Keduanya berhenti sesudah dua putaran:
+   lingkaran yang berdenyut selamanya di halaman yang masih harus dibaca
+   menarik mata kembali terus-menerus, dan yang dibaca di bawahnya justru
+   langkah pembayaran. */
+.centang-tercatat::before,
+.centang-tercatat::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    border: 2px solid rgb(255 255 255 / 0.55);
+    animation: centang-riak 1.5s 0.45s ease-out 2 both;
+    pointer-events: none;
+}
+
+.centang-tercatat::after {
+    animation-delay: 1.05s;
+}
+
+.centang-tercatat svg {
+    /* Digoreskan dari pangkal ke ujung. 26 sedikit lebih panjang daripada
+       jalurnya (~24,7 satuan) supaya ujungnya benar-benar tertutup di awal. */
+    stroke-width: 2.6;
+    stroke-dasharray: 26;
+    stroke-dashoffset: 26;
+    animation: centang-gores 0.5s 0.3s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+@keyframes centang-muncul {
+    0% {
+        opacity: 0;
+        transform: scale(0.4) rotate(-12deg);
+    }
+
+    60% {
+        opacity: 1;
+        transform: scale(1.12) rotate(3deg);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1) rotate(0);
+    }
+}
+
+@keyframes centang-riak {
+    0% {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+
+    100% {
+        opacity: 0;
+        transform: scale(2.1);
+    }
+}
+
+@keyframes centang-gores {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+/* Yang mematikan gerak tetap melihat HASIL akhirnya, bukan centang yang
+   separuh tergores selamanya. */
+@media (prefers-reduced-motion: reduce) {
+    .centang-tercatat,
+    .centang-tercatat svg {
+        animation: none;
+    }
+
+    .centang-tercatat svg {
+        stroke-dashoffset: 0;
+    }
+
+    .centang-tercatat::before,
+    .centang-tercatat::after {
+        display: none;
+    }
 }
 
 /* Ombak di kaki pita, berwarna badan kartunya. left/right -1px dan lebar

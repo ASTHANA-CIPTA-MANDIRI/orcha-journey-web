@@ -648,8 +648,12 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                     loading="lazy" width="512" height="512" class="cap-orca">
 
                                 <div class="relative text-center">
+                                    {{-- o-check (bergaris), BUKAN s-check (padat): centang padat
+                                         digambar dengan fill, dan stroke-dasharray tidak berpengaruh
+                                         apa pun padanya — goresannya tidak jalan, tanpa galat, dan
+                                         centangnya muncul utuh sejak awal. --}}
                                     <span class="centang-tercatat">
-                                        <x-heroicon-s-check class="w-9 h-9" />
+                                        <x-heroicon-o-check class="w-9 h-9" />
                                     </span>
                                     <h2 class="mt-4 text-2xl font-bold text-white font-heading sm:text-3xl">
                                         Pendaftaran Anda tercatat
