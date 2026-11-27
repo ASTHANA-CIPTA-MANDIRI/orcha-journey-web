@@ -1104,35 +1104,97 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                  paket hanya menguntungkan rombongan yang kebetulan sudah
                                  ramai; yang dituju justru yang masih empat orang. --}}
                             @if ($biaya)
-                                <div class="p-4 rounded-2xl bg-orcha-foam">
-                                    @if ($biaya['promo_label'])
-                                        <p class="flex items-start gap-2 text-sm font-bold text-orcha-navy">
-                                            <x-heroicon-s-gift class="w-5 h-5 mt-px text-orcha-ocean shrink-0" />
-                                            <span>{{ $biaya['promo_label'] }}</span>
-                                        </p>
+                                {{-- Ringkasan biaya berbentuk kuitansi.
 
-                                        <p class="mt-1 text-sm text-slate-600">
-                                            @if ($biaya['promo_gratis_orang'] > 0)
-                                                {{ $biaya['orang'] }} orang, {{ $biaya['promo_gratis_orang'] }} gratis —
-                                                dibayar {{ $biaya['promo_orang_dibayar'] }} orang.
+                                     Yang lama satu kalimat abu-abu: "Total Rp 1.350.000 · DP 30%
+                                     = Rp 405.000". Angka yang harus ditransfer hari ini berukuran
+                                     sama dengan kata sambung di sebelahnya, dan sisa pelunasannya
+                                     tidak disebut sama sekali — pengisinya mengurangi sendiri.
+
+                                     Sekarang angka DP berdiri sendiri di ubin gelap (satu-satunya
+                                     angka yang perlu ditindaklanjuti hari ini), total dan sisa
+                                     turun jadi dua baris di bawah garis sobek. --}}
+                                <div class="kartu-biaya">
+                                    @if ($biaya['promo_label'] || $biaya['promo_ajakan'])
+                                        <div class="space-y-2">
+                                            @if ($biaya['promo_label'])
+                                                <p class="flex items-start gap-2 text-sm font-bold text-orcha-navy">
+                                                    <x-heroicon-s-gift class="w-5 h-5 mt-px text-orcha-toska shrink-0" />
+                                                    <span>{{ $biaya['promo_label'] }}</span>
+                                                </p>
+
+                                                <p class="text-sm text-slate-600">
+                                                    @if ($biaya['promo_gratis_orang'] > 0)
+                                                        {{ $biaya['orang'] }} orang, {{ $biaya['promo_gratis_orang'] }} gratis —
+                                                        dibayar {{ $biaya['promo_orang_dibayar'] }} orang.
+                                                    @endif
+                                                    Hemat <strong>{{ $biaya['promo_potongan_teks'] }}</strong> dari
+                                                    <span class="line-through">{{ $biaya['total_sebelum_promo_teks'] }}</span>.
+                                                </p>
                                             @endif
-                                            Hemat <strong>{{ $biaya['promo_potongan_teks'] }}</strong> dari
-                                            <span class="line-through">{{ $biaya['total_sebelum_promo_teks'] }}</span>.
-                                        </p>
+
+                                            @if ($biaya['promo_ajakan'])
+                                                <p class="flex items-start gap-2 text-sm text-slate-600">
+                                                    <x-heroicon-o-user-plus class="w-5 h-5 mt-px text-orcha-sun shrink-0" />
+                                                    <span>{{ $biaya['promo_ajakan'] }}</span>
+                                                </p>
+                                            @endif
+                                        </div>
+
+                                        <div class="sobek-biaya" aria-hidden="true">
+                                            <span class="takik-biaya takik-biaya-kiri"></span>
+                                            <span class="takik-biaya takik-biaya-kanan"></span>
+                                        </div>
                                     @endif
 
-                                    @if ($biaya['promo_ajakan'])
-                                        <p class="{{ $biaya['promo_label'] ? 'mt-2 pt-2 border-t border-orcha-mist/40' : '' }} flex items-start gap-2 text-sm text-slate-600">
-                                            <x-heroicon-o-user-plus class="w-5 h-5 mt-px text-orcha-sun shrink-0" />
-                                            <span>{{ $biaya['promo_ajakan'] }}</span>
-                                        </p>
-                                    @endif
+                                    {{-- Segel persen duduk SEBARIS DENGAN LABELNYA, bukan di
+                                         samping angkanya.
 
-                                    <p class="pt-2 mt-2 text-sm border-t border-orcha-mist/40 text-slate-600">
-                                        Total <strong class="text-orcha-navy">{{ $biaya['total_teks'] }}</strong>
-                                        · DP {{ $biaya['dp_persen'] }}% =
-                                        <strong class="text-orcha-navy">{{ $biaya['dp_teks'] }}</strong>
-                                    </p>
+                                         Di samping angka, segel selebar 58px menyisakan 157px
+                                         untuk angkanya di layar 390px — sedangkan "Rp 12.750.000"
+                                         butuh 205px. Angkanya pecah dua baris ("Rp" sendirian di
+                                         atas) pada rombongan yang totalnya besar, yaitu justru
+                                         pendaftaran yang paling perlu terbaca benar. --}}
+                                    <div class="ubin-dp">
+                                        <div class="kepala-dp">
+                                            <p class="label-dp">Dibayar sekarang</p>
+
+                                            <span class="segel-dp">
+                                                <span class="segel-dp-label">DP</span>
+                                                <span class="segel-dp-angka">{{ $biaya['dp_persen'] }}%</span>
+                                            </span>
+                                        </div>
+
+                                        <p class="angka-dp">{{ $biaya['dp_teks'] }}</p>
+                                        <p class="catatan-dp">Paling lambat {{ $biaya['dp_batas_jam'] }} jam setelah
+                                            pendaftaran ini.</p>
+                                    </div>
+
+                                    <dl class="mt-3">
+                                        {{-- Keterangannya menempel pada LABEL, bukan pada angkanya.
+
+                                             Di bawah angka yang rata kanan, keterangan sepanjang ini
+                                             pecah dua baris rata kanan juga di layar ponsel, dan
+                                             barisnya jadi terbaca seperti tiga angka bertumpuk. --}}
+                                        <div class="baris-biaya">
+                                            <dt>Total biaya
+                                                <span class="ket-biaya">{{ $biaya['satuan_teks'] }} ×
+                                                    {{ $biaya['orang'] }} orang</span>
+                                            </dt>
+                                            <dd>{{ $biaya['total_teks'] }}</dd>
+                                        </div>
+
+                                        {{-- Sisa pelunasan DISEBUT, tidak dibiarkan dihitung sendiri.
+                                             Ia angka kedua yang paling ditanyakan lewat WhatsApp, dan
+                                             satu-satunya yang punya tenggat selain DP. --}}
+                                        <div class="baris-biaya">
+                                            <dt>Sisa pelunasan
+                                                <span class="ket-biaya">paling lambat H-{{ $biaya['pelunasan_hari'] }}
+                                                    sebelum berangkat</span>
+                                            </dt>
+                                            <dd>{{ $biaya['sisa_teks'] }}</dd>
+                                        </div>
+                                    </dl>
                                 </div>
                             @endif
 

@@ -986,3 +986,103 @@ test('kartu tercatat memakai bentuk abstrak yang sama dengan kartu artikel', fun
     expect($blade)->toContain('ombak-tercatat')
         ->and($blade)->toContain('karcis-kode');
 });
+
+test('ringkasan biaya menonjolkan angka yang harus dibayar hari ini dan menyebut sisanya', function () {
+    /*
+     | Yang lama satu kalimat abu-abu setinggi 14px:
+     |
+     |     Total Rp 1.350.000 · DP 30% = Rp 405.000
+     |
+     | Angka yang harus ditransfer hari ini berukuran persis sama dengan kata
+     | sambung di sebelahnya, dan SISA PELUNASANNYA tidak disebut sama sekali
+     | — pengisinya mengurangi sendiri. Dua-duanya angka yang ditanyakan ulang
+     | lewat WhatsApp, dan keduanya sudah dihitung oleh RincianBiaya; cuma
+     | tidak ditampilkan.
+     |
+     | Yang dijaga di sini dua hal yang tidak akan memerahkan apa pun kalau
+     | hilang: angka DP berdiri sendiri (bukan di tengah kalimat), dan sisa
+     | pelunasan ikut tertulis.
+     */
+    $paket = \App\Models\PaketWisata\TravelPackage::create([
+        'name' => 'Open Trip Uji Ringkasan Biaya',
+        'category' => 'open_trip',
+        'status' => 'terbit',
+        'duration' => '2 Hari 1 Malam',
+        'price' => 1_000_000,
+        'kuota' => 20,
+    ]);
+
+    $persen = (int) config('orcha.pembayaran.dp_persen');
+    $dp = 'Rp '.number_format(1_000_000 * $persen / 100, 0, ',', '.');
+    $sisa = 'Rp '.number_format(1_000_000 - 1_000_000 * $persen / 100, 0, ',', '.');
+
+    $html = $this->get(route('pendaftaran-open-trip', ['paket' => $paket->uuid]))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)->toContain('kartu-biaya');
+
+    // Angka DP punya wadahnya SENDIRI. Kalau ia kembali masuk ke tengah
+    // kalimat, pencocokan ini gagal walaupun angkanya masih tertulis.
+    expect(preg_match('/class="angka-dp"[^>]*>\s*'.preg_quote($dp, '/').'/', $html))
+        ->toBe(1, "angka DP {$dp} tidak berdiri sendiri di .angka-dp");
+
+    // Sisa pelunasan beserta tenggatnya.
+    expect($html)->toContain($sisa)
+        ->and($html)->toContain('Sisa pelunasan')
+        ->and($html)->toContain('Total biaya');
+});
+
+test('angka DP jauh lebih besar daripada angka total dan sisa di bawahnya', function () {
+    /*
+     | Tiga angka rupiah dalam satu kartu. Kalau ukurannya berdekatan,
+     | pembacanya harus MEMBACA ketiganya untuk tahu mana yang ditagih hari
+     | ini — persis keadaan yang hendak ditinggalkan. Satu-satunya yang perlu
+     | ditindaklanjuti sekarang adalah DP; dua lainnya keterangan.
+     */
+    $css = preg_replace('#/\*.*?\*/#s', '', file_get_contents(resource_path('css/new-homepage.css')));
+
+    preg_match('/\.angka-dp \{(.*?)\n\}/s', $css, $dp);
+    preg_match('/\.baris-biaya dd \{(.*?)\n\}/s', $css, $baris);
+
+    expect($dp)->not->toBeEmpty('aturan .angka-dp hilang')
+        ->and($baris)->not->toBeEmpty('aturan .baris-biaya dd hilang');
+
+    // Dari clamp() diambil nilai TERKECILNYA — ukuran di layar paling sempit,
+    // tempat selisihnya paling mudah menyusut.
+    preg_match('/font-size:\s*clamp\(\s*([\d.]+)rem/', $dp[1], $ukuranDp);
+    preg_match('/font-size:\s*([\d.]+)rem/', $baris[1], $ukuranBaris);
+
+    expect($ukuranDp)->not->toBeEmpty('.angka-dp tidak lagi memakai clamp() dalam rem')
+        ->and($ukuranBaris)->not->toBeEmpty()
+        ->and((float) $ukuranDp[1])->toBeGreaterThanOrEqual((float) $ukuranBaris[1] * 1.6);
+});
+
+test('takik kuitansi sewarna panel di belakang kartunya, bukan sewarna kartunya', function () {
+    /*
+     | Takik bundar di kiri-kanan garis sobek itu LUBANG: ia terbaca sebagai
+     | kertas yang disobek hanya kalau warnanya sama dengan apa pun yang ada
+     | di belakang kartu — panel .panel-orcha. Diberi warna kartunya sendiri,
+     | yang tergambar cuma bundaran samar di tepi, dan tidak ada galat apa pun
+     | yang memberi tahu bahwa maksudnya sudah hilang.
+     |
+     | Kartunya juga harus overflow: hidden; tanpa itu takiknya menonjol utuh
+     | ke luar kartu sebagai dua bulatan mengambang.
+     */
+    $css = preg_replace('#/\*.*?\*/#s', '', file_get_contents(resource_path('css/new-homepage.css')));
+
+    preg_match('/\.panel-orcha \{(.*?)\n\}/s', $css, $panel);
+    preg_match('/\.takik-biaya \{(.*?)\n\}/s', $css, $takik);
+    preg_match('/\.kartu-biaya \{(.*?)\n\}/s', $css, $kartu);
+
+    expect($panel)->not->toBeEmpty()
+        ->and($takik)->not->toBeEmpty('aturan .takik-biaya hilang')
+        ->and($kartu)->not->toBeEmpty('aturan .kartu-biaya hilang');
+
+    preg_match('/background:\s*(#[0-9a-fA-F]{3,8})\s*;/', $panel[1], $warnaPanel);
+    preg_match('/background:\s*(#[0-9a-fA-F]{3,8})\s*;/', $takik[1], $warnaTakik);
+
+    expect($warnaTakik)->not->toBeEmpty('.takik-biaya tidak lagi berlatar warna padat')
+        ->and(strtolower($warnaTakik[1]))->toBe(strtolower($warnaPanel[1]))
+        ->and($kartu[1])->toContain('overflow: hidden');
+});

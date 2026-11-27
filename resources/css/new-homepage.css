@@ -3985,3 +3985,214 @@ input[type="radio"] {
     font-size: clamp(1.35rem, 3.2vw, 1.75rem);
     letter-spacing: 0.14em;
 }
+
+/* ----------------------------------------------------------
+   Ringkasan biaya di formulir pendaftaran
+
+   Sebelumnya satu kalimat abu-abu di dalam kotak krem rata:
+
+       Total Rp 1.350.000 · DP 30% = Rp 405.000
+
+   Angka yang paling ditunggu pengisinya — berapa yang harus ditransfer
+   hari ini — berukuran persis sama dengan kata sambung di sebelahnya, dan
+   sisa pelunasannya tidak disebut sama sekali sehingga pengisinya harus
+   mengurangi sendiri. Orang yang tidak terbiasa berhitung di kepala
+   berhenti di sini dan bertanya lewat WhatsApp.
+
+   Sekarang ia berbentuk kuitansi: satu ubin gelap untuk angka DP, lalu
+   baris-baris terang untuk total dan sisa. Ubin gelapnya memakai bahasa
+   rupa yang sama dengan kepala harga di halaman paket, supaya "angka yang
+   dibayar" tampak sama di kedua halaman yang dilewati orang yang sama.
+----------------------------------------------------------- */
+
+.kartu-biaya {
+    position: relative;
+    overflow: hidden;
+    padding: 1.15rem;
+    background: #fffdfa;
+    border: 1px solid #f1e8dc;
+    /* Sudut tak simetris, seirama kartu artikel dan kartu "tercatat". */
+    border-radius: 1.75rem 0.7rem 1.75rem 0.7rem;
+    box-shadow: 0 18px 32px -26px rgb(40 28 18 / 0.5);
+}
+
+/* Semburat emas di sudut: bidang yang memecah kotak krem rata tanpa
+   menambah satu pun tulisan baru. Disetel rendah supaya angka di atasnya
+   tetap yang pertama terbaca. */
+.kartu-biaya::before {
+    content: '';
+    position: absolute;
+    right: -3.5rem;
+    bottom: -4.5rem;
+    width: 11rem;
+    height: 11rem;
+    border-radius: 46% 54% 38% 62% / 52% 44% 56% 48%;
+    background: radial-gradient(circle at 38% 36%, var(--color-orcha-sun), transparent 70%);
+    opacity: 0.18;
+    pointer-events: none;
+}
+
+.kartu-biaya > * {
+    position: relative;
+}
+
+/* Ubin angka DP. */
+.ubin-dp {
+    padding: 1.05rem 1.15rem;
+    border-radius: 1.35rem;
+    background:
+        radial-gradient(130% 100% at 88% 0%, rgb(232 163 58 / 0.22), transparent 62%),
+        linear-gradient(145deg, var(--color-orcha-navy) 0%, var(--color-orcha-abyss) 100%);
+    box-shadow: 0 16px 28px -20px rgb(22 33 28 / 0.9);
+}
+
+/* Label dan segel sebaris; angkanya mendapat seluruh lebar ubin di
+   bawahnya. */
+.kepala-dp {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.label-dp {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.58);
+}
+
+.angka-dp {
+    margin-top: 0.35rem;
+    font-family: var(--font-heading);
+    font-weight: 900;
+    font-size: clamp(1.75rem, 5.2vw, 2.15rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--color-orcha-sun);
+}
+
+.catatan-dp {
+    margin-top: 0.3rem;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: rgb(255 255 255 / 0.62);
+}
+
+/* Segel persentase. Cakram emas PADAT dengan alasan yang sama seperti
+   .segel-hemat: di atas latar gelap, cakram tembus pandang terbaca sebagai
+   noda, bukan sebagai lencana. */
+.segel-dp {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 3.6rem;
+    height: 3.6rem;
+    border-radius: 9999px;
+    text-align: center;
+    color: var(--color-orcha-navy);
+    background: linear-gradient(145deg, var(--color-orcha-sun), var(--color-orcha-sunset));
+    box-shadow: 0 14px 24px -14px rgb(232 163 58 / 0.95);
+}
+
+.segel-dp::after {
+    content: '';
+    position: absolute;
+    inset: 0.26rem;
+    border-radius: inherit;
+    border: 1px dashed rgb(22 33 28 / 0.3);
+}
+
+.segel-dp-label {
+    font-size: 0.5rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    opacity: 0.78;
+}
+
+.segel-dp-angka {
+    font-family: var(--font-heading);
+    font-weight: 900;
+    font-size: 1.05rem;
+    line-height: 1;
+}
+
+/* Garis sobek kuitansi: putus-putus, dengan dua takik bundar yang menembus
+   tepi kartu. Takiknya yang membuat bidang ini terbaca sebagai kertas yang
+   disobek, bukan sekadar garis pemisah. */
+.sobek-biaya {
+    position: relative;
+    height: 1.15rem;
+    margin: 0 -1.15rem;
+}
+
+.sobek-biaya::before {
+    content: '';
+    position: absolute;
+    left: 1.6rem;
+    right: 1.6rem;
+    top: 50%;
+    border-top: 2px dashed #ece0cf;
+}
+
+.takik-biaya {
+    position: absolute;
+    top: 50%;
+    width: 1.1rem;
+    height: 1.1rem;
+    margin-top: -0.55rem;
+    border: 1px solid #f1e8dc;
+    border-radius: 9999px;
+    /* Sewarna panel DI BELAKANG kartunya (#fffdfb), bukan sewarna kartunya
+       sendiri — itu yang membuatnya terbaca sebagai lubang yang menembus
+       kertas, bukan sebagai bundaran yang digambar di atasnya. */
+    background: #fffdfb;
+}
+
+.takik-biaya-kiri {
+    left: -0.55rem;
+}
+
+.takik-biaya-kanan {
+    right: -0.55rem;
+}
+
+/* Baris total & sisa. */
+.baris-biaya {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0;
+}
+
+.baris-biaya + .baris-biaya {
+    border-top: 1px solid #f4ece0;
+}
+
+.baris-biaya dt {
+    min-width: 0;
+    font-size: 0.875rem;
+    color: #6f6459;
+}
+
+.baris-biaya dd {
+    flex: 0 0 auto;
+    font-weight: 800;
+    font-size: 0.95rem;
+    text-align: right;
+    color: var(--color-orcha-navy);
+}
+
+.ket-biaya {
+    display: block;
+    margin-top: 0.1rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #8d8378;
+}
