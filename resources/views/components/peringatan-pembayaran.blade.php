@@ -24,7 +24,19 @@
     $gerbang = app(App\Services\DokuCheckout::class)->aktif();
 @endphp
 
-<div {{ $attributes->merge(['class' => 'p-4 border rounded-2xl border-orcha-sun/50 bg-orcha-sun/10 sm:p-5']) }}>
+{{-- Latarnya PADAT (.peringatan-bayar), bukan bg-orcha-sun/10.
+
+     Emas 10% di atas putih memang terlihat krem — tetapi di halaman
+     pendaftaran kotak ini naik menindih foto kepala halaman, dan di sana
+     fotonya tembus lewat latar yang cuma 10% itu: peringatan penipuan jadi
+     tidak terbaca sama sekali. Tidak ada galat, kotaknya tetap ada, hanya
+     tulisannya yang hilang ke dalam gambar.
+
+     Warnanya dipatok sama dengan hasil emas 10% di atas putih, jadi di
+     halaman lain tidak ada yang berubah — yang berubah cuma: ia tidak bisa
+     lagi ditembus apa pun yang ada di belakangnya. Peringatan yang bisa
+     hilang bukan peringatan. --}}
+<div {{ $attributes->merge(['class' => 'p-4 border rounded-2xl peringatan-bayar sm:p-5']) }}>
     <div class="flex items-start gap-3">
         <x-heroicon-s-shield-check class="w-6 h-6 shrink-0 text-orcha-sun" />
 

@@ -622,9 +622,11 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
         subtitle="Pilih trip yang jadwalnya sudah kami tetapkan, isi data Anda, dan kami balas dengan ketersediaan kursi di hari yang sama."
         image="images/HERO/form-pendaftaran-trip.webp" posisi="center top" />
 
-    <section class="bg-white section-orcha">
-        <div class="container-orcha">
-            <div class="grid gap-6 lg:grid-cols-12">
+    {{-- rak-panel + panel-orcha, sama seperti beranda dan halaman lain.
+         Sebelumnya section-orcha di atas latar putih menyisakan ~130px bidang
+         kosong antara kepala halaman dan isian pertama. --}}
+    <div class="container-orcha rak-panel pb-6">
+        <div class="grid gap-4 sm:gap-5 lg:grid-cols-12">
 
                 {{-- Formulir --}}
                 <div class="lg:col-span-8">
@@ -767,18 +769,39 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                             </a>
                         </div>
                     @else
-                        <form wire:submit="daftar" class="p-6 space-y-6 card-orcha sm:p-8">
+                        {{-- Formulirnya dipecah jadi TIGA panel berangka, bukan satu
+                             kartu panjang berisi tiga judul kecil.
+
+                             Yang mengisi halaman ini sering orang yang tidak terbiasa
+                             dengan formulir panjang — guru pendamping, orang tua murid,
+                             ketua rombongan. Satu dinding isian membuat mereka tidak
+                             punya cara tahu sudah sampai mana dan masih berapa lagi;
+                             yang terbaca cuma "masih panjang". Tiga panel berangka
+                             memecahnya jadi tiga pekerjaan pendek yang masing-masing
+                             terlihat selesai.
+
+                             Tetap SATU <form> dan satu tombol kirim: memecahnya jadi
+                             beberapa langkah yang harus ditekan satu per satu justru
+                             menambah pekerjaan, dan membuat isian yang sudah diketik
+                             bisa hilang di tengah jalan. --}}
+                        <form wire:submit="daftar" class="space-y-4 sm:space-y-5">
                             <div class="hidden" aria-hidden="true">
                                 <label for="daftar-situs">Jangan diisi</label>
                                 <input id="daftar-situs" type="text" wire:model="situs" tabindex="-1"
                                     autocomplete="off">
                             </div>
 
-                            <div>
-                                <h2 class="text-xl font-bold font-heading text-orcha-navy">Pilih Trip</h2>
-                                <p class="mt-1 text-sm text-slate-500">Tanggal keberangkatan dan titik jemput sudah kami
-                                    tetapkan untuk tiap trip.</p>
-                            </div>
+                            <div class="panel-orcha reveal space-y-6">
+                                <div class="langkah-daftar">
+                                    <span class="langkah-nomor">1</span>
+                                    <div>
+                                        <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Langkah 1
+                                            dari 3</p>
+                                        <h2 class="mt-2 judul-panel-kecil">Pilih trip.</h2>
+                                        <p class="mt-1.5 text-sm text-slate-500">Tanggal keberangkatan dan titik jemput
+                                            sudah kami tetapkan untuk tiap trip.</p>
+                                    </div>
+                                </div>
 
                             <div>
                                 <label for="d-paket" class="label-orcha">Paket open trip <x-wajib /></label>
@@ -913,13 +936,19 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                 </div>
                             @endif
 
-                            <hr class="border-orcha-foam">
-
-                            <div>
-                                <h2 class="text-xl font-bold font-heading text-orcha-navy">Data Pemesan</h2>
-                                <p class="mt-1 text-sm text-slate-500">Satu orang sebagai penanggung jawab rombongan.
-                                </p>
                             </div>
+
+                            <div class="panel-orcha reveal space-y-6">
+                                <div class="langkah-daftar">
+                                    <span class="langkah-nomor">2</span>
+                                    <div>
+                                        <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Langkah 2
+                                            dari 3</p>
+                                        <h2 class="mt-2 judul-panel-kecil">Data pemesan.</h2>
+                                        <p class="mt-1.5 text-sm text-slate-500">Satu orang sebagai penanggung jawab
+                                            rombongan.</p>
+                                    </div>
+                                </div>
 
                             <div class="grid gap-5 sm:grid-cols-2">
                                 <div>
@@ -1054,14 +1083,39 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                  identitas peserta lain baru diketahui setelah mereka
                                  mengisi formulir itu — terlalu terlambat untuk menyiapkan
                                  kursi, kamar, dan konsumsi. --}}
+                            </div>
+
+                            <div class="panel-orcha reveal space-y-6">
+                                <div class="langkah-daftar">
+                                    <span class="langkah-nomor">3</span>
+                                    <div>
+                                        <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Langkah 3
+                                            dari 3</p>
+                                        <h2 class="mt-2 judul-panel-kecil">Nama peserta.</h2>
+                                        <p class="mt-1.5 text-sm text-slate-500">Nama tiap orang yang ikut, sesuai
+                                            kartu identitas.</p>
+                                    </div>
+                                </div>
+
                             <div>
-                                <label class="label-orcha">
-                                    Peserta &amp; titik jemput <x-wajib />
-                                </label>
+                                {{-- Label lama berbunyi "Peserta & titik jemput" dan berdiri
+                                     tepat di bawah judul panel "Nama peserta." — dua baris
+                                     yang mengatakan hal yang sama, dan yang pertama menyebut
+                                     titik jemput yang belum tentu ada pilihannya di trip ini.
+                                     Penanda wajibnya pindah ke kalimat pertama supaya tidak
+                                     ikut hilang bersama labelnya.
+
+                                     Keterangannya juga dipecah jadi DUA kalimat pendek, bukan
+                                     satu paragraf tiga baris. Yang kedua menjawab "kenapa
+                                     harus menyebut laki-laki/perempuan" — pertanyaan yang
+                                     pasti muncul, dan kalau tidak dijawab di tempatnya akan
+                                     ditanyakan lewat WhatsApp satu per satu. --}}
+                                <p class="mb-1 text-sm font-semibold text-orcha-navy">
+                                    Peserta pertama adalah Anda sebagai pemesan. <x-wajib />
+                                </p>
                                 <p class="mb-3 text-sm text-slate-500">
-                                    Tulis nama tiap orang sesuai kartu identitas. Peserta pertama adalah
-                                    Anda sebagai pemesan. Jenis kelamin kami perlukan untuk membagi kamar —
-                                    laki-laki dengan laki-laki, perempuan dengan perempuan.
+                                    Jenis kelamin dipakai untuk membagi kamar — laki-laki dengan laki-laki,
+                                    perempuan dengan perempuan.
                                 </p>
 
                                 <div class="space-y-3">
@@ -1145,9 +1199,19 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                 @enderror
                             </div>
 
-                            <label class="flex items-start gap-3 text-sm cursor-pointer text-slate-600">
+                            </div>
+
+                            {{-- Persetujuan dan tombol kirim berdiri di panelnya SENDIRI.
+
+                                 Sebelumnya keduanya menempel di dasar kartu panjang yang
+                                 sama, jadi tidak ada apa pun yang menandai bahwa di sinilah
+                                 pengisian berakhir dan keputusan dimulai. Dipisah, panel ini
+                                 terbaca sebagai gerbang terakhir — dan centangnya tidak lagi
+                                 terlewat karena mengira ia bagian dari isian di atasnya. --}}
+                            <div class="panel-orcha reveal space-y-5">
+                            <label class="flex items-start gap-3 text-base cursor-pointer text-slate-600">
                                 <input type="checkbox" wire:model="setuju" required
-                                    class="mt-0.5 w-5 h-5 rounded border-orcha-foam text-orcha-ocean focus:ring-orcha-sky">
+                                    class="mt-0.5 w-6 h-6 rounded border-orcha-foam text-orcha-ocean focus:ring-orcha-sky shrink-0">
                                 <span>
                                     <x-wajib /> Saya menyetujui
                                     <a href="{{ route('syarat-ketentuan') }}"
@@ -1165,15 +1229,24 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                                 <p class="galat-orcha">{{ $message }}</p>
                             @enderror
 
-                            <p class="text-xs text-slate-500">
-                                Kolom bertanda <x-wajib /> wajib diisi.
+                            <p class="text-sm text-slate-500">
+                                Kolom bertanda <x-wajib /> wajib diisi. Yang bertulis
+                                <span class="font-semibold">(opsional)</span> boleh dikosongkan.
                             </p>
 
-                            <button type="submit" class="w-full btn-orcha btn-orcha-primary"
+                            {{-- btn-orcha-sun, tombol ajakan utama yang dipakai beranda —
+                                 bukan btn-orcha-primary yang rata. Ini satu-satunya tombol
+                                 yang menyelesaikan pekerjaan di halaman ini. --}}
+                            <button type="submit" class="w-full btn-orcha btn-orcha-sun !py-4 !text-base"
                                 wire:loading.attr="disabled">
                                 <span wire:loading.remove wire:target="daftar">Kirim Pendaftaran</span>
                                 <span wire:loading wire:target="daftar">Mengirim…</span>
                             </button>
+
+                            <p class="text-sm text-center text-slate-500">
+                                Belum ada pembayaran di langkah ini. Kami balas lewat WhatsApp lebih dulu.
+                            </p>
+                            </div>
                         </form>
                     @endif
                 </div>
@@ -1237,7 +1310,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                 </aside>
             </div>
         </div>
-    </section>
+    </div>
 
     <x-skrip-isian />
 </div>

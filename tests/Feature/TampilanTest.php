@@ -839,3 +839,79 @@ test('tampilan publik tidak memakai gradasi peninggalan palet biru', function ()
 
     expect($pelanggar)->toBe([], 'Pakai .ubin-toska atau .bilah-nilai: '.implode(', ', $pelanggar));
 });
+
+test('formulir pendaftaran dipecah jadi tiga langkah dalam satu form', function () {
+    /*
+     | Yang mengisi halaman ini sering orang yang tidak terbiasa dengan
+     | formulir panjang — guru pendamping, orang tua murid, ketua rombongan.
+     | Satu kartu panjang berisi tiga judul kecil tidak pernah memberi tahu
+     | sudah sampai mana dan masih berapa lagi; yang terbaca cuma "masih
+     | panjang".
+     |
+     | TETAPI tetap SATU <form> dengan SATU tombol kirim. Memecahnya jadi
+     | beberapa halaman yang ditekan satu per satu menambah pekerjaan, dan
+     | membuat isian yang sudah diketik bisa hilang di tengah jalan — dan
+     | kalau <form>-nya sampai terpecah, sebagian isian tidak akan terkirim
+     | sama sekali tanpa ada yang merah.
+     */
+    $blade = file_get_contents(resource_path('views/livewire/public/open-trip/pendaftaran.blade.php'));
+
+    expect(substr_count($blade, 'class="langkah-nomor"'))->toBe(3)
+        ->and($blade)->toContain('Langkah 1')
+        ->and($blade)->toContain('Langkah 2')
+        ->and($blade)->toContain('Langkah 3')
+        // Satu form saja.
+        ->and(substr_count($blade, '<form wire:submit="daftar"'))->toBe(1)
+        ->and(substr_count($blade, '</form>'))->toBe(1)
+        ->and(substr_count($blade, 'type="submit"'))->toBe(1);
+});
+
+test('isian formulir publik tidak lebih kecil dari 16px', function () {
+    /*
+     | Dua alasan, keduanya terukur.
+     |
+     | Keterbacaan: yang mengisi formulir Orcha sering bukan orang yang
+     | terbiasa dengan layar, dan tulisan yang sudah diketik justru yang
+     | paling perlu bisa diperiksa ulang sebelum dikirim.
+     |
+     | Dan Safari iOS MEMPERBESAR halaman sendiri saat isian ber-font di
+     | bawah 16px disentuh, lalu tidak mengembalikannya — isian berikutnya
+     | jadi di luar layar dan pengisinya harus menggeser halaman tiap
+     | berpindah kolom. Tidak ada galat; formulirnya cuma terasa melompat.
+     */
+    $css = preg_replace('#/\*.*?\*/#s', '', file_get_contents(resource_path('css/new-homepage.css')));
+
+    preg_match('/\.isian-orcha \{(.*?)\n\}/s', $css, $cocok);
+
+    expect($cocok)->not->toBeEmpty('aturan .isian-orcha hilang');
+
+    preg_match('/font-size:\s*([\d.]+)rem/', $cocok[1], $ukuran);
+
+    expect($ukuran)->not->toBeEmpty('.isian-orcha tidak lagi menyebut font-size dalam rem')
+        ->and((float) $ukuran[1])->toBeGreaterThanOrEqual(1.0);
+});
+
+test('peringatan pembayaran berlatar padat, tidak bisa ditembus apa pun di belakangnya', function () {
+    /*
+     | Di halaman pendaftaran kotak ini naik menindih foto kepala halaman.
+     | Dengan latar bg-orcha-sun/10 fotonya menembus tulisan dan peringatan
+     | penipuan itu tidak terbaca sama sekali — kotaknya tetap ada, hanya
+     | isinya yang hilang ke dalam gambar, tanpa satu pun galat.
+     |
+     | Peringatan yang bisa hilang bukan peringatan.
+     */
+    $komponen = file_get_contents(resource_path('views/components/peringatan-pembayaran.blade.php'));
+
+    expect($komponen)->toContain('peringatan-bayar');
+
+    $tanpaKomentar = preg_replace('/\{\{--.*?--\}\}/s', '', $komponen);
+
+    expect($tanpaKomentar)->not->toContain('bg-orcha-sun/10');
+
+    // Latarnya benar-benar padat, bukan warna ber-alpha.
+    $css = preg_replace('#/\*.*?\*/#s', '', file_get_contents(resource_path('css/new-homepage.css')));
+    preg_match('/\.peringatan-bayar \{(.*?)\n\}/s', $css, $cocok);
+
+    expect($cocok)->not->toBeEmpty('aturan .peringatan-bayar hilang')
+        ->and($cocok[1])->toMatch('/background:\s*#[0-9a-fA-F]{6}\s*;/');
+});

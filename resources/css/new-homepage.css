@@ -2340,8 +2340,20 @@ input[type="radio"] {
 /* Medan isian formulir publik */
 .isian-orcha {
     width: 100%;
-    padding: 0.8rem 1rem;
-    font-size: 0.9rem;
+    padding: 0.85rem 1rem;
+    /* 1rem, bukan 0.9rem.
+
+       Dua alasan, dan keduanya terukur. Pertama keterbacaan: isian 14,4px
+       terlalu kecil untuk yang mengisi formulir ini — guru pendamping,
+       orang tua murid, ketua rombongan — dan tulisan yang sudah diketik
+       justru yang paling perlu bisa diperiksa ulang sebelum dikirim.
+
+       Kedua, Safari iOS MEMPERBESAR halaman sendiri saat isian ber-font di
+       bawah 16px disentuh, lalu tidak mengembalikannya. Isian berikutnya
+       jadi berada di luar layar dan pengisinya harus menggeser-geser
+       halaman tiap berpindah kolom. Tidak ada galat; yang terjadi cuma
+       formulir yang terasa melompat sendiri. */
+    font-size: 1rem;
     background: #fff;
     /* Tepi TAN, bukan --color-orcha-foam.
 
@@ -2462,15 +2474,17 @@ input[type="radio"] {
 
 .label-orcha {
     display: block;
-    margin-bottom: 0.4rem;
-    font-size: 0.85rem;
+    margin-bottom: 0.45rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: var(--color-orcha-navy);
 }
 
+/* Pesan galat 12,5px itu lebih kecil daripada isian yang disalahkannya,
+   dan ia satu-satunya tulisan di halaman yang WAJIB terbaca. */
 .galat-orcha {
-    margin-top: 0.35rem;
-    font-size: 0.78rem;
+    margin-top: 0.4rem;
+    font-size: 0.875rem;
     font-weight: 600;
     color: #d92d20;
 }
@@ -3843,4 +3857,49 @@ input[type="radio"] {
    lebih lemah daripada bintang satu. */
 .bilah-nilai {
     background: linear-gradient(90deg, #f0b43f 0%, var(--color-orcha-sun) 55%, var(--color-orcha-sunset) 100%);
+}
+
+/* ----------------------------------------------------------
+   Langkah berangka di formulir pendaftaran
+
+   Angkanya bukan hiasan: ia yang memberi tahu pengisi sudah sampai mana
+   dan masih berapa lagi. Satu kartu panjang berisi tiga judul kecil tidak
+   pernah menjawab itu — yang terbaca cuma "masih panjang", dan itulah yang
+   membuat formulir ditinggalkan di tengah jalan.
+---------------------------------------------------------- */
+.langkah-daftar {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.langkah-nomor {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    font-family: var(--font-heading);
+    font-weight: 900;
+    font-size: 1.15rem;
+    color: #fff;
+    background: linear-gradient(145deg, #2fa894 0%, var(--color-orcha-toska) 58%, #185f54 100%);
+    box-shadow: 0 10px 18px -10px rgb(31 125 110 / 0.8);
+}
+
+/* Kotak peringatan pembayaran.
+
+   Latar PADAT, bukan emas 10%. Di halaman pendaftaran kotak ini naik
+   menindih foto kepala halaman, dan latar tembus pandang membuat fotonya
+   menembus tulisan — peringatan penipuan yang tidak terbaca sama sekali,
+   tanpa satu pun galat.
+
+   #fdf4e6 adalah warna hasil emas 10% di atas putih, jadi di halaman lain
+   rupanya tidak berubah. Yang berubah: ia tidak bisa lagi ditembus apa pun
+   yang ada di belakangnya. */
+.peringatan-bayar {
+    background: #fdf4e6;
+    border-color: rgb(232 163 58 / 0.5);
 }
