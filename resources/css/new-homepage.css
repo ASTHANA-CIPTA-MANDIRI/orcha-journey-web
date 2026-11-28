@@ -4672,3 +4672,54 @@ input[type="radio"] {
     letter-spacing: -0.02em;
     color: var(--color-orcha-navy);
 }
+
+/* ----------------------------------------------------------
+   Baris tanya-jawab di halaman FAQ
+
+   Sebelumnya .card-orcha: tiap pertanyaan jadi kartu putih bersudut tajam
+   dengan bayangannya sendiri, bertumpuk belasan buah di atas latar putih.
+   Yang tergambar bukan daftar melainkan tumpukan — dan karena kartunya
+   sendiri sudah mirip panel, tidak ada yang menandai mana wadah mana isi.
+
+   Sekarang panelnya yang jadi wadah, dan tiap pertanyaan cukup baris krem
+   bertepi tipis di dalamnya. Yang sedang dibuka diberi nada toska supaya
+   terlihat tanpa perlu dicari.
+----------------------------------------------------------- */
+
+.tanya-orcha {
+    padding: 1.05rem 1.15rem;
+    border: 1px solid #f1e8dc;
+    border-radius: 1.1rem;
+    background: #fffdfa;
+    transition:
+        border-color 0.3s ease,
+        background-color 0.3s ease;
+}
+
+.tanya-orcha:hover {
+    border-color: var(--color-orcha-mist);
+}
+
+/* Yang sedang terbuka. Nada toska, bukan emas: emas di halaman ini sudah
+   memegang tombol WhatsApp dan garis label bagian. */
+.tanya-orcha[open] {
+    border-color: rgb(31 125 110 / 0.3);
+    background: rgb(31 125 110 / 0.05);
+}
+
+/* Jawabannya dipisahkan garis putus-putus, seirama kartu biaya dan kartu
+   testimoni. */
+.jawab-orcha {
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px dashed rgb(31 125 110 / 0.25);
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: #6f6459;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tanya-orcha {
+        transition: none;
+    }
+}

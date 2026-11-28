@@ -150,62 +150,79 @@ new #[Layout('components.layouts.guest')] #[Title('FAQ — Pertanyaan yang Serin
         subtitle="Jawaban singkat soal pemesanan, pembayaran, sewa kendaraan, sampai pembatalan perjalanan."
         image="images/HERO/faq.webp" posisi="center 85%" />
 
-    <section class="bg-white section-orcha">
-        <div class="container-orcha">
-            <div class="grid gap-10 lg:grid-cols-12 lg:gap-12">
+    {{-- rak-panel: panel pertama NAIK MENINDIH kepala halaman, sama seperti
+         beranda, blog, testimoni, dan halaman paket.
 
-                {{-- Daftar isi --}}
-                <aside class="hidden lg:block lg:col-span-3">
-                    <nav class="toc-orcha" aria-label="Daftar kategori">
-                        <p class="px-3 mb-2 text-xs font-bold tracking-widest uppercase text-slate-400">Kategori</p>
-                        @foreach ($kelompok as $grup)
-                            <a href="#{{ $grup['slug'] }}">{{ $grup['judul'] }}</a>
-                        @endforeach
-                    </nav>
-                </aside>
+         Sebelumnya halaman ini memakai .section-orcha di atas latar putih,
+         sehingga ada pita putih kosong setinggi hampir 150px antara foto hero
+         dan isinya. --}}
+    <div class="container-orcha rak-panel pb-6">
+        <div class="grid gap-4 sm:gap-5 lg:grid-cols-12">
 
-                <div class="lg:col-span-9">
+            {{-- Daftar isi --}}
+            <aside class="hidden lg:block lg:col-span-3">
+                <nav class="toc-orcha panel-orcha reveal !p-5" aria-label="Daftar kategori">
+                    <p class="mb-3 label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Kategori</p>
                     @foreach ($kelompok as $grup)
-                        <section id="{{ $grup['slug'] }}" class="mb-12 scroll-mt-28 last:mb-0">
-                            <div class="flex items-center gap-3 mb-5">
-                                {{-- .ubin-toska: gradasi sky->ocean di sini peninggalan
-                                     palet biru, dan pada palet hangat sekarang ia
-                                     membentang dari emas ke abu — warna lumpur, tanpa
-                                     satu pun galat yang menyebutnya. --}}
-                                <span
-                                    class="flex items-center justify-center w-10 h-10 rounded-xl ubin-toska">
-                                    <x-dynamic-component :component="'heroicon-' . $grup['icon']" class="w-5 h-5" />
-                                </span>
-                                <h2 class="text-xl font-bold font-heading text-orcha-navy sm:text-2xl">
-                                    {{ $grup['judul'] }}</h2>
-                            </div>
-
-                            <div class="space-y-3">
-                                @foreach ($grup['tanya'] as $item)
-                                    <details class="p-5 group card-orcha sm:p-6">
-                                        <summary
-                                            class="flex items-start justify-between gap-4 font-bold list-none cursor-pointer text-orcha-navy marker:hidden">
-                                            <span>{{ $item['q'] }}</span>
-                                            <x-heroicon-o-chevron-down
-                                                class="w-5 h-5 mt-0.5 shrink-0 text-orcha-wave transition-transform duration-300 group-open:rotate-180" />
-                                        </summary>
-                                        <p class="mt-3 text-sm leading-relaxed text-slate-600">{{ $item['a'] }}</p>
-                                    </details>
-                                @endforeach
-                            </div>
-                        </section>
+                        <a href="#{{ $grup['slug'] }}">{{ $grup['judul'] }}</a>
                     @endforeach
+                </nav>
+            </aside>
 
-                    <div
-                        class="flex flex-col items-center gap-4 p-8 mt-12 text-center sm:flex-row sm:text-left sm:justify-between rounded-3xl bg-orcha-foam/70">
-                        <div>
-                            <p class="text-lg font-bold font-heading text-orcha-navy">Pertanyaan Anda belum terjawab?
-                            </p>
-                            <p class="mt-1 text-sm text-slate-600">Tim kami membalas setiap hari pukul 08.00–21.00 WIB.
-                            </p>
+            <div class="space-y-4 sm:space-y-5 lg:col-span-9">
+                @foreach ($kelompok as $grup)
+                    <section id="{{ $grup['slug'] }}" class="panel-orcha reveal scroll-mt-28">
+                        <div class="flex items-start gap-3">
+                            {{-- .ubin-toska: gradasi sky->ocean di sini peninggalan
+                                 palet biru, dan pada palet hangat sekarang ia
+                                 membentang dari emas ke abu — warna lumpur, tanpa
+                                 satu pun galat yang menyebutnya. --}}
+                            <span class="grid w-11 h-11 shrink-0 place-items-center rounded-xl ubin-toska">
+                                <x-dynamic-component :component="'heroicon-' . $grup['icon']" class="w-5 h-5" />
+                            </span>
+
+                            <div>
+                                {{-- Nomor bagian, bukan kata "Kategori" berulang lima
+                                     kali: label yang sama di tiap panel berhenti
+                                     memberi tahu apa pun. --}}
+                                <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span>
+                                    Bagian {{ $loop->iteration }} dari {{ count($kelompok) }}</p>
+                                <h2 class="mt-2 judul-panel-kecil">{{ $grup['judul'] }}.</h2>
+                            </div>
                         </div>
+
+                        <div class="mt-5 space-y-3">
+                            @foreach ($grup['tanya'] as $item)
+                                <details class="group tanya-orcha">
+                                    <summary
+                                        class="flex items-start justify-between gap-4 font-bold list-none cursor-pointer text-orcha-navy marker:hidden">
+                                        <span>{{ $item['q'] }}</span>
+                                        <x-heroicon-o-chevron-down
+                                            class="w-5 h-5 mt-0.5 shrink-0 text-orcha-toska transition-transform duration-300 group-open:rotate-180" />
+                                    </summary>
+                                    <p class="jawab-orcha">{{ $item['a'] }}</p>
+                                </details>
+                            @endforeach
+                        </div>
+                    </section>
+                @endforeach
+
+                <div class="panel-orcha panel-orcha-krem reveal">
+                    <div class="flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left sm:justify-between">
+                        <div class="flex items-start gap-3">
+                            <span class="grid w-11 h-11 shrink-0 place-items-center rounded-xl ubin-toska">
+                                <x-heroicon-o-chat-bubble-left-right class="w-5 h-5" />
+                            </span>
+
+                            <div>
+                                <p class="judul-panel-kecil">Pertanyaan Anda belum terjawab?</p>
+                                <p class="mt-1.5 text-sm text-slate-600">Tim kami membalas setiap hari pukul
+                                    08.00–21.00 WIB.</p>
+                            </div>
+                        </div>
+
                         <a href="{{ $wa }}" target="_blank" rel="noopener noreferrer"
-                            class="btn-orcha btn-orcha-primary">
+                            class="shrink-0 btn-orcha btn-orcha-sun">
                             <x-bi-whatsapp class="w-5 h-5" />
                             Tanya via WhatsApp
                         </a>
@@ -213,5 +230,5 @@ new #[Layout('components.layouts.guest')] #[Title('FAQ — Pertanyaan yang Serin
                 </div>
             </div>
         </div>
-    </section>
+    </div>
 </div>

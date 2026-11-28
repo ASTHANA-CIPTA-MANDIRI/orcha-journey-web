@@ -1665,3 +1665,49 @@ test('panel kirim testimoni memakai seluruh lebarnya, dan jalan pintas WhatsApp 
         ->and($wa)->not->toBeFalse()
         ->and($wa)->toBeGreaterThan($kirim);
 });
+
+test('halaman FAQ memakai rak panel beranda, dan pertanyaannya jadi baris di dalam panel', function () {
+    /*
+     | Dua hal yang membuat halaman ini berbeda sendiri:
+     |
+     | 1. .section-orcha di atas latar putih — pita putih kosong setinggi
+     |    hampir 150px antara foto kepala halaman dan isi pertama, sementara
+     |    beranda, blog, dan testimoni justru NAIK MENINDIH fotonya.
+     | 2. Tiap pertanyaan memakai .card-orcha: kartu putih bersudut tajam
+     |    dengan bayangannya sendiri, bertumpuk belasan buah di atas latar
+     |    putih. Yang tergambar bukan daftar melainkan tumpukan — dan karena
+     |    kartunya sudah mirip panel, tidak ada yang menandai mana wadah mana
+     |    isi.
+     |
+     | Sekarang panelnya yang jadi wadah, dan pertanyaannya cukup baris krem
+     | bertepi tipis di dalamnya.
+     */
+    $blade = preg_replace(
+        '/\{\{--.*?--\}\}/s',
+        '',
+        file_get_contents(resource_path('views/livewire/public/informasi/faq.blade.php'))
+    );
+
+    expect($blade)->toContain('container-orcha rak-panel')
+        ->and($blade)->not->toContain('card-orcha')
+        ->and($blade)->not->toContain('section-orcha')
+        ->and($blade)->toContain('tanya-orcha');
+
+    /*
+     | Label tiap panel menyebut NOMOR bagiannya, bukan kata "Kategori" yang
+     | diulang lima kali. Label yang sama di tiap panel berhenti memberi tahu
+     | apa pun, dan hanya menambah satu baris yang harus dilewati mata.
+     */
+    expect($blade)->toContain('Bagian {{ $loop->iteration }}');
+
+    $css = preg_replace('#/\*.*?\*/#s', '', file_get_contents(resource_path('css/new-homepage.css')));
+
+    // Yang sedang dibuka harus terlihat tanpa perlu dicari.
+    expect($css)->toContain('.tanya-orcha[open]');
+
+    $html = $this->get(route('faq'))->assertOk()->getContent();
+
+    expect($html)->toContain('tanya-orcha')
+        ->and($html)->toContain('rak-panel')
+        ->and($html)->toContain('Bagian 1 dari 5');
+});
