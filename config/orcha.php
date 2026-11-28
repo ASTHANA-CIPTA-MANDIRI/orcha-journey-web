@@ -1140,12 +1140,24 @@ return [
              | ambang pertama yang terpenuhi yang berlaku.
              |
              | Pesanan di bawah ambang terkecil tidak bisa diangsur sama
-             | sekali, dan itu disengaja: memecah Rp 1,5 juta jadi tiga kali
-             | menambah dua kali pekerjaan menagih tanpa meringankan siapa pun.
+             | sekali, dan itu disengaja: angsuran punya biayanya sendiri —
+             | tiap termin berarti satu tagihan lagi yang harus diingatkan,
+             | ditunggu, dan dicocokkan.
+             |
+             | Ambang terkecilnya SATU JUTA sejak 28 Nov 2026, turun dari dua
+             | juta. Rombongan kecil yang totalnya di antara keduanya — dua
+             | sampai tiga orang pada trip menengah — adalah pendaftaran yang
+             | paling sering batal karena harus menyiapkan seluruh uangnya
+             | sekaligus, dan merekalah yang justru paling tertolong oleh
+             | pembayaran bertahap.
+             |
+             | Angkanya satu-satunya sumber kebenaran: pesan penolakan di
+             | AngsuranController merakit kalimatnya dari min('min_total'),
+             | jadi tidak ada angka kedua yang bisa ketinggalan diubah.
              */
             'tangga' => [
                 ['min_total' => 10_000_000, 'maks_termin' => 5],
-                ['min_total' => 2_000_000, 'maks_termin' => 3],
+                ['min_total' => 1_000_000, 'maks_termin' => 3],
             ],
 
             /*

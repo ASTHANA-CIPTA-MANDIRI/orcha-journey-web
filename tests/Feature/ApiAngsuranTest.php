@@ -57,7 +57,8 @@ test('admin melihat pilihan berikut nominalnya', function () {
 
 test('penolakan menyebutkan alasannya, bukan sekadar tidak boleh', function () {
     // Admin yang harus menjelaskan ke pelanggan butuh kalimatnya.
-    $kecil = pendaftaranAngsuran(750_000, 2, 90);
+    // Di bawah ambang SATU JUTA (turun dari dua juta pada 28 Nov 2026).
+    $kecil = pendaftaranAngsuran(400_000, 2, 90);
 
     $data = $this->getJson('/api/v1/pendaftaran/'.$kecil->id.'/angsuran', kepalaAngsuran())
         ->assertOk()

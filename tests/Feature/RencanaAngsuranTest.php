@@ -37,14 +37,36 @@ function pesananAngsuran(int $hargaSatuan, int $peserta, int $berangkatHariLagi)
 
 test('pesanan kecil tidak boleh diangsur', function () {
     /*
-     | Memecah Rp 1,5 juta jadi tiga kali menambah dua kali pekerjaan menagih
-     | tanpa meringankan siapa pun. Ambangnya bukan kekikiran, melainkan
-     | pengakuan bahwa angsuran punya biayanya sendiri.
+     | Ambangnya bukan kekikiran, melainkan pengakuan bahwa angsuran punya
+     | biayanya sendiri: tiap termin berarti satu tagihan lagi yang harus
+     | diingatkan, ditunggu, dan dicocokkan.
+     |
+     | Angkanya turun dari dua juta ke satu juta pada 28 Nov 2026, jadi contoh
+     | "terlalu kecil" di sini ikut turun — Rp 1,5 juta yang dulu ditolak
+     | SEKARANG BOLEH diangsur, dan itu diuji tersendiri di bawah.
      */
-    $pesanan = pesananAngsuran(750_000, 2, 90);
+    $pesanan = pesananAngsuran(400_000, 2, 90);
 
-    expect($pesanan->omzet)->toBe(1_500_000)
+    expect($pesanan->omzet)->toBe(800_000)
         ->and(RencanaAngsuran::maksTermin($pesanan))->toBe(1);
+});
+
+test('ambang satu juta berlaku tepat di angkanya, bukan di atasnya', function () {
+    /*
+     | Batas itu dibaca dengan >=, dan perbedaan antara >= dan > hanya terlihat
+     | PADA ANGKA PERSISNYA. Pesanan tepat satu juta adalah yang paling mungkin
+     | muncul di lapangan — harga paket memang dibulatkan — dan kalau suatu
+     | saat berubah jadi >, justru pesanan itu yang diam-diam kehilangan haknya
+     | tanpa satu pun galat.
+     |
+     | Waktunya sengaja dilonggarkan (300 hari) supaya yang diuji betul-betul
+     | harganya, bukan kalendernya.
+     */
+    expect(RencanaAngsuran::maksTermin(pesananAngsuran(500_000, 2, 300)))->toBe(3)
+        ->and(RencanaAngsuran::maksTermin(pesananAngsuran(499_999, 2, 300)))->toBe(1);
+
+    // Dan yang dulu ditolak karena di bawah dua juta kini diterima.
+    expect(RencanaAngsuran::maksTermin(pesananAngsuran(750_000, 2, 300)))->toBe(3);
 });
 
 test('tangga harga menentukan batas atasnya', function () {
