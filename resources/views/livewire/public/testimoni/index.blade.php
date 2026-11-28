@@ -330,14 +330,49 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                         </p>
                     </div>
                 @else
-                    <p class="text-lg font-bold font-heading text-orcha-navy">Sudah jalan bersama kami?</p>
-                    <p class="mt-1 text-sm text-slate-600">
-                        Tuliskan ceritanya di sini. Kami perlu kode pesanan Anda supaya yang tayang di halaman ini
-                        benar-benar datang dari yang pernah berangkat.
-                    </p>
+                    {{-- DUA KOLOM di layar lebar: ajakan di kiri, isian di kanan.
 
-                    <div class="grid gap-4 mt-6 sm:grid-cols-2">
-                        <div>
+                         Satu kolom, panel ini selebar halaman (±1.280px di layar
+                         1440) sementara isiannya hanya memakai separuh kirinya —
+                         dan isian "4 digit" yang dipatok 9rem meninggalkan 520px
+                         kosong di kolomnya sendiri. Yang tergambar: panel
+                         terluas di halaman dengan lebih dari separuh bidangnya
+                         kosong, tepat di bawah deretan kartu yang padat. --}}
+                    {{-- Tombol WhatsApp berdiri SENDIRI sebagai petak ketiga, bukan
+                         ikut di dalam kolom kiri.
+
+                         Urutan markahnya ajakan → formulir → WhatsApp, jadi di layar
+                         sempit jalan pintasnya berada SESUDAH formulirnya. Ikut di
+                         dalam kolom kiri, ia muncul sebelum isian pertama, dan yang
+                         menggulung berhenti di situ — mengambil jalan pintas yang
+                         justru lebih panjang bagi kedua belah pihak. Di layar lebar
+                         ia dikembalikan ke bawah ajakan lewat penempatan petak. --}}
+                    <div
+                        class="grid gap-7 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:grid-rows-[auto_1fr] lg:gap-x-10 lg:gap-y-5">
+                        <div class="lg:col-start-1 lg:row-start-1">
+                            <span class="grid w-12 h-12 place-items-center rounded-2xl ubin-toska">
+                                <x-heroicon-o-pencil-square class="w-6 h-6" />
+                            </span>
+
+                            <p class="mt-4 label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Cerita Anda</p>
+                            <h2 class="mt-3 judul-panel-kecil">Sudah jalan bersama kami?</h2>
+                            <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                                Tuliskan ceritanya di sini. Kami perlu kode pesanan Anda supaya yang tayang di
+                                halaman ini benar-benar datang dari yang pernah berangkat.
+                            </p>
+
+                            <p class="mt-4 lencana-aman">
+                                <x-heroicon-s-check-badge class="w-4 h-4" />
+                                <span>Yang kodenya cocok ditandai Terverifikasi.</span>
+                            </p>
+
+                        </div>
+
+                        <div class="lg:col-start-2 lg:row-start-1 lg:row-span-2">
+                    {{-- Kode panjang, empat digit pendek — lebarnya sesuai isinya,
+                         sama seperti pencari pesanan di halaman pembayaran. --}}
+                    <div class="grid gap-4 sm:grid-cols-5">
+                        <div class="sm:col-span-3">
                             <label for="ts-kode" class="label-orcha">Kode pesanan <x-wajib /></label>
                             <input id="ts-kode" type="text" wire:model="kode" maxlength="30"
                                 placeholder="OT-3108-K7QMXV" class="uppercase isian-orcha @error('kode') isian-galat @enderror">
@@ -346,11 +381,11 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                             @enderror
                         </div>
 
-                        <div>
-                            <label for="ts-digit" class="label-orcha">4 digit terakhir WhatsApp <x-wajib /></label>
+                        <div class="sm:col-span-2">
+                            <label for="ts-digit" class="label-orcha">4 digit WhatsApp <x-wajib /></label>
                             <input id="ts-digit" type="text" inputmode="numeric" wire:model="empatDigit" maxlength="4"
                                 placeholder="7890"
-                                class="isian-orcha tracking-[.4em] font-bold sm:max-w-[9rem] @error('empatDigit') isian-galat @enderror">
+                                class="isian-orcha tracking-[.4em] font-bold text-center @error('empatDigit') isian-galat @enderror">
                             @error('empatDigit')
                                 <p class="galat-orcha">{{ $message }}</p>
                             @enderror
@@ -392,17 +427,19 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                         @enderror
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-3 mt-5">
-                        <button type="button" wire:click="kirim" class="btn-orcha btn-orcha-primary">
-                            <span wire:loading.remove wire:target="kirim">Kirim Testimoni</span>
-                            <span wire:loading wire:target="kirim">Mengirim…</span>
-                        </button>
+                    <button type="button" wire:click="kirim" class="w-full mt-5 btn-orcha btn-orcha-sun sm:w-auto">
+                        <span wire:loading.remove wire:target="kirim">Kirim Testimoni</span>
+                        <span wire:loading wire:target="kirim">Mengirim…</span>
+                    </button>
+                        </div>
 
-                        <a href="{{ $wa }}" target="_blank" rel="noopener noreferrer"
-                            class="btn-orcha btn-orcha-outline">
-                            <x-bi-whatsapp class="w-5 h-5" />
-                            Lewat WhatsApp
-                        </a>
+                        <div class="lg:col-start-1 lg:row-start-2 lg:self-start">
+                            <a href="{{ $wa }}" target="_blank" rel="noopener noreferrer"
+                                class="inline-flex btn-orcha btn-orcha-outline">
+                                <x-bi-whatsapp class="w-5 h-5" />
+                                Lewat WhatsApp
+                            </a>
+                        </div>
                     </div>
                 @endif
             </div>

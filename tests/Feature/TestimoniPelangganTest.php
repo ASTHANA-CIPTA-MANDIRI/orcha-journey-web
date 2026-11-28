@@ -128,6 +128,16 @@ test('testimoni terverifikasi ditandai di halaman publik', function () {
 
     $isi = $this->get(route('testimoni'))->assertOk()->getContent();
 
-    // Penandanya muncul sekali saja — hanya untuk yang punya kode pesanan.
-    expect(substr_count($isi, 'Terverifikasi'))->toBe(1);
+    /*
+     | Yang dihitung LENCANANYA, bukan kata "Terverifikasi" telanjang.
+     |
+     | Kata itu juga muncul di keterangan formulir kirim testimoni — kalimat
+     | yang menerangkan aturan ini kepada calon penulisnya — sehingga
+     | hitungannya jadi 2 dan ujinya merah karena tulisan yang bukan lencana.
+     | Judul title-nya hanya ada pada lencananya sendiri.
+     */
+    expect(substr_count($isi, 'title="Ditulis pelanggan yang pesanannya terverifikasi"'))->toBe(1);
+
+    // Dan yang tanpa kode pesanan memang tidak diberi tanda apa pun.
+    expect($isi)->toContain('Tanpa Kode');
 });

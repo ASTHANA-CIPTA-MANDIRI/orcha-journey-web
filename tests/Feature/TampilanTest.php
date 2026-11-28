@@ -1626,3 +1626,42 @@ test('avatar testimoni yang berkasnya hilang tidak meninggalkan gambar rusak', f
     // Dan <img>-nya menyingkir sendiri bila berkasnya tidak ada.
     expect($html)->toContain('onerror="this.remove();"');
 });
+
+test('panel kirim testimoni memakai seluruh lebarnya, dan jalan pintas WhatsApp datang sesudah formulir', function () {
+    /*
+     | DUA hal yang terlihat hanya di layar lebar dan di layar sempit
+     | masing-masing, dan tidak satu pun memerahkan apa pun:
+     |
+     | 1. Panel ini selebar halaman (±1.280px di layar 1440) sementara
+     |    isiannya hanya memakai separuh kirinya — dan isian "4 digit" yang
+     |    dipatok 9rem meninggalkan 520px kosong di kolomnya sendiri. Yang
+     |    tergambar: panel terluas di halaman dengan lebih dari separuh
+     |    bidangnya kosong, tepat di bawah deretan kartu yang padat.
+     |
+     | 2. Tombol WhatsApp harus datang SESUDAH formulirnya di markah. Di dalam
+     |    kolom kiri, ia muncul sebelum isian pertama di layar sempit, dan
+     |    yang menggulung berhenti di situ — mengambil jalan pintas yang
+     |    justru lebih panjang bagi kedua belah pihak.
+     */
+    $blade = preg_replace(
+        '/\{\{--.*?--\}\}/s',
+        '',
+        file_get_contents(resource_path('views/livewire/public/testimoni/index.blade.php'))
+    );
+
+    // Dua kolom, dan isiannya tidak lagi dipatok 9rem.
+    expect($blade)->toContain('lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]')
+        ->and($blade)->toContain('sm:col-span-3')
+        ->and($blade)->toContain('sm:col-span-2')
+        ->and($blade)->not->toContain('sm:max-w-[9rem]');
+
+    // Urutan markah: tombol kirim lebih dulu, jalan pintas WhatsApp sesudahnya.
+    $html = $this->get(route('testimoni'))->assertOk()->getContent();
+
+    $kirim = strpos($html, 'Kirim Testimoni');
+    $wa = strpos($html, 'Lewat WhatsApp');
+
+    expect($kirim)->not->toBeFalse()
+        ->and($wa)->not->toBeFalse()
+        ->and($wa)->toBeGreaterThan($kirim);
+});
