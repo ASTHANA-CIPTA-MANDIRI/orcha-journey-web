@@ -1548,3 +1548,81 @@ test('panel pencari pesanan: isian dua kolom, ubin ikon di luar label, dan "belu
 
     $this->get(route('konfirmasi-pembayaran'))->assertOk()->assertSee('Pesanan yang dibayar.');
 });
+
+test('halaman testimoni memakai rak panel dan kartu abstrak, bukan kotak seragam', function () {
+    /*
+     | Dua hal yang membuat halaman ini terbaca "belum dirapikan" di samping
+     | beranda dan blog:
+     |
+     | 1. .section-orcha di atas latar putih — pita putih kosong setinggi
+     |    hampir 150px antara foto kepala halaman dan isi pertama, sementara
+     |    halaman lain justru NAIK MENINDIH fotonya.
+     | 2. .card-orcha: sembilan persegi panjang bersudut seragam di halaman
+     |    yang isinya memang tulisan di atas tulisan. Tidak ada satu pun
+     |    bidang yang membedakan satu kartu dari tetangganya.
+     |
+     | Kartunya kini memakai bahasa rupa .kartu-artikel di blog: sudut daun
+     | BERSELANG-SELING, bayangan padat yang menggeser, dan miring sedikit
+     | saat disentuh.
+     */
+    \App\Models\Etalase\Testimoni::create([
+        'customer_name' => 'Pelanggan Uji Satu',
+        'rating' => 5,
+        'testimonial' => 'Perjalanannya menyenangkan.',
+        'status' => 'tayang',
+    ]);
+
+    $blade = preg_replace(
+        '/\{\{--.*?--\}\}/s',
+        '',
+        file_get_contents(resource_path('views/livewire/public/testimoni/index.blade.php'))
+    );
+
+    expect($blade)->toContain('container-orcha rak-panel')
+        ->and($blade)->not->toContain('card-orcha')
+        ->and($blade)->not->toContain('section-orcha')
+        ->and($blade)->toContain('kartu-testimoni');
+
+    $css = preg_replace('#/\*.*?\*/#s', '', file_get_contents(resource_path('css/new-homepage.css')));
+
+    // Sudutnya berselang-seling. Dengan sudut yang sama semuanya, deretannya
+    // kembali rata seperti sebelum ada bentuk sama sekali.
+    expect($css)->toContain('.kartu-testimoni:nth-child(even)');
+
+    // Dan geraknya dimatikan bagi yang memintanya.
+    expect($css)->toMatch('/@media \(prefers-reduced-motion: reduce\) \{(?:(?!\n\}).)*kartu-testimoni(?:(?!\n\}).)*\n\}/s');
+
+    $html = $this->get(route('testimoni'))->assertOk()->getContent();
+
+    expect($html)->toContain('kartu-testimoni')
+        ->and($html)->toContain('rak-panel');
+});
+
+test('avatar testimoni yang berkasnya hilang tidak meninggalkan gambar rusak', function () {
+    /*
+     | Huruf awal nama SELALU digambar, dan fotonya menumpang di atasnya.
+     |
+     | Sebelumnya huruf awal hanya muncul bila kolom avatar KOSONG. Avatar
+     | yang terisi tetapi berkasnya hilang — kejadian biasa, berkasnya
+     | diunggah di server dan tidak ikut ke mana-mana — menggambar ikon gambar
+     | rusak beserta nama pelanggan sebagai alt text, tepat di kartu yang
+     | tugasnya meyakinkan calon pembeli. Tidak ada galat; halamannya tetap
+     | 200, dan yang rusak cuma rupanya.
+     */
+    \App\Models\Etalase\Testimoni::create([
+        'customer_name' => 'Pelanggan Beravatar',
+        'rating' => 5,
+        'testimonial' => 'Armadanya terawat.',
+        'status' => 'tayang',
+        'avatar' => '/storage/testimoni/berkas-yang-hilang.webp',
+    ]);
+
+    $html = $this->get(route('testimoni'))->assertOk()->getContent();
+
+    // Huruf awalnya tergambar walaupun kolom avatar terisi.
+    expect(preg_match('/bg-orcha-wave[^>]*>\s*P\b/s', $html))
+        ->toBe(1, 'huruf awal nama tidak digambar saat avatar terisi');
+
+    // Dan <img>-nya menyingkir sendiri bila berkasnya tidak ada.
+    expect($html)->toContain('onerror="this.remove();"');
+});

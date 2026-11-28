@@ -4576,3 +4576,99 @@ input[type="radio"] {
     padding-top: 1rem;
     border-top: 1px dashed rgb(31 125 110 / 0.3);
 }
+
+/* ----------------------------------------------------------
+   Kartu testimoni di halaman /testimoni
+
+   Sebelumnya .card-orcha: persegi panjang putih bersudut seragam, sembilan
+   buah berjajar dengan tinggi yang hampir sama. Di halaman yang isinya
+   memang berupa kutipan — tulisan di atas tulisan — tidak ada satu pun
+   bidang yang membedakan satu kartu dari tetangganya, dan matanya
+   menyerah di baris kedua.
+
+   Bahasa rupanya diambil dari .kartu-artikel di blog: sudut daun yang
+   berselang-seling, bayangan padat yang menggeser, dan miring sedikit saat
+   disentuh. Yang ditambahkan khusus di sini tanda kutip raksasa — penanda
+   bahwa isinya ucapan orang, bukan keterangan produk.
+----------------------------------------------------------- */
+
+.kartu-testimoni {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(1.4rem, 3vw, 1.9rem);
+    background: #fffdfa;
+    border: 1px solid #f1e8dc;
+    /* Sedikit lebih kecil daripada .kartu-artikel (3,1rem): kartu ini tidak
+       berfoto, jadi bidangnya lebih pendek dan sudut selebar itu akan
+       memakan tulisannya. */
+    border-radius: 2.4rem 0.7rem 2.4rem 0.7rem;
+    box-shadow:
+        5px 7px 0 0 #efe4d3,
+        0 24px 38px -28px rgb(40 28 18 / 0.45);
+    transition:
+        transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.42s ease,
+        border-color 0.42s ease;
+}
+
+/* Berselang-seling. Dengan sudut yang sama semuanya, deretannya kembali
+   rata seperti sebelum ada bentuk sama sekali. */
+.kartu-testimoni:nth-child(even) {
+    border-radius: 0.7rem 2.4rem 0.7rem 2.4rem;
+}
+
+.kartu-testimoni:hover {
+    transform: translateY(-6px) rotate(-0.4deg);
+    border-color: var(--color-orcha-mist);
+    box-shadow:
+        8px 11px 0 0 #e8d9c2,
+        0 32px 50px -26px rgb(40 28 18 / 0.5);
+}
+
+/* Miringnya ikut berlawanan arah dengan sudutnya — alasan sama seperti
+   pada .kartu-artikel. */
+.kartu-testimoni:nth-child(even):hover {
+    transform: translateY(-6px) rotate(0.4deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .kartu-testimoni {
+        transition: none;
+    }
+
+    .kartu-testimoni:hover,
+    .kartu-testimoni:nth-child(even):hover {
+        transform: none;
+    }
+}
+
+/* Tanda kutip raksasa. Emas samar, di belakang tulisannya. */
+.kutip-testimoni {
+    position: absolute;
+    top: 0.1rem;
+    right: 1.1rem;
+    font-family: var(--font-heading);
+    font-weight: 900;
+    font-size: 5rem;
+    line-height: 1;
+    color: var(--color-orcha-sun);
+    opacity: 0.18;
+    pointer-events: none;
+    user-select: none;
+}
+
+.kartu-testimoni:nth-child(even) .kutip-testimoni {
+    right: auto;
+    left: 1.1rem;
+}
+
+/* Angka besar nilai rata-rata. */
+.angka-nilai {
+    font-family: var(--font-heading);
+    font-weight: 900;
+    font-size: clamp(3.2rem, 7vw, 4.2rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--color-orcha-navy);
+}

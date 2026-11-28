@@ -136,13 +136,21 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
         subtitle="Semua ulasan dari peserta open trip, private trip, study tour, dan penyewa armada Orcha Journey."
         image="images/HERO/testimoni.webp" posisi="center 60%" />
 
-    <section class="bg-white section-orcha">
-        <div class="container-orcha">
+    {{-- rak-panel: panel pertama NAIK MENINDIH kepala halaman, sama seperti
+         beranda, blog, dan halaman paket.
 
-            {{-- Ringkasan penilaian --}}
-            <div class="grid gap-5 mb-10 lg:grid-cols-12 lg:gap-6">
-                <div class="p-6 text-center card-orcha lg:col-span-4 sm:p-8">
-                    <p class="text-5xl font-black font-heading text-orcha-navy">
+         Sebelumnya halaman ini memakai .section-orcha di atas latar putih,
+         sehingga ada pita putih kosong setinggi hampir 150px antara foto hero
+         dan isinya, dan kotak-kotaknya memakai .card-orcha yang sudutnya lebih
+         tajam. Berdampingan dengan halaman lain, halaman inilah yang terbaca
+         "belum selesai dirapikan". --}}
+    <div class="container-orcha rak-panel pb-6 space-y-4 sm:space-y-5">
+
+        {{-- Ringkasan penilaian --}}
+        <div class="grid gap-4 sm:gap-5 lg:grid-cols-12">
+                <div class="text-center panel-orcha reveal lg:col-span-4">
+                    <p class="label-bagian justify-center"><span class="w-6 h-px bg-orcha-sun"></span> Nilai</p>
+                    <p class="mt-3 angka-nilai">
                         {{ number_format($rataRata, 1, ',', '.') }}</p>
                     <div class="flex items-center justify-center gap-1 mt-2">
                         @for ($i = 0; $i < 5; $i++)
@@ -153,7 +161,10 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                     <p class="mt-3 text-sm text-slate-500">dari {{ $total }} ulasan pelanggan</p>
                 </div>
 
-                <div class="p-6 card-orcha lg:col-span-8 sm:p-8">
+                <div class="panel-orcha reveal lg:col-span-8">
+                    <p class="label-bagian"><span class="w-6 h-px bg-orcha-sun"></span> Sebaran</p>
+                    <h2 class="mt-3 mb-5 judul-panel-kecil">Berapa bintang yang mereka beri.</h2>
+
                     <div class="space-y-2.5">
                         @foreach ($sebaran as $baris)
                             <div class="flex items-center gap-3">
@@ -179,8 +190,9 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                 </div>
             </div>
 
-            {{-- Filter --}}
-            <div class="flex flex-col gap-4 mb-8 lg:flex-row lg:items-center lg:justify-between">
+        {{-- Filter --}}
+        <div class="panel-orcha reveal">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <label class="relative w-full lg:max-w-sm">
                     <span class="sr-only">Cari testimoni</span>
                     <x-heroicon-o-magnifying-glass
@@ -201,42 +213,70 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                     @endforeach
                 </div>
             </div>
+        </div>
 
-            {{-- Daftar testimoni --}}
-            @if ($testimonials->isEmpty())
-                <div class="p-12 text-center card-orcha">
-                    <x-heroicon-o-chat-bubble-left-right class="w-12 h-12 mx-auto text-orcha-mist" />
-                    <p class="mt-3 font-semibold text-orcha-navy">Tidak ada testimoni yang cocok.</p>
-                    <p class="mt-1 text-sm text-slate-500">Coba ubah kata kunci atau pilih bintang lain.</p>
-                    <button type="button" wire:click="resetFilter" class="mt-5 btn-orcha btn-orcha-outline">
-                        Tampilkan Semua
-                    </button>
-                </div>
-            @else
-                <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 sm:gap-6">
+        {{-- Daftar testimoni --}}
+        @if ($testimonials->isEmpty())
+            <div class="text-center panel-orcha reveal">
+                <span class="grid mx-auto w-14 h-14 place-items-center rounded-2xl ubin-toska">
+                    <x-heroicon-o-chat-bubble-left-right class="w-7 h-7" />
+                </span>
+                <p class="mt-4 font-bold text-orcha-navy">Tidak ada testimoni yang cocok.</p>
+                <p class="mt-1 text-sm text-slate-500">Coba ubah kata kunci atau pilih bintang lain.</p>
+                <button type="button" wire:click="resetFilter" class="mt-5 btn-orcha btn-orcha-outline">
+                    Tampilkan Semua
+                </button>
+            </div>
+        @else
+            {{-- .reveal dipasang pada WADAHNYA, bukan tiap kartu.
+
+                 Tiap kartu punya transform sendiri saat disentuh, dan
+                 .reveal mengunci konteks penumpukan lewat animasi yang
+                 forwards — dua hal yang tidak perlu dipertemukan di satu
+                 elemen. --}}
+            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 sm:gap-5 reveal">
                     @foreach ($testimonials as $testimoni)
-                        <figure class="flex flex-col p-6 card-orcha">
-                            <div class="flex items-center gap-1 mb-4">
+                        <figure class="kartu-testimoni">
+                            <span class="kutip-testimoni" aria-hidden="true">&ldquo;</span>
+
+                            <div class="relative flex items-center gap-1 mb-4">
                                 @for ($i = 0; $i < 5; $i++)
                                     <x-heroicon-s-star
                                         class="w-4 h-4 {{ $i < $testimoni->rating ? 'text-orcha-sun' : 'text-slate-200' }}" />
                                 @endfor
                             </div>
 
-                            <blockquote class="flex-1 text-sm leading-relaxed text-slate-600">
+                            <blockquote class="relative flex-1 text-sm leading-relaxed text-slate-600">
                                 “{{ $testimoni->testimonial }}”
                             </blockquote>
 
-                            <figcaption class="flex items-center gap-3 pt-5 mt-5 border-t border-orcha-foam">
-                                @if ($testimoni->avatar)
-                                    <img src="{{ $testimoni->avatar }}" alt="{{ $testimoni->customer_name }}"
-                                        loading="lazy" class="object-cover rounded-full w-11 h-11">
-                                @else
-                                    <span
-                                        class="flex items-center justify-center font-bold text-white rounded-full w-11 h-11 bg-orcha-wave">
-                                        {{ mb_strtoupper(mb_substr($testimoni->customer_name, 0, 1)) }}
-                                    </span>
-                                @endif
+                            {{-- Garis putus-putus, seirama garis sobek kartu biaya di
+                                 halaman pembayaran. border-orcha-foam di atas kartu krem
+                                 nyaris tidak terlihat. --}}
+                            <figcaption
+                                class="relative flex items-center gap-3 pt-5 mt-5 border-t border-dashed border-[#e4d7c3]">
+                            {{-- Huruf awalnya SELALU digambar, fotonya menumpang di atasnya.
+
+                                 Sebelumnya huruf awal hanya muncul bila kolom avatar
+                                 KOSONG. Avatar yang terisi tetapi berkasnya hilang —
+                                 kejadian biasa, berkasnya diunggah di server dan tidak
+                                 ikut ke mana-mana — menggambar ikon gambar rusak beserta
+                                 nama pelanggan sebagai alt text di tengah kartu. Tidak ada
+                                 galat; yang rusak cuma rupanya, dan justru di kartu yang
+                                 tugasnya meyakinkan calon pembeli.
+
+                                 onerror membuang <img>-nya, dan huruf awal di belakangnya
+                                 langsung terlihat. --}}
+                                <span
+                                    class="relative grid font-bold text-white rounded-full shrink-0 w-11 h-11 place-items-center bg-orcha-wave">
+                                    {{ mb_strtoupper(mb_substr($testimoni->customer_name, 0, 1)) }}
+
+                                    @if ($testimoni->avatar)
+                                        <img src="{{ $testimoni->avatar }}" alt="{{ $testimoni->customer_name }}"
+                                            loading="lazy" onerror="this.remove();"
+                                            class="absolute inset-0 object-cover w-full h-full rounded-full">
+                                    @endif
+                                </span>
                                 <div>
                                     <p class="flex items-center gap-1.5 text-sm font-bold text-orcha-navy">
                                         {{ $testimoni->customer_name }}
@@ -254,7 +294,7 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                                             </span>
                                         @endif
                                     </p>
-                                    <p class="text-xs text-slate-400">
+                                    <p class="text-xs label-ringkas">
                                         {{ $testimoni->created_at?->translatedFormat('d F Y') }}</p>
                                 </div>
                             </figcaption>
@@ -262,10 +302,10 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                     @endforeach
                 </div>
 
-                <div class="mt-10">
-                    {{ $testimonials->links('partials.paginasi-orcha') }}
-                </div>
-            @endif
+            <div class="mt-8">
+                {{ $testimonials->links('partials.paginasi-orcha') }}
+            </div>
+        @endif
 
             {{-- Formulir kirim testimoni.
 
@@ -279,7 +319,7 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                  Penulisnya membuktikan ia memang pernah memesan — dan itu
                  menyelesaikan dua hal sekaligus: spam tidak punya jalan masuk,
                  dan testimoninya boleh ditandai terverifikasi secara jujur. --}}
-            <div class="p-6 mt-12 sm:p-8 rounded-3xl bg-orcha-foam/70" id="kirim-testimoni">
+            <div class="panel-orcha panel-orcha-krem reveal" id="kirim-testimoni">
                 @if ($terkirim)
                     <div class="text-center">
                         <p class="text-lg font-bold font-heading text-orcha-navy">Terima kasih — ceritanya sudah kami
@@ -366,6 +406,5 @@ new #[Layout('components.layouts.guest')] #[Title('Testimoni Pelanggan — Orcha
                     </div>
                 @endif
             </div>
-        </div>
-    </section>
+    </div>
 </div>
