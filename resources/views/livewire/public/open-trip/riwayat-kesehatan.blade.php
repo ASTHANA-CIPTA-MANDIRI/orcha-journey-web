@@ -378,13 +378,21 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
         subtitle="Diisi satu formulir untuk tiap peserta. Data ini membantu tim kami menyiapkan penanganan bila terjadi sesuatu di perjalanan."
         image="images/HERO/form-kesehatan.webp" />
 
-    <section class="bg-white section-orcha">
-        <div class="container-orcha">
+    {{-- rak-panel + panel-orcha: bahasa rupa yang SAMA dengan beranda, blog,
+         FAQ, dan testimoni.
+
+         Sebelumnya halaman ini memakai .section-orcha di atas latar putih,
+         yang memberi jarak atas clamp(4rem, 9vw, 8.5rem) — di layar lebar itu
+         pita putih kosong setinggi hampir 150px antara foto kepala halaman
+         dan isi pertama — dan kotak-kotaknya memakai .card-orcha yang sudutnya
+         lebih tajam dan bingkainya kebiruan. --}}
+    <div class="container-orcha rak-panel pb-6">
+        <div>
             <div class="grid gap-6 lg:grid-cols-12">
 
                 <div class="lg:col-span-8">
                     @if ($terkirim)
-                        <div class="p-8 text-center card-orcha sm:p-10">
+                        <div class="text-center panel-orcha reveal">
                             <x-heroicon-s-check-circle class="w-16 h-16 mx-auto text-orcha-sky" />
                             <h2 class="mt-4 text-2xl font-bold font-heading text-orcha-navy">
                                 Data {{ $namaTerkirim }} tersimpan
@@ -434,7 +442,7 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                             </div>
                         </div>
                     @else
-                        <form wire:submit="simpan" class="p-6 space-y-6 card-orcha sm:p-8">
+                        <form wire:submit="simpan" class="space-y-6 panel-orcha reveal">
                             <div class="hidden" aria-hidden="true">
                                 <label for="rk-situs">Jangan diisi</label>
                                 <input id="rk-situs" type="text" wire:model="situs" tabindex="-1"
@@ -913,7 +921,7 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                 <aside class="lg:col-span-4">
                     {{-- Ikut menggulung bersama halaman, berhenti di atas layar --}}
                     <div class="space-y-6 lg:sticky lg:top-24">
-                        <div class="p-6 card-orcha sm:p-7">
+                        <div class="panel-orcha reveal">
                             <h2 class="flex items-center gap-2 text-lg font-bold font-heading text-orcha-navy">
                                 <x-heroicon-o-lock-closed class="w-5 h-5 text-orcha-wave" />
                                 Data ini dijaga
@@ -928,7 +936,7 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                             </ul>
                         </div>
 
-                        <div class="p-6 card-orcha sm:p-7">
+                        <div class="panel-orcha reveal">
                             <h2 class="text-lg font-bold font-heading text-orcha-navy">Belum punya kode?</h2>
                             <p class="mt-2 text-sm text-slate-600">Kode pendaftaran muncul setelah Anda mengisi formulir
                                 pendaftaran open trip.</p>
@@ -938,7 +946,7 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                             </a>
                         </div>
 
-                        <div class="p-6 card-orcha sm:p-7 bg-orcha-foam/50">
+                        <div class="panel-orcha reveal bg-orcha-foam/50">
                             <p class="text-sm text-slate-600">Kode Anda hilang atau ada kondisi kesehatan yang perlu
                                 dibicarakan langsung?</p>
                             <a href="{{ $wa('Halo Orcha Journey, saya perlu bantuan soal formulir riwayat kesehatan open trip.') }}"
@@ -952,5 +960,5 @@ new #[Layout('components.layouts.guest')] #[Title('Riwayat Kesehatan Peserta —
                 </aside>
             </div>
         </div>
-    </section>
+    </div>
 </div>

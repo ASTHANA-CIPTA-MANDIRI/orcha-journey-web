@@ -296,13 +296,21 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
         subtitle="Ajukan pembatalan open trip maupun sewa kendaraan di sini. Besaran pengembalian dana mengikuti jarak waktu pembatalan terhadap tanggal keberangkatan atau tanggal mulai sewa."
         image="images/HERO/pengajuan-pembatalan.webp" posisi="center 100%" />
 
-    <section class="bg-white section-orcha">
-        <div class="container-orcha">
+    {{-- rak-panel + panel-orcha: bahasa rupa yang SAMA dengan beranda, blog,
+         FAQ, dan testimoni.
+
+         Sebelumnya halaman ini memakai .section-orcha di atas latar putih,
+         yang memberi jarak atas clamp(4rem, 9vw, 8.5rem) — di layar lebar itu
+         pita putih kosong setinggi hampir 150px antara foto kepala halaman
+         dan isi pertama — dan kotak-kotaknya memakai .card-orcha yang sudutnya
+         lebih tajam dan bingkainya kebiruan. --}}
+    <div class="container-orcha rak-panel pb-6">
+        <div>
             <div class="grid gap-6 lg:grid-cols-12">
 
                 <div class="lg:col-span-8">
                     @if ($terkirim)
-                        <div class="p-8 text-center card-orcha sm:p-10">
+                        <div class="text-center panel-orcha reveal">
                             <x-heroicon-s-check-circle class="w-16 h-16 mx-auto text-orcha-sky" />
                             <h2 class="mt-4 text-2xl font-bold font-heading text-orcha-navy">Pengajuan pembatalan
                                 diterima</h2>
@@ -324,7 +332,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
                             </div>
                         </div>
                     @else
-                        <form wire:submit="ajukan" class="p-6 space-y-6 card-orcha sm:p-8">
+                        <form wire:submit="ajukan" class="space-y-6 panel-orcha reveal">
                             <div class="hidden" aria-hidden="true">
                                 <label for="pb-situs">Jangan diisi</label>
                                 <input id="pb-situs" type="text" wire:model="situs" tabindex="-1" autocomplete="off">
@@ -601,7 +609,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
                 <aside class="lg:col-span-4">
                     {{-- Ikut menggulung bersama halaman, berhenti di atas layar --}}
                     <div class="space-y-6 lg:sticky lg:top-24">
-                        <div class="p-6 card-orcha sm:p-7">
+                        <div class="panel-orcha reveal">
                             <h2 class="text-lg font-bold font-heading text-orcha-navy">Besaran pengembalian</h2>
                             <div class="mt-4 space-y-3">
                                 {{-- Yang ditebalkan adalah POTONGANNYA, bukan kalimat
@@ -648,7 +656,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
                             </p>
                         </div>
 
-                        <div class="p-6 card-orcha sm:p-7">
+                        <div class="panel-orcha reveal">
                             <h2 class="text-lg font-bold font-heading text-orcha-navy">Yang terjadi setelah ini</h2>
                             <ol class="mt-4 space-y-3 text-sm text-slate-600">
                                 @foreach (['Tim kami memeriksa data pemesanan Anda.', 'Kami kirim perhitungan pengembalian lewat WhatsApp.', 'Setelah Anda setujui, dana diproses ke rekening yang dicantumkan.', "Dana masuk paling lambat $prosesHari hari kerja."] as $i => $langkah)
@@ -661,7 +669,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
                             </ol>
                         </div>
 
-                        <div class="p-6 card-orcha sm:p-7 bg-orcha-foam/50">
+                        <div class="panel-orcha reveal bg-orcha-foam/50">
                             <p class="text-sm text-slate-600">Ingin mengubah tanggal saja, bukan membatalkan?</p>
                             <a href="{{ $wa('Halo Orcha Journey, saya ingin menanyakan penjadwalan ulang trip saya.') }}"
                                 target="_blank" rel="noopener noreferrer"
@@ -674,7 +682,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pengajuan Pembatalan — Orch
                 </aside>
             </div>
         </div>
-    </section>
+    </div>
 
     <x-skrip-isian />
 </div>

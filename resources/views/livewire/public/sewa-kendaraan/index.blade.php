@@ -74,7 +74,7 @@ new #[Layout('components.layouts.guest')] #[Title('Sewa Kendaraan — Mobil, HiA
             </div>
 
             @if ($cars->isEmpty())
-                <div class="p-12 text-center card-orcha">
+                <div class="text-center panel-orcha reveal">
                     <x-heroicon-o-truck class="w-12 h-12 mx-auto text-orcha-mist" />
                     <p class="mt-3 font-semibold text-orcha-navy">Belum ada unit tersedia di kategori ini.</p>
                     <p class="mt-1 text-sm text-slate-500">Tanyakan ketersediaan langsung — kami juga punya unit mitra.

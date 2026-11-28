@@ -821,7 +821,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                             </div>
                         </div>
                     @elseif ($paketOpenTrip->isEmpty())
-                        <div class="p-10 text-center card-orcha">
+                        <div class="text-center panel-orcha reveal">
                             <x-heroicon-o-calendar-days class="w-12 h-12 mx-auto text-orcha-mist" />
                             <p class="mt-3 font-semibold text-orcha-navy">Belum ada jadwal open trip yang dibuka.</p>
                             <p class="mt-1 text-sm text-slate-500">Hubungi kami untuk menanyakan jadwal berikutnya.</p>
@@ -1413,7 +1413,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                     <div class="space-y-6 lg:sticky lg:top-24">
                         <x-peringatan-pembayaran />
 
-                        <div class="p-6 card-orcha sm:p-7">
+                        <div class="panel-orcha reveal">
                             <h2 class="text-lg font-bold font-heading text-orcha-navy">Setelah mendaftar</h2>
                             <ol class="mt-4 space-y-4">
                                 @foreach ([['Konfirmasi kursi', 'Kami cek ketersediaan lalu menghubungi Anda lewat WhatsApp.'], ['Riwayat kesehatan', 'Tiap peserta mengisi formulir kesehatan memakai kode pendaftaran.'], ['Uang muka & pelunasan', "Kursi dikunci setelah DP $dp% masuk. Pelunasan paling lambat H-$pelunasan sebelum keberangkatan."], ['Berangkat', 'Jam kumpul di titik jemput dikirim H-1 sebelum keberangkatan.']] as $i => [$judul, $isi])
@@ -1440,7 +1440,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                             </ol>
                         </div>
 
-                        <div class="p-6 card-orcha sm:p-7">
+                        <div class="panel-orcha reveal">
                             <h2 class="text-lg font-bold font-heading text-orcha-navy">Sudah pernah daftar?</h2>
                             <p class="mt-2 text-sm text-slate-600">Kalau Anda tinggal mengisi data kesehatan peserta,
                                 langsung saja ke formulirnya.</p>
@@ -1451,7 +1451,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pendaftaran Open Trip — Orc
                             </a>
                         </div>
 
-                        <div class="p-6 card-orcha sm:p-7 bg-orcha-foam/50">
+                        <div class="panel-orcha reveal bg-orcha-foam/50">
                             <p class="text-sm text-slate-600">
                                 Ingin bertanya dulu sebelum mendaftar?
                             </p>

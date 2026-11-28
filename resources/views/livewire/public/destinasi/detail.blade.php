@@ -120,8 +120,12 @@ new #[Layout('components.layouts.guest')] class extends Component {
     <x-page-hero :title="$d->destination_name" :eyebrow="$d->wilayah_label"
         :subtitle="$d->alamat_singkat" image="images/HERO/destinasi.webp" />
 
-    <section class="py-12 sm:py-16">
-        <div class="px-4 mx-auto max-w-5xl sm:px-6">
+    {{-- rak-panel: panel pertama NAIK MENINDIH kepala halaman, sama seperti
+         beranda, blog, FAQ, dan testimoni. Sebelumnya pembungkusnya memberi
+         jarak atas di atas latar putih — pita putih kosong antara foto kepala
+         halaman dan isi pertama. --}}
+    <div class="container-orcha rak-panel pb-6">
+        <div class="mx-auto max-w-5xl">
 
             <nav class="mb-8 text-sm text-slate-500" aria-label="Remah roti">
                 <a href="{{ route('destinasi') }}" wire:navigate class="font-semibold text-orcha-ocean hover:underline">
@@ -143,7 +147,7 @@ new #[Layout('components.layouts.guest')] class extends Component {
                 </div>
             @endif
 
-            <div class="p-6 sm:p-8 card-orcha">
+            <div class="panel-orcha reveal">
                 <div class="flex flex-wrap items-center gap-x-6 gap-y-2 mb-5 text-sm text-slate-600">
                     @if ($d->alamat_singkat)
                         <span class="flex items-center gap-1.5">
@@ -204,5 +208,5 @@ new #[Layout('components.layouts.guest')] class extends Component {
                 </div>
             @endif
         </div>
-    </section>
+    </div>
 </div>

@@ -660,13 +660,21 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
              seperti pindah ke situs lain. --}}
         image="images/HERO/sewa-kendaraan.webp" />
 
-    <section class="bg-white section-orcha">
-        <div class="container-orcha">
+    {{-- rak-panel + panel-orcha: bahasa rupa yang SAMA dengan beranda, blog,
+         FAQ, dan testimoni.
+
+         Sebelumnya halaman ini memakai .section-orcha di atas latar putih,
+         yang memberi jarak atas clamp(4rem, 9vw, 8.5rem) — di layar lebar itu
+         pita putih kosong setinggi hampir 150px antara foto kepala halaman
+         dan isi pertama — dan kotak-kotaknya memakai .card-orcha yang sudutnya
+         lebih tajam dan bingkainya kebiruan. --}}
+    <div class="container-orcha rak-panel pb-6">
+        <div>
             <div class="grid gap-6 lg:grid-cols-12">
 
                 <div class="lg:col-span-8">
                     @if ($kodeTerkirim)
-                        <div class="p-8 text-center card-orcha sm:p-10">
+                        <div class="text-center panel-orcha reveal">
                             <x-heroicon-s-check-circle class="w-16 h-16 mx-auto text-orcha-sky" />
                             <h2 class="mt-4 text-2xl font-bold font-heading text-orcha-navy">Pemesanan tercatat</h2>
                             <p class="mt-2 text-sm text-slate-600">Simpan kode ini untuk memudahkan komunikasi dengan tim
@@ -701,7 +709,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                             </div>
                         </div>
                     @else
-                        <form wire:submit="pesan" class="p-6 space-y-6 card-orcha sm:p-8">
+                        <form wire:submit="pesan" class="space-y-6 panel-orcha reveal">
                             <div class="hidden" aria-hidden="true">
                                 <label for="sk-situs">Jangan diisi</label>
                                 <input id="sk-situs" type="text" wire:model="situs" tabindex="-1" autocomplete="off">
@@ -1412,7 +1420,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                 <aside class="lg:col-span-4">
                     <div class="space-y-6 lg:sticky lg:top-24">
                         {{-- Perkiraan biaya ikut berubah saat pilihan diubah --}}
-                        <div class="overflow-hidden card-orcha">
+                        <div class="overflow-hidden panel-orcha reveal">
                             <div class="p-6 text-white bg-gradient-to-br from-orcha-navy to-orcha-abyss sm:p-7">
                                 <p class="text-xs font-bold tracking-wider uppercase text-orcha-sun">Perkiraan biaya</p>
                                 <p class="mt-2 text-3xl font-black font-heading tabular">
@@ -1472,7 +1480,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                             </div>
                         </div>
 
-                        <div class="p-6 card-orcha sm:p-7">
+                        <div class="panel-orcha reveal">
                             <x-peringatan-pembayaran class="mb-5" />
 
                             <h2 class="text-lg font-bold font-heading text-orcha-navy">Cara kerjanya</h2>
@@ -1487,7 +1495,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                             </ol>
                         </div>
 
-                        <div class="p-6 card-orcha sm:p-7 bg-orcha-foam/50">
+                        <div class="panel-orcha reveal bg-orcha-foam/50">
                             <p class="text-sm text-slate-600">Butuh beberapa unit sekaligus atau rute khusus?</p>
                             <a href="{{ $wa('Halo Orcha Journey, saya ingin menyewa beberapa unit kendaraan sekaligus.') }}"
                                 target="_blank" rel="noopener noreferrer"
@@ -1500,7 +1508,7 @@ new #[Layout('components.layouts.guest')] #[Title('Pemesanan Sewa Kendaraan — 
                 </aside>
             </div>
         </div>
-    </section>
+    </div>
 
     <x-skrip-isian />
 </div>

@@ -97,10 +97,14 @@ new #[Layout('components.layouts.guest')] #[Title('Lacak Pesanan — Orcha Journ
         subtitle="Lihat status pesanan, sisa tagihan, dan pembayaran yang sudah masuk — tanpa perlu bertanya lewat WhatsApp."
         image="images/HERO/form-konfirmasi-pembayaran.webp" />
 
-    <section class="py-12 sm:py-16">
-        <div class="max-w-3xl px-4 mx-auto sm:px-6">
+    {{-- rak-panel: panel pertama NAIK MENINDIH kepala halaman, sama seperti
+         beranda, blog, FAQ, dan testimoni. Sebelumnya pembungkusnya memberi
+         jarak atas di atas latar putih — pita putih kosong antara foto kepala
+         halaman dan isi pertama. --}}
+    <div class="container-orcha rak-panel pb-6">
+        <div class="max-w-3xl mx-auto">
 
-            <div class="p-6 sm:p-8 card-orcha">
+            <div class="panel-orcha reveal">
                 <div class="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
                     <div>
                         <label for="lp-kode" class="label-orcha">Kode pesanan <x-wajib /></label>
@@ -142,7 +146,7 @@ new #[Layout('components.layouts.guest')] #[Title('Lacak Pesanan — Orcha Journ
                     [$rupa, $penjelasan] = $rupaStatus[$status] ?? ['bg-slate-100 text-slate-700', ''];
                 @endphp
 
-                <div class="p-6 mt-6 sm:p-8 card-orcha">
+                <div class="mt-6 panel-orcha reveal">
                     <div class="flex flex-wrap items-center gap-3">
                         <span class="px-3 py-1 text-xs font-bold rounded-full {{ $rupa }}">
                             {{ $pesanan->status_label ?? 'Baru' }}
@@ -195,7 +199,7 @@ new #[Layout('components.layouts.guest')] #[Title('Lacak Pesanan — Orcha Journ
                 </div>
 
                 @if ($tagihan)
-                    <div class="p-6 mt-6 sm:p-8 card-orcha">
+                    <div class="mt-6 panel-orcha reveal">
                         <h2 class="text-lg font-bold font-heading text-orcha-navy">Tagihan</h2>
 
                         <dl class="mt-4 divide-y divide-slate-100">
@@ -223,7 +227,7 @@ new #[Layout('components.layouts.guest')] #[Title('Lacak Pesanan — Orcha Journ
                 @endif
 
                 @if ($pembayaran->isNotEmpty())
-                    <div class="p-6 mt-6 sm:p-8 card-orcha">
+                    <div class="mt-6 panel-orcha reveal">
                         {{-- "Bukti yang Anda Kirim" hanya benar bila pelanggan memang
                              mengirimkannya. Sejak pembayaran publik lewat gerbang, daftar
                              ini berisi pembayaran yang masuk sendiri — dan sebagian
@@ -267,7 +271,7 @@ new #[Layout('components.layouts.guest')] #[Title('Lacak Pesanan — Orcha Journ
                 @endif
 
                 @unless ($sewa)
-                    <div class="p-6 mt-6 sm:p-8 card-orcha">
+                    <div class="mt-6 panel-orcha reveal">
                         <h2 class="text-lg font-bold font-heading text-orcha-navy">Formulir Kesehatan Peserta</h2>
 
                         <p class="mt-2 text-slate-600">
@@ -307,5 +311,5 @@ new #[Layout('components.layouts.guest')] #[Title('Lacak Pesanan — Orcha Journ
                 @endif
             @endif
         </div>
-    </section>
+    </div>
 </div>

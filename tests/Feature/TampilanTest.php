@@ -1711,3 +1711,106 @@ test('halaman FAQ memakai rak panel beranda, dan pertanyaannya jadi baris di dal
         ->and($html)->toContain('rak-panel')
         ->and($html)->toContain('Bagian 1 dari 5');
 });
+
+test('tidak ada halaman publik yang tertinggal memakai rangka lama', function () {
+    /*
+     | Penyapu, bukan penjaga satu halaman.
+     |
+     | Sepanjang hari ini halaman dipindahkan ke rangka beranda satu per satu —
+     | dan satu-satunya cara halaman berikutnya ketinggalan adalah tidak ada
+     | yang menghitungnya. Uji ini menghitungnya, dan MENYEBUT berkas
+     | pelanggarnya supaya tidak perlu dicari.
+     |
+     | Yang dilarang:
+     |
+     | - .section-orcha di halaman publik. Ia memberi jarak atas clamp(4rem,
+     |   9vw, 8.5rem); di layar lebar itu pita putih kosong setinggi hampir
+     |   150px antara foto kepala halaman dan isi pertama, sementara halaman
+     |   ber-rak justru NAIK MENINDIH fotonya.
+     | - .card-orcha sebagai kotak isi. Sudutnya lebih tajam dan bingkainya
+     |   kebiruan — peninggalan sebelum .panel-orcha ada.
+     |
+     | SATU pengecualian yang disengaja: kartu di dalam petak (kelasnya memuat
+     | "group", mis. kartu destinasi). Rupanya memang dirancang sendiri —
+     | sudut daun berselang-seling, lengkung, semburat — dan .card-orcha di
+     | sana cuma lapis dasarnya, bukan rangka halaman.
+     */
+    $komentarBlade = '/\{\{--.*?--\}\}/s';
+
+    $pelanggar = ['section-orcha' => [], 'card-orcha' => []];
+
+    foreach ([
+        resource_path('views/livewire/public'),
+        resource_path('views/components'),
+        resource_path('views/partials'),
+    ] as $akar) {
+        if (! is_dir($akar)) {
+            continue;
+        }
+
+        $berkas = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($akar));
+
+        foreach ($berkas as $berkasnya) {
+            if ($berkasnya->getExtension() !== 'php') {
+                continue;
+            }
+
+            $isi = preg_replace($komentarBlade, '', file_get_contents($berkasnya->getPathname()));
+            $nama = str_replace(resource_path('views/'), '', $berkasnya->getPathname());
+
+            preg_match_all('/class="([^"]*)"/', $isi, $cocok);
+
+            foreach ($cocok[1] as $kelas) {
+                if (str_contains($kelas, 'section-orcha')) {
+                    $pelanggar['section-orcha'][] = $nama;
+                }
+
+                // Kartu di dalam petak dikecualikan — lihat keterangan di atas.
+                if (str_contains($kelas, 'card-orcha') && ! str_contains($kelas, 'group')) {
+                    $pelanggar['card-orcha'][] = $nama;
+                }
+            }
+        }
+    }
+
+    expect(array_unique($pelanggar['section-orcha']))
+        ->toBe([], 'masih memakai .section-orcha: '.implode(', ', array_unique($pelanggar['section-orcha'])));
+
+    expect(array_unique($pelanggar['card-orcha']))
+        ->toBe([], 'masih memakai .card-orcha sebagai kotak isi: '.implode(', ', array_unique($pelanggar['card-orcha'])));
+});
+
+test('semua halaman publik berkepala foto memakai rak panel', function () {
+    /*
+     | Pelengkap uji di atas. Membuang .section-orcha saja tidak cukup: sebuah
+     | halaman bisa memakai pembungkus buatannya sendiri (mis. py-12 sm:py-16)
+     | dan tetap meninggalkan pita putih yang sama. Itu yang terjadi pada
+     | lacak-pesanan, destinasi/detail, dan blog/detail — ketiganya lolos dari
+     | pencarian "section-orcha" karena memang tidak memakainya.
+     |
+     | Patokannya: halaman yang punya <x-page-hero> HARUS punya rak-panel.
+     */
+    $tertinggal = [];
+
+    $berkas = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator(resource_path('views/livewire/public'))
+    );
+
+    foreach ($berkas as $berkasnya) {
+        if ($berkasnya->getExtension() !== 'php') {
+            continue;
+        }
+
+        $isi = preg_replace('/\{\{--.*?--\}\}/s', '', file_get_contents($berkasnya->getPathname()));
+
+        if (! str_contains($isi, 'x-page-hero')) {
+            continue;
+        }
+
+        if (! str_contains($isi, 'rak-panel')) {
+            $tertinggal[] = str_replace(resource_path('views/'), '', $berkasnya->getPathname());
+        }
+    }
+
+    expect($tertinggal)->toBe([], 'berkepala foto tetapi tanpa rak-panel: '.implode(', ', $tertinggal));
+});

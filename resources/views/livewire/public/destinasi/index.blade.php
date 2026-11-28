@@ -188,7 +188,7 @@ new #[Layout('components.layouts.guest')] #[Title('Destinasi Populer — Orcha J
             </div>
 
             @if ($destinations->isEmpty())
-                <div class="p-12 text-center card-orcha">
+                <div class="text-center panel-orcha reveal">
                     <x-heroicon-o-map-pin class="w-12 h-12 mx-auto text-orcha-mist" />
                     <p class="mt-3 font-semibold text-orcha-navy">Destinasi tidak ditemukan.</p>
                     <p class="mt-1 text-sm text-slate-500">Coba kata kunci lain, atau tanyakan destinasi impian Anda ke

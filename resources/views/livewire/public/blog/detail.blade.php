@@ -108,8 +108,12 @@ new #[Layout('components.layouts.guest')] class extends Component
     <x-page-hero :title="$a->judul" :eyebrow="$a->kategori_label ?? 'Blog'"
         image="images/HERO/blog.webp" posisi="center 88%" />
 
-    <section class="pt-12 pb-16 bg-white sm:pt-16 sm:pb-20">
-        <div class="container-orcha orc-art-lebar">
+    {{-- rak-panel: panel pertama NAIK MENINDIH kepala halaman, sama seperti
+         beranda, blog, FAQ, dan testimoni. Sebelumnya pembungkusnya memberi
+         jarak atas di atas latar putih — pita putih kosong antara foto kepala
+         halaman dan isi pertama. --}}
+    <div class="container-orcha rak-panel pb-6">
+        <div class="orc-art-lebar">
 
             {{-- Remah roti TIDAK diulang di sini: <x-page-hero> sudah membawa
                  miliknya sendiri, sama seperti seluruh halaman Orcha lain.
@@ -270,5 +274,5 @@ new #[Layout('components.layouts.guest')] class extends Component
                 </aside>
             </div>
         </div>
-    </section>
+    </div>
 </div>

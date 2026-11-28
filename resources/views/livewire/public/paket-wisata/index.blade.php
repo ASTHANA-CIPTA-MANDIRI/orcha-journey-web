@@ -84,7 +84,7 @@ new #[Layout('components.layouts.guest')] #[Title('Paket Wisata — Open Trip, P
             </div>
 
             @if ($packages->isEmpty())
-                <div class="p-12 text-center card-orcha">
+                <div class="text-center panel-orcha reveal">
                     <x-heroicon-o-map class="w-12 h-12 mx-auto text-orcha-mist" />
                     <p class="mt-3 font-semibold text-orcha-navy">Belum ada paket di kategori ini.</p>
                     <p class="mt-1 text-sm text-slate-500">Hubungi kami untuk penawaran khusus sesuai kebutuhan Anda.</p>

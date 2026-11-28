@@ -239,7 +239,7 @@ new #[Layout('components.layouts.guest')] #[Title('Blog — Panduan & Cerita Per
             </div>
 
             @if ($artikel->isEmpty())
-                <div class="p-12 text-center card-orcha">
+                <div class="text-center panel-orcha reveal">
                     <x-heroicon-o-newspaper class="w-12 h-12 mx-auto text-orcha-mist" />
 
                     @if ($adaPenyaring)

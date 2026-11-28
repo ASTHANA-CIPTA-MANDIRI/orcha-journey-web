@@ -148,8 +148,16 @@ new #[Layout('components.layouts.guest')] #[Title('Status Pembayaran — Orcha J
 @endphp
 
 <div>
-    <section class="bg-white section-orcha">
-        <div class="max-w-2xl px-4 mx-auto">
+    {{-- rak-panel + panel-orcha: bahasa rupa yang SAMA dengan beranda, blog,
+         FAQ, dan testimoni.
+
+         Sebelumnya halaman ini memakai .section-orcha di atas latar putih,
+         yang memberi jarak atas clamp(4rem, 9vw, 8.5rem) — di layar lebar itu
+         pita putih kosong setinggi hampir 150px antara foto kepala halaman
+         dan isi pertama — dan kotak-kotaknya memakai .card-orcha yang sudutnya
+         lebih tajam dan bingkainya kebiruan. --}}
+    <div class="container-orcha rak-panel pb-6">
+        <div class="max-w-2xl mx-auto">
 
             {{-- wire:poll hanya dipasang saat memang ada yang ditunggu. Halaman
                  yang terus menyegarkan diri sesudah pembayarannya pasti cuma
@@ -161,7 +169,7 @@ new #[Layout('components.layouts.guest')] #[Title('Status Pembayaran — Orcha J
                  semenit sesudah pembayaran sebelum status akhirnya bisa
                  dipercaya, jadi bertanya dua kali per sepuluh detik sudah
                  lebih rapat daripada yang berguna. --}}
-            <div class="p-8 text-center card-orcha sm:p-10" @if ($masihDiperiksa) wire:poll.10s="periksa" @endif>
+            <div class="text-center panel-orcha reveal" @if ($masihDiperiksa) wire:poll.10s="periksa" @endif>
 
                 @if (! $bayar)
                     <x-heroicon-s-question-mark-circle class="w-16 h-16 mx-auto text-slate-400" />
@@ -487,5 +495,5 @@ new #[Layout('components.layouts.guest')] #[Title('Status Pembayaran — Orcha J
                 </p>
             </div>
         </div>
-    </section>
+    </div>
 </div>
